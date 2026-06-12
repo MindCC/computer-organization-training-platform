@@ -1,1 +1,10 @@
 .superpowers/
+prototype/node_modules/
+prototype/dist/
+prototype/.npm-cache/
+prototype/.npmrc
+prototype/.playwright-cli/
+prototype/qa-artifacts/
+prototype/output/
+prototype/vite.err.log
+prototype/vite.out.log
