@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import {
+  ArrowLeft,
   Bell,
   CaretDown,
   ChartPieSlice,
@@ -28,6 +29,17 @@ import {
   simulateChallenge,
   summarizeLearning,
 } from "./platformLogic.js";
+import {
+  buildConnectionBlueprint,
+  toggleConnectionByLabels,
+} from "./labWiring.js";
+import {
+  buildPlacementBlueprint,
+  buildReferencePlacedComponents,
+  findSnapTarget,
+  REFERENCE_SLOT_LAYOUTS,
+  scorePlacedComponents,
+} from "./labPlacement.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
 import studyDiagram from "./assets/study-tip-carry-diagram.png";
@@ -53,6 +65,82 @@ const initialNotes = [
     tag: "数据流",
   },
 ];
+
+const challengeRouteMeta = {
+  "data-flow": {
+    eyebrow: "信号起点",
+    summary: "先把输入、通路和输出真正连成一条线。",
+    detail: "理解信号从哪里进、经过哪里、最后到哪里。",
+    preview: "flow",
+    focus: "输入连通",
+  },
+  "half-adder": {
+    eyebrow: "第一块运算砖",
+    summary: "第一次把和位与进位拆开来看。",
+    detail: "你会看到异或负责和位，与门负责进位。",
+    preview: "half",
+    focus: "和位 / 进位",
+  },
+  "full-adder": {
+    eyebrow: "进位分叉",
+    summary: "把输入进位接进来，电路开始真正变复杂。",
+    detail: "这是整条路线里最关键的一关，后面的串联都靠它。",
+    preview: "full",
+    focus: "Cin / Cout",
+  },
+  "multi-adder": {
+    eyebrow: "级联传播",
+    summary: "低位进位会一路推着高位往前算。",
+    detail: "你会第一次看到多个模块串起来后的计算节奏。",
+    preview: "chain",
+    focus: "逐级传递",
+  },
+  mux: {
+    eyebrow: "路径切换",
+    summary: "同一条线，什么时候走哪一路由控制信号决定。",
+    detail: "选择器会把“连线”变成“有条件地连线”。",
+    preview: "mux",
+    focus: "选择信号",
+  },
+  alu: {
+    eyebrow: "终点核心",
+    summary: "把加法、逻辑和选择控制拼成最小 ALU。",
+    detail: "这一关会把前面的模块全部收束成一个运算核心。",
+    preview: "alu",
+    focus: "结果选择",
+  },
+};
+
+const challengeControlMeta = {
+  "data-flow": [
+    { key: "a", label: "输入A", type: "bit" },
+  ],
+  "half-adder": [
+    { key: "a", label: "输入A", type: "bit" },
+    { key: "b", label: "输入B", type: "bit" },
+  ],
+  "full-adder": [
+    { key: "a", label: "输入A", type: "bit" },
+    { key: "b", label: "输入B", type: "bit" },
+    { key: "cin", label: "进位Cin", type: "bit" },
+  ],
+  "multi-adder": [
+    { key: "aNumber", label: "输入组A", type: "stepper", max: 7 },
+    { key: "bNumber", label: "输入组B", type: "stepper", max: 7 },
+    { key: "cin", label: "初始进位", type: "bit" },
+  ],
+  mux: [
+    { key: "a", label: "数据源0", type: "bit" },
+    { key: "b", label: "数据源1", type: "bit" },
+    { key: "select", label: "选择信号", type: "stepper", max: 1 },
+  ],
+  alu: [
+    { key: "a", label: "输入A", type: "bit" },
+    { key: "b", label: "输入B", type: "bit" },
+    { key: "cin", label: "进位Cin", type: "bit" },
+    { key: "op", label: "ALU控制位", type: "stepper", max: 3 },
+  ],
+};
 
 function createDemoProgress() {
   let progress = buildInitialProgress(CHALLENGES);
@@ -84,15 +172,104 @@ function statusTone(status) {
   return "locked";
 }
 
+function clampPlacement(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function createPlacedComponent(name, x, y, options = {}) {
+  return {
+    id: `${name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name,
+    displayLabel: options.displayLabel ?? name,
+    sourceIndex: options.sourceIndex ?? null,
+    x,
+    y,
+  };
+}
+
+function buildExternalAnchorLayout(items = [], side = "input") {
+  return items.map((item, index) => ({
+    ...item,
+    key: `${side}-${item.label}`,
+    x: side === "input" ? 8 : 92,
+    y: 26 + index * 18,
+    side,
+  }));
+}
+
+function buildComponentPinLayout(pins = []) {
+  const total = pins.length || 1;
+  return pins.map((pin, index) => ({
+    pin,
+    offsetX: total === 1 ? 50 : 16 + (index * 68) / Math.max(1, total - 1),
+    offsetY: 118,
+  }));
+}
+
+function buildConnectionLines({
+  challenge,
+  connectionBlueprint,
+  placedComponents,
+  connections,
+}) {
+  const inputAnchors = buildExternalAnchorLayout(connectionBlueprint.externalInputs, "input");
+  const outputAnchors = buildExternalAnchorLayout(connectionBlueprint.externalOutputs, "output");
+
+  function resolvePosition(label, mode) {
+    const inputAnchor = inputAnchors.find((item) => item.label === label);
+    if (inputAnchor) return inputAnchor;
+
+    const outputAnchor = outputAnchors.find((item) => item.label === label);
+    if (outputAnchor) return outputAnchor;
+
+    const component = placedComponents.find((item) => item.name === label);
+    if (component) {
+      return {
+        key: `component-${label}-${mode}`,
+        x: component.x + (mode === "from" ? 8 : -8),
+        y: component.y,
+      };
+    }
+
+    const referenceComponent = challenge.components.find((item) => item.name === label);
+    if (referenceComponent) {
+      const fallback = REFERENCE_SLOT_LAYOUTS[challenge.id]?.[challenge.components.findIndex((item) => item.name === label)] ?? { x: 50, y: 56 };
+      return {
+        key: `reference-${label}-${mode}`,
+        x: fallback.x + (mode === "from" ? 8 : -8),
+        y: fallback.y,
+      };
+    }
+
+    return null;
+  }
+
+  return connections
+    .map((connection) => {
+      const [fromLabel, toLabel] = connection.split("->");
+      const from = resolvePosition(fromLabel, "from");
+      const to = resolvePosition(toLabel, "to");
+      if (!from || !to) return null;
+      return { id: connection, from, to };
+    })
+    .filter(Boolean);
+}
+
+const defaultChallenge = CHALLENGES.find((challenge) => challenge.id === "full-adder") ?? CHALLENGES[0];
+const defaultPlacementBlueprint = buildPlacementBlueprint(defaultChallenge);
+const defaultComponentLabel =
+  defaultPlacementBlueprint[0]?.displayLabel ?? defaultChallenge.components[0]?.name ?? "";
+
 export function App() {
   const [activeView, setActiveView] = useState("home");
   const [selectedChallengeId, setSelectedChallengeId] = useState("full-adder");
   const [progress, setProgress] = useState(createDemoProgress);
   const [connections, setConnections] = useState(["输入A->异或门1", "输入B->异或门1"]);
-  const [placedComponents, setPlacedComponents] = useState(["异或门1", "异或门2", "进位逻辑"]);
-  const [expandedComponent, setExpandedComponent] = useState("进位逻辑");
-  const [selectedComponent, setSelectedComponent] = useState("进位逻辑");
-  const [inputState, setInputState] = useState({ a: 1, b: 1, cin: 0, select: 1, op: 0 });
+  const [placedComponents, setPlacedComponents] = useState([]);
+  const [expandedComponent, setExpandedComponent] = useState(defaultComponentLabel);
+  const [selectedComponent, setSelectedComponent] = useState(defaultComponentLabel);
+  const [activeEndpoint, setActiveEndpoint] = useState(null);
+  const [inputState, setInputState] = useState({ a: 1, b: 1, cin: 0, select: 1, op: 0, aNumber: 5, bNumber: 3 });
   const [simulationStep, setSimulationStep] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [activityLog, setActivityLog] = useState([
@@ -115,13 +292,38 @@ export function App() {
     () => CHALLENGES.find((challenge) => challenge.id === selectedChallengeId) ?? CHALLENGES[0],
     [selectedChallengeId],
   );
+  const connectionBlueprint = useMemo(
+    () => buildConnectionBlueprint(currentChallenge),
+    [currentChallenge],
+  );
+  const placementBlueprint = useMemo(
+    () => buildPlacementBlueprint(currentChallenge),
+    [currentChallenge],
+  );
+  const placementPreview = useMemo(
+    () => scorePlacedComponents(currentChallenge, placedComponents),
+    [currentChallenge, placedComponents],
+  );
   const simulation = useMemo(
     () => simulateChallenge(selectedChallengeId, inputState),
     [selectedChallengeId, inputState],
   );
   const summary = useMemo(() => summarizeLearning(CHALLENGES, progress), [progress]);
+  const focusChallenge = useMemo(
+    () => CHALLENGES.find((challenge) => progress[challenge.id]?.status === "in-progress") ?? currentChallenge,
+    [currentChallenge, progress],
+  );
+  const upcomingChallenge = useMemo(() => {
+    const currentIndex = CHALLENGES.findIndex((challenge) => challenge.id === focusChallenge.id);
+    return CHALLENGES[currentIndex + 1] ?? CHALLENGES[currentIndex] ?? CHALLENGES[0];
+  }, [focusChallenge]);
   const currentRecord = progress[selectedChallengeId];
   const activeStep = simulation.steps[Math.min(simulationStep, simulation.steps.length - 1)];
+  const selectedSlot = placementBlueprint.find((slot) => slot.displayLabel === selectedComponent) ?? null;
+  const selectedComponentDetail =
+    (selectedSlot ? currentChallenge.components[selectedSlot.sourceIndex] : null)
+    ?? currentChallenge.components.find((component) => component.name === selectedComponent)
+    ?? null;
 
   function changeView(view) {
     setActiveView(view);
@@ -131,11 +333,13 @@ export function App() {
   function selectChallenge(challengeId) {
     const challenge = CHALLENGES.find((item) => item.id === challengeId);
     if (!challenge) return;
+    const nextBlueprint = buildPlacementBlueprint(challenge);
     setSelectedChallengeId(challengeId);
     setConnections(progress[challengeId]?.status === "completed" ? challenge.requiredConnections : []);
-    setPlacedComponents(challenge.components.map((component) => component.name).slice(0, 3));
-    setExpandedComponent(challenge.components[0]?.name ?? "");
-    setSelectedComponent(challenge.components[0]?.name ?? "");
+    setPlacedComponents(progress[challengeId]?.status === "completed" ? buildReferencePlacedComponents(challenge) : []);
+    setExpandedComponent(nextBlueprint[0]?.displayLabel ?? challenge.components[0]?.name ?? "");
+    setSelectedComponent(nextBlueprint[0]?.displayLabel ?? challenge.components[0]?.name ?? "");
+    setActiveEndpoint(null);
     setFeedback(null);
     setSimulationStep(0);
     setActiveView("lab");
@@ -167,8 +371,24 @@ export function App() {
   }
 
   function submitChallenge() {
+    const connectionResult = gradeConnections(selectedChallengeId, connections);
+    const placementResult = scorePlacedComponents(currentChallenge, placedComponents);
+    const placementErrors = [
+      ...placementResult.missingSlots.map((slot) => ({
+        type: "元件未就位",
+        message: `“${slot.displayLabel}”还没有放到目标槽位“${slot.role}”。`,
+      })),
+      ...placementResult.misplacedComponents.map((component) => ({
+        type: "元件摆放偏移",
+        message: `“${component.displayLabel ?? component.name}”还没有对准目标槽位，请继续拖动调整。`,
+      })),
+    ];
     const result = {
-      ...gradeConnections(selectedChallengeId, connections),
+      ...connectionResult,
+      passed: connectionResult.passed && placementResult.passed,
+      errors: [...connectionResult.errors, ...placementErrors],
+      score: Math.round(connectionResult.score * 0.7 + placementResult.score * 0.3),
+      placement: placementResult,
       elapsedMinutes: currentChallenge.estimatedMinutes,
     };
     setFeedback(result);
@@ -182,6 +402,8 @@ export function App() {
 
   function resetChallenge() {
     setConnections([]);
+    setPlacedComponents([]);
+    setActiveEndpoint(null);
     setFeedback(null);
     setSimulationStep(0);
     setStatusMessage("当前关卡已重置，可以重新连线。");
@@ -189,17 +411,134 @@ export function App() {
 
   function fillReferenceStructure() {
     setConnections(currentChallenge.requiredConnections);
+    setPlacedComponents(buildReferencePlacedComponents(currentChallenge));
+    setExpandedComponent(placementBlueprint[0]?.displayLabel ?? currentChallenge.components[0]?.name ?? "");
+    setSelectedComponent(placementBlueprint[0]?.displayLabel ?? currentChallenge.components[0]?.name ?? "");
+    setActiveEndpoint(null);
     setFeedback(null);
     setStatusMessage("已填入本关参考结构，可以运行演示或提交检测。");
   }
 
   function handleDrop(event) {
     event.preventDefault();
-    const componentName = event.dataTransfer.getData("text/plain");
-    if (!componentName) return;
-    setPlacedComponents((current) => current.includes(componentName) ? current : [...current, componentName]);
-    setSelectedComponent(componentName);
-    setStatusMessage(`已把“${componentName}”放入画布。`);
+    const rawPayload = event.dataTransfer.getData("application/json") || event.dataTransfer.getData("text/plain");
+    if (!rawPayload) return;
+
+    let payload = null;
+    try {
+      payload = JSON.parse(rawPayload);
+    } catch {
+      payload = { source: "palette", name: rawPayload };
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const rawX = clampPlacement(((event.clientX - rect.left) / rect.width) * 100, 12, 88);
+    const rawY = clampPlacement(((event.clientY - rect.top) / rect.height) * 100, 18, 84);
+    const snappedSlot = findSnapTarget(placementBlueprint, payload, { x: rawX, y: rawY });
+    const x = snappedSlot?.x ?? rawX;
+    const y = snappedSlot?.y ?? rawY;
+
+    if (payload.source === "canvas" && payload.id) {
+      setPlacedComponents((current) =>
+        current.map((item) => (item.id === payload.id ? { ...item, x, y } : item)),
+      );
+      setStatusMessage(
+        snappedSlot
+          ? `“${payload.displayLabel ?? payload.name}”已吸附到槽位“${snappedSlot.role}”。`
+          : "已在画布中重新摆放元件。",
+      );
+      return;
+    }
+
+    if (!payload.name) return;
+
+    const nextComponent = createPlacedComponent(payload.name, x, y, {
+      displayLabel: payload.displayLabel ?? payload.name,
+      sourceIndex: payload.sourceIndex,
+    });
+
+    setPlacedComponents((current) => {
+      const existingIndex = current.findIndex((item) => item.sourceIndex === payload.sourceIndex);
+      if (existingIndex === -1) return [...current, nextComponent];
+      return current.map((item, index) => (
+        index === existingIndex
+          ? { ...item, x, y, displayLabel: payload.displayLabel ?? item.displayLabel }
+          : item
+      ));
+    });
+    setSelectedComponent(payload.displayLabel ?? payload.name);
+    setExpandedComponent(payload.displayLabel ?? payload.name);
+    setStatusMessage(
+      snappedSlot
+        ? `已把“${payload.displayLabel ?? payload.name}”放入槽位“${snappedSlot.role}”。`
+        : `已把“${payload.displayLabel ?? payload.name}”放入画布，继续拖到目标槽位会自动吸附。`,
+    );
+  }
+
+  function handlePaletteDragStart(event, componentSlot) {
+    const payload = {
+      source: "palette",
+      name: componentSlot.componentName,
+      displayLabel: componentSlot.displayLabel,
+      sourceIndex: componentSlot.sourceIndex,
+    };
+    event.dataTransfer.setData("application/json", JSON.stringify(payload));
+    event.dataTransfer.setData("text/plain", componentSlot.displayLabel);
+    event.dataTransfer.effectAllowed = "copyMove";
+  }
+
+  function handlePlacedComponentDragStart(event, component) {
+    event.dataTransfer.setData("application/json", JSON.stringify({
+      source: "canvas",
+      id: component.id,
+      name: component.name,
+      displayLabel: component.displayLabel,
+      sourceIndex: component.sourceIndex,
+    }));
+    event.dataTransfer.setData("text/plain", component.displayLabel ?? component.name);
+    event.dataTransfer.effectAllowed = "move";
+    setSelectedComponent(component.displayLabel ?? component.name);
+    setExpandedComponent(component.displayLabel ?? component.name);
+  }
+
+  function handleEndpointClick(endpoint) {
+    setSelectedComponent(endpoint.componentLabel ?? endpoint.componentName ?? endpoint.label);
+    if (endpoint.componentLabel ?? endpoint.componentName) {
+      setExpandedComponent(endpoint.componentLabel ?? endpoint.componentName);
+    }
+
+    if (!activeEndpoint) {
+      setActiveEndpoint(endpoint);
+      setStatusMessage(`已选中连线起点：${endpoint.label}`);
+      return;
+    }
+
+    if (activeEndpoint.key === endpoint.key) {
+      setActiveEndpoint(null);
+      setStatusMessage("已取消当前连线选择。");
+      return;
+    }
+
+    const next = toggleConnectionByLabels(
+      currentChallenge,
+      connections,
+      activeEndpoint.label,
+      endpoint.label,
+    );
+
+    setActiveEndpoint(null);
+
+    if (!next.lastConnection) {
+      setStatusMessage("这两个端点不属于本关要求的有效连线。");
+      return;
+    }
+
+    setConnections(next.connections);
+    setStatusMessage(
+      next.connections.includes(next.lastConnection)
+        ? `已建立连线：${next.lastConnection}`
+        : `已移除连线：${next.lastConnection}`,
+    );
   }
 
   function saveNote() {
@@ -222,6 +561,15 @@ export function App() {
 
   function updateStudent(key, value) {
     setStudent((current) => ({ ...current, [key]: value }));
+  }
+
+  if (activeView === "lab") {
+    return (
+      <div className="app-shell lab-mode-shell">
+        {renderLabScreen()}
+        {showSettings ? renderSettingsModal() : null}
+      </div>
+    );
   }
 
   return (
@@ -256,8 +604,8 @@ export function App() {
             <button className="profile-button" onClick={() => setShowUserPanel((value) => !value)} type="button">
               <img alt="学生头像" src={avatarImage} />
               <span>
-                <strong>{student.name}</strong>
-                <small>初学者 · 第 2 阶段</small>
+                <strong>学习档案</strong>
+                <small>{student.mode} · 第 2 阶段</small>
               </span>
               <CaretDown size={18} />
             </button>
@@ -329,24 +677,39 @@ export function App() {
         <section className="hero-panel">
           <div className="hero-copy">
             <span className="eyebrow">今日学习</span>
-            <h1>{student.name}，继续把运算器拼起来。</h1>
-            <p>当前主线是“运算器路线”。先完成数据流、半加器和全加器，再进入多位加法器、多路选择器和简化 ALU。</p>
+            <h1>从输入、进位到 ALU，按路线把运算器搭起来。</h1>
+            <p>这不是六张长得差不多的课程卡，而是一条正在延伸的运算器装配线。沿着信号如何进入、分叉、传播和切换的顺序往前走，学生会更容易把每一关和整个计算过程连起来。</p>
             <div className="hero-actions">
-              <button className="primary-button" onClick={() => changeView("lab")} type="button">
+              <button className="primary-button" onClick={() => selectChallenge(focusChallenge.id)} type="button">
                 <Play size={18} weight="fill" />
-                进入实验台
+                从当前关卡继续
               </button>
               <button className="ghost-button" onClick={() => changeView("records")} type="button">
                 查看学习记录
               </button>
             </div>
+            <div className="hero-badges">
+              <span>6 个核心关卡</span>
+              <span>动态信号演示</span>
+              <span>自动纠错反馈</span>
+            </div>
           </div>
           <div className="hero-module">
-            <span>当前模块</span>
-            <strong>{currentChallenge.title}</strong>
-            <p>{currentChallenge.objective}</p>
+            <span>当前正在搭建</span>
+            <strong>{focusChallenge.title}</strong>
+            <p>{challengeRouteMeta[focusChallenge.id]?.detail ?? focusChallenge.objective}</p>
             <div className="progress-bar"><span style={{ width: `${summary.completionRate}%` }} /></div>
-            <small>首版完成度 {summary.completionRate}%</small>
+            <small>路线进度 {summary.completionRate}% · 下一站 {upcomingChallenge.title}</small>
+            <div className="hero-module-stack">
+              <div>
+                <span>当前焦点</span>
+                <strong>{challengeRouteMeta[focusChallenge.id]?.focus ?? "核心结构"}</strong>
+              </div>
+              <div>
+                <span>本周目标</span>
+                <strong>{student.goal}</strong>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -361,29 +724,48 @@ export function App() {
           <div className="section-heading">
             <div>
               <h2>运算器闯关路径</h2>
-              <p>从数据流开始，逐步走到简化 ALU。</p>
+              <p>把每一关看成运算器上的一个功能模块，顺着信号路线逐步装起来。</p>
             </div>
           </div>
-          <div className="challenge-grid">
+          <div className="route-board">
             {CHALLENGES.map((challenge, index) => {
               const record = progress[challenge.id];
+              const routeMeta = challengeRouteMeta[challenge.id];
               return (
-                <button
-                  className={`challenge-card ${statusTone(record.status)} ${challenge.id === selectedChallengeId ? "selected" : ""}`}
-                  key={challenge.id}
-                  onClick={() => selectChallenge(challenge.id)}
-                  type="button"
-                >
-                  <span className="step-index">{index + 1}</span>
-                  <strong>{challenge.title}</strong>
-                  <p>{challenge.objective}</p>
-                  <footer>
-                    <span>{statusText(record.status)}</span>
-                    <small>{record.attempts} 次尝试 · {record.bestScore} 分</small>
-                  </footer>
-                </button>
+                <div className="route-segment" key={challenge.id}>
+                  <button
+                    className={`route-node ${routeMeta.preview} ${statusTone(record.status)} ${challenge.id === selectedChallengeId ? "selected" : ""}`}
+                    onClick={() => selectChallenge(challenge.id)}
+                    type="button"
+                  >
+                    <div className="route-node-top">
+                      <span className="route-chip">{routeMeta.eyebrow}</span>
+                      <span className="route-step">0{index + 1}</span>
+                    </div>
+                    <RoutePreview kind={routeMeta.preview} />
+                    <strong>{challenge.title}</strong>
+                    <p>{routeMeta.summary}</p>
+                    <div className="route-node-meta">
+                      <span>{routeMeta.focus}</span>
+                      <small>{record.attempts} 次尝试 · {record.bestScore} 分</small>
+                    </div>
+                    <footer>
+                      <span>{statusText(record.status)}</span>
+                      <small>{challenge.estimatedMinutes} 分钟</small>
+                    </footer>
+                  </button>
+                  {index < CHALLENGES.length - 1 ? (
+                    <div className="route-connector" aria-hidden="true">
+                      <span />
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
+          </div>
+          <div className="route-callout">
+            <strong>怎么看这条路线</strong>
+            <p>每一块模块都对应一个实际电路问题：先让信号走通，再看和位/进位，再把进位串联起来，最后引入选择控制和 ALU 汇总。</p>
           </div>
         </section>
 
@@ -394,24 +776,27 @@ export function App() {
               <Star size={22} weight="fill" />
             </div>
             <div className="recommend-card">
-              <strong>补齐全加器的输入进位</strong>
-              <p>你当前结构已经连上 A/B，但 Cin 和 Cout 还没有闭合。建议先运行动态演示，再提交检测。</p>
-              <button className="primary-button" onClick={() => selectChallenge("full-adder")} type="button">继续全加器</button>
+              <strong>{focusChallenge.title}还差最后一块关键结构</strong>
+              <p>{challengeRouteMeta[focusChallenge.id]?.detail ?? focusChallenge.objective}。先点进这一关，观察端口和路径，再补全缺失连线。</p>
+              <button className="primary-button" onClick={() => selectChallenge(focusChallenge.id)} type="button">继续当前关卡</button>
             </div>
           </article>
 
           <article className="section-panel">
             <div className="section-heading">
-              <h2>错误博物馆</h2>
-              <WarningCircle size={22} weight="fill" />
+              <h2>学生如何看懂这张图</h2>
+              <Cpu size={22} weight="fill" />
             </div>
-            <div className="mistake-list">
-              {["缺少进位输入", "输出端未连接", "缺少控制信号"].map((mistake, index) => (
-                <button className="mistake-row" key={mistake} onClick={() => changeView("records")} type="button">
+            <div className="guide-list">
+              {[
+                "先看模块名字，知道这一关要解决的是数据流、进位还是选择控制。",
+                "再看中间的小电路缩略图，理解这一关的信号会怎么走。",
+                "最后点进关卡做实验，画布里的结构会和路线图保持同一套认知。",
+              ].map((item, index) => (
+                <div className="guide-row" key={item}>
                   <span>{index + 1}</span>
-                  <strong>{mistake}</strong>
-                  <small>{index === 0 ? "高频" : "中频"}</small>
-                </button>
+                  <p>{item}</p>
+                </div>
               ))}
             </div>
           </article>
@@ -454,7 +839,7 @@ export function App() {
           <div className="bench-toolbar">
             <div>
               <h2>可视化实验台</h2>
-              <p>拖放元件到画布，勾选连线后运行信号演示。</p>
+              <p>{labDescription(currentChallenge.id)}</p>
             </div>
             <div className="run-controls">
               <button onClick={runStep} type="button">单步演示</button>
@@ -463,11 +848,24 @@ export function App() {
           </div>
 
           <div className="input-board">
-            <Toggle label="输入A" value={inputState.a} onChange={(value) => handleInputChange("a", value)} />
-            <Toggle label="输入B" value={inputState.b} onChange={(value) => handleInputChange("b", value)} />
-            <Toggle label="进位Cin" value={inputState.cin} onChange={(value) => handleInputChange("cin", value)} />
-            <Stepper label="选择信号" value={inputState.select} max={1} onChange={(value) => handleInputChange("select", value)} />
-            <Stepper label="ALU控制位" value={inputState.op} max={3} onChange={(value) => handleInputChange("op", value)} />
+            {(challengeControlMeta[currentChallenge.id] ?? []).map((control) => (
+              control.type === "bit" ? (
+                <Toggle
+                  key={control.key}
+                  label={control.label}
+                  value={inputState[control.key]}
+                  onChange={(value) => handleInputChange(control.key, value)}
+                />
+              ) : (
+                <Stepper
+                  key={control.key}
+                  label={control.label}
+                  value={inputState[control.key]}
+                  max={control.max}
+                  onChange={(value) => handleInputChange(control.key, value)}
+                />
+              )
+            ))}
           </div>
 
           <div className="canvas-wrap">
@@ -496,35 +894,16 @@ export function App() {
               onDragOver={(event) => event.preventDefault()}
               onDrop={handleDrop}
             >
-              <div className="signal-stage active">
-                <span>输入端</span>
-                <strong>A={inputState.a} · B={inputState.b} · Cin={inputState.cin}</strong>
-              </div>
-              <div className={`signal-path ${simulationStep > 0 ? "active" : ""}`} />
-              <div className="canvas-components">
-                {placedComponents.map((componentName) => (
-                  <button
-                    className={expandedComponent === componentName ? "canvas-node expanded" : "canvas-node"}
-                    key={componentName}
-                    onClick={() => {
-                      setExpandedComponent(componentName);
-                      setSelectedComponent(componentName);
-                    }}
-                    type="button"
-                  >
-                    <strong>{componentName}</strong>
-                    <small>{expandedComponent === componentName ? "内部结构已展开" : "点击查看内部结构"}</small>
-                    {expandedComponent === componentName ? (
-                      <span className="node-detail">输入端口 · 逻辑核心 · 输出端口</span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-              <div className={`signal-path ${simulationStep > 1 ? "active" : ""}`} />
-              <div className="signal-stage output">
-                <span>输出端</span>
-                <strong>{formatOutputs(simulation.outputs)}</strong>
-              </div>
+              <ChallengeCanvas
+                challengeId={currentChallenge.id}
+                expandedComponent={expandedComponent}
+                inputState={inputState}
+                outputText={formatOutputs(simulation.outputs)}
+                selectedComponent={selectedComponent}
+                setExpandedComponent={setExpandedComponent}
+                setSelectedComponent={setSelectedComponent}
+                simulationStep={simulationStep}
+              />
             </div>
           </div>
 
@@ -587,6 +966,258 @@ export function App() {
             )}
           </section>
         </aside>
+      </div>
+    );
+  }
+
+  function renderLabScreen() {
+    return (
+      <div className="lab-screen">
+        <header className="lab-screen-topbar">
+          <div className="lab-screen-leading">
+            <button className="lab-return-button" onClick={() => changeView("home")} type="button">
+              <ArrowLeft size={18} />
+              返回课程首页
+            </button>
+            <div className="lab-screen-title">
+              <span className="eyebrow">沉浸式实验页</span>
+              <strong>{currentChallenge.title}</strong>
+              <p>{challengeRouteMeta[currentChallenge.id]?.detail ?? currentChallenge.objective}</p>
+            </div>
+          </div>
+
+          <div className="lab-screen-meta">
+            <div className="lab-meta-card">
+              <span>当前目标</span>
+              <strong>{challengeRouteMeta[currentChallenge.id]?.focus ?? "结构搭建"}</strong>
+            </div>
+            <div className="lab-meta-card">
+              <span>最佳得分</span>
+              <strong>{currentRecord?.bestScore ?? 0} 分</strong>
+            </div>
+          </div>
+        </header>
+
+        <div className="lab-status-banner">
+          <Sparkle size={18} />
+          <span>{statusMessage}</span>
+        </div>
+
+        <div className="lab-screen-body">
+          <section className="lab-main-panel">
+            <div className="lab-main-header">
+              <div>
+                <span className="eyebrow">可视化实验台</span>
+                <h1>{currentChallenge.title}</h1>
+                <p>{labDescription(currentChallenge.id)}</p>
+              </div>
+              <div className="run-controls">
+                <button onClick={runStep} type="button">单步演示</button>
+                <button onClick={runAll} type="button">连续演示</button>
+              </div>
+            </div>
+
+            <div className="input-board">
+              {(challengeControlMeta[currentChallenge.id] ?? []).map((control) => (
+                control.type === "bit" ? (
+                  <Toggle
+                    key={control.key}
+                    label={control.label}
+                    value={inputState[control.key]}
+                    onChange={(value) => handleInputChange(control.key, value)}
+                  />
+                ) : (
+                  <Stepper
+                    key={control.key}
+                    label={control.label}
+                    value={inputState[control.key]}
+                    max={control.max}
+                    onChange={(value) => handleInputChange(control.key, value)}
+                  />
+                )
+              ))}
+            </div>
+
+            <div className="lab-stage-layout">
+              <aside className="lab-palette-panel">
+                <div className="lab-panel-heading">
+                  <strong>元件区</strong>
+                  <small>每个元件都有固定目标槽位，拖近后会自动吸附</small>
+                </div>
+                <div className="component-palette">
+                  {placementBlueprint.map((componentSlot) => (
+                    <button
+                      draggable
+                      className="component-chip"
+                      key={componentSlot.id}
+                      onClick={() => {
+                        setSelectedComponent(componentSlot.displayLabel);
+                        setExpandedComponent(componentSlot.displayLabel);
+                      }}
+                      onDragStart={(event) => handlePaletteDragStart(event, componentSlot)}
+                      type="button"
+                    >
+                      <Cpu size={18} />
+                      <span>{componentSlot.displayLabel}</span>
+                      <small>{componentSlot.role}</small>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="wiring-hint">
+                  <strong>连线方式</strong>
+                  <p>先点一个输入端、输出端或元件引脚，再点另一端建立连线；重复同一对端点会移除连线。</p>
+                  <small>{activeEndpoint ? `当前起点：${activeEndpoint.label}` : "当前未选中起点"}</small>
+                </div>
+
+                <div className="placement-status">
+                  <strong>布局进度</strong>
+                  <p>{placementPreview.matchedSlotIds.length}/{placementBlueprint.length} 个元件已经对准槽位</p>
+                  <small>{placementPreview.missingSlots.length > 0 ? `还差 ${placementPreview.missingSlots.length} 个槽位未完成` : "所有元件都已就位"}</small>
+                </div>
+
+                <div className="lab-actions">
+                  <button className="primary-button" onClick={submitChallenge} type="button">提交检测</button>
+                  <button className="ghost-button" onClick={resetChallenge} type="button">重置本关</button>
+                  <button className="ghost-button" onClick={fillReferenceStructure} type="button">查看参考结构</button>
+                </div>
+              </aside>
+
+              <section className="lab-stage-panel">
+                <div
+                  className="circuit-canvas"
+                  onDragOver={(event) => event.preventDefault()}
+                >
+                  <ChallengeCanvas
+                    activeEndpoint={activeEndpoint}
+                    challenge={currentChallenge}
+                    challengeId={currentChallenge.id}
+                    connectionBlueprint={connectionBlueprint}
+                    connections={connections}
+                    expandedComponent={expandedComponent}
+                    inputState={inputState}
+                    onBoardDragOver={(event) => event.preventDefault()}
+                    onBoardDrop={handleDrop}
+                    onEndpointClick={handleEndpointClick}
+                    onPlacedComponentDragStart={handlePlacedComponentDragStart}
+                    outputText={formatOutputs(simulation.outputs)}
+                    placementBlueprint={placementBlueprint}
+                    placementPreview={placementPreview}
+                    placedComponents={placedComponents}
+                    selectedComponent={selectedComponent}
+                    setExpandedComponent={setExpandedComponent}
+                    setSelectedComponent={setSelectedComponent}
+                    simulationStep={simulationStep}
+                  />
+                </div>
+
+                <div className="demo-panel">
+                  <div>
+                    <span className="eyebrow">动态信号演示</span>
+                    <h3>{activeStep?.node}</h3>
+                    <p>{activeStep?.text}</p>
+                  </div>
+                  <div className="step-dots">
+                    {simulation.steps.map((step, index) => (
+                      <button
+                        className={index === simulationStep ? "active" : ""}
+                        key={step.id}
+                        onClick={() => setSimulationStep(index)}
+                        type="button"
+                      >
+                        {step.id}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </div>
+          </section>
+
+          <aside className="lab-side-panel">
+            <section className="lab-side-card">
+              <span className="eyebrow">关卡任务</span>
+              <h2>{currentChallenge.title}</h2>
+              <p>{currentChallenge.goal}</p>
+              <div className="condition-list">
+                <strong>通关条件</strong>
+                {currentChallenge.requiredConnections.map((connection) => (
+                  <div
+                    className={connections.includes(connection) ? "condition done" : "condition"}
+                    key={connection}
+                  >
+                    <CheckCircle size={18} weight={connections.includes(connection) ? "fill" : "regular"} />
+                    <span>{connection}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="lab-side-card">
+              <span className="eyebrow">元件说明</span>
+              <h2>{selectedComponent}</h2>
+              <p>{selectedComponentDetail?.description ?? "选择一个元件查看说明。"}</p>
+              <div className="concept-card">
+                <strong>原理卡片</strong>
+                <p>{currentChallenge.principle}</p>
+              </div>
+            </section>
+
+            <section className="lab-side-card">
+              <span className="eyebrow">判题反馈</span>
+              <div className="connection-summary">
+                <strong>当前已建立连线</strong>
+                {connections.length > 0 ? (
+                  <div className="connection-chip-list">
+                    {connections.map((connection) => (
+                      <span className="connection-chip" key={connection}>{connection}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <p>还没有建立有效连线。</p>
+                )}
+              </div>
+              <div className="placement-summary">
+                <strong>当前布局</strong>
+                <p>已就位 {placementPreview.matchedSlotIds.length} / {placementBlueprint.length}</p>
+                {placementPreview.missingSlots.length > 0 ? (
+                  <div className="connection-chip-list">
+                    {placementPreview.missingSlots.map((slot) => (
+                      <span className="connection-chip warning" key={slot.id}>
+                        {slot.displayLabel} -> {slot.role}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p>所有元件已经进入目标槽位。</p>
+                )}
+              </div>
+              {feedback ? (
+                feedback.passed ? (
+                  <div className="feedback success">
+                    <SealCheck size={24} weight="fill" />
+                    <strong>本关通过</strong>
+                    <p>{currentChallenge.summary}</p>
+                  </div>
+                ) : (
+                  <div className="feedback danger">
+                    <WarningCircle size={24} weight="fill" />
+                    <strong>发现 {feedback.errors.length} 类问题</strong>
+                    {feedback.errors.map((error) => (
+                      <p key={error.type}>{error.type}：{error.message}</p>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <div className="feedback neutral">
+                  <Target size={24} />
+                  <strong>等待检测</strong>
+                  <p>拖入元件、查看信号走向，再提交当前结构。</p>
+                </div>
+              )}
+            </section>
+          </aside>
+        </div>
       </div>
     );
   }
@@ -754,6 +1385,303 @@ function Metric({ icon: Icon, label, value }) {
   );
 }
 
+function RoutePreview({ kind }) {
+  return (
+    <div className={`route-preview ${kind}`} aria-hidden="true">
+      <span className="trace trace-a" />
+      <span className="trace trace-b" />
+      <span className="trace trace-c" />
+      <span className="trace trace-d" />
+      <span className="route-core core-a" />
+      <span className="route-core core-b" />
+      <span className="route-core core-c" />
+    </div>
+  );
+}
+
+function ChallengeCanvas({
+  activeEndpoint,
+  challenge,
+  challengeId,
+  connectionBlueprint,
+  connections,
+  expandedComponent,
+  inputState,
+  onBoardDragOver,
+  onBoardDrop,
+  onEndpointClick,
+  onPlacedComponentDragStart,
+  outputText,
+  placementBlueprint = [],
+  placementPreview,
+  placedComponents = [],
+  selectedComponent,
+  setExpandedComponent,
+  setSelectedComponent,
+  simulationStep,
+}) {
+  const scenes = {
+    "data-flow": {
+      label: "信号直通",
+      hint: "只有一条主线，核心是把输入和结果端真正连通。",
+      inputText: `输入A=${inputState.a}`,
+      outputText,
+      wires: [
+        { className: "horizontal start", activeAt: 0 },
+        { className: "horizontal mid", activeAt: 1 },
+      ],
+      nodes: [
+        { name: "输入开关", tone: "io", className: "input", detail: "信号起点 · 切换 0/1" },
+        { name: "数据通路", tone: "module", className: "module wide", detail: "单一主线 · 直通输出" },
+        { name: "结果灯", tone: "output", className: "output", detail: "观察最终结果" },
+      ],
+    },
+    "half-adder": {
+      label: "和位与进位分流",
+      hint: "输入A和B会同时进入两条并行逻辑：一条算和位，一条算进位。",
+      inputText: `A=${inputState.a} · B=${inputState.b}`,
+      outputText,
+      wires: [
+        { className: "horizontal start", activeAt: 0 },
+        { className: "diagonal up", activeAt: 0 },
+        { className: "diagonal down", activeAt: 0 },
+        { className: "horizontal end-top", activeAt: 1 },
+        { className: "horizontal end-bottom", activeAt: 1 },
+      ],
+      nodes: [
+        { name: "输入端", tone: "io", className: "input split", detail: "两个输入同时出发" },
+        { name: "异或门", tone: "logic", className: "xor top", detail: "负责和位 S" },
+        { name: "与门", tone: "logic", className: "and bottom", detail: "负责进位 C" },
+        { name: "输出端", tone: "output", className: "output dual", detail: "上方和位 · 下方进位" },
+      ],
+    },
+    "full-adder": {
+      label: "进位分叉合流",
+      hint: "A、B 先求临时和，再与 Cin 合并；进位逻辑单独走另一条支路。",
+      inputText: `A=${inputState.a} · B=${inputState.b} · Cin=${inputState.cin}`,
+      outputText,
+      wires: [
+        { className: "horizontal start", activeAt: 0 },
+        { className: "horizontal mid", activeAt: 1 },
+        { className: "vertical carry", activeAt: 1 },
+        { className: "horizontal top-out", activeAt: 2 },
+        { className: "horizontal bottom-out", activeAt: 2 },
+      ],
+      nodes: [
+        { name: "输入端", tone: "io", className: "input stacked", detail: "A / B / Cin 三路输入" },
+        { name: "异或门1", tone: "logic", className: "xor first", detail: "先算临时和 X" },
+        { name: "异或门2", tone: "logic", className: "xor second", detail: "X 再与 Cin 合并" },
+        { name: "进位逻辑", tone: "control", className: "carry core", detail: "判断 Cout 是否产生" },
+        { name: "输出端", tone: "output", className: "output dual", detail: "和位 S · 输出进位 Cout" },
+      ],
+    },
+    "multi-adder": {
+      label: "级联传播",
+      hint: "三个全加器首尾相接，低位进位会一路推向高位。",
+      inputText: `A=${inputState.aNumber} · B=${inputState.bNumber} · 初始进位=${inputState.cin}`,
+      outputText,
+      wires: [
+        { className: "horizontal chain-one", activeAt: 0 },
+        { className: "horizontal chain-two", activeAt: 1 },
+        { className: "horizontal chain-three", activeAt: 2 },
+      ],
+      nodes: [
+        { name: "全加器0", tone: "module", className: "adder first", detail: "最低位" },
+        { name: "全加器1", tone: "module", className: "adder second", detail: "接收前一位 Cout" },
+        { name: "全加器2", tone: "module", className: "adder third", detail: "输出高位与总进位" },
+        { name: "结果寄存器", tone: "output", className: "output result", detail: "汇总各位和位" },
+      ],
+    },
+    mux: {
+      label: "路径切换",
+      hint: "两路数据同时就位，是否通过由选择信号决定。",
+      inputText: `D0=${inputState.a} · D1=${inputState.b} · Sel=${inputState.select}`,
+      outputText,
+      wires: [
+        { className: "horizontal upper-feed", activeAt: 0 },
+        { className: "horizontal lower-feed", activeAt: 0 },
+        { className: "vertical select-wire", activeAt: 1 },
+        { className: "horizontal mux-out", activeAt: 2 },
+      ],
+      nodes: [
+        { name: "数据源0", tone: "io", className: "source top", detail: "上路输入" },
+        { name: "数据源1", tone: "io", className: "source bottom", detail: "下路输入" },
+        { name: "选择端", tone: "control", className: "selector signal", detail: "决定走哪一路" },
+        { name: "选择器", tone: "module", className: "mux center", detail: "把两条路收成一条路" },
+        { name: "输出端", tone: "output", className: "output", detail: "当前选中的结果" },
+      ],
+    },
+    alu: {
+      label: "运算核心汇总",
+      hint: "加法单元、逻辑单元并行准备结果，再交给结果选择器统一输出。",
+      inputText: `A=${inputState.a} · B=${inputState.b} · Cin=${inputState.cin} · Op=${inputState.op}`,
+      outputText,
+      wires: [
+        { className: "horizontal upper-feed", activeAt: 0 },
+        { className: "horizontal lower-feed", activeAt: 0 },
+        { className: "horizontal alu-upper", activeAt: 1 },
+        { className: "horizontal alu-lower", activeAt: 1 },
+        { className: "horizontal mux-out", activeAt: 2 },
+      ],
+      nodes: [
+        { name: "输入端", tone: "io", className: "input stacked", detail: "A / B / Cin / Op" },
+        { name: "加法单元", tone: "logic", className: "adder core", detail: "产生和位与进位" },
+        { name: "逻辑单元", tone: "logic", className: "logic core", detail: "产生 AND / OR / XOR" },
+        { name: "结果选择器", tone: "control", className: "mux center", detail: "按控制位选结果" },
+        { name: "输出端", tone: "output", className: "output flags", detail: "结果 F · 零标志 · 进位标志" },
+      ],
+    },
+  };
+
+  const scene = scenes[challengeId];
+  const inputAnchors = buildExternalAnchorLayout(connectionBlueprint.externalInputs, "input");
+  const outputAnchors = buildExternalAnchorLayout(connectionBlueprint.externalOutputs, "output");
+  const componentPins = Object.fromEntries(
+    connectionBlueprint.components.map((item) => [item.name, buildComponentPinLayout(item.pins)]),
+  );
+  const renderedLines = buildConnectionLines({
+    challenge,
+    connectionBlueprint,
+    placedComponents,
+    connections,
+  });
+
+  return (
+    <div className={`challenge-scene ${challengeId}`}>
+      <div className="challenge-scene-header">
+        <div>
+          <span className="eyebrow">关卡骨架</span>
+          <h3>{scene.label}</h3>
+          <p>{scene.hint}</p>
+        </div>
+        <div className="scene-readout">
+          <span>输入快照</span>
+          <strong>{scene.inputText}</strong>
+          <small>输出：{scene.outputText}</small>
+        </div>
+      </div>
+
+      <div className="challenge-scene-board lab-dropzone" onDragOver={onBoardDragOver} onDrop={onBoardDrop}>
+        {scene.wires.map((wire) => (
+          <span
+            className={`scene-wire ${wire.className} ${simulationStep >= wire.activeAt ? "active" : ""}`}
+            key={wire.className}
+          />
+        ))}
+        <svg className="connection-overlay" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
+          {renderedLines.map((line) => (
+            <line
+              className="connection-line"
+              key={line.id}
+              x1={line.from.x}
+              x2={line.to.x}
+              y1={line.from.y}
+              y2={line.to.y}
+            />
+          ))}
+        </svg>
+        <div className="placement-slot-layer" aria-hidden="true">
+          {placementBlueprint.map((slot) => (
+            <div
+              className={[
+                "placement-slot",
+                placementPreview?.matchedSlotIds.includes(slot.id) ? "matched" : "",
+                selectedComponent === slot.displayLabel ? "selected" : "",
+              ].filter(Boolean).join(" ")}
+              key={slot.id}
+              style={{ left: `${slot.x}%`, top: `${slot.y}%` }}
+            >
+              <strong>{slot.displayLabel}</strong>
+              <small>{slot.role}</small>
+            </div>
+          ))}
+        </div>
+        {inputAnchors.map((anchor) => (
+          <button
+            className={`lab-anchor input ${activeEndpoint?.key === anchor.key ? "selected" : ""}`}
+            key={anchor.key}
+            onClick={() => onEndpointClick(anchor)}
+            style={{ left: `${anchor.x}%`, top: `${anchor.y}%` }}
+            type="button"
+          >
+            <span>{anchor.label}</span>
+          </button>
+        ))}
+        {outputAnchors.map((anchor) => (
+          <button
+            className={`lab-anchor output ${activeEndpoint?.key === anchor.key ? "selected" : ""}`}
+            key={anchor.key}
+            onClick={() => onEndpointClick(anchor)}
+            style={{ left: `${anchor.x}%`, top: `${anchor.y}%` }}
+            type="button"
+          >
+            <span>{anchor.label}</span>
+          </button>
+        ))}
+        {scene.nodes.map((node) => {
+          const isSelected = selectedComponent === node.name || expandedComponent === node.name;
+          return (
+            <button
+              className={`scene-node ${node.tone} ${node.className} ${isSelected ? "selected" : ""}`}
+              key={node.name}
+              onClick={() => {
+                setSelectedComponent(node.name);
+                setExpandedComponent(node.name);
+              }}
+              type="button"
+            >
+              <strong>{node.name}</strong>
+              <small>{node.detail}</small>
+            </button>
+          );
+        })}
+        <div className="floating-layer">
+          {placedComponents.map((component) => (
+            <div
+              className={`floating-component ${selectedComponent === (component.displayLabel ?? component.name) ? "selected" : ""}`}
+              data-component-id={component.id}
+              draggable
+              key={component.id}
+              onClick={() => {
+                setSelectedComponent(component.displayLabel ?? component.name);
+                setExpandedComponent(component.displayLabel ?? component.name);
+              }}
+              onDragStart={(event) => onPlacedComponentDragStart(event, component)}
+              style={{ left: `${component.x}%`, top: `${component.y}%` }}
+            >
+              <div className="floating-component-head">
+                <Cpu size={16} />
+                <span>{component.displayLabel ?? component.name}</span>
+              </div>
+              <div className="floating-pin-row">
+                {(componentPins[component.name] ?? []).map((pin) => (
+                  <button
+                    className={`floating-pin ${activeEndpoint?.key === `${component.id}-${pin.pin}` ? "selected" : ""}`}
+                    key={`${component.id}-${pin.pin}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEndpointClick({
+                        key: `${component.id}-${pin.pin}`,
+                        label: component.name,
+                        componentName: component.name,
+                        componentLabel: component.displayLabel ?? component.name,
+                        pin: pin.pin,
+                      });
+                    }}
+                    type="button"
+                  >
+                    {pin.pin}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Toggle({ label, value, onChange }) {
   return (
     <label className="toggle-control">
@@ -782,6 +1710,18 @@ function formatOutputs(outputs) {
   return Object.entries(outputs)
     .map(([key, value]) => `${outputLabel(key)}=${value}`)
     .join(" · ");
+}
+
+function labDescription(challengeId) {
+  const descriptions = {
+    "data-flow": "这一关的画布是一条最基础的信号通道，先理解输入如何走到输出。",
+    "half-adder": "这一关会把和位和进位拆成两条并行支路，你能直观看到两种结果是如何分工产生的。",
+    "full-adder": "这一关会出现真正的进位分叉：一条线继续算和位，另一条线专门负责判断是否向高位进位。",
+    "multi-adder": "这一关不再是一个模块，而是多个全加器首尾相接，重点观察进位逐级传播。",
+    mux: "这一关的重点是路径选择，同一时刻两路数据都在，但只有被选择的一路会真正通过。",
+    alu: "这一关会把加法、逻辑和选择控制汇总到同一块运算核心里，画布结构也会比前几关更复杂。",
+  };
+  return descriptions[challengeId] ?? "观察这一关独有的电路骨架，再运行信号演示。";
 }
 
 function outputLabel(key) {
