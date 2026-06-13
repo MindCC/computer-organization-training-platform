@@ -31,7 +31,9 @@ import {
 } from "./platformLogic.js";
 import {
   beginWireDrag,
+  buildComponentPinLayout,
   buildConnectionBlueprint,
+  buildRenderableConnections,
   cancelWireDrag,
   completeWireDrag,
   inspectWireTarget,
@@ -253,64 +255,6 @@ function buildExternalAnchorLayout(items = [], side = "input") {
     y: 26 + index * 18,
     side,
   }));
-}
-
-function buildComponentPinLayout(pins = []) {
-  const total = pins.length || 1;
-  return pins.map((pin, index) => ({
-    pin,
-    offsetX: total === 1 ? 50 : 16 + (index * 68) / Math.max(1, total - 1),
-    offsetY: 118,
-  }));
-}
-
-function buildConnectionLines({
-  challenge,
-  connectionBlueprint,
-  placedComponents,
-  connections,
-}) {
-  const inputAnchors = buildExternalAnchorLayout(connectionBlueprint.externalInputs, "input");
-  const outputAnchors = buildExternalAnchorLayout(connectionBlueprint.externalOutputs, "output");
-
-  function resolvePosition(label, mode) {
-    const inputAnchor = inputAnchors.find((item) => item.label === label);
-    if (inputAnchor) return inputAnchor;
-
-    const outputAnchor = outputAnchors.find((item) => item.label === label);
-    if (outputAnchor) return outputAnchor;
-
-    const component = placedComponents.find((item) => item.name === label);
-    if (component) {
-      return {
-        key: `component-${label}-${mode}`,
-        x: component.x + (mode === "from" ? 8 : -8),
-        y: component.y,
-      };
-    }
-
-    const referenceComponent = challenge.components.find((item) => item.name === label);
-    if (referenceComponent) {
-      const fallback = REFERENCE_SLOT_LAYOUTS[challenge.id]?.[challenge.components.findIndex((item) => item.name === label)] ?? { x: 50, y: 56 };
-      return {
-        key: `reference-${label}-${mode}`,
-        x: fallback.x + (mode === "from" ? 8 : -8),
-        y: fallback.y,
-      };
-    }
-
-    return null;
-  }
-
-  return connections
-    .map((connection) => {
-      const [fromLabel, toLabel] = connection.split("->");
-      const from = resolvePosition(fromLabel, "from");
-      const to = resolvePosition(toLabel, "to");
-      if (!from || !to) return null;
-      return { id: connection, from, to };
-    })
-    .filter(Boolean);
 }
 
 const defaultChallenge = CHALLENGES.find((challenge) => challenge.id === "full-adder") ?? CHALLENGES[0];
@@ -1676,7 +1620,7 @@ function ChallengeCanvas({
   const componentPins = Object.fromEntries(
     connectionBlueprint.components.map((item) => [item.name, buildComponentPinLayout(item.pins)]),
   );
-  const renderedLines = buildConnectionLines({
+  const renderedLines = buildRenderableConnections({
     challenge,
     connectionBlueprint,
     placedComponents,
@@ -1913,7 +1857,7 @@ function ChallengeCanvas({
               >
                 拖动元件
               </button>
-              <div className="floating-pin-row">
+              <div className="floating-pin-cluster">
                 {(componentPins[component.name] ?? []).map((pin) => (
                   <button
                     className={[
@@ -1922,6 +1866,7 @@ function ChallengeCanvas({
                       wireHoverEndpoint?.key === `${component.id}-${pin.pin}` && wireDrag ? `target ${wirePreviewStatus}` : "",
                     ].filter(Boolean).join(" ")}
                     key={`${component.id}-${pin.pin}`}
+                    style={{ left: `${pin.offsetX}%`, top: `${pin.offsetY}%` }}
                     onPointerDown={(event) => {
                       event.stopPropagation();
                       event.preventDefault();

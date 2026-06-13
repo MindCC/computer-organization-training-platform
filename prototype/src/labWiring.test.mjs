@@ -1,11 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { buildReferencePlacedComponents } from "./labPlacement.js";
 import { CHALLENGES } from "./platformLogic.js";
 import {
   beginWireDrag,
+  buildComponentPinLayout,
   cancelWireDrag,
   buildConnectionBlueprint,
+  buildRenderableConnections,
   completeWireDrag,
   inspectWireTarget,
   normalizeConnectionLabels,
@@ -169,4 +172,39 @@ test("拖线到合法目标时会返回 valid 状态和规范化连接", () => {
     status: "valid",
     connection: "进位输入Cin->异或门2",
   });
+});
+
+test("半加器的引脚布局会把输入和输出分到元件两侧", () => {
+  const layout = buildComponentPinLayout(["A", "B", "S"]);
+
+  const pinA = layout.find((item) => item.pin === "A");
+  const pinB = layout.find((item) => item.pin === "B");
+  const pinS = layout.find((item) => item.pin === "S");
+
+  assert.ok(pinA.offsetX < 50, "input pin A should sit on the left side");
+  assert.ok(pinB.offsetX < 50, "input pin B should sit on the left side");
+  assert.ok(pinS.offsetX > 50, "output pin S should sit on the right side");
+  assert.notEqual(pinA.offsetY, pinB.offsetY, "stacked input pins should not overlap");
+});
+
+test("半加器的多条连线会落在不同引脚，而不是挤到同一个点", () => {
+  const challenge = CHALLENGES.find((item) => item.id === "half-adder");
+  const connectionBlueprint = buildConnectionBlueprint(challenge);
+  const placedComponents = buildReferencePlacedComponents(challenge);
+
+  const lines = buildRenderableConnections({
+    challenge,
+    connectionBlueprint,
+    placedComponents,
+    connections: challenge.requiredConnections,
+  });
+
+  const inputAToXor = lines.find((line) => line.id === "输入A->异或门");
+  const inputBToXor = lines.find((line) => line.id === "输入B->异或门");
+  const xorToSum = lines.find((line) => line.id === "异或门->和位S");
+
+  assert.ok(inputAToXor && inputBToXor && xorToSum, "expected half-adder lines should exist");
+  assert.notEqual(inputAToXor.to.y, inputBToXor.to.y, "different input lines should land on different target pins");
+  assert.ok(inputAToXor.to.x < placedComponents[0].x, "input pins should be left of the xor gate");
+  assert.ok(xorToSum.from.x > placedComponents[0].x, "output pin should leave from the right side of the xor gate");
 });
