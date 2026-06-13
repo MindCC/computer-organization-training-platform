@@ -66,3 +66,87 @@ export function toggleConnectionByLabels(challenge, currentConnections, firstLab
     lastConnection: normalized,
   };
 }
+
+export function beginWireDrag(endpoint) {
+  if (!endpoint) return null;
+
+  return {
+    startEndpoint: { ...endpoint },
+    pointer: {
+      x: endpoint.x,
+      y: endpoint.y,
+    },
+  };
+}
+
+export function cancelWireDrag() {
+  return null;
+}
+
+export function inspectWireTarget(challenge, startEndpoint, endEndpoint) {
+  if (!startEndpoint || !endEndpoint) {
+    return {
+      status: "empty",
+      connection: null,
+    };
+  }
+
+  if (startEndpoint.key === endEndpoint.key) {
+    return {
+      status: "self",
+      connection: null,
+    };
+  }
+
+  const connection = normalizeConnectionLabels(
+    challenge,
+    startEndpoint.label,
+    endEndpoint.label,
+  );
+
+  if (!connection) {
+    return {
+      status: "invalid",
+      connection: null,
+    };
+  }
+
+  return {
+    status: "valid",
+    connection,
+  };
+}
+
+export function completeWireDrag(challenge, currentConnections, dragState, endEndpoint) {
+  const inspection = inspectWireTarget(challenge, dragState?.startEndpoint, endEndpoint);
+  if (inspection.status === "empty" || inspection.status === "self") {
+    return {
+      connections: [...currentConnections],
+      lastConnection: null,
+      cancelled: true,
+      status: inspection.status,
+    };
+  }
+
+  if (inspection.status === "invalid") {
+    return {
+      connections: [...currentConnections],
+      lastConnection: null,
+      cancelled: false,
+      status: inspection.status,
+    };
+  }
+
+  const next = toggleConnectionByLabels(
+    challenge,
+    currentConnections,
+    dragState.startEndpoint.label,
+    endEndpoint.label,
+  );
+
+  return {
+    ...next,
+    cancelled: next.lastConnection === null,
+    status: inspection.status,
+  };
+}

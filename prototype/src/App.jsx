@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -30,8 +30,11 @@ import {
   summarizeLearning,
 } from "./platformLogic.js";
 import {
+  beginWireDrag,
   buildConnectionBlueprint,
-  toggleConnectionByLabels,
+  cancelWireDrag,
+  completeWireDrag,
+  inspectWireTarget,
 } from "./labWiring.js";
 import {
   buildPlacementBlueprint,
@@ -40,6 +43,7 @@ import {
   REFERENCE_SLOT_LAYOUTS,
   scorePlacedComponents,
 } from "./labPlacement.js";
+import { buildComponentStudyCard } from "./componentStudy.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
 import studyDiagram from "./assets/study-tip-carry-diagram.png";
@@ -268,7 +272,8 @@ export function App() {
   const [placedComponents, setPlacedComponents] = useState([]);
   const [expandedComponent, setExpandedComponent] = useState(defaultComponentLabel);
   const [selectedComponent, setSelectedComponent] = useState(defaultComponentLabel);
-  const [activeEndpoint, setActiveEndpoint] = useState(null);
+  const [wireDrag, setWireDrag] = useState(null);
+  const [wireHoverEndpoint, setWireHoverEndpoint] = useState(null);
   const [inputState, setInputState] = useState({ a: 1, b: 1, cin: 0, select: 1, op: 0, aNumber: 5, bNumber: 3 });
   const [simulationStep, setSimulationStep] = useState(0);
   const [feedback, setFeedback] = useState(null);
@@ -324,6 +329,13 @@ export function App() {
     (selectedSlot ? currentChallenge.components[selectedSlot.sourceIndex] : null)
     ?? currentChallenge.components.find((component) => component.name === selectedComponent)
     ?? null;
+  const selectedStudyCard = useMemo(
+    () => buildComponentStudyCard(currentChallenge, selectedSlot, selectedComponentDetail),
+    [currentChallenge, selectedComponentDetail, selectedSlot],
+  );
+  const wirePreviewStatus = wireDrag
+    ? inspectWireTarget(currentChallenge, wireDrag.startEndpoint, wireHoverEndpoint).status
+    : "empty";
 
   function changeView(view) {
     setActiveView(view);
@@ -339,7 +351,8 @@ export function App() {
     setPlacedComponents(progress[challengeId]?.status === "completed" ? buildReferencePlacedComponents(challenge) : []);
     setExpandedComponent(nextBlueprint[0]?.displayLabel ?? challenge.components[0]?.name ?? "");
     setSelectedComponent(nextBlueprint[0]?.displayLabel ?? challenge.components[0]?.name ?? "");
-    setActiveEndpoint(null);
+    setWireDrag(null);
+    setWireHoverEndpoint(null);
     setFeedback(null);
     setSimulationStep(0);
     setActiveView("lab");
@@ -403,7 +416,8 @@ export function App() {
   function resetChallenge() {
     setConnections([]);
     setPlacedComponents([]);
-    setActiveEndpoint(null);
+    setWireDrag(null);
+    setWireHoverEndpoint(null);
     setFeedback(null);
     setSimulationStep(0);
     setStatusMessage("当前关卡已重置，可以重新连线。");
@@ -414,7 +428,8 @@ export function App() {
     setPlacedComponents(buildReferencePlacedComponents(currentChallenge));
     setExpandedComponent(placementBlueprint[0]?.displayLabel ?? currentChallenge.components[0]?.name ?? "");
     setSelectedComponent(placementBlueprint[0]?.displayLabel ?? currentChallenge.components[0]?.name ?? "");
-    setActiveEndpoint(null);
+    setWireDrag(null);
+    setWireHoverEndpoint(null);
     setFeedback(null);
     setStatusMessage("已填入本关参考结构，可以运行演示或提交检测。");
   }
@@ -501,44 +516,73 @@ export function App() {
     setExpandedComponent(component.displayLabel ?? component.name);
   }
 
-  function handleEndpointClick(endpoint) {
+  function focusEndpoint(endpoint) {
     setSelectedComponent(endpoint.componentLabel ?? endpoint.componentName ?? endpoint.label);
     if (endpoint.componentLabel ?? endpoint.componentName) {
       setExpandedComponent(endpoint.componentLabel ?? endpoint.componentName);
     }
+  }
 
-    if (!activeEndpoint) {
-      setActiveEndpoint(endpoint);
-      setStatusMessage(`已选中连线起点：${endpoint.label}`);
+  function handleWireDragStart(endpoint) {
+    focusEndpoint(endpoint);
+    setWireDrag(beginWireDrag(endpoint));
+    setWireHoverEndpoint(null);
+    setStatusMessage(`正在从“${endpoint.label}”拉出导线。`);
+  }
+
+  function handleWireDragMove(pointer) {
+    setWireDrag((current) => (current ? { ...current, pointer } : current));
+  }
+
+  function handleWireHoverChange(endpoint = null) {
+    if (!wireDrag) return;
+    setWireHoverEndpoint(endpoint);
+  }
+
+  function handleWireDragEnd(endpoint = null) {
+    if (!wireDrag) return;
+
+    if (endpoint) {
+      focusEndpoint(endpoint);
+    }
+
+    const result = completeWireDrag(currentChallenge, connections, wireDrag, endpoint);
+    setWireDrag(cancelWireDrag());
+    setWireHoverEndpoint(null);
+
+    if (!endpoint) {
+      setStatusMessage("已取消本次拖线。");
       return;
     }
 
-    if (activeEndpoint.key === endpoint.key) {
-      setActiveEndpoint(null);
-      setStatusMessage("已取消当前连线选择。");
+    if (wireDrag.startEndpoint.key === endpoint.key) {
+      setStatusMessage("起点和终点不能是同一个端点。");
       return;
     }
 
-    const next = toggleConnectionByLabels(
-      currentChallenge,
-      connections,
-      activeEndpoint.label,
-      endpoint.label,
-    );
+    if (result.status === "invalid") {
+      setStatusMessage(`“${wireDrag.startEndpoint.label}”当前不能连接到“${endpoint.label}”。`);
+      return;
+    }
 
-    setActiveEndpoint(null);
-
-    if (!next.lastConnection) {
+    if (!result.lastConnection) {
       setStatusMessage("这两个端点不属于本关要求的有效连线。");
       return;
     }
 
-    setConnections(next.connections);
+    setConnections(result.connections);
+    setFeedback(null);
     setStatusMessage(
-      next.connections.includes(next.lastConnection)
-        ? `已建立连线：${next.lastConnection}`
-        : `已移除连线：${next.lastConnection}`,
+      result.connections.includes(result.lastConnection)
+        ? `已建立连线：${result.lastConnection}`
+        : `已移除连线：${result.lastConnection}`,
     );
+  }
+
+  function handleRemoveConnection(connection) {
+    setConnections((current) => current.filter((item) => item !== connection));
+    setFeedback(null);
+    setStatusMessage(`已移除连线：${connection}`);
   }
 
   function saveNote() {
@@ -1066,8 +1110,8 @@ export function App() {
 
                 <div className="wiring-hint">
                   <strong>连线方式</strong>
-                  <p>先点一个输入端、输出端或元件引脚，再点另一端建立连线；重复同一对端点会移除连线。</p>
-                  <small>{activeEndpoint ? `当前起点：${activeEndpoint.label}` : "当前未选中起点"}</small>
+                  <p>按住一个输入端、输出端或元件引脚拖出导线，再松手接到目标端点；重复同一对合法端点会移除连线。</p>
+                  <small>{wireDrag ? `当前起点：${wireDrag.startEndpoint.label}` : "当前未开始拖线"}</small>
                 </div>
 
                 <div className="placement-status">
@@ -1089,7 +1133,6 @@ export function App() {
                   onDragOver={(event) => event.preventDefault()}
                 >
                   <ChallengeCanvas
-                    activeEndpoint={activeEndpoint}
                     challenge={currentChallenge}
                     challengeId={currentChallenge.id}
                     connectionBlueprint={connectionBlueprint}
@@ -1098,8 +1141,8 @@ export function App() {
                     inputState={inputState}
                     onBoardDragOver={(event) => event.preventDefault()}
                     onBoardDrop={handleDrop}
-                    onEndpointClick={handleEndpointClick}
                     onPlacedComponentDragStart={handlePlacedComponentDragStart}
+                    onRemoveConnection={handleRemoveConnection}
                     outputText={formatOutputs(simulation.outputs)}
                     placementBlueprint={placementBlueprint}
                     placementPreview={placementPreview}
@@ -1108,6 +1151,12 @@ export function App() {
                     setExpandedComponent={setExpandedComponent}
                     setSelectedComponent={setSelectedComponent}
                     simulationStep={simulationStep}
+                    wireDrag={wireDrag}
+                    onWireDragEnd={handleWireDragEnd}
+                    onWireHoverChange={handleWireHoverChange}
+                    onWireDragMove={handleWireDragMove}
+                    onWireDragStart={handleWireDragStart}
+                    wirePreviewStatus={wirePreviewStatus}
                   />
                 </div>
 
@@ -1161,6 +1210,23 @@ export function App() {
                 <strong>原理卡片</strong>
                 <p>{currentChallenge.principle}</p>
               </div>
+              <div className="study-card">
+                <strong>内部结构透视</strong>
+                <small>{selectedStudyCard.roleLabel}</small>
+                <p>{selectedStudyCard.summary}</p>
+                <div className="study-card-section">
+                  <span>内部步骤</span>
+                  {selectedStudyCard.stages.map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+                <div className="study-card-section">
+                  <span>观察重点</span>
+                  {selectedStudyCard.watchPoints.map((item) => (
+                    <p key={item}>{item}</p>
+                  ))}
+                </div>
+              </div>
             </section>
 
             <section className="lab-side-card">
@@ -1170,7 +1236,10 @@ export function App() {
                 {connections.length > 0 ? (
                   <div className="connection-chip-list">
                     {connections.map((connection) => (
-                      <span className="connection-chip" key={connection}>{connection}</span>
+                      <button className="connection-chip removable" key={connection} onClick={() => handleRemoveConnection(connection)} type="button">
+                        <span>{connection}</span>
+                        <strong>移除</strong>
+                      </button>
                     ))}
                   </div>
                 ) : (
@@ -1184,7 +1253,7 @@ export function App() {
                   <div className="connection-chip-list">
                     {placementPreview.missingSlots.map((slot) => (
                       <span className="connection-chip warning" key={slot.id}>
-                        {slot.displayLabel} -> {slot.role}
+                        {slot.displayLabel} {"->"} {slot.role}
                       </span>
                     ))}
                   </div>
@@ -1400,7 +1469,6 @@ function RoutePreview({ kind }) {
 }
 
 function ChallengeCanvas({
-  activeEndpoint,
   challenge,
   challengeId,
   connectionBlueprint,
@@ -1409,8 +1477,12 @@ function ChallengeCanvas({
   inputState,
   onBoardDragOver,
   onBoardDrop,
-  onEndpointClick,
   onPlacedComponentDragStart,
+  onRemoveConnection,
+  onWireDragEnd,
+  onWireHoverChange,
+  onWireDragMove,
+  onWireDragStart,
   outputText,
   placementBlueprint = [],
   placementPreview,
@@ -1419,7 +1491,10 @@ function ChallengeCanvas({
   setExpandedComponent,
   setSelectedComponent,
   simulationStep,
+  wireDrag,
+  wirePreviewStatus,
 }) {
+  const boardRef = useRef(null);
   const scenes = {
     "data-flow": {
       label: "信号直通",
@@ -1545,6 +1620,30 @@ function ChallengeCanvas({
     placedComponents,
     connections,
   });
+  const previewLine = wireDrag
+    ? {
+      id: "preview-line",
+      from: wireDrag.startEndpoint,
+      to: wireDrag.pointer,
+    }
+    : null;
+
+  function getBoardPoint(event) {
+    const rect = boardRef.current?.getBoundingClientRect();
+    if (!rect) return { x: 50, y: 50 };
+
+    return {
+      x: clampPlacement(((event.clientX - rect.left) / rect.width) * 100, 0, 100),
+      y: clampPlacement(((event.clientY - rect.top) / rect.height) * 100, 0, 100),
+    };
+  }
+
+  function buildEndpointPayload(endpoint, event) {
+    return {
+      ...endpoint,
+      ...getBoardPoint(event),
+    };
+  }
 
   return (
     <div className={`challenge-scene ${challengeId}`}>
@@ -1561,7 +1660,23 @@ function ChallengeCanvas({
         </div>
       </div>
 
-      <div className="challenge-scene-board lab-dropzone" onDragOver={onBoardDragOver} onDrop={onBoardDrop}>
+      <div
+        className={`challenge-scene-board lab-dropzone ${wireDrag ? "wiring-active" : ""}`}
+        onDragOver={onBoardDragOver}
+        onDrop={onBoardDrop}
+        onPointerMove={(event) => {
+          if (!wireDrag) return;
+          if (event.target === event.currentTarget) {
+            onWireHoverChange(null);
+          }
+          onWireDragMove(getBoardPoint(event));
+        }}
+        onPointerUp={() => {
+          if (!wireDrag) return;
+          onWireDragEnd(null);
+        }}
+        ref={boardRef}
+      >
         {scene.wires.map((wire) => (
           <span
             className={`scene-wire ${wire.className} ${simulationStep >= wire.activeAt ? "active" : ""}`}
@@ -1570,15 +1685,33 @@ function ChallengeCanvas({
         ))}
         <svg className="connection-overlay" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
           {renderedLines.map((line) => (
-            <line
-              className="connection-line"
-              key={line.id}
-              x1={line.from.x}
-              x2={line.to.x}
-              y1={line.from.y}
-              y2={line.to.y}
-            />
+            <g key={line.id}>
+              <line
+                className="connection-hitbox"
+                onClick={() => onRemoveConnection(line.id)}
+                x1={line.from.x}
+                x2={line.to.x}
+                y1={line.from.y}
+                y2={line.to.y}
+              />
+              <line
+                className="connection-line"
+                x1={line.from.x}
+                x2={line.to.x}
+                y1={line.from.y}
+                y2={line.to.y}
+              />
+            </g>
           ))}
+          {previewLine ? (
+            <line
+              className={`connection-line preview ${wirePreviewStatus}`}
+              x1={previewLine.from.x}
+              x2={previewLine.to.x}
+              y1={previewLine.from.y}
+              y2={previewLine.to.y}
+            />
+          ) : null}
         </svg>
         <div className="placement-slot-layer" aria-hidden="true">
           {placementBlueprint.map((slot) => (
@@ -1598,9 +1731,27 @@ function ChallengeCanvas({
         </div>
         {inputAnchors.map((anchor) => (
           <button
-            className={`lab-anchor input ${activeEndpoint?.key === anchor.key ? "selected" : ""}`}
+            className={`lab-anchor input ${wireDrag?.startEndpoint.key === anchor.key ? "selected" : ""}`}
             key={anchor.key}
-            onClick={() => onEndpointClick(anchor)}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onWireDragStart(buildEndpointPayload(anchor, event));
+            }}
+            onPointerEnter={(event) => {
+              if (!wireDrag) return;
+              onWireHoverChange(buildEndpointPayload(anchor, event));
+            }}
+            onPointerLeave={() => {
+              if (!wireDrag) return;
+              onWireHoverChange(null);
+            }}
+            onPointerUp={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!wireDrag) return;
+              onWireDragEnd(buildEndpointPayload(anchor, event));
+            }}
             style={{ left: `${anchor.x}%`, top: `${anchor.y}%` }}
             type="button"
           >
@@ -1609,9 +1760,27 @@ function ChallengeCanvas({
         ))}
         {outputAnchors.map((anchor) => (
           <button
-            className={`lab-anchor output ${activeEndpoint?.key === anchor.key ? "selected" : ""}`}
+            className={`lab-anchor output ${wireDrag?.startEndpoint.key === anchor.key ? "selected" : ""}`}
             key={anchor.key}
-            onClick={() => onEndpointClick(anchor)}
+            onPointerDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              onWireDragStart(buildEndpointPayload(anchor, event));
+            }}
+            onPointerEnter={(event) => {
+              if (!wireDrag) return;
+              onWireHoverChange(buildEndpointPayload(anchor, event));
+            }}
+            onPointerLeave={() => {
+              if (!wireDrag) return;
+              onWireHoverChange(null);
+            }}
+            onPointerUp={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              if (!wireDrag) return;
+              onWireDragEnd(buildEndpointPayload(anchor, event));
+            }}
             style={{ left: `${anchor.x}%`, top: `${anchor.y}%` }}
             type="button"
           >
@@ -1656,17 +1825,44 @@ function ChallengeCanvas({
               <div className="floating-pin-row">
                 {(componentPins[component.name] ?? []).map((pin) => (
                   <button
-                    className={`floating-pin ${activeEndpoint?.key === `${component.id}-${pin.pin}` ? "selected" : ""}`}
+                    className={`floating-pin ${wireDrag?.startEndpoint.key === `${component.id}-${pin.pin}` ? "selected" : ""}`}
                     key={`${component.id}-${pin.pin}`}
-                    onClick={(event) => {
+                    onPointerDown={(event) => {
                       event.stopPropagation();
-                      onEndpointClick({
+                      event.preventDefault();
+                      onWireDragStart(buildEndpointPayload({
                         key: `${component.id}-${pin.pin}`,
                         label: component.name,
                         componentName: component.name,
                         componentLabel: component.displayLabel ?? component.name,
                         pin: pin.pin,
-                      });
+                      }, event));
+                    }}
+                    onPointerEnter={(event) => {
+                      if (!wireDrag) return;
+                      onWireHoverChange(buildEndpointPayload({
+                        key: `${component.id}-${pin.pin}`,
+                        label: component.name,
+                        componentName: component.name,
+                        componentLabel: component.displayLabel ?? component.name,
+                        pin: pin.pin,
+                      }, event));
+                    }}
+                    onPointerLeave={() => {
+                      if (!wireDrag) return;
+                      onWireHoverChange(null);
+                    }}
+                    onPointerUp={(event) => {
+                      event.stopPropagation();
+                      event.preventDefault();
+                      if (!wireDrag) return;
+                      onWireDragEnd(buildEndpointPayload({
+                        key: `${component.id}-${pin.pin}`,
+                        label: component.name,
+                        componentName: component.name,
+                        componentLabel: component.displayLabel ?? component.name,
+                        pin: pin.pin,
+                      }, event));
                     }}
                     type="button"
                   >

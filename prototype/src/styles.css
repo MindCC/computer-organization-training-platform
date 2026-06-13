@@ -1278,7 +1278,8 @@ textarea:focus-visible {
 .wiring-hint,
 .connection-summary,
 .placement-status,
-.placement-summary {
+.placement-summary,
+.study-card {
   display: grid;
   gap: 8px;
   padding: 14px 16px;
@@ -1290,16 +1291,31 @@ textarea:focus-visible {
 .wiring-hint p,
 .connection-summary p,
 .placement-status p,
-.placement-summary p {
+.placement-summary p,
+.study-card p {
   margin: 0;
   color: var(--muted);
   line-height: 1.65;
 }
 
 .wiring-hint small,
-.placement-status small {
+.placement-status small,
+.study-card small {
   color: var(--teal);
   font-weight: 800;
+}
+
+.study-card-section {
+  display: grid;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.study-card-section span {
+  color: #174f78;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
 }
 
 .lab-stage-panel {
@@ -1331,6 +1347,10 @@ textarea:focus-visible {
   border-color: rgba(40, 109, 232, 0.18);
 }
 
+.lab-dropzone.wiring-active {
+  cursor: crosshair;
+}
+
 .floating-layer {
   position: absolute;
   inset: 0;
@@ -1359,6 +1379,32 @@ textarea:focus-visible {
   stroke-linecap: round;
   stroke-width: 1;
   filter: drop-shadow(0 0 0.45rem rgba(40, 109, 232, 0.25));
+}
+
+.connection-hitbox {
+  stroke: transparent;
+  stroke-linecap: round;
+  stroke-width: 4;
+  cursor: pointer;
+}
+
+.connection-line.preview {
+  stroke: rgba(43, 169, 142, 0.96);
+  stroke-dasharray: 3 2;
+  stroke-width: 1.2;
+}
+
+.connection-line.preview.valid {
+  stroke: rgba(43, 169, 142, 0.96);
+}
+
+.connection-line.preview.invalid,
+.connection-line.preview.self {
+  stroke: rgba(206, 76, 64, 0.96);
+}
+
+.connection-line.preview.empty {
+  stroke: rgba(43, 169, 142, 0.96);
 }
 
 .placement-slot {
@@ -1426,6 +1472,12 @@ textarea:focus-visible {
   white-space: nowrap;
   font-size: 0.82rem;
   font-weight: 800;
+}
+
+.lab-anchor:hover,
+.floating-pin:hover {
+  border-color: rgba(40, 109, 232, 0.34);
+  box-shadow: 0 0 0 4px rgba(40, 109, 232, 0.08), 0 12px 28px rgba(20, 58, 99, 0.12);
 }
 
 .lab-anchor.selected,
@@ -1497,6 +1549,16 @@ textarea:focus-visible {
   border-color: rgba(216, 159, 35, 0.24);
   color: #8b6614;
   background: rgba(255, 247, 220, 0.92);
+}
+
+.connection-chip.removable {
+  gap: 10px;
+  cursor: pointer;
+}
+
+.connection-chip.removable strong {
+  color: #174f78;
+  font-size: 0.72rem;
 }
 
 .floating-component.selected {

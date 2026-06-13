@@ -39,9 +39,12 @@ await assertCountAtLeast(page, ".placement-slot", 3);
 await dropPaletteComponent(page, "异或门1", 0.28, 0.34, 0);
 await assertCountAtLeast(page, ".floating-component", 1);
 await assertCountAtLeast(page, ".placement-slot.matched", 1);
-await page.locator(".lab-anchor.input").first().click();
-await page.locator(".floating-pin").first().click();
-await assertCountAtLeast(page, ".connection-chip", 1);
+await dragWireBetween(page, page.locator(".lab-anchor.input").first(), page.locator(".floating-pin").first());
+await waitForCountAtLeast(page, ".connection-chip.removable", 1);
+await clickFirstConnectionChip(page);
+await waitForCount(page, ".connection-chip.removable", 0);
+await dragWireBetween(page, page.locator(".lab-anchor.input").first(), page.locator(".floating-pin").first());
+await waitForCountAtLeast(page, ".connection-chip.removable", 1);
 const placedId = await page.locator(".floating-component").first().getAttribute("data-component-id");
 assert.ok(placedId, "placed component id should exist");
 await movePlacedComponent(page, placedId, "异或门1", 0, 0.72, 0.34);
@@ -108,6 +111,32 @@ async function assertCountAtLeast(targetPage, selector, count) {
   assert.ok((await targetPage.locator(selector).count()) >= count, `${selector} count should be >= ${count}`);
 }
 
+async function waitForCount(targetPage, selector, count) {
+  await targetPage.waitForFunction(
+    ({ selector, count }) => document.querySelectorAll(selector).length === count,
+    { selector, count },
+  );
+  await assertCount(targetPage, selector, count);
+}
+
+async function waitForCountAtLeast(targetPage, selector, count) {
+  await targetPage.waitForFunction(
+    ({ selector, count }) => document.querySelectorAll(selector).length >= count,
+    { selector, count },
+  );
+  await assertCountAtLeast(targetPage, selector, count);
+}
+
+async function clickFirstConnectionChip(targetPage) {
+  const clicked = await targetPage.evaluate(() => {
+    const chip = document.querySelector(".connection-chip.removable");
+    if (!chip) return false;
+    chip.click();
+    return true;
+  });
+  assert.equal(clicked, true, "first removable connection chip should exist");
+}
+
 async function dropPaletteComponent(targetPage, componentName, xRatio, yRatio, sourceIndex = 0) {
   await targetPage.evaluate(({ componentName, xRatio, yRatio, sourceIndex }) => {
     const target = document.querySelector(".lab-dropzone");
@@ -147,6 +176,19 @@ async function movePlacedComponent(targetPage, id, name, sourceIndex, xRatio, yR
     });
     target.dispatchEvent(event);
   }, { id, name, sourceIndex, xRatio, yRatio });
+}
+
+async function dragWireBetween(targetPage, fromLocator, toLocator) {
+  const fromBox = await fromLocator.boundingBox();
+  const toBox = await toLocator.boundingBox();
+
+  assert.ok(fromBox, "wire drag start target should exist");
+  assert.ok(toBox, "wire drag end target should exist");
+
+  await targetPage.mouse.move(fromBox.x + fromBox.width / 2, fromBox.y + fromBox.height / 2);
+  await targetPage.mouse.down();
+  await targetPage.mouse.move(toBox.x + toBox.width / 2, toBox.y + toBox.height / 2, { steps: 10 });
+  await targetPage.mouse.up();
 }
 
 function artifactPath(fileName) {
