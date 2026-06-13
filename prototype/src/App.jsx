@@ -1876,6 +1876,7 @@ function ChallengeCanvas({
                         componentName: component.name,
                         componentLabel: component.displayLabel ?? component.name,
                         pin: pin.pin,
+                        pinRole: pin.role,
                       }, event));
                     }}
                     onPointerEnter={(event) => {
@@ -1886,6 +1887,7 @@ function ChallengeCanvas({
                         componentName: component.name,
                         componentLabel: component.displayLabel ?? component.name,
                         pin: pin.pin,
+                        pinRole: pin.role,
                       }, event));
                     }}
                     onPointerLeave={() => {
@@ -1902,6 +1904,7 @@ function ChallengeCanvas({
                         componentName: component.name,
                         componentLabel: component.displayLabel ?? component.name,
                         pin: pin.pin,
+                        pinRole: pin.role,
                       }, event));
                     }}
                     type="button"

@@ -156,7 +156,38 @@ test("拖线到非法目标时会返回 invalid 状态供界面即时提示", ()
   assert.deepEqual(inspection, {
     status: "invalid",
     connection: null,
+    reason: "not-required",
   });
+});
+
+test("拖线落到组件输出脚时会按端口方向拒绝输入连接", () => {
+  const challenge = CHALLENGES.find((item) => item.id === "half-adder");
+
+  const inspection = inspectWireTarget(
+    challenge,
+    { key: "input-输入A", label: "输入A", side: "input" },
+    { key: "xor-S", label: "异或门", pin: "S", pinRole: "output" },
+  );
+
+  assert.deepEqual(inspection, {
+    status: "invalid",
+    connection: null,
+    reason: "direction",
+  });
+});
+
+test("粗粒度组件端点没有引脚角色时仍保留标签级合法连接", () => {
+  const challenge = CHALLENGES.find((item) => item.id === "data-flow");
+
+  const result = completeWireDrag(
+    challenge,
+    [],
+    beginWireDrag({ key: "component-数据通路", label: "数据通路" }),
+    { key: "output-结果S", label: "结果S" },
+  );
+
+  assert.deepEqual(result.connections, ["数据通路->结果S"]);
+  assert.equal(result.status, "valid");
 });
 
 test("拖线到合法目标时会返回 valid 状态和规范化连接", () => {
@@ -171,6 +202,7 @@ test("拖线到合法目标时会返回 valid 状态和规范化连接", () => {
   assert.deepEqual(inspection, {
     status: "valid",
     connection: "进位输入Cin->异或门2",
+    reason: null,
   });
 });
 

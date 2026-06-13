@@ -20,6 +20,26 @@ function inferPinRole(pin) {
   return "neutral";
 }
 
+function endpointFlowRole(endpoint) {
+  if (!endpoint) return "unknown";
+  if (endpoint.flowRole) return endpoint.flowRole;
+
+  if (endpoint.side === "input") return "source";
+  if (endpoint.side === "output") return "sink";
+
+  const pinRole = endpoint.pinRole ?? (endpoint.pin ? inferPinRole(endpoint.pin) : null);
+  if (pinRole === "input") return "sink";
+  if (pinRole === "output") return "source";
+
+  return "unknown";
+}
+
+function endpointFitsConnectionSide(endpoint, connectionSide) {
+  const role = endpointFlowRole(endpoint);
+  if (role === "unknown") return true;
+  return connectionSide === "from" ? role === "source" : role === "sink";
+}
+
 function distributePinOffsets(items, offsetX, startY = 30, endY = 70) {
   if (items.length === 0) return [];
   if (items.length === 1) {
@@ -262,12 +282,29 @@ export function inspectWireTarget(challenge, startEndpoint, endEndpoint) {
     return {
       status: "invalid",
       connection: null,
+      reason: "not-required",
+    };
+  }
+
+  const { from, to } = parseConnectionLabel(connection);
+  const startSide = startEndpoint.label === from ? "from" : startEndpoint.label === to ? "to" : null;
+  const endSide = endEndpoint.label === from ? "from" : endEndpoint.label === to ? "to" : null;
+
+  if (
+    (startSide && !endpointFitsConnectionSide(startEndpoint, startSide))
+    || (endSide && !endpointFitsConnectionSide(endEndpoint, endSide))
+  ) {
+    return {
+      status: "invalid",
+      connection: null,
+      reason: "direction",
     };
   }
 
   return {
     status: "valid",
     connection,
+    reason: null,
   };
 }
 
