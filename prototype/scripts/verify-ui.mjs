@@ -39,7 +39,12 @@ await assertCountAtLeast(page, ".placement-slot", 3);
 await dropPaletteComponent(page, "异或门1", 0.28, 0.34, 0);
 await assertCountAtLeast(page, ".floating-component", 1);
 await assertCountAtLeast(page, ".placement-slot.matched", 1);
-await dragWireBetween(page, page.locator(".lab-anchor.input").first(), page.locator(".floating-pin").first());
+await assertVisible(page, "拖动元件");
+await dragPlacedComponentByHandle(page, page.locator(".floating-component").first(), page.locator(".component-drag-handle").first(), 180, 42);
+await beginWireDrag(page, page.locator(".lab-anchor.input").first());
+await hoverWireTarget(page, page.locator(".floating-pin").first());
+await assertVisible(page, "目标端点");
+await page.mouse.up();
 await waitForCountAtLeast(page, ".connection-chip.removable", 1);
 await clickFirstConnectionChip(page);
 await waitForCount(page, ".connection-chip.removable", 0);
@@ -189,6 +194,32 @@ async function dragWireBetween(targetPage, fromLocator, toLocator) {
   await targetPage.mouse.down();
   await targetPage.mouse.move(toBox.x + toBox.width / 2, toBox.y + toBox.height / 2, { steps: 10 });
   await targetPage.mouse.up();
+}
+
+async function beginWireDrag(targetPage, fromLocator) {
+  const fromBox = await fromLocator.boundingBox();
+  assert.ok(fromBox, "wire drag start target should exist");
+  await targetPage.mouse.move(fromBox.x + fromBox.width / 2, fromBox.y + fromBox.height / 2);
+  await targetPage.mouse.down();
+}
+
+async function hoverWireTarget(targetPage, toLocator) {
+  const toBox = await toLocator.boundingBox();
+  assert.ok(toBox, "wire drag hover target should exist");
+  await targetPage.mouse.move(toBox.x + toBox.width / 2, toBox.y + toBox.height / 2, { steps: 10 });
+}
+
+async function dragPlacedComponentByHandle(targetPage, componentLocator, handleLocator, offsetX, offsetY) {
+  const before = await componentLocator.getAttribute("style");
+  const handleBox = await handleLocator.boundingBox();
+  assert.ok(handleBox, "component drag handle should exist");
+  await targetPage.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await targetPage.mouse.down();
+  await targetPage.mouse.move(handleBox.x + handleBox.width / 2 + offsetX, handleBox.y + handleBox.height / 2 + offsetY, { steps: 12 });
+  await targetPage.mouse.up();
+  await targetPage.waitForTimeout(300);
+  const after = await componentLocator.getAttribute("style");
+  assert.notEqual(after, before, "placed component should move after dragging the handle");
 }
 
 function artifactPath(fileName) {

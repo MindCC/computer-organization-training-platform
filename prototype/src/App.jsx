@@ -180,6 +180,60 @@ function clampPlacement(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function formatEndpointLabel(endpoint) {
+  if (!endpoint) return "等待拖到目标端点";
+
+  if (endpoint.componentLabel && endpoint.pin) {
+    return `${endpoint.componentLabel} · ${endpoint.pin}`;
+  }
+
+  if (endpoint.componentName && endpoint.pin) {
+    return `${endpoint.componentName} · ${endpoint.pin}`;
+  }
+
+  return endpoint.label;
+}
+
+function describeWirePreview(startEndpoint, targetEndpoint, status) {
+  if (!startEndpoint) {
+    return {
+      tone: "idle",
+      summary: "当前未开始拖线",
+      detail: "按住端点或引脚开始连线。",
+    };
+  }
+
+  if (!targetEndpoint || status === "empty") {
+    return {
+      tone: "idle",
+      summary: `起点端点：${formatEndpointLabel(startEndpoint)}`,
+      detail: "目标端点：等待拖到目标端点",
+    };
+  }
+
+  if (status === "valid") {
+    return {
+      tone: "valid",
+      summary: `起点端点：${formatEndpointLabel(startEndpoint)}`,
+      detail: `目标端点：${formatEndpointLabel(targetEndpoint)} · 可以连接`,
+    };
+  }
+
+  if (status === "self") {
+    return {
+      tone: "invalid",
+      summary: `起点端点：${formatEndpointLabel(startEndpoint)}`,
+      detail: "目标端点：不能与起点是同一个端点",
+    };
+  }
+
+  return {
+    tone: "invalid",
+    summary: `起点端点：${formatEndpointLabel(startEndpoint)}`,
+    detail: `目标端点：${formatEndpointLabel(targetEndpoint)} · 当前不能连接`,
+  };
+}
+
 function createPlacedComponent(name, x, y, options = {}) {
   return {
     id: `${name}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -336,6 +390,10 @@ export function App() {
   const wirePreviewStatus = wireDrag
     ? inspectWireTarget(currentChallenge, wireDrag.startEndpoint, wireHoverEndpoint).status
     : "empty";
+  const wirePreviewCopy = useMemo(
+    () => describeWirePreview(wireDrag?.startEndpoint ?? null, wireHoverEndpoint, wirePreviewStatus),
+    [wireDrag, wireHoverEndpoint, wirePreviewStatus],
+  );
 
   function changeView(view) {
     setActiveView(view);
@@ -1152,10 +1210,12 @@ export function App() {
                     setSelectedComponent={setSelectedComponent}
                     simulationStep={simulationStep}
                     wireDrag={wireDrag}
+                    wireHoverEndpoint={wireHoverEndpoint}
                     onWireDragEnd={handleWireDragEnd}
                     onWireHoverChange={handleWireHoverChange}
                     onWireDragMove={handleWireDragMove}
                     onWireDragStart={handleWireDragStart}
+                    wirePreviewCopy={wirePreviewCopy}
                     wirePreviewStatus={wirePreviewStatus}
                   />
                 </div>
@@ -1492,6 +1552,8 @@ function ChallengeCanvas({
   setSelectedComponent,
   simulationStep,
   wireDrag,
+  wireHoverEndpoint,
+  wirePreviewCopy,
   wirePreviewStatus,
 }) {
   const boardRef = useRef(null);
@@ -1713,6 +1775,13 @@ function ChallengeCanvas({
             />
           ) : null}
         </svg>
+        {wireDrag ? (
+          <div className={`wire-target-indicator ${wirePreviewCopy.tone}`}>
+            <strong>当前连线</strong>
+            <span>{wirePreviewCopy.summary}</span>
+            <small>{wirePreviewCopy.detail}</small>
+          </div>
+        ) : null}
         <div className="placement-slot-layer" aria-hidden="true">
           {placementBlueprint.map((slot) => (
             <div
@@ -1731,7 +1800,12 @@ function ChallengeCanvas({
         </div>
         {inputAnchors.map((anchor) => (
           <button
-            className={`lab-anchor input ${wireDrag?.startEndpoint.key === anchor.key ? "selected" : ""}`}
+            className={[
+              "lab-anchor",
+              "input",
+              wireDrag?.startEndpoint.key === anchor.key ? "selected start" : "",
+              wireHoverEndpoint?.key === anchor.key && wireDrag ? `target ${wirePreviewStatus}` : "",
+            ].filter(Boolean).join(" ")}
             key={anchor.key}
             onPointerDown={(event) => {
               event.preventDefault();
@@ -1760,7 +1834,12 @@ function ChallengeCanvas({
         ))}
         {outputAnchors.map((anchor) => (
           <button
-            className={`lab-anchor output ${wireDrag?.startEndpoint.key === anchor.key ? "selected" : ""}`}
+            className={[
+              "lab-anchor",
+              "output",
+              wireDrag?.startEndpoint.key === anchor.key ? "selected start" : "",
+              wireHoverEndpoint?.key === anchor.key && wireDrag ? `target ${wirePreviewStatus}` : "",
+            ].filter(Boolean).join(" ")}
             key={anchor.key}
             onPointerDown={(event) => {
               event.preventDefault();
@@ -1822,10 +1901,26 @@ function ChallengeCanvas({
                 <Cpu size={16} />
                 <span>{component.displayLabel ?? component.name}</span>
               </div>
+              <button
+                className="component-drag-handle"
+                draggable
+                onClick={(event) => event.stopPropagation()}
+                onDragStart={(event) => {
+                  event.stopPropagation();
+                  onPlacedComponentDragStart(event, component);
+                }}
+                type="button"
+              >
+                拖动元件
+              </button>
               <div className="floating-pin-row">
                 {(componentPins[component.name] ?? []).map((pin) => (
                   <button
-                    className={`floating-pin ${wireDrag?.startEndpoint.key === `${component.id}-${pin.pin}` ? "selected" : ""}`}
+                    className={[
+                      "floating-pin",
+                      wireDrag?.startEndpoint.key === `${component.id}-${pin.pin}` ? "selected start" : "",
+                      wireHoverEndpoint?.key === `${component.id}-${pin.pin}` && wireDrag ? `target ${wirePreviewStatus}` : "",
+                    ].filter(Boolean).join(" ")}
                     key={`${component.id}-${pin.pin}`}
                     onPointerDown={(event) => {
                       event.stopPropagation();

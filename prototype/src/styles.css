@@ -1407,6 +1407,44 @@ textarea:focus-visible {
   stroke: rgba(43, 169, 142, 0.96);
 }
 
+.wire-target-indicator {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  z-index: 6;
+  display: grid;
+  gap: 4px;
+  min-width: 240px;
+  max-width: 320px;
+  padding: 12px 14px;
+  border: 1px solid rgba(20, 58, 99, 0.12);
+  border-radius: 16px;
+  color: var(--navy);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 40px rgba(20, 58, 99, 0.16);
+}
+
+.wire-target-indicator strong {
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.wire-target-indicator span,
+.wire-target-indicator small {
+  line-height: 1.35;
+}
+
+.wire-target-indicator.valid {
+  border-color: rgba(43, 169, 142, 0.34);
+  background: rgba(242, 251, 247, 0.96);
+}
+
+.wire-target-indicator.invalid {
+  border-color: rgba(206, 76, 64, 0.34);
+  background: rgba(255, 246, 244, 0.96);
+}
+
 .placement-slot {
   position: absolute;
   display: grid;
@@ -1486,6 +1524,20 @@ textarea:focus-visible {
   box-shadow: 0 0 0 4px rgba(40, 109, 232, 0.1), 0 12px 28px rgba(20, 58, 99, 0.12);
 }
 
+.lab-anchor.target.valid,
+.floating-pin.target.valid {
+  border-color: rgba(43, 169, 142, 0.42);
+  box-shadow: 0 0 0 6px rgba(43, 169, 142, 0.12), 0 12px 28px rgba(20, 58, 99, 0.12);
+}
+
+.lab-anchor.target.invalid,
+.lab-anchor.target.self,
+.floating-pin.target.invalid,
+.floating-pin.target.self {
+  border-color: rgba(206, 76, 64, 0.42);
+  box-shadow: 0 0 0 6px rgba(206, 76, 64, 0.12), 0 12px 28px rgba(20, 58, 99, 0.12);
+}
+
 .floating-component {
   position: absolute;
   display: grid;
@@ -1507,6 +1559,26 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+.component-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px dashed rgba(20, 58, 99, 0.22);
+  border-radius: 999px;
+  color: #174f78;
+  background: rgba(241, 247, 255, 0.96);
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: grab;
+}
+
+.component-drag-handle:active {
+  cursor: grabbing;
 }
 
 .floating-component span {
