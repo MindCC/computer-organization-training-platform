@@ -1118,9 +1118,10 @@ textarea:focus-visible {
   min-height: 100vh;
   padding: 24px;
   background:
-    radial-gradient(circle at 12% 10%, rgba(43, 169, 142, 0.14), transparent 24%),
-    radial-gradient(circle at 86% 0%, rgba(40, 109, 232, 0.12), transparent 28%),
-    linear-gradient(135deg, #fbf6ee 0%, #eef5f7 100%);
+    linear-gradient(rgba(20, 58, 99, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 58, 99, 0.04) 1px, transparent 1px),
+    linear-gradient(135deg, #f7f4ec 0%, #edf4f1 52%, #eef3f8 100%);
+  background-size: 28px 28px, 28px 28px, auto;
 }
 
 .lab-screen-topbar,
@@ -1138,8 +1139,8 @@ textarea:focus-visible {
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  padding: 20px 22px;
-  border-radius: 28px;
+  padding: 16px 18px;
+  border-radius: 18px;
 }
 
 .lab-screen-leading,
@@ -1174,8 +1175,8 @@ textarea:focus-visible {
   display: block;
   margin-top: 4px;
   font-family: "Newsreader", "Microsoft YaHei", serif;
-  font-size: clamp(2rem, 3vw, 3rem);
-  line-height: 0.98;
+  font-size: 2rem;
+  line-height: 1.02;
 }
 
 .lab-screen-title p,
@@ -1217,7 +1218,7 @@ textarea:focus-visible {
 
 .lab-screen-body {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) 320px;
   gap: 18px;
   margin-top: 18px;
   align-items: start;
@@ -1225,8 +1226,8 @@ textarea:focus-visible {
 
 .lab-main-panel,
 .lab-side-card {
-  border-radius: 28px;
-  padding: 22px;
+  border-radius: 18px;
+  padding: 18px;
 }
 
 .lab-main-header,
@@ -1244,8 +1245,8 @@ textarea:focus-visible {
 }
 
 .lab-main-header h1 {
-  font-size: clamp(2rem, 3vw, 3rem);
-  line-height: 0.98;
+  font-size: 2rem;
+  line-height: 1.05;
 }
 
 .lab-main-header p,
@@ -1257,7 +1258,7 @@ textarea:focus-visible {
 
 .lab-stage-layout {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: 220px minmax(0, 1fr);
   gap: 16px;
   align-items: start;
 }
@@ -1266,7 +1267,7 @@ textarea:focus-visible {
   align-content: start;
   padding: 18px;
   border: 1px solid rgba(20, 58, 99, 0.08);
-  border-radius: 24px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.68);
 }
 
@@ -1323,11 +1324,11 @@ textarea:focus-visible {
 }
 
 .lab-screen .circuit-canvas {
-  min-height: 700px;
-  padding: 18px;
+  min-height: 760px;
+  padding: 16px;
   border-style: solid;
   border-color: rgba(20, 58, 99, 0.1);
-  background: rgba(255, 255, 255, 0.58);
+  background: rgba(249, 252, 251, 0.76);
 }
 
 .lab-screen .challenge-scene {
@@ -1335,7 +1336,7 @@ textarea:focus-visible {
 }
 
 .lab-screen .challenge-scene-board {
-  min-height: 560px;
+  min-height: 600px;
 }
 
 .lab-dropzone {
@@ -1361,10 +1362,82 @@ textarea:focus-visible {
 .connection-overlay {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 3;
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
+
+.canvas-issue-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+
+.canvas-wire-hit-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.canvas-wire-hit-target {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.canvas-wire-hit-target:hover,
+.canvas-wire-hit-target:focus-visible {
+  outline: none;
+  background: rgba(216, 93, 77, 0.12);
+  box-shadow: 0 0 0 4px rgba(216, 93, 77, 0.12);
+}
+
+.canvas-issue-marker {
+  position: absolute;
+  display: grid;
+  gap: 2px;
+  max-width: min(240px, 34vw);
+  padding: 8px 10px;
+  border: 1px solid rgba(20, 58, 99, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 14px 28px rgba(20, 58, 99, 0.14);
+  transform: translate(-50%, -50%);
+}
+
+.canvas-issue-marker strong {
+  color: var(--navy);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.canvas-issue-marker span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.canvas-issue-marker.error {
+  border-color: rgba(206, 76, 64, 0.32);
+  background: rgba(255, 246, 244, 0.98);
+}
+
+.canvas-issue-marker.warning {
+  border-color: rgba(214, 143, 47, 0.34);
+  background: rgba(255, 250, 236, 0.98);
 }
 
 .placement-slot-layer {
@@ -1375,17 +1448,71 @@ textarea:focus-visible {
 }
 
 .connection-line {
+  fill: none;
   stroke: #2d79ea;
   stroke-linecap: round;
+  stroke-linejoin: round;
   stroke-width: 1;
   filter: drop-shadow(0 0 0.45rem rgba(40, 109, 232, 0.25));
+  pointer-events: none;
+}
+
+.connection-line.idle {
+  stroke: rgba(20, 58, 99, 0.46);
+  stroke-dasharray: 1.6 2.2;
+  filter: none;
+}
+
+.connection-line.active {
+  stroke: #19a37a;
+  stroke-width: 1.25;
+  filter: drop-shadow(0 0 0.5rem rgba(25, 163, 122, 0.36));
+}
+
+.connection-line.error {
+  stroke: #ce4c40;
+  stroke-width: 1.35;
+  filter: drop-shadow(0 0 0.45rem rgba(206, 76, 64, 0.36));
+}
+
+.connection-line.missing {
+  stroke: rgba(206, 76, 64, 0.65);
+  stroke-dasharray: 2 2;
 }
 
 .connection-hitbox {
+  fill: none;
   stroke: transparent;
   stroke-linecap: round;
-  stroke-width: 4;
+  stroke-linejoin: round;
+  stroke-width: 7;
   cursor: pointer;
+  pointer-events: stroke;
+}
+
+.connection-signal-label {
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.9);
+  stroke-width: 3px;
+  fill: #174f78;
+  font-size: 3px;
+  font-weight: 900;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
+.connection-signal-label.idle {
+  fill: rgba(20, 58, 99, 0.62);
+}
+
+.connection-signal-label.active {
+  fill: #0b7c5d;
+}
+
+.connection-signal-label.error,
+.connection-signal-label.missing {
+  fill: #b43f35;
 }
 
 .connection-line.preview {
@@ -1548,11 +1675,25 @@ textarea:focus-visible {
   border: 1px solid rgba(20, 58, 99, 0.18);
   border-radius: 14px;
   color: var(--navy);
-  background: rgba(255, 255, 255, 0.94);
+  background: #ffffff;
   box-shadow: 0 16px 34px rgba(20, 58, 99, 0.12);
   cursor: grab;
   pointer-events: auto;
   transform: translate(-50%, -50%);
+}
+
+.challenge-scene.has-components .scene-node {
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.challenge-scene.has-components .scene-wire {
+  opacity: 0.16;
+  box-shadow: none;
+}
+
+.challenge-scene.has-components .scene-wire.active {
+  opacity: 0.22;
 }
 
 .floating-component-head {
@@ -1900,19 +2041,61 @@ textarea:focus-visible {
   line-height: 1.4;
 }
 
+.workbench-signal-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.signal-badge {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid rgba(20, 58, 99, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.signal-badge span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.signal-badge strong {
+  overflow: hidden;
+  color: var(--navy);
+  font-size: 0.86rem;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.signal-badge.source {
+  border-color: rgba(43, 169, 142, 0.28);
+}
+
+.signal-badge.probe {
+  border-color: rgba(214, 143, 47, 0.28);
+}
+
+.signal-badge.sink {
+  border-color: rgba(40, 109, 232, 0.24);
+}
+
 .challenge-scene-board {
   position: relative;
   min-height: 350px;
   overflow: hidden;
   border: 1px solid rgba(20, 58, 99, 0.1);
-  border-radius: 26px;
+  border-radius: 16px;
   background:
-    radial-gradient(circle at 12% 18%, rgba(43, 169, 142, 0.12), transparent 24%),
-    radial-gradient(circle at 82% 78%, rgba(40, 109, 232, 0.08), transparent 20%),
-    linear-gradient(rgba(20, 58, 99, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(20, 58, 99, 0.05) 1px, transparent 1px),
-    rgba(255, 255, 255, 0.74);
-  background-size: auto, auto, 26px 26px, 26px 26px, auto;
+    linear-gradient(rgba(20, 58, 99, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 58, 99, 0.06) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(242, 248, 247, 0.86));
+  background-size: 26px 26px, 26px 26px, auto;
 }
 
 .challenge-scene.data-flow .challenge-scene-board {
@@ -2075,11 +2258,11 @@ textarea:focus-visible {
   display: grid;
   gap: 6px;
   width: 150px;
-  padding: 14px 16px;
-  border: 1px solid rgba(20, 58, 99, 0.18);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 28px rgba(20, 58, 99, 0.08);
+  padding: 12px 14px;
+  border: 1px solid rgba(20, 58, 99, 0.22);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 20px rgba(20, 58, 99, 0.07), inset 0 -3px 0 rgba(20, 58, 99, 0.05);
   text-align: left;
 }
 

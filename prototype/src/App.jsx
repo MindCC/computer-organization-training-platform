@@ -30,12 +30,20 @@ import {
   summarizeLearning,
 } from "./platformLogic.js";
 import {
+  buildSignalBadges,
+  buildWorkbenchIssueMarkers,
+  resolveConnectionTone,
+  signalLabelForConnection,
+} from "./labWorkbench.js";
+import {
   beginWireDrag,
   buildComponentPinLayout,
   buildConnectionBlueprint,
+  buildOrthogonalWireRoute,
   buildRenderableConnections,
   cancelWireDrag,
   completeWireDrag,
+  formatWireRoutePoints,
   inspectWireTarget,
 } from "./labWiring.js";
 import {
@@ -1135,11 +1143,13 @@ export function App() {
                   onDragOver={(event) => event.preventDefault()}
                 >
                   <ChallengeCanvas
+                    activeStep={activeStep}
                     challenge={currentChallenge}
                     challengeId={currentChallenge.id}
                     connectionBlueprint={connectionBlueprint}
                     connections={connections}
                     expandedComponent={expandedComponent}
+                    feedback={feedback}
                     inputState={inputState}
                     onBoardDragOver={(event) => event.preventDefault()}
                     onBoardDrop={handleDrop}
@@ -1152,6 +1162,7 @@ export function App() {
                     selectedComponent={selectedComponent}
                     setExpandedComponent={setExpandedComponent}
                     setSelectedComponent={setSelectedComponent}
+                    simulation={simulation}
                     simulationStep={simulationStep}
                     wireDrag={wireDrag}
                     wireHoverEndpoint={wireHoverEndpoint}
@@ -1473,11 +1484,13 @@ function RoutePreview({ kind }) {
 }
 
 function ChallengeCanvas({
+  activeStep,
   challenge,
   challengeId,
   connectionBlueprint,
   connections,
   expandedComponent,
+  feedback,
   inputState,
   onBoardDragOver,
   onBoardDrop,
@@ -1494,6 +1507,7 @@ function ChallengeCanvas({
   selectedComponent,
   setExpandedComponent,
   setSelectedComponent,
+  simulation,
   simulationStep,
   wireDrag,
   wireHoverEndpoint,
@@ -1615,6 +1629,13 @@ function ChallengeCanvas({
   };
 
   const scene = scenes[challengeId];
+  const signalBadges = buildSignalBadges({
+    sceneInput: scene.inputText,
+    outputs: simulation?.outputs,
+    activeStep,
+    simulationStep,
+  });
+  const issueMarkers = buildWorkbenchIssueMarkers(feedback);
   const inputAnchors = buildExternalAnchorLayout(connectionBlueprint.externalInputs, "input");
   const outputAnchors = buildExternalAnchorLayout(connectionBlueprint.externalOutputs, "output");
   const componentPins = Object.fromEntries(
@@ -1652,7 +1673,7 @@ function ChallengeCanvas({
   }
 
   return (
-    <div className={`challenge-scene ${challengeId}`}>
+    <div className={`challenge-scene ${challengeId} ${placedComponents.length > 0 ? "has-components" : ""}`}>
       <div className="challenge-scene-header">
         <div>
           <span className="eyebrow">关卡骨架</span>
@@ -1664,6 +1685,15 @@ function ChallengeCanvas({
           <strong>{scene.inputText}</strong>
           <small>输出：{scene.outputText}</small>
         </div>
+      </div>
+
+      <div className="workbench-signal-strip" aria-label="信号状态">
+        {signalBadges.map((badge) => (
+          <div className={`signal-badge ${badge.tone}`} key={badge.id}>
+            <span>{badge.label}</span>
+            <strong>{badge.value}</strong>
+          </div>
+        ))}
       </div>
 
       <div
@@ -1690,25 +1720,30 @@ function ChallengeCanvas({
           />
         ))}
         <svg className="connection-overlay" aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {renderedLines.map((line) => (
-            <g key={line.id}>
-              <line
-                className="connection-hitbox"
-                onClick={() => onRemoveConnection(line.id)}
-                x1={line.from.x}
-                x2={line.to.x}
-                y1={line.from.y}
-                y2={line.to.y}
-              />
-              <line
-                className="connection-line"
-                x1={line.from.x}
-                x2={line.to.x}
-                y1={line.from.y}
-                y2={line.to.y}
-              />
-            </g>
-          ))}
+          {renderedLines.map((line, index) => {
+            const tone = resolveConnectionTone(line.id, feedback, simulationStep);
+            const route = buildOrthogonalWireRoute(line, index);
+            const routePoints = formatWireRoutePoints(route.points);
+
+            return (
+              <g key={line.id}>
+                <polyline
+                  className="connection-hitbox"
+                  data-click-x={route.clickPoint.x}
+                  data-click-y={route.clickPoint.y}
+                  onClick={() => onRemoveConnection(line.id)}
+                  points={routePoints}
+                />
+                <polyline
+                  className={`connection-line ${tone}`}
+                  points={routePoints}
+                />
+                <text className={`connection-signal-label ${tone}`} x={route.label.x} y={route.label.y}>
+                  {signalLabelForConnection(tone, simulationStep)}
+                </text>
+              </g>
+            );
+          })}
           {previewLine ? (
             <line
               className={`connection-line preview ${wirePreviewStatus}`}
@@ -1719,6 +1754,36 @@ function ChallengeCanvas({
             />
           ) : null}
         </svg>
+        <div className="canvas-wire-hit-layer" aria-label="画布导线操作">
+          {renderedLines.map((line, index) => {
+            const route = buildOrthogonalWireRoute(line, index);
+            return (
+              <button
+                aria-label={`移除导线 ${line.id}`}
+                className="canvas-wire-hit-target"
+                key={`hit-${line.id}`}
+                onClick={() => onRemoveConnection(line.id)}
+                style={{ left: `${route.clickPoint.x}%`, top: `${route.clickPoint.y}%` }}
+                title={`移除导线：${line.id}`}
+                type="button"
+              />
+            );
+          })}
+        </div>
+        {issueMarkers.length > 0 ? (
+          <div className="canvas-issue-layer" aria-live="polite">
+            {issueMarkers.map((marker) => (
+              <div
+                className={`canvas-issue-marker ${marker.tone}`}
+                key={marker.id}
+                style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+              >
+                <strong>{marker.label}</strong>
+                <span>{marker.detail}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {wireDrag ? (
           <div className={`wire-target-indicator ${wirePreviewCopy.tone}`}>
             <strong>当前连线</strong>

@@ -8,8 +8,10 @@ import {
   buildComponentPinLayout,
   cancelWireDrag,
   buildConnectionBlueprint,
+  buildOrthogonalWireRoute,
   buildRenderableConnections,
   completeWireDrag,
+  formatWireRoutePoints,
   inspectWireTarget,
   normalizeConnectionLabels,
   toggleConnectionByLabels,
@@ -239,4 +241,19 @@ test("半加器的多条连线会落在不同引脚，而不是挤到同一个�
   assert.notEqual(inputAToXor.to.y, inputBToXor.to.y, "different input lines should land on different target pins");
   assert.ok(inputAToXor.to.x < placedComponents[0].x, "input pins should be left of the xor gate");
   assert.ok(xorToSum.from.x > placedComponents[0].x, "output pin should leave from the right side of the xor gate");
+});
+
+test("非同一行导线会生成正交折线而不是斜线直连", () => {
+  const route = buildOrthogonalWireRoute({
+    from: { x: 8, y: 26 },
+    to: { x: 54, y: 40 },
+  }, 1);
+
+  assert.equal(route.points.length, 4);
+  assert.deepEqual(route.points[0], { x: 8, y: 26 });
+  assert.deepEqual(route.points.at(-1), { x: 54, y: 40 });
+  assert.equal(route.points[1].y, 26);
+  assert.equal(route.points[2].x, route.points[1].x);
+  assert.equal(route.points[2].y, 40);
+  assert.equal(formatWireRoutePoints(route.points), "8,26 28.8,26 28.8,40 54,40");
 });

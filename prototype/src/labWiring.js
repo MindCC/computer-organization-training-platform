@@ -90,6 +90,75 @@ function componentPointToBoardPosition(component, pinLayout, componentBox = { wi
   };
 }
 
+function clampBoardPoint(value) {
+  return Math.min(94, Math.max(6, Number(value)));
+}
+
+function roundBoardPoint(value) {
+  return Math.round(Number(value) * 10) / 10;
+}
+
+function simplifyRoute(points) {
+  return points.filter((point, index) => {
+    const previous = points[index - 1];
+    if (!previous) return true;
+    return Math.abs(previous.x - point.x) > 0.2 || Math.abs(previous.y - point.y) > 0.2;
+  });
+}
+
+export function buildOrthogonalWireRoute(line, index = 0) {
+  const from = line?.from ?? { x: 0, y: 0 };
+  const to = line?.to ?? { x: 0, y: 0 };
+  const sameRow = Math.abs(from.y - to.y) < 3;
+
+  if (sameRow) {
+    const points = simplifyRoute([from, to]);
+    return {
+      points,
+      label: {
+        x: roundBoardPoint((from.x + to.x) / 2),
+        y: roundBoardPoint(from.y - 1.4),
+      },
+      clickPoint: {
+        x: roundBoardPoint((from.x + to.x) / 2),
+        y: roundBoardPoint(from.y),
+      },
+    };
+  }
+
+  const direction = to.x >= from.x ? 1 : -1;
+  const horizontalGap = Math.abs(to.x - from.x);
+  const laneOffset = ((index % 5) - 2) * 2.2;
+  const middleX = (from.x + to.x) / 2;
+  const detourX = direction > 0
+    ? Math.max(from.x, to.x) + 8
+    : Math.min(from.x, to.x) - 8;
+  const elbowX = clampBoardPoint((horizontalGap >= 16 ? middleX : detourX) + laneOffset);
+  const labelY = (from.y + to.y) / 2;
+  const points = simplifyRoute([
+    from,
+    { x: elbowX, y: from.y },
+    { x: elbowX, y: to.y },
+    to,
+  ]);
+
+  return {
+    points,
+    label: {
+      x: roundBoardPoint(elbowX + (direction > 0 ? 1.7 : -1.7)),
+      y: roundBoardPoint(labelY),
+    },
+    clickPoint: {
+      x: roundBoardPoint(elbowX),
+      y: roundBoardPoint(labelY),
+    },
+  };
+}
+
+export function formatWireRoutePoints(points = []) {
+  return points.map((point) => `${roundBoardPoint(point.x)},${roundBoardPoint(point.y)}`).join(" ");
+}
+
 export function buildConnectionBlueprint(challenge) {
   const componentNames = new Set((challenge?.components ?? []).map((item) => item.name));
   const labels = new Map();

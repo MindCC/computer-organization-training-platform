@@ -35,6 +35,8 @@ await assertCount(page, ".lab-screen", 1);
 await assertCount(page, ".lab-dropzone", 1);
 await assertVisible(page, "可视化实验台");
 await assertCountAtLeast(page, ".placement-slot", 3);
+await assertCount(page, "[aria-label='信号状态']", 1);
+await assertCount(page, ".signal-badge", 3);
 
 await dropPaletteComponent(page, "异或门1", 0.28, 0.34, 0);
 await assertCountAtLeast(page, ".floating-component", 1);
@@ -55,7 +57,16 @@ assert.ok(placedId, "placed component id should exist");
 await movePlacedComponent(page, placedId, "异或门1", 0, 0.72, 0.34);
 
 await page.getByRole("button", { name: "单步演示" }).click();
+await page.getByRole("button", { name: "提交检测" }).click();
+await assertCountAtLeast(page, ".canvas-issue-marker", 1);
+await assertVisible(page, "元件未就位");
+await page.screenshot({ path: artifactPath("desktop-lab-issues.png"), fullPage: true });
 await page.getByRole("button", { name: "查看参考结构" }).click();
+await assertCountAtLeast(page, ".connection-signal-label", 5);
+await clickFirstCanvasConnection(page);
+await waitForCount(page, ".connection-chip.removable", 4);
+await page.getByRole("button", { name: "查看参考结构" }).click();
+await waitForCount(page, ".connection-chip.removable", 5);
 await page.getByRole("button", { name: "提交检测" }).click();
 await assertVisible(page, "本关通过");
 await page.screenshot({ path: artifactPath("desktop-lab-pass.png"), fullPage: true });
@@ -140,6 +151,28 @@ async function clickFirstConnectionChip(targetPage) {
     return true;
   });
   assert.equal(clicked, true, "first removable connection chip should exist");
+}
+
+async function clickFirstCanvasConnection(targetPage) {
+  const clicked = await targetPage.evaluate(() => {
+    const hitTarget = document.querySelector(".canvas-wire-hit-target");
+    if (!hitTarget) return false;
+
+    const rect = hitTarget.getBoundingClientRect();
+    const clientX = rect.left + rect.width / 2;
+    const clientY = rect.top + rect.height / 2;
+    const target = document.elementFromPoint(clientX, clientY);
+    if (!target?.classList?.contains("canvas-wire-hit-target")) return false;
+    target.dispatchEvent(new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+      clientX,
+      clientY,
+    }));
+    return true;
+  });
+
+  assert.equal(clicked, true, "first canvas connection should be directly clickable");
 }
 
 async function dropPaletteComponent(targetPage, componentName, xRatio, yRatio, sourceIndex = 0) {
