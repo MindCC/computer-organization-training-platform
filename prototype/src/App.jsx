@@ -54,6 +54,8 @@ import {
   scorePlacedComponents,
 } from "./labPlacement.js";
 import { buildComponentStudyCard } from "./componentStudy.js";
+import { getCircuitChallenge } from "./circuit/challengeCircuitModel.js";
+import { CircuitFlowCanvas } from "./components/CircuitFlowCanvas.jsx";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
 import studyDiagram from "./assets/study-tip-carry-diagram.png";
@@ -303,6 +305,10 @@ export function App() {
     () => CHALLENGES.find((challenge) => challenge.id === selectedChallengeId) ?? CHALLENGES[0],
     [selectedChallengeId],
   );
+  const currentCircuitModel = useMemo(
+    () => getCircuitChallenge(currentChallenge.id),
+    [currentChallenge],
+  );
   const connectionBlueprint = useMemo(
     () => buildConnectionBlueprint(currentChallenge),
     [currentChallenge],
@@ -421,6 +427,25 @@ export function App() {
       ...current.slice(0, 5),
     ]);
     setStatusMessage(result.passed ? `恭喜，${currentChallenge.title}已通过。` : "系统已定位当前结构中的问题。");
+  }
+
+  function handleCircuitFlowResult(result) {
+    const normalizedResult = {
+      passed: result.passed,
+      errors: result.structure?.errors ?? [],
+      score: result.score,
+      missing: result.structure?.missingEdges ?? [],
+      extraConnections: result.structure?.extraEdges ?? [],
+      elapsedMinutes: currentChallenge.estimatedMinutes,
+    };
+
+    setFeedback(null);
+    setProgress((current) => recordAttempt(current, selectedChallengeId, normalizedResult));
+    setActivityLog((current) => [
+      currentChallenge.title + " React Flow \u5de5\u4f5c\u53f0\u63d0\u4ea4" + (result.passed ? "\u901a\u8fc7" : "\u672a\u901a\u8fc7") + "\uff0c\u5f97\u5206 " + result.score + "\u3002",
+      ...current.slice(0, 5),
+    ]);
+    setStatusMessage(result.passed ? "\u606d\u559c\uff0c" + currentChallenge.title + "\u5df2\u901a\u8fc7\u3002" : "React Flow \u5de5\u4f5c\u53f0\u5df2\u5b9a\u4f4d\u5f53\u524d\u7ed3\u6784\u4e2d\u7684\u95ee\u9898\u3002");
   }
 
   function resetChallenge() {
@@ -1094,47 +1119,70 @@ export function App() {
 
             <div className="lab-stage-layout">
               <aside className="lab-palette-panel">
-                <div className="lab-panel-heading">
-                  <strong>元件区</strong>
-                  <small>每个元件都有固定目标槽位，拖近后会自动吸附</small>
-                </div>
-                <div className="component-palette">
-                  {placementBlueprint.map((componentSlot) => (
-                    <button
-                      draggable
-                      className="component-chip"
-                      key={componentSlot.id}
-                      onClick={() => {
-                        setSelectedComponent(componentSlot.displayLabel);
-                        setExpandedComponent(componentSlot.displayLabel);
-                      }}
-                      onDragStart={(event) => handlePaletteDragStart(event, componentSlot)}
-                      type="button"
-                    >
-                      <Cpu size={18} />
-                      <span>{componentSlot.displayLabel}</span>
-                      <small>{componentSlot.role}</small>
-                    </button>
-                  ))}
-                </div>
+                {currentCircuitModel ? (
+                  <>
+                    <div className="lab-panel-heading">
+                      <strong>{"React Flow \u5de5\u4f5c\u53f0"}</strong>
+                      <small>{"\u76f4\u63a5\u62d6\u52a8\u5143\u4ef6\u7aef\u53e3\u8fde\u7ebf\uff0cReact Flow \u5904\u7406\u7f29\u653e\u3001\u62d6\u62fd\u548c\u9009\u4e2d\u72b6\u6001\u3002"}</small>
+                    </div>
 
-                <div className="wiring-hint">
-                  <strong>连线方式</strong>
-                  <p>按住一个输入端、输出端或元件引脚拖出导线，再松手接到目标端点；重复同一对合法端点会移除连线。</p>
-                  <small>{wireDrag ? `当前起点：${wireDrag.startEndpoint.label}` : "当前未开始拖线"}</small>
-                </div>
+                    <div className="placement-status">
+                      <strong>{"\u7ed3\u6784\u89c4\u6a21"}</strong>
+                      <p>{currentCircuitModel.nodes.length} {"\u4e2a\u5143\u4ef6 /"} {currentCircuitModel.requiredEdges.length} {"\u6761\u5fc5\u8981\u8fde\u7ebf"}</p>
+                      <small>{currentCircuitModel.testCases.length} {"\u7ec4\u7ec4\u5408\u903b\u8f91\u6d4b\u4f8b\u4f1a\u968f\u63d0\u4ea4\u4e00\u8d77\u6821\u9a8c\u3002"}</small>
+                    </div>
 
-                <div className="placement-status">
-                  <strong>布局进度</strong>
-                  <p>{placementPreview.matchedSlotIds.length}/{placementBlueprint.length} 个元件已经对准槽位</p>
-                  <small>{placementPreview.missingSlots.length > 0 ? `还差 ${placementPreview.missingSlots.length} 个槽位未完成` : "所有元件都已就位"}</small>
-                </div>
+                    <div className="wiring-hint">
+                      <strong>{"\u8fde\u7ebf\u65b9\u5f0f"}</strong>
+                      <p>{"\u4ece\u53f3\u4fa7\u8f93\u51fa\u7aef\u53e3\u62d6\u5230\u5de6\u4fa7\u8f93\u5165\u7aef\u53e3\uff1b\u9009\u4e2d\u5bfc\u7ebf\u540e\u53ef\u7528\u5de5\u4f5c\u53f0\u6309\u94ae\u5220\u9664\u3002"}</p>
+                      <small>{"\u53ef\u5148\u70b9\u51fb\u586b\u5165\u53c2\u8003\u7ed3\u6784\uff0c\u518d\u89c2\u5bdf\u7aef\u53e3\u8fde\u63a5\u5173\u7cfb\u3002"}</small>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="lab-panel-heading">
+                      <strong>{"\u5143\u4ef6\u533a"}</strong>
+                      <small>{"\u6bcf\u4e2a\u5143\u4ef6\u90fd\u6709\u56fa\u5b9a\u76ee\u6807\u69fd\u4f4d\uff0c\u62d6\u8fd1\u540e\u4f1a\u81ea\u52a8\u5438\u9644"}</small>
+                    </div>
+                    <div className="component-palette">
+                      {placementBlueprint.map((componentSlot) => (
+                        <button
+                          draggable
+                          className="component-chip"
+                          key={componentSlot.id}
+                          onClick={() => {
+                            setSelectedComponent(componentSlot.displayLabel);
+                            setExpandedComponent(componentSlot.displayLabel);
+                          }}
+                          onDragStart={(event) => handlePaletteDragStart(event, componentSlot)}
+                          type="button"
+                        >
+                          <Cpu size={18} />
+                          <span>{componentSlot.displayLabel}</span>
+                          <small>{componentSlot.role}</small>
+                        </button>
+                      ))}
+                    </div>
 
-                <div className="lab-actions">
-                  <button className="primary-button" onClick={submitChallenge} type="button">提交检测</button>
-                  <button className="ghost-button" onClick={resetChallenge} type="button">重置本关</button>
-                  <button className="ghost-button" onClick={fillReferenceStructure} type="button">查看参考结构</button>
-                </div>
+                    <div className="wiring-hint">
+                      <strong>{"\u8fde\u7ebf\u65b9\u5f0f"}</strong>
+                      <p>{"\u6309\u4f4f\u4e00\u4e2a\u8f93\u5165\u7aef\u3001\u8f93\u51fa\u7aef\u6216\u5143\u4ef6\u5f15\u811a\u62d6\u51fa\u5bfc\u7ebf\uff0c\u518d\u677e\u624b\u63a5\u5230\u76ee\u6807\u7aef\u70b9\uff1b\u91cd\u590d\u540c\u4e00\u5bf9\u5408\u6cd5\u7aef\u70b9\u4f1a\u79fb\u9664\u8fde\u7ebf\u3002"}</p>
+                      <small>{wireDrag ? "\u5f53\u524d\u8d77\u70b9\uff1a" + wireDrag.startEndpoint.label : "\u5f53\u524d\u672a\u5f00\u59cb\u62d6\u7ebf"}</small>
+                    </div>
+
+                    <div className="placement-status">
+                      <strong>{"\u5e03\u5c40\u8fdb\u5ea6"}</strong>
+                      <p>{placementPreview.matchedSlotIds.length}/{placementBlueprint.length} {"\u4e2a\u5143\u4ef6\u5df2\u7ecf\u5bf9\u51c6\u69fd\u4f4d"}</p>
+                      <small>{placementPreview.missingSlots.length > 0 ? "\u8fd8\u5dee " + placementPreview.missingSlots.length + " \u4e2a\u69fd\u4f4d\u672a\u5b8c\u6210" : "\u6240\u6709\u5143\u4ef6\u90fd\u5df2\u5c31\u4f4d"}</small>
+                    </div>
+
+                    <div className="lab-actions">
+                      <button className="primary-button" onClick={submitChallenge} type="button">{"\u63d0\u4ea4\u68c0\u6d4b"}</button>
+                      <button className="ghost-button" onClick={resetChallenge} type="button">{"\u91cd\u7f6e\u672c\u5173"}</button>
+                      <button className="ghost-button" onClick={fillReferenceStructure} type="button">{"\u67e5\u770b\u53c2\u8003\u7ed3\u6784"}</button>
+                    </div>
+                  </>
+                )}
               </aside>
 
               <section className="lab-stage-panel">
@@ -1142,37 +1190,41 @@ export function App() {
                   className="circuit-canvas"
                   onDragOver={(event) => event.preventDefault()}
                 >
-                  <ChallengeCanvas
-                    activeStep={activeStep}
-                    challenge={currentChallenge}
-                    challengeId={currentChallenge.id}
-                    connectionBlueprint={connectionBlueprint}
-                    connections={connections}
-                    expandedComponent={expandedComponent}
-                    feedback={feedback}
-                    inputState={inputState}
-                    onBoardDragOver={(event) => event.preventDefault()}
-                    onBoardDrop={handleDrop}
-                    onPlacedComponentDragStart={handlePlacedComponentDragStart}
-                    onRemoveConnection={handleRemoveConnection}
-                    outputText={formatOutputs(simulation.outputs)}
-                    placementBlueprint={placementBlueprint}
-                    placementPreview={placementPreview}
-                    placedComponents={placedComponents}
-                    selectedComponent={selectedComponent}
-                    setExpandedComponent={setExpandedComponent}
-                    setSelectedComponent={setSelectedComponent}
-                    simulation={simulation}
-                    simulationStep={simulationStep}
-                    wireDrag={wireDrag}
-                    wireHoverEndpoint={wireHoverEndpoint}
-                    onWireDragEnd={handleWireDragEnd}
-                    onWireHoverChange={handleWireHoverChange}
-                    onWireDragMove={handleWireDragMove}
-                    onWireDragStart={handleWireDragStart}
-                    wirePreviewCopy={wirePreviewCopy}
-                    wirePreviewStatus={wirePreviewStatus}
-                  />
+                  {currentCircuitModel ? (
+                    <CircuitFlowCanvas key={currentCircuitModel.id} model={currentCircuitModel} onResult={handleCircuitFlowResult} />
+                  ) : (
+                    <ChallengeCanvas
+                      activeStep={activeStep}
+                      challenge={currentChallenge}
+                      challengeId={currentChallenge.id}
+                      connectionBlueprint={connectionBlueprint}
+                      connections={connections}
+                      expandedComponent={expandedComponent}
+                      feedback={feedback}
+                      inputState={inputState}
+                      onBoardDragOver={(event) => event.preventDefault()}
+                      onBoardDrop={handleDrop}
+                      onPlacedComponentDragStart={handlePlacedComponentDragStart}
+                      onRemoveConnection={handleRemoveConnection}
+                      outputText={formatOutputs(simulation.outputs)}
+                      placementBlueprint={placementBlueprint}
+                      placementPreview={placementPreview}
+                      placedComponents={placedComponents}
+                      selectedComponent={selectedComponent}
+                      setExpandedComponent={setExpandedComponent}
+                      setSelectedComponent={setSelectedComponent}
+                      simulation={simulation}
+                      simulationStep={simulationStep}
+                      wireDrag={wireDrag}
+                      wireHoverEndpoint={wireHoverEndpoint}
+                      onWireDragEnd={handleWireDragEnd}
+                      onWireHoverChange={handleWireHoverChange}
+                      onWireDragMove={handleWireDragMove}
+                      onWireDragStart={handleWireDragStart}
+                      wirePreviewCopy={wirePreviewCopy}
+                      wirePreviewStatus={wirePreviewStatus}
+                    />
+                  )}
                 </div>
 
                 <div className="demo-panel">

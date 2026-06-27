@@ -1611,6 +1611,8 @@ textarea:focus-visible {
 .placement-slot.matched {
   border-color: rgba(43, 169, 142, 0.42);
   background: rgba(229, 247, 241, 0.9);
+  opacity: 0;
+  visibility: hidden;
 }
 
 .lab-anchor {
@@ -1683,17 +1685,19 @@ textarea:focus-visible {
 }
 
 .challenge-scene.has-components .scene-node {
-  opacity: 0.18;
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
 }
 
 .challenge-scene.has-components .scene-wire {
-  opacity: 0.16;
+  opacity: 0;
+  visibility: hidden;
   box-shadow: none;
 }
 
 .challenge-scene.has-components .scene-wire.active {
-  opacity: 0.22;
+  opacity: 0;
 }
 
 .floating-component-head {
@@ -2980,4 +2984,154 @@ textarea:focus-visible {
   .floating-component {
     width: 100%;
   }
+}
+
+/* React Flow circuit workbench */
+.circuit-flow-workbench {
+  display: grid;
+  gap: 12px;
+  min-height: 680px;
+}
+
+.circuit-flow-toolbar {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.circuit-flow-toolbar h3 {
+  font-size: 20px;
+  margin: 3px 0 4px;
+}
+
+.circuit-flow-toolbar p {
+  color: var(--muted-text);
+  margin: 0;
+}
+
+.circuit-flow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.circuit-flow-status,
+.circuit-flow-report {
+  border: 1px solid rgba(75, 92, 117, 0.16);
+  border-radius: 8px;
+  color: var(--muted-text);
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+.circuit-flow-report {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.circuit-flow-report strong {
+  color: var(--ink);
+}
+
+.circuit-flow-report.passed {
+  background: rgba(50, 134, 91, 0.08);
+  border-color: rgba(50, 134, 91, 0.3);
+}
+
+.circuit-flow-report.failed {
+  background: rgba(186, 82, 70, 0.08);
+  border-color: rgba(186, 82, 70, 0.28);
+}
+
+.circuit-flow-canvas {
+  background: #f7f9fb;
+  border: 1px solid rgba(75, 92, 117, 0.18);
+  border-radius: 8px;
+  height: 520px;
+  min-height: 420px;
+  overflow: hidden;
+}
+
+.circuit-flow-node {
+  background: #ffffff;
+  border: 1px solid rgba(40, 52, 70, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(31, 42, 56, 0.1);
+  min-height: 96px;
+  min-width: 150px;
+  padding: 12px 18px;
+  position: relative;
+}
+
+.circuit-flow-node.selected {
+  border-color: #316bdc;
+  box-shadow: 0 0 0 3px rgba(49, 107, 220, 0.16), 0 12px 28px rgba(31, 42, 56, 0.1);
+}
+
+.circuit-flow-node-title {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+
+.circuit-flow-node-title strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.circuit-flow-node-title span {
+  color: var(--muted-text);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.circuit-flow-port-row {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  position: absolute;
+  transform: translateY(-50%);
+}
+
+.circuit-flow-port-row.input {
+  left: -7px;
+}
+
+.circuit-flow-port-row.output {
+  right: -7px;
+}
+
+.circuit-flow-port-row span {
+  background: #eef3f8;
+  border: 1px solid rgba(75, 92, 117, 0.14);
+  border-radius: 999px;
+  color: var(--muted-text);
+  font-size: 11px;
+  line-height: 1;
+  padding: 4px 6px;
+}
+
+.circuit-flow-handle {
+  background: #316bdc;
+  border: 2px solid #ffffff;
+  height: 12px;
+  width: 12px;
+}
+
+.circuit-flow-handle.input {
+  background: #7a5af8;
+}
+
+.circuit-flow-handle.output {
+  background: #2d9b73;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path {
+  stroke: #316bdc;
+  stroke-width: 3;
 }
