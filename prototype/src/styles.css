@@ -2987,6 +2987,17 @@ textarea:focus-visible {
 }
 
 /* React Flow circuit workbench */
+.flow-loading {
+  min-height: 560px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(18, 26, 44, 0.12);
+  border-radius: 8px;
+  background: #f7fafc;
+  color: #43536a;
+  font-weight: 700;
+}
+
 .circuit-flow-workbench {
   display: grid;
   gap: 12px;

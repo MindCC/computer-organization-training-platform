@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -55,10 +55,13 @@ import {
 } from "./labPlacement.js";
 import { buildComponentStudyCard } from "./componentStudy.js";
 import { getCircuitChallenge } from "./circuit/challengeCircuitModel.js";
-import { CircuitFlowCanvas } from "./components/CircuitFlowCanvas.jsx";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
 import studyDiagram from "./assets/study-tip-carry-diagram.png";
+
+const CircuitFlowCanvas = lazy(() =>
+  import("./components/CircuitFlowCanvas.jsx").then((module) => ({ default: module.CircuitFlowCanvas })),
+);
 
 const navItems = [
   { id: "home", label: "课程首页", icon: House },
@@ -740,7 +743,6 @@ export function App() {
           </div>
 
           {activeView === "home" ? renderHome() : null}
-          {activeView === "lab" ? renderLab() : null}
           {activeView === "records" ? renderRecords() : null}
           {activeView === "notes" ? renderNotes() : null}
         </main>
@@ -880,171 +882,6 @@ export function App() {
             </div>
           </article>
         </section>
-      </div>
-    );
-  }
-
-  function renderLab() {
-    return (
-      <div className="lab-layout">
-        <aside className="task-panel">
-          <span className="eyebrow">关卡任务</span>
-          <h1>{currentChallenge.title}</h1>
-          <p>{currentChallenge.goal}</p>
-
-          <div className="condition-list">
-            <strong>通关条件</strong>
-            {currentChallenge.requiredConnections.map((connection) => (
-              <button
-                className={connections.includes(connection) ? "condition done" : "condition"}
-                key={connection}
-                onClick={() => toggleConnection(connection)}
-                type="button"
-              >
-                <CheckCircle size={18} weight={connections.includes(connection) ? "fill" : "regular"} />
-                <span>{connection}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="lab-actions">
-            <button className="primary-button" onClick={submitChallenge} type="button">提交检测</button>
-            <button className="ghost-button" onClick={resetChallenge} type="button">重置本关</button>
-            <button className="ghost-button" onClick={fillReferenceStructure} type="button">查看参考结构</button>
-          </div>
-        </aside>
-
-        <section className="lab-workbench">
-          <div className="bench-toolbar">
-            <div>
-              <h2>可视化实验台</h2>
-              <p>{labDescription(currentChallenge.id)}</p>
-            </div>
-            <div className="run-controls">
-              <button onClick={runStep} type="button">单步演示</button>
-              <button onClick={runAll} type="button">连续演示</button>
-            </div>
-          </div>
-
-          <div className="input-board">
-            {(challengeControlMeta[currentChallenge.id] ?? []).map((control) => (
-              control.type === "bit" ? (
-                <Toggle
-                  key={control.key}
-                  label={control.label}
-                  value={inputState[control.key]}
-                  onChange={(value) => handleInputChange(control.key, value)}
-                />
-              ) : (
-                <Stepper
-                  key={control.key}
-                  label={control.label}
-                  value={inputState[control.key]}
-                  max={control.max}
-                  onChange={(value) => handleInputChange(control.key, value)}
-                />
-              )
-            ))}
-          </div>
-
-          <div className="canvas-wrap">
-            <div className="component-palette">
-              <strong>元件区</strong>
-              {currentChallenge.components.map((component) => (
-                <button
-                  draggable
-                  className="component-chip"
-                  key={component.name}
-                  onClick={() => {
-                    setSelectedComponent(component.name);
-                    setExpandedComponent(component.name);
-                  }}
-                  onDragStart={(event) => event.dataTransfer.setData("text/plain", component.name)}
-                  type="button"
-                >
-                  <Cpu size={18} />
-                  {component.name}
-                </button>
-              ))}
-            </div>
-
-            <div
-              className="circuit-canvas"
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={handleDrop}
-            >
-              <ChallengeCanvas
-                challengeId={currentChallenge.id}
-                expandedComponent={expandedComponent}
-                inputState={inputState}
-                outputText={formatOutputs(simulation.outputs)}
-                selectedComponent={selectedComponent}
-                setExpandedComponent={setExpandedComponent}
-                setSelectedComponent={setSelectedComponent}
-                simulationStep={simulationStep}
-              />
-            </div>
-          </div>
-
-          <div className="demo-panel">
-            <div>
-              <span className="eyebrow">动态信号演示</span>
-              <h3>{activeStep?.node}</h3>
-              <p>{activeStep?.text}</p>
-            </div>
-            <div className="step-dots">
-              {simulation.steps.map((step, index) => (
-                <button
-                  className={index === simulationStep ? "active" : ""}
-                  key={step.id}
-                  onClick={() => setSimulationStep(index)}
-                  type="button"
-                >
-                  {step.id}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <aside className="inspector-panel">
-          <section>
-            <span className="eyebrow">元件说明</span>
-            <h2>{selectedComponent}</h2>
-            <p>{currentChallenge.components.find((component) => component.name === selectedComponent)?.description ?? "选择一个元件查看说明。"}</p>
-            <div className="concept-card">
-              <strong>原理卡片</strong>
-              <p>{currentChallenge.principle}</p>
-            </div>
-          </section>
-
-          <section>
-            <span className="eyebrow">判题反馈</span>
-            {feedback ? (
-              feedback.passed ? (
-                <div className="feedback success">
-                  <SealCheck size={24} weight="fill" />
-                  <strong>本关通过</strong>
-                  <p>{currentChallenge.summary}</p>
-                </div>
-              ) : (
-                <div className="feedback danger">
-                  <WarningCircle size={24} weight="fill" />
-                  <strong>发现 {feedback.errors.length} 类问题</strong>
-                  {feedback.errors.map((error) => (
-                    <p key={error.type}>{error.type}：{error.message}</p>
-                  ))}
-                </div>
-              )
-            ) : (
-              <div className="feedback neutral">
-                <Target size={24} />
-                <strong>等待检测</strong>
-                <p>提交后系统会同时检查结果、结构和教学提示。</p>
-              </div>
-            )}
-          </section>
-        </aside>
       </div>
     );
   }
@@ -1191,7 +1028,13 @@ export function App() {
                   onDragOver={(event) => event.preventDefault()}
                 >
                   {currentCircuitModel ? (
-                    <CircuitFlowCanvas key={currentCircuitModel.id} model={currentCircuitModel} onResult={handleCircuitFlowResult} />
+                    <Suspense fallback={<div className="flow-loading">{"\u6b63\u5728\u52a0\u8f7d React Flow \u5de5\u4f5c\u53f0..."}</div>}>
+                      <CircuitFlowCanvas
+                        key={currentCircuitModel.id}
+                        model={currentCircuitModel}
+                        onResult={handleCircuitFlowResult}
+                      />
+                    </Suspense>
                   ) : (
                     <ChallengeCanvas
                       activeStep={activeStep}
