@@ -276,6 +276,8 @@ const defaultChallenge = CHALLENGES.find((challenge) => challenge.id === "full-a
 const defaultPlacementBlueprint = buildPlacementBlueprint(defaultChallenge);
 const defaultComponentLabel =
   defaultPlacementBlueprint[0]?.displayLabel ?? defaultChallenge.components[0]?.name ?? "";
+const studentImportTemplateHref =
+  "data:text/csv;charset=utf-8,%E5%AD%A6%E5%8F%B7,%E5%A7%93%E5%90%8D,%E5%88%9D%E5%A7%8B%E5%AF%86%E7%A0%81%0A2026001,%E6%9D%8E%E5%90%8C%E5%AD%A6,Student123!%0A2026002,%E7%8E%8B%E5%90%8C%E5%AD%A6,Student123!";
 
 export function App() {
   const [auth, setAuth] = useState({ status: "loading", user: null });
@@ -311,6 +313,7 @@ export function App() {
   const [teacherClasses, setTeacherClasses] = useState([]);
   const [selectedTeacherClassId, setSelectedTeacherClassId] = useState(null);
   const [classOverview, setClassOverview] = useState(null);
+  const [selectedTeacherStudent, setSelectedTeacherStudent] = useState(null);
   const [classNameDraft, setClassNameDraft] = useState("\u8ba1\u7ec4\u4e00\u73ed");
   const [csvImportText, setCsvImportText] = useState("\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n2026001,\u674e\u540c\u5b66,Student123!");
   const [teacherMessage, setTeacherMessage] = useState("");
@@ -413,10 +416,12 @@ export function App() {
   async function refreshClassOverview(classId = selectedTeacherClassId) {
     if (!classId) {
       setClassOverview(null);
+      setSelectedTeacherStudent(null);
       return;
     }
     const overview = await api.classOverview(classId);
     setClassOverview(overview);
+    setSelectedTeacherStudent(null);
   }
 
   async function handleLogin(event) {
@@ -778,6 +783,17 @@ export function App() {
     }
   }
 
+  async function openTeacherStudentDetail(studentId) {
+    if (!selectedTeacherClassId) return;
+    try {
+      const { student: detail } = await api.studentDetail(selectedTeacherClassId, studentId);
+      setSelectedTeacherStudent(detail);
+      setTeacherMessage("");
+    } catch (error) {
+      setTeacherMessage("\u52a0\u8f7d\u5b66\u751f\u8be6\u60c5\u5931\u8d25\uff1a" + error.message);
+    }
+  }
+
   async function resetStudentPassword(studentId) {
     try {
       const result = await api.resetStudentPassword(studentId, "ChangeMe123!");
@@ -965,7 +981,10 @@ export function App() {
               <h2>{selectedClass?.name ?? "\u8bf7\u5148\u521b\u5efa\u6216\u9009\u62e9\u73ed\u7ea7"}</h2>
               <p>{"CSV \u683c\u5f0f\uff1a\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801"}</p>
             </div>
-            {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>{"\u5bfc\u51fa CSV"}</a> : null}
+            <div className="teacher-action-row">
+              <a className="ghost-button" download="student-import-template.csv" href={studentImportTemplateHref}>{"\u4e0b\u8f7d\u5bfc\u5165\u6a21\u677f"}</a>
+              {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>{"\u5bfc\u51fa CSV"}</a> : null}
+            </div>
           </div>
           <textarea className="teacher-import-box" value={csvImportText} onChange={(event) => setCsvImportText(event.target.value)} />
           <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">{"\u5bfc\u5165\u5b66\u751f"}</button>
@@ -985,11 +1004,68 @@ export function App() {
                 <span>{studentItem.username}</span>
                 <span>{studentItem.summary.completionRate}%</span>
                 <span>{studentItem.summary.averageScore} {"\u5206"}</span>
-                <button className="ghost-button" onClick={() => resetStudentPassword(studentItem.id)} type="button">{"\u91cd\u7f6e\u5bc6\u7801"}</button>
+                <div className="teacher-row-actions">
+                  <button className="ghost-button" onClick={() => openTeacherStudentDetail(studentItem.id)} type="button">{"\u67e5\u770b\u8be6\u60c5"}</button>
+                  <button className="ghost-button" onClick={() => resetStudentPassword(studentItem.id)} type="button">{"\u91cd\u7f6e\u5bc6\u7801"}</button>
+                </div>
               </div>
             ))}
           </div>
         </section>
+
+        {selectedTeacherStudent ? (
+          <section className="section-panel teacher-detail-panel">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">{"\u5b66\u751f\u8be6\u60c5"}</span>
+                <h2>{selectedTeacherStudent.displayName}</h2>
+                <p>{selectedTeacherStudent.username} {"\u00b7"} {selectedTeacherStudent.className}</p>
+              </div>
+              <button className="ghost-button" onClick={() => setSelectedTeacherStudent(null)} type="button">{"\u5173\u95ed"}</button>
+            </div>
+            <div className="teacher-detail-grid">
+              <div>
+                <h3>{"\u9010\u5173\u6700\u4f73\u6210\u7ee9"}</h3>
+                <div className="teacher-progress-list">
+                  {CHALLENGES.map((challenge) => {
+                    const record = selectedTeacherStudent.progress?.[challenge.id];
+                    return (
+                      <div className="teacher-progress-row" key={challenge.id}>
+                        <strong>{challenge.title}</strong>
+                        <span>{statusText(record?.status)} {"\u00b7"} {record?.bestScore ?? 0} {"\u5206"} {"\u00b7"} {record?.attempts ?? 0} {"\u6b21"}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <h3>{"\u6700\u8fd1\u63d0\u4ea4"}</h3>
+                <div className="teacher-attempt-list">
+                  {(selectedTeacherStudent.attempts ?? []).slice(0, 8).map((attempt) => (
+                    <div className={attempt.passed ? "teacher-attempt passed" : "teacher-attempt failed"} key={attempt.id}>
+                      <strong>{CHALLENGES.find((challenge) => challenge.id === attempt.challengeId)?.title ?? attempt.challengeId}</strong>
+                      <span>{attempt.score} {"\u5206"} {"\u00b7"} {attempt.passed ? "\u901a\u8fc7" : "\u672a\u901a\u8fc7"}</span>
+                      <small>{attempt.errors?.length ? attempt.errors.join(" / ") : "\u6682\u65e0\u9519\u8bef"}</small>
+                    </div>
+                  ))}
+                  {selectedTeacherStudent.attempts?.length ? null : <p className="empty-state">{"\u6682\u65e0\u63d0\u4ea4\u8bb0\u5f55"}</p>}
+                </div>
+              </div>
+              <div>
+                <h3>{"\u5b66\u751f\u7b14\u8bb0"}</h3>
+                <div className="teacher-note-list">
+                  {(selectedTeacherStudent.notes ?? []).slice(0, 5).map((note) => (
+                    <article className="teacher-note" key={note.id}>
+                      <strong>{note.title}</strong>
+                      <p>{note.content}</p>
+                    </article>
+                  ))}
+                  {selectedTeacherStudent.notes?.length ? null : <p className="empty-state">{"\u6682\u65e0\u7b14\u8bb0"}</p>}
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
       </div>
     );
   }

@@ -15,6 +15,9 @@ const text = {
   studentPassword: "Student123!",
   createClass: "\u521b\u5efa\u73ed\u7ea7",
   importStudents: "\u5bfc\u5165\u5b66\u751f",
+  importTemplate: "\u4e0b\u8f7d\u5bfc\u5165\u6a21\u677f",
+  viewDetail: "\u67e5\u770b\u8be6\u60c5",
+  studentDetail: "\u5b66\u751f\u8be6\u60c5",
   fillReference: "\u586b\u5165\u53c2\u8003\u7ed3\u6784",
   submit: "\u63d0\u4ea4\u68c0\u6d4b",
   passed: "\u672c\u5173\u901a\u8fc7",
@@ -57,6 +60,8 @@ await page.locator(".teacher-import-box").fill(`\u5b66\u53f7,\u59d3\u540d,\u521d
 await page.getByRole("button", { name: text.importStudents }).click();
 await assertVisible(page, text.studentName);
 await page.screenshot({ path: artifactPath("teacher-imported.png"), fullPage: true });
+const templateHref = await page.getByRole("link", { name: text.importTemplate }).getAttribute("href");
+assert.match(templateHref ?? "", /^data:text\/csv/);
 
 const csvText = await page.evaluate(async () => {
   const response = await fetch(document.querySelector('a[href$="/export.csv"]').href, { credentials: "include" });
@@ -88,6 +93,10 @@ await login(page, teacherUsername, teacherPassword);
 await assertVisible(page, text.teacherHeading);
 await assertVisible(page, text.studentName);
 await assertVisible(page, "100%");
+await page.getByRole("button", { name: text.viewDetail }).first().click();
+await assertVisible(page, text.studentDetail);
+await assertVisible(page, "\u9010\u5173\u6700\u4f73\u6210\u7ee9");
+await assertVisible(page, "\u6700\u8fd1\u63d0\u4ea4");
 await page.screenshot({ path: artifactPath("teacher-overview-after-student.png"), fullPage: true });
 
 await page.setViewportSize({ width: 390, height: 900 });

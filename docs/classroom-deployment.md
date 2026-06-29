@@ -132,7 +132,7 @@ sudo systemctl start zcyl-training
 
 1. 教师登录。
 2. 创建班级。
-3. 粘贴或上传 CSV 内容导入学生，格式：
+3. 在教师看板下载 CSV 模板，按模板填写后粘贴 CSV 内容导入学生，格式：
 
 ```csv
 学号,姓名,初始密码
@@ -142,7 +142,7 @@ sudo systemctl start zcyl-training
 
 4. 学生使用学号和初始密码登录。
 5. 学生完成 React Flow 关卡，提交记录自动保存到服务器。
-6. 教师在看板查看完成率、平均分、高频错误，并导出 CSV 成绩。
+6. 教师在看板查看完成率、平均分、高频错误，可打开单个学生详情查看逐关成绩、最近提交和学生笔记，并导出 CSV 成绩。
 
 ## 故障处理
 
@@ -197,4 +197,3 @@ npm run server
 ```bash
 PROTOTYPE_URL=http://127.0.0.1:8787 node scripts/verify-ui.mjs
 ```
-

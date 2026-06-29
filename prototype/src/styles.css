@@ -3226,6 +3226,14 @@ textarea:focus-visible {
   grid-template-columns: minmax(220px, 1fr) auto;
 }
 
+.teacher-action-row,
+.teacher-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .teacher-class-list {
   display: grid;
   gap: 10px;
@@ -3262,7 +3270,7 @@ textarea:focus-visible {
 }
 
 .teacher-student-table .record-row {
-  grid-template-columns: 1.2fr 1fr 0.8fr 0.8fr auto;
+  grid-template-columns: 1.2fr 1fr 0.8fr 0.8fr minmax(180px, auto);
 }
 
 .teacher-student-table .ghost-button {
@@ -3270,9 +3278,73 @@ textarea:focus-visible {
   width: auto;
 }
 
+.teacher-detail-panel {
+  border-color: rgba(49, 107, 220, 0.2);
+}
+
+.teacher-detail-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1.15fr 1fr 1fr;
+}
+
+.teacher-detail-grid h3 {
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+
+.teacher-progress-list,
+.teacher-attempt-list,
+.teacher-note-list {
+  display: grid;
+  gap: 8px;
+}
+
+.teacher-progress-row,
+.teacher-attempt,
+.teacher-note {
+  background: #f7f9fb;
+  border: 1px solid rgba(75, 92, 117, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+}
+
+.teacher-progress-row strong,
+.teacher-attempt strong,
+.teacher-note strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.teacher-progress-row span,
+.teacher-attempt span,
+.teacher-attempt small,
+.teacher-note p,
+.empty-state {
+  color: var(--muted-text);
+  font-size: 13px;
+  margin: 0;
+}
+
+.teacher-attempt.passed {
+  border-color: rgba(50, 134, 91, 0.24);
+}
+
+.teacher-attempt.failed {
+  border-color: rgba(186, 82, 70, 0.24);
+}
+
 @media (max-width: 760px) {
   .teacher-tools,
+  .teacher-detail-grid,
   .teacher-student-table .record-row {
     grid-template-columns: 1fr;
+  }
+
+  .teacher-action-row,
+  .teacher-row-actions {
+    justify-content: stretch;
   }
 }

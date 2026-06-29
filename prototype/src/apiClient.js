@@ -30,5 +30,6 @@ export const api = {
   teacherClasses: () => apiRequest("/api/teacher/classes"),
   importStudents: (classId, csv) => apiRequest(`/api/teacher/classes/${classId}/import-students`, { method: "POST", body: JSON.stringify({ csv }) }),
   classOverview: (classId) => apiRequest(`/api/teacher/classes/${classId}/overview`),
+  studentDetail: (classId, studentId) => apiRequest(`/api/teacher/classes/${classId}/students/${studentId}`),
   resetStudentPassword: (studentId, password) => apiRequest(`/api/teacher/students/${studentId}/reset-password`, { method: "POST", body: JSON.stringify({ password }) }),
 };

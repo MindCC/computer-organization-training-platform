@@ -100,6 +100,14 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     assert.equal(result.response.status, 200);
     assert.equal(result.body.students.length, 1);
     assert.equal(result.body.students[0].summary.totalAttempts, 1);
+    const studentId = result.body.students[0].id;
+
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/students/${studentId}`, {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.student.username, "2026001");
+    assert.equal(result.body.student.attempts.length, 1);
+    assert.equal(result.body.student.notes.length, 1);
+    assert.equal(result.body.student.progress["data-flow"].bestScore, 100);
 
     result = await request(baseUrl, `/api/teacher/classes/${classId}/export.csv`, {}, teacherJar);
     assert.equal(result.response.status, 200);
