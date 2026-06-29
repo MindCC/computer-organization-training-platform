@@ -3146,3 +3146,133 @@ textarea:focus-visible {
   stroke: #316bdc;
   stroke-width: 3;
 }
+
+/* Classroom account and teacher dashboard */
+.login-screen {
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(25, 35, 51, 0.72), rgba(23, 77, 84, 0.52)),
+    url("./assets/lab-circuit-illustration.png") center / cover;
+  display: grid;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.login-card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(30, 43, 62, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 22px 60px rgba(14, 26, 42, 0.24);
+  color: var(--ink);
+  display: grid;
+  gap: 16px;
+  margin: auto;
+  max-width: 440px;
+  padding: 32px;
+  width: 100%;
+}
+
+.login-card h1 {
+  font-size: 2.2rem;
+  line-height: 1.12;
+  margin: 0;
+}
+
+.login-card p {
+  color: var(--muted-text);
+  margin: 0;
+}
+
+.form-row {
+  display: grid;
+  gap: 8px;
+}
+
+.form-row span {
+  color: var(--muted-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.form-row input,
+.teacher-import-box {
+  background: #ffffff;
+  border: 1px solid rgba(75, 92, 117, 0.22);
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  padding: 11px 12px;
+}
+
+.form-error,
+.teacher-message {
+  background: rgba(186, 82, 70, 0.1);
+  border: 1px solid rgba(186, 82, 70, 0.24);
+  border-radius: 8px;
+  color: #8f352c;
+  margin: 0;
+  padding: 10px 12px;
+}
+
+.teacher-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.teacher-tools {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(220px, 1fr) auto;
+}
+
+.teacher-class-list {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 14px;
+}
+
+.teacher-class {
+  background: #f7f9fb;
+  border: 1px solid rgba(75, 92, 117, 0.16);
+  border-radius: 8px;
+  color: var(--ink);
+  cursor: pointer;
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  text-align: left;
+}
+
+.teacher-class.active {
+  border-color: #316bdc;
+  box-shadow: 0 0 0 3px rgba(49, 107, 220, 0.12);
+}
+
+.teacher-class span {
+  color: var(--muted-text);
+  font-size: 13px;
+}
+
+.teacher-import-box {
+  min-height: 132px;
+  resize: vertical;
+  width: 100%;
+}
+
+.teacher-student-table .record-row {
+  grid-template-columns: 1.2fr 1fr 0.8fr 0.8fr auto;
+}
+
+.teacher-student-table .ghost-button {
+  padding: 8px 10px;
+  width: auto;
+}
+
+@media (max-width: 760px) {
+  .teacher-tools,
+  .teacher-student-table .record-row {
+    grid-template-columns: 1fr;
+  }
+}

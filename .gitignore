@@ -7,5 +7,9 @@ prototype/.playwright-cli/
 prototype/qa-artifacts/
 prototype/qa-artifacts-current/
 prototype/output/
+prototype/data/
+prototype/*.sqlite
+prototype/*.sqlite-shm
+prototype/*.sqlite-wal
 prototype/vite.err.log
 prototype/vite.out.log

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -55,6 +55,7 @@ import {
 } from "./labPlacement.js";
 import { buildComponentStudyCard } from "./componentStudy.js";
 import { getCircuitChallenge } from "./circuit/challengeCircuitModel.js";
+import { api } from "./apiClient.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
 import studyDiagram from "./assets/study-tip-carry-diagram.png";
@@ -68,6 +69,7 @@ const navItems = [
   { id: "lab", label: "关卡实验", icon: Flask },
   { id: "records", label: "学习记录", icon: ChartPieSlice },
   { id: "notes", label: "学习笔记", icon: Notebook },
+  { id: "teacher", label: "\u6559\u5e08\u770b\u677f", icon: ChartPieSlice, role: "teacher" },
 ];
 
 const initialNotes = [
@@ -276,9 +278,12 @@ const defaultComponentLabel =
   defaultPlacementBlueprint[0]?.displayLabel ?? defaultChallenge.components[0]?.name ?? "";
 
 export function App() {
+  const [auth, setAuth] = useState({ status: "loading", user: null });
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
+  const [loginError, setLoginError] = useState("");
   const [activeView, setActiveView] = useState("home");
   const [selectedChallengeId, setSelectedChallengeId] = useState("full-adder");
-  const [progress, setProgress] = useState(createDemoProgress);
+  const [progress, setProgress] = useState(() => buildInitialProgress(CHALLENGES));
   const [connections, setConnections] = useState(["输入A->异或门1", "输入B->异或门1"]);
   const [placedComponents, setPlacedComponents] = useState([]);
   const [expandedComponent, setExpandedComponent] = useState(defaultComponentLabel);
@@ -299,10 +304,16 @@ export function App() {
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [student, setStudent] = useState({
-    name: "陈一鸣",
-    goal: "本周完成全加器与多位加法器",
-    mode: "强引导模式",
+    name: "",
+    goal: "\u5b8c\u6210\u516d\u4e2a\u8fd0\u7b97\u5668\u5173\u5361",
+    mode: "\u5f3a\u5f15\u5bfc\u6a21\u5f0f",
   });
+  const [teacherClasses, setTeacherClasses] = useState([]);
+  const [selectedTeacherClassId, setSelectedTeacherClassId] = useState(null);
+  const [classOverview, setClassOverview] = useState(null);
+  const [classNameDraft, setClassNameDraft] = useState("\u8ba1\u7ec4\u4e00\u73ed");
+  const [csvImportText, setCsvImportText] = useState("\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n2026001,\u674e\u540c\u5b66,Student123!");
+  const [teacherMessage, setTeacherMessage] = useState("");
 
   const currentChallenge = useMemo(
     () => CHALLENGES.find((challenge) => challenge.id === selectedChallengeId) ?? CHALLENGES[0],
@@ -356,6 +367,79 @@ export function App() {
     [wireDrag, wireHoverEndpoint, wirePreviewStatus],
   );
 
+  useEffect(() => {
+    let cancelled = false;
+    async function bootstrap() {
+      try {
+        const { user } = await api.me();
+        if (cancelled) return;
+        setAuth({ status: "authenticated", user });
+        await loadRoleData(user);
+        if (user.role === "teacher") setActiveView("teacher");
+      } catch {
+        if (!cancelled) setAuth({ status: "anonymous", user: null });
+      }
+    }
+    bootstrap();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function loadRoleData(user = auth.user) {
+    if (!user) return;
+    if (user.role === "student") {
+      const [{ progress: nextProgress }, { notes: nextNotes }] = await Promise.all([api.studentProgress(), api.listNotes()]);
+      setProgress(nextProgress);
+      setNotes(nextNotes);
+      setStudent({
+        name: user.displayName,
+        goal: user.profile?.goal ?? "\u5b8c\u6210\u516d\u4e2a\u8fd0\u7b97\u5668\u5173\u5361",
+        mode: user.profile?.mode ?? "\u5f3a\u5f15\u5bfc\u6a21\u5f0f",
+      });
+      return;
+    }
+    if (user.role === "teacher") {
+      await refreshTeacherClasses();
+    }
+  }
+
+  async function refreshTeacherClasses() {
+    const { classes } = await api.teacherClasses();
+    setTeacherClasses(classes);
+    const nextClassId = selectedTeacherClassId ?? classes[0]?.id ?? null;
+    setSelectedTeacherClassId(nextClassId);
+    if (nextClassId) await refreshClassOverview(nextClassId);
+  }
+
+  async function refreshClassOverview(classId = selectedTeacherClassId) {
+    if (!classId) {
+      setClassOverview(null);
+      return;
+    }
+    const overview = await api.classOverview(classId);
+    setClassOverview(overview);
+  }
+
+  async function handleLogin(event) {
+    event.preventDefault();
+    setLoginError("");
+    try {
+      const { user } = await api.login(loginForm);
+      setAuth({ status: "authenticated", user });
+      await loadRoleData(user);
+      setActiveView(user.role === "teacher" ? "teacher" : "home");
+    } catch (error) {
+      setLoginError(error.message);
+    }
+  }
+
+  async function handleLogout() {
+    await api.logout();
+    setAuth({ status: "anonymous", user: null });
+    setProgress(buildInitialProgress(CHALLENGES));
+    setNotes([]);
+    setActiveView("home");
+  }
+
   function changeView(view) {
     setActiveView(view);
     setStatusMessage(`已切换到${navItems.find((item) => item.id === view)?.label ?? "当前页面"}。`);
@@ -402,7 +486,7 @@ export function App() {
     setStatusMessage("动态演示已播放到输出结果。");
   }
 
-  function submitChallenge() {
+  async function submitChallenge() {
     const connectionResult = gradeConnections(selectedChallengeId, connections);
     const placementResult = scorePlacedComponents(currentChallenge, placedComponents);
     const placementErrors = [
@@ -430,9 +514,10 @@ export function App() {
       ...current.slice(0, 5),
     ]);
     setStatusMessage(result.passed ? `恭喜，${currentChallenge.title}已通过。` : "系统已定位当前结构中的问题。");
+    await persistStudentAttempt(selectedChallengeId, result);
   }
 
-  function handleCircuitFlowResult(result) {
+  async function handleCircuitFlowResult(result) {
     const normalizedResult = {
       passed: result.passed,
       errors: result.structure?.errors ?? [],
@@ -449,6 +534,7 @@ export function App() {
       ...current.slice(0, 5),
     ]);
     setStatusMessage(result.passed ? "\u606d\u559c\uff0c" + currentChallenge.title + "\u5df2\u901a\u8fc7\u3002" : "React Flow \u5de5\u4f5c\u53f0\u5df2\u5b9a\u4f4d\u5f53\u524d\u7ed3\u6784\u4e2d\u7684\u95ee\u9898\u3002");
+    await persistStudentAttempt(selectedChallengeId, normalizedResult);
   }
 
   function resetChallenge() {
@@ -623,26 +709,90 @@ export function App() {
     setStatusMessage(`已移除连线：${connection}`);
   }
 
-  function saveNote() {
+  async function saveNote() {
     const content = noteDraft.trim();
     if (!content) {
-      setStatusMessage("笔记内容不能为空。");
+      setStatusMessage("\u7b14\u8bb0\u5185\u5bb9\u4e0d\u80fd\u4e3a\u7a7a\u3002");
       return;
     }
-    setNotes((current) => [
-      {
-        id: Date.now(),
-        title: `${currentChallenge.shortTitle}复盘`,
+    try {
+      const { note } = await api.createNote({
+        title: currentChallenge.shortTitle + "\u590d\u76d8",
         content,
         tag: currentChallenge.shortTitle,
-      },
-      ...current,
-    ]);
-    setStatusMessage("学习笔记已保存。");
+      });
+      setNotes((current) => [note, ...current]);
+      setNoteDraft("");
+      setStatusMessage("\u5b66\u4e60\u7b14\u8bb0\u5df2\u4fdd\u5b58\u5230\u670d\u52a1\u5668\u3002");
+    } catch (error) {
+      setStatusMessage("\u7b14\u8bb0\u4fdd\u5b58\u5931\u8d25\uff1a" + error.message);
+    }
   }
 
   function updateStudent(key, value) {
     setStudent((current) => ({ ...current, [key]: value }));
+  }
+
+  async function persistStudentAttempt(challengeId, result) {
+    if (auth.user?.role !== "student") return;
+    try {
+      const saved = await api.submitAttempt({ challengeId, result });
+      setProgress(saved.progress);
+    } catch (error) {
+      setStatusMessage("\u63d0\u4ea4\u5df2\u5728\u672c\u9875\u8bb0\u5f55\uff0c\u4f46\u540c\u6b65\u670d\u52a1\u5668\u5931\u8d25\uff1a" + error.message);
+    }
+  }
+
+  async function saveStudentSettings() {
+    try {
+      const { user } = await api.updateProfile({ displayName: student.name, goal: student.goal, mode: student.mode });
+      setAuth((current) => ({ ...current, user }));
+      setShowSettings(false);
+      setStatusMessage("\u4e2a\u4eba\u8bbe\u7f6e\u5df2\u4fdd\u5b58\u5230\u670d\u52a1\u5668\u3002");
+    } catch (error) {
+      setStatusMessage("\u4e2a\u4eba\u8bbe\u7f6e\u4fdd\u5b58\u5931\u8d25\uff1a" + error.message);
+    }
+  }
+
+  async function createTeacherClass() {
+    try {
+      const { class: createdClass } = await api.createClass({ name: classNameDraft });
+      setTeacherMessage("\u73ed\u7ea7\u5df2\u521b\u5efa\uff1a" + createdClass.name);
+      setSelectedTeacherClassId(createdClass.id);
+      await refreshTeacherClasses();
+      await refreshClassOverview(createdClass.id);
+    } catch (error) {
+      setTeacherMessage("\u521b\u5efa\u73ed\u7ea7\u5931\u8d25\uff1a" + error.message);
+    }
+  }
+
+  async function importStudentsToClass() {
+    if (!selectedTeacherClassId) return;
+    try {
+      const report = await api.importStudents(selectedTeacherClassId, csvImportText);
+      setTeacherMessage("\u5bfc\u5165\u5b8c\u6210\uff1a\u65b0\u589e " + report.imported + "\uff0c\u66f4\u65b0 " + report.updated + "\uff0c\u8df3\u8fc7 " + report.skipped);
+      await refreshTeacherClasses();
+      await refreshClassOverview(selectedTeacherClassId);
+    } catch (error) {
+      setTeacherMessage("\u5bfc\u5165\u5931\u8d25\uff1a" + error.message);
+    }
+  }
+
+  async function resetStudentPassword(studentId) {
+    try {
+      const result = await api.resetStudentPassword(studentId, "ChangeMe123!");
+      setTeacherMessage("\u5bc6\u7801\u5df2\u91cd\u7f6e\u4e3a\uff1a" + result.password);
+    } catch (error) {
+      setTeacherMessage("\u91cd\u7f6e\u5931\u8d25\uff1a" + error.message);
+    }
+  }
+
+  if (auth.status === "loading") {
+    return <div className="login-screen"><div className="login-card"><strong>{"\u6b63\u5728\u8fde\u63a5\u8bfe\u5802\u670d\u52a1\u5668..."}</strong></div></div>;
+  }
+
+  if (auth.status === "anonymous") {
+    return renderLogin();
   }
 
   if (activeView === "lab") {
@@ -666,13 +816,13 @@ export function App() {
         </button>
 
         <div className="topbar-actions">
-          <button className="continue-pill" onClick={() => selectChallenge(selectedChallengeId)} type="button">
+          {auth.user?.role === "student" ? (<button className="continue-pill" onClick={() => selectChallenge(selectedChallengeId)} type="button">
             <Play size={16} weight="fill" />
             <span>
               <strong>继续实验</strong>
               <small>{currentChallenge.title} · {currentRecord?.bestScore ?? 0} 分</small>
             </span>
-          </button>
+          </button>) : null}
           <button
             aria-label="通知"
             className="icon-button"
@@ -686,16 +836,17 @@ export function App() {
             <button className="profile-button" onClick={() => setShowUserPanel((value) => !value)} type="button">
               <img alt="学生头像" src={avatarImage} />
               <span>
-                <strong>学习档案</strong>
-                <small>{student.mode} · 第 2 阶段</small>
+                <strong>{auth.user?.displayName ?? "学习档案"}</strong>
+                <small>{auth.user?.role === "teacher" ? "教师" : student.mode}</small>
               </span>
               <CaretDown size={18} />
             </button>
             {showUserPanel ? (
               <div className="profile-menu">
-                <button onClick={() => setShowSettings(true)} type="button">个人设置</button>
-                <button onClick={() => changeView("records")} type="button">查看学情</button>
-                <button onClick={() => changeView("notes")} type="button">打开笔记</button>
+                {auth.user?.role === "student" ? <button onClick={() => setShowSettings(true)} type="button">个人设置</button> : null}
+                {auth.user?.role === "student" ? <button onClick={() => changeView("records")} type="button">查看学情</button> : null}
+                {auth.user?.role === "student" ? <button onClick={() => changeView("notes")} type="button">打开笔记</button> : null}
+                <button onClick={handleLogout} type="button">退出登录</button>
               </div>
             ) : null}
           </div>
@@ -705,7 +856,7 @@ export function App() {
       <div className="workspace">
         <aside className="sidebar">
           <nav className="sidebar-nav" aria-label="主导航">
-            {navItems.map(({ id, icon: Icon, label }) => (
+            {navItems.filter((item) => auth.user?.role === "teacher" ? ["home", "teacher"].includes(item.id) : item.id !== "teacher").map(({ id, icon: Icon, label }) => (
               <button
                 className={activeView === id ? "nav-item active" : "nav-item"}
                 key={id}
@@ -725,10 +876,12 @@ export function App() {
           </section>
 
           <div className="sidebar-meta">
-            <button className="meta-item" onClick={() => setShowSettings(true)} type="button">
-              <GearSix size={20} />
-              <span>学习设置</span>
-            </button>
+            {auth.user?.role === "student" ? (
+              <button className="meta-item" onClick={() => setShowSettings(true)} type="button">
+                <GearSix size={20} />
+                <span>学习设置</span>
+              </button>
+            ) : null}
             <button className="meta-item" onClick={() => setStatusMessage("帮助中心已准备好：建议先看“如何读懂端口”。")} type="button">
               <Lifebuoy size={20} />
               <span>帮助支持</span>
@@ -745,12 +898,101 @@ export function App() {
           {activeView === "home" ? renderHome() : null}
           {activeView === "records" ? renderRecords() : null}
           {activeView === "notes" ? renderNotes() : null}
+          {activeView === "teacher" ? renderTeacherDashboard() : null}
         </main>
       </div>
 
       {showSettings ? renderSettingsModal() : null}
     </div>
   );
+
+  function renderLogin() {
+    return (
+      <div className="login-screen">
+        <form className="login-card" onSubmit={handleLogin}>
+          <span className="eyebrow">{"\u8bfe\u5802\u96c6\u4e2d\u7248"}</span>
+          <h1>{"\u7ec4\u6210\u539f\u7406\u5b9e\u8bad\u5e73\u53f0"}</h1>
+          <p>{"\u8bf7\u4f7f\u7528\u6559\u5e08\u6216\u5b66\u751f\u8d26\u53f7\u767b\u5f55\uff0c\u5b9e\u9a8c\u8fdb\u5ea6\u5c06\u4fdd\u5b58\u5230\u8bfe\u5802\u670d\u52a1\u5668\u3002"}</p>
+          <label className="form-row">
+            <span>{"\u8d26\u53f7"}</span>
+            <input value={loginForm.username} onChange={(event) => setLoginForm((current) => ({ ...current, username: event.target.value }))} />
+          </label>
+          <label className="form-row">
+            <span>{"\u5bc6\u7801"}</span>
+            <input type="password" value={loginForm.password} onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))} />
+          </label>
+          {loginError ? <p className="form-error">{loginError}</p> : null}
+          <button className="primary-button" type="submit">{"\u767b\u5f55"}</button>
+        </form>
+      </div>
+    );
+  }
+
+  function renderTeacherDashboard() {
+    const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
+    return (
+      <div className="teacher-layout">
+        <section className="section-panel">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">{"\u6559\u5e08\u770b\u677f"}</span>
+              <h1>{"\u73ed\u7ea7\u5b66\u60c5\u7ba1\u7406"}</h1>
+              <p>{"\u521b\u5efa\u73ed\u7ea7\u3001CSV \u5bfc\u5165\u5b66\u751f\u3001\u67e5\u770b\u5b8c\u6210\u7387\u5e76\u5bfc\u51fa\u6210\u7ee9\u3002"}</p>
+            </div>
+            <button className="ghost-button" onClick={refreshTeacherClasses} type="button">{"\u5237\u65b0"}</button>
+          </div>
+          <div className="teacher-tools">
+            <label className="form-row">
+              <span>{"\u65b0\u73ed\u7ea7\u540d\u79f0"}</span>
+              <input value={classNameDraft} onChange={(event) => setClassNameDraft(event.target.value)} />
+            </label>
+            <button className="primary-button" onClick={createTeacherClass} type="button">{"\u521b\u5efa\u73ed\u7ea7"}</button>
+          </div>
+          <div className="teacher-class-list">
+            {teacherClasses.map((item) => (
+              <button className={item.id === selectedTeacherClassId ? "teacher-class active" : "teacher-class"} key={item.id} onClick={() => { setSelectedTeacherClassId(item.id); refreshClassOverview(item.id); }} type="button">
+                <strong>{item.name}</strong>
+                <span>{item.studentCount} {"\u540d\u5b66\u751f"}</span>
+              </button>
+            ))}
+          </div>
+          {teacherMessage ? <p className="teacher-message">{teacherMessage}</p> : null}
+        </section>
+
+        <section className="section-panel">
+          <div className="section-heading">
+            <div>
+              <h2>{selectedClass?.name ?? "\u8bf7\u5148\u521b\u5efa\u6216\u9009\u62e9\u73ed\u7ea7"}</h2>
+              <p>{"CSV \u683c\u5f0f\uff1a\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801"}</p>
+            </div>
+            {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>{"\u5bfc\u51fa CSV"}</a> : null}
+          </div>
+          <textarea className="teacher-import-box" value={csvImportText} onChange={(event) => setCsvImportText(event.target.value)} />
+          <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">{"\u5bfc\u5165\u5b66\u751f"}</button>
+        </section>
+
+        <section className="section-panel">
+          <div className="metric-grid">
+            <Metric icon={CheckCircle} label="\u5b66\u751f\u6570" value={classOverview?.summary.studentCount ?? 0} />
+            <Metric icon={Target} label="\u5e73\u5747\u5b8c\u6210\u7387" value={(classOverview?.summary.completionRate ?? 0) + "%"} />
+            <Metric icon={TrendUp} label="\u5e73\u5747\u5206" value={classOverview?.summary.averageScore ?? 0} />
+            <Metric icon={WarningCircle} label="\u9ad8\u9891\u95ee\u9898" value={classOverview?.summary.weakSpot ?? "\u6682\u65e0\u6570\u636e"} />
+          </div>
+          <div className="record-table teacher-student-table">
+            {(classOverview?.students ?? []).map((studentItem) => (
+              <div className="record-row" key={studentItem.id}>
+                <strong>{studentItem.displayName}</strong>
+                <span>{studentItem.username}</span>
+                <span>{studentItem.summary.completionRate}%</span>
+                <span>{studentItem.summary.averageScore} {"\u5206"}</span>
+                <button className="ghost-button" onClick={() => resetStudentPassword(studentItem.id)} type="button">{"\u91cd\u7f6e\u5bc6\u7801"}</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   function renderHome() {
     return (
@@ -1340,10 +1582,7 @@ export function App() {
           </label>
           <button
             className="primary-button"
-            onClick={() => {
-              setShowSettings(false);
-              setStatusMessage("个人设置已更新。");
-            }}
+            onClick={saveStudentSettings}
             type="button"
           >
             保存设置
