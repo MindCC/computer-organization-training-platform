@@ -1378,7 +1378,7 @@ textarea:focus-visible {
 .canvas-wire-hit-layer {
   position: absolute;
   inset: 0;
-  z-index: 5;
+  z-index: 4;
   pointer-events: none;
 }
 
@@ -1617,7 +1617,7 @@ textarea:focus-visible {
 
 .lab-anchor {
   position: absolute;
-  z-index: 5;
+  z-index: 8;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1760,6 +1760,7 @@ textarea:focus-visible {
 
 .floating-pin {
   position: absolute;
+  z-index: 2;
   transform: translate(-50%, -50%);
   cursor: pointer;
 }
@@ -3129,8 +3130,15 @@ textarea:focus-visible {
 .circuit-flow-handle {
   background: #316bdc;
   border: 2px solid #ffffff;
-  height: 12px;
-  width: 12px;
+  height: 18px;
+  width: 18px;
+  z-index: 8;
+}
+
+.circuit-flow-handle::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
 }
 
 .circuit-flow-handle.input {

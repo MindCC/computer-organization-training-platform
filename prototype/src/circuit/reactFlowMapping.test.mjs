@@ -40,3 +40,13 @@ test("React Flow onConnect payload 可以转换为平台电路边", () => {
     { from: { nodeId: "input-b", portId: "out" }, to: { nodeId: "and-1", portId: "b" } },
   );
 });
+
+test("React Flow onConnect payload 反向拖拽时会按端口方向归一化", () => {
+  assert.deepEqual(
+    flowConnectionToCircuitEdge(
+      { source: "and-1", sourceHandle: "b", target: "input-b", targetHandle: "out" },
+      HALF_ADDER_CIRCUIT,
+    ),
+    { from: { nodeId: "input-b", portId: "out" }, to: { nodeId: "and-1", portId: "b" } },
+  );
+});

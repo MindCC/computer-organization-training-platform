@@ -885,24 +885,26 @@ export function App() {
             ))}
           </nav>
 
-          <section className="sidebar-promo">
-            <img alt="实验插图" src={labIllustration} />
-            <h2>边搭边学，先看懂再通关。</h2>
-            <p>每一关都围绕一个关键概念展开，系统会记录尝试、错误和复盘建议。</p>
-          </section>
+          {auth.user?.role === "student" ? (
+            <>
+              <section className="sidebar-promo">
+                <img alt="实验插图" src={labIllustration} />
+                <h2>边搭边学，先看懂再通关。</h2>
+                <p>每一关都围绕一个关键概念展开，系统会记录尝试、错误和复盘建议。</p>
+              </section>
 
-          <div className="sidebar-meta">
-            {auth.user?.role === "student" ? (
-              <button className="meta-item" onClick={() => setShowSettings(true)} type="button">
-                <GearSix size={20} />
-                <span>学习设置</span>
-              </button>
-            ) : null}
-            <button className="meta-item" onClick={() => setStatusMessage("帮助中心已准备好：建议先看“如何读懂端口”。")} type="button">
-              <Lifebuoy size={20} />
-              <span>帮助支持</span>
-            </button>
-          </div>
+              <div className="sidebar-meta">
+                <button className="meta-item" onClick={() => setShowSettings(true)} type="button">
+                  <GearSix size={20} />
+                  <span>学习设置</span>
+                </button>
+                <button className="meta-item" onClick={() => setStatusMessage("帮助中心已准备好：建议先看“如何读懂端口”。")} type="button">
+                  <Lifebuoy size={20} />
+                  <span>帮助支持</span>
+                </button>
+              </div>
+            </>
+          ) : null}
         </aside>
 
         <main className="dashboard">
@@ -1882,6 +1884,17 @@ function ChallengeCanvas({
     };
   }
 
+  function handleEndpointPointerDown(event, endpoint) {
+    event.preventDefault();
+    event.stopPropagation();
+    const payload = buildEndpointPayload(endpoint, event);
+    if (wireDrag) {
+      onWireDragEnd(payload);
+      return;
+    }
+    onWireDragStart(payload);
+  }
+
   return (
     <div className={`challenge-scene ${challengeId} ${placedComponents.length > 0 ? "has-components" : ""}`}>
       <div className="challenge-scene-header">
@@ -2027,9 +2040,7 @@ function ChallengeCanvas({
             ].filter(Boolean).join(" ")}
             key={anchor.key}
             onPointerDown={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onWireDragStart(buildEndpointPayload(anchor, event));
+              handleEndpointPointerDown(event, anchor);
             }}
             onPointerEnter={(event) => {
               if (!wireDrag) return;
@@ -2061,9 +2072,7 @@ function ChallengeCanvas({
             ].filter(Boolean).join(" ")}
             key={anchor.key}
             onPointerDown={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onWireDragStart(buildEndpointPayload(anchor, event));
+              handleEndpointPointerDown(event, anchor);
             }}
             onPointerEnter={(event) => {
               if (!wireDrag) return;
@@ -2143,16 +2152,14 @@ function ChallengeCanvas({
                     key={`${component.id}-${pin.pin}`}
                     style={{ left: `${pin.offsetX}%`, top: `${pin.offsetY}%` }}
                     onPointerDown={(event) => {
-                      event.stopPropagation();
-                      event.preventDefault();
-                      onWireDragStart(buildEndpointPayload({
+                      handleEndpointPointerDown(event, {
                         key: `${component.id}-${pin.pin}`,
                         label: component.name,
                         componentName: component.name,
                         componentLabel: component.displayLabel ?? component.name,
                         pin: pin.pin,
                         pinRole: pin.role,
-                      }, event));
+                      });
                     }}
                     onPointerEnter={(event) => {
                       if (!wireDrag) return;

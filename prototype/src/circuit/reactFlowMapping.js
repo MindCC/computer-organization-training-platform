@@ -43,11 +43,22 @@ export function flowEdgesToCircuitEdges(edges = []) {
   }));
 }
 
-export function flowConnectionToCircuitEdge(connection) {
+export function flowConnectionToCircuitEdge(connection, model = null) {
+  const sourcePort = findModelPort(model, connection.source, connection.sourceHandle);
+  const targetPort = findModelPort(model, connection.target, connection.targetHandle);
+  if (sourcePort?.direction === "in" && targetPort?.direction === "out") {
+    return {
+      from: { nodeId: connection.target, portId: connection.targetHandle },
+      to: { nodeId: connection.source, portId: connection.sourceHandle },
+    };
+  }
   return {
     from: { nodeId: connection.source, portId: connection.sourceHandle },
     to: { nodeId: connection.target, portId: connection.targetHandle },
   };
 }
 
+function findModelPort(model, nodeId, portId) {
+  return (model?.nodes ?? []).find((node) => node.id === nodeId)?.ports.find((port) => port.id === portId) ?? null;
+}
 

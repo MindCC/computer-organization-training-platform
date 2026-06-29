@@ -137,6 +137,11 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
     ({ expectedNodes }) => document.querySelectorAll(".react-flow__node").length >= expectedNodes,
     { expectedNodes: challenge.nodes.length },
   );
+  if (challenge.id === "data-flow") {
+    await dragRequiredEdge(targetPage, challenge.requiredEdges[0]);
+    await targetPage.waitForFunction(() => document.querySelectorAll(".react-flow__edge").length >= 1);
+    await workbench.getByRole("button", { name: "\u91cd\u7f6e" }).click();
+  }
   await workbench.getByRole("button", { name: text.fillReference }).click();
   await targetPage.waitForFunction(
     ({ expectedEdges }) => document.querySelectorAll(".react-flow__edge").length >= expectedEdges,
@@ -144,6 +149,19 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   );
   await workbench.getByRole("button", { name: text.submit }).click();
   await workbench.getByText(text.passed).first().waitFor({ state: "visible", timeout: 10_000 });
+}
+
+async function dragRequiredEdge(targetPage, edge) {
+  const source = targetPage.getByTestId(`port-${edge.from.nodeId}-${edge.from.portId}`);
+  const target = targetPage.getByTestId(`port-${edge.to.nodeId}-${edge.to.portId}`);
+  const sourceBox = await source.boundingBox();
+  const targetBox = await target.boundingBox();
+  assert.ok(sourceBox, "source port is visible");
+  assert.ok(targetBox, "target port is visible");
+  await targetPage.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+  await targetPage.mouse.down();
+  await targetPage.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 12 });
+  await targetPage.mouse.up();
 }
 
 async function assertVisible(targetPage, visibleText) {

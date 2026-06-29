@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   addEdge,
   Background,
+  ConnectionMode,
   Controls,
   ReactFlow,
   useEdgesState,
@@ -32,7 +33,7 @@ export function CircuitFlowCanvas({ model, onResult }) {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialFlow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
-  const [status, setStatus] = useState(() => `从输出端口拖到输入端口，完成${model.title}结构。`);
+  const [status, setStatus] = useState(() => `拖动两个端口即可连接，系统会自动识别输出端和输入端，完成${model.title}结构。`);
   const [report, setReport] = useState(null);
 
   useEffect(() => {
@@ -41,11 +42,11 @@ export function CircuitFlowCanvas({ model, onResult }) {
     setEdges(nextFlow.edges);
     setSelectedEdgeId(null);
     setReport(null);
-    setStatus(`从输出端口拖到输入端口，完成${model.title}结构。`);
+    setStatus(`拖动两个端口即可连接，系统会自动识别输出端和输入端，完成${model.title}结构。`);
   }, [model, setEdges, setNodes]);
 
   const onConnect = useCallback((connection) => {
-    const circuitEdge = flowConnectionToCircuitEdge(connection);
+    const circuitEdge = flowConnectionToCircuitEdge(connection, model);
     const existingEdges = flowEdgesToCircuitEdges(edges);
     const validation = canConnectPorts(model, circuitEdge, existingEdges);
 
@@ -70,8 +71,8 @@ export function CircuitFlowCanvas({ model, onResult }) {
     setEdges([]);
     setSelectedEdgeId(null);
     setReport(null);
-    setStatus(`已重置 ${model.title} React Flow 画布。`);
-  }, [setEdges]);
+    setStatus(`已重置${model.title} React Flow 画布。`);
+  }, [model, setEdges]);
 
   const removeSelectedEdge = useCallback(() => {
     if (!selectedEdgeId) return;
@@ -117,6 +118,7 @@ export function CircuitFlowCanvas({ model, onResult }) {
 
       <div className="circuit-flow-canvas" data-testid="react-flow-circuit-canvas">
         <ReactFlow
+          connectionMode={ConnectionMode.Loose}
           edges={edges}
           fitView
           nodes={nodes}
@@ -141,4 +143,3 @@ export function CircuitFlowCanvas({ model, onResult }) {
     </div>
   );
 }
-
