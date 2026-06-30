@@ -980,24 +980,24 @@ export function App() {
         <section className="section-panel">
           <div className="section-heading">
             <div>
-              <h2>{selectedClass?.name ?? "\u8bf7\u5148\u521b\u5efa\u6216\u9009\u62e9\u73ed\u7ea7"}</h2>
-              <p>{"CSV \u683c\u5f0f\uff1a\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801"}</p>
+              <h2>{selectedClass?.name ?? "请先创建或选择班级"}</h2>
+              <p>CSV 格式：学号,姓名,初始密码</p>
             </div>
             <div className="teacher-action-row">
-              <a className="ghost-button" download="student-import-template.csv" href={studentImportTemplateHref}>{"\u4e0b\u8f7d\u5bfc\u5165\u6a21\u677f"}</a>
-              {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>{"\u5bfc\u51fa CSV"}</a> : null}
+              <a className="ghost-button" download="student-import-template.csv" href={studentImportTemplateHref}>下载导入模板</a>
+              {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>导出 CSV</a> : null}
             </div>
           </div>
           <textarea className="teacher-import-box" value={csvImportText} onChange={(event) => setCsvImportText(event.target.value)} />
-          <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">{"\u5bfc\u5165\u5b66\u751f"}</button>
+          <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">导入学生</button>
         </section>
 
         <section className="section-panel">
           <div className="metric-grid">
-            <Metric icon={CheckCircle} label="\u5b66\u751f\u6570" value={classOverview?.summary.studentCount ?? 0} />
-            <Metric icon={Target} label="\u5e73\u5747\u5b8c\u6210\u7387" value={(classOverview?.summary.completionRate ?? 0) + "%"} />
-            <Metric icon={TrendUp} label="\u5e73\u5747\u5206" value={classOverview?.summary.averageScore ?? 0} />
-            <Metric icon={WarningCircle} label="\u9ad8\u9891\u95ee\u9898" value={classOverview?.summary.weakSpot ?? "\u6682\u65e0\u6570\u636e"} />
+            <Metric icon={CheckCircle} label="学生数" value={classOverview?.summary.studentCount ?? 0} />
+            <Metric icon={Target} label="平均完成率" value={(classOverview?.summary.completionRate ?? 0) + "%"} />
+            <Metric icon={TrendUp} label="平均分" value={classOverview?.summary.averageScore ?? 0} />
+            <Metric icon={WarningCircle} label="高频问题" value={classOverview?.summary.weakSpot ?? "暂无数据"} />
           </div>
           <div className="record-table teacher-student-table">
             {(classOverview?.students ?? []).map((studentItem) => (
@@ -1005,10 +1005,10 @@ export function App() {
                 <strong>{studentItem.displayName}</strong>
                 <span>{studentItem.username}</span>
                 <span>{studentItem.summary.completionRate}%</span>
-                <span>{studentItem.summary.averageScore} {"\u5206"}</span>
+                <span>{studentItem.summary.averageScore} 分</span>
                 <div className="teacher-row-actions">
-                  <button className="ghost-button" onClick={() => openTeacherStudentDetail(studentItem.id)} type="button">{"\u67e5\u770b\u8be6\u60c5"}</button>
-                  <button className="ghost-button" onClick={() => resetStudentPassword(studentItem.id)} type="button">{"\u91cd\u7f6e\u5bc6\u7801"}</button>
+                  <button className="ghost-button" onClick={() => openTeacherStudentDetail(studentItem.id)} type="button">查看详情</button>
+                  <button className="ghost-button" onClick={() => resetStudentPassword(studentItem.id)} type="button">重置密码</button>
                 </div>
               </div>
             ))}
@@ -1019,42 +1019,42 @@ export function App() {
           <section className="section-panel teacher-detail-panel">
             <div className="section-heading">
               <div>
-                <span className="eyebrow">{"\u5b66\u751f\u8be6\u60c5"}</span>
+                <span className="eyebrow">学生详情</span>
                 <h2>{selectedTeacherStudent.displayName}</h2>
-                <p>{selectedTeacherStudent.username} {"\u00b7"} {selectedTeacherStudent.className}</p>
+                <p>{selectedTeacherStudent.username} · {selectedTeacherStudent.className}</p>
               </div>
-              <button className="ghost-button" onClick={() => setSelectedTeacherStudent(null)} type="button">{"\u5173\u95ed"}</button>
+              <button className="ghost-button" onClick={() => setSelectedTeacherStudent(null)} type="button">关闭</button>
             </div>
             <div className="teacher-detail-grid">
               <div>
-                <h3>{"\u9010\u5173\u6700\u4f73\u6210\u7ee9"}</h3>
+                <h3>逐关最佳成绩</h3>
                 <div className="teacher-progress-list">
                   {CHALLENGES.map((challenge) => {
                     const record = selectedTeacherStudent.progress?.[challenge.id];
                     return (
                       <div className="teacher-progress-row" key={challenge.id}>
                         <strong>{challenge.title}</strong>
-                        <span>{statusText(record?.status)} {"\u00b7"} {record?.bestScore ?? 0} {"\u5206"} {"\u00b7"} {record?.attempts ?? 0} {"\u6b21"}</span>
+                        <span>{statusText(record?.status)} · {record?.bestScore ?? 0} 分 · {record?.attempts ?? 0} 次</span>
                       </div>
                     );
                   })}
                 </div>
               </div>
               <div>
-                <h3>{"\u6700\u8fd1\u63d0\u4ea4"}</h3>
+                <h3>最近提交</h3>
                 <div className="teacher-attempt-list">
                   {(selectedTeacherStudent.attempts ?? []).slice(0, 8).map((attempt) => (
                     <div className={attempt.passed ? "teacher-attempt passed" : "teacher-attempt failed"} key={attempt.id}>
                       <strong>{CHALLENGES.find((challenge) => challenge.id === attempt.challengeId)?.title ?? attempt.challengeId}</strong>
-                      <span>{attempt.score} {"\u5206"} {"\u00b7"} {attempt.passed ? "\u901a\u8fc7" : "\u672a\u901a\u8fc7"}</span>
-                      <small>{attempt.errors?.length ? attempt.errors.join(" / ") : "\u6682\u65e0\u9519\u8bef"}</small>
+                      <span>{attempt.score} 分 · {attempt.passed ? "通过" : "未通过"}</span>
+                      <small>{attempt.errors?.length ? attempt.errors.join(" / ") : "暂无错误"}</small>
                     </div>
                   ))}
-                  {selectedTeacherStudent.attempts?.length ? null : <p className="empty-state">{"\u6682\u65e0\u63d0\u4ea4\u8bb0\u5f55"}</p>}
+                  {selectedTeacherStudent.attempts?.length ? null : <p className="empty-state">暂无提交记录</p>}
                 </div>
               </div>
               <div>
-                <h3>{"\u5b66\u751f\u7b14\u8bb0"}</h3>
+                <h3>学生笔记</h3>
                 <div className="teacher-note-list">
                   {(selectedTeacherStudent.notes ?? []).slice(0, 5).map((note) => (
                     <article className="teacher-note" key={note.id}>
@@ -1062,7 +1062,7 @@ export function App() {
                       <p>{note.content}</p>
                     </article>
                   ))}
-                  {selectedTeacherStudent.notes?.length ? null : <p className="empty-state">{"\u6682\u65e0\u7b14\u8bb0"}</p>}
+                  {selectedTeacherStudent.notes?.length ? null : <p className="empty-state">暂无笔记</p>}
                 </div>
               </div>
             </div>
