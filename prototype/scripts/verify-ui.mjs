@@ -19,6 +19,8 @@ const text = {
   viewDetail: "\u67e5\u770b\u8be6\u60c5",
   studentDetail: "\u5b66\u751f\u8be6\u60c5",
   fillReference: "\u586b\u5165\u53c2\u8003\u7ed3\u6784",
+  casePanel: "\u7528\u4f8b\u5c55\u793a",
+  liveDataFlow: "\u5b9e\u65f6\u6570\u636e\u6d41\u52a8\u68c0\u6d4b",
   submit: "\u63d0\u4ea4\u68c0\u6d4b",
   passed: "\u672c\u5173\u901a\u8fc7",
   backHome: "\u8fd4\u56de\u8bfe\u7a0b\u9996\u9875",
@@ -58,7 +60,7 @@ await page.getByRole("button", { name: text.createClass }).click();
 await assertVisible(page, text.className);
 await page.locator(".teacher-import-box").fill(`\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n${text.studentNo},${text.studentName},${text.studentPassword}`);
 await page.getByRole("button", { name: text.importStudents }).click();
-await assertVisible(page, text.studentName);
+await page.locator(".teacher-student-table").getByText(text.studentName).waitFor({ state: "visible", timeout: 10_000 });
 await page.screenshot({ path: artifactPath("teacher-imported.png"), fullPage: true });
 const templateHref = await page.getByRole("link", { name: text.importTemplate }).getAttribute("href");
 assert.match(templateHref ?? "", /^data:text\/csv/);
@@ -133,6 +135,8 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   const workbench = targetPage.locator(".circuit-flow-workbench");
   await targetPage.getByTestId("react-flow-circuit-canvas").waitFor({ state: "visible", timeout: 10_000 });
   await workbench.getByText(challenge.title).first().waitFor({ state: "visible", timeout: 10_000 });
+  await workbench.getByText(text.casePanel).waitFor({ state: "visible", timeout: 10_000 });
+  await workbench.getByText(text.liveDataFlow).waitFor({ state: "visible", timeout: 10_000 });
   await targetPage.waitForFunction(
     ({ expectedNodes }) => document.querySelectorAll(".react-flow__node").length >= expectedNodes,
     { expectedNodes: challenge.nodes.length },
@@ -140,6 +144,7 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   if (challenge.id === "data-flow") {
     await dragRequiredEdge(targetPage, challenge.requiredEdges[0]);
     await targetPage.waitForFunction(() => document.querySelectorAll(".react-flow__edge").length >= 1);
+    await workbench.locator(".circuit-flow-edge-signal").first().waitFor({ state: "visible", timeout: 10_000 });
     await workbench.getByRole("button", { name: "\u91cd\u7f6e" }).click();
   }
   await workbench.getByRole("button", { name: text.fillReference }).click();

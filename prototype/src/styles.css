@@ -3068,6 +3068,176 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+.circuit-flow-canvas-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.circuit-flow-live-panel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.circuit-flow-case-panel,
+.circuit-flow-signal-panel {
+  background: #ffffff;
+  border: 1px solid rgba(75, 92, 117, 0.16);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.circuit-flow-panel-heading {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+}
+
+.circuit-flow-panel-heading strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.circuit-flow-panel-heading span,
+.circuit-flow-empty {
+  color: var(--muted-text);
+  font-size: 12px;
+  margin: 0;
+}
+
+.circuit-flow-case-tabs {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(34px, 1fr));
+}
+
+.circuit-flow-case-tabs button {
+  background: #f3f6f9;
+  border: 1px solid rgba(75, 92, 117, 0.14);
+  border-radius: 8px;
+  color: var(--muted-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 32px;
+}
+
+.circuit-flow-case-tabs button.active {
+  background: rgba(49, 107, 220, 0.1);
+  border-color: rgba(49, 107, 220, 0.32);
+  color: #2459bf;
+}
+
+.circuit-flow-case-detail {
+  align-items: center;
+  border: 1px solid rgba(75, 92, 117, 0.14);
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 9px 10px;
+}
+
+.circuit-flow-case-detail strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.circuit-flow-case-detail span {
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 8px;
+}
+
+.circuit-flow-case-detail.passed span {
+  background: rgba(50, 134, 91, 0.12);
+  color: #24734d;
+}
+
+.circuit-flow-case-detail.failed span {
+  background: rgba(186, 82, 70, 0.12);
+  color: #964034;
+}
+
+.circuit-flow-value-list,
+.circuit-flow-edge-signals {
+  display: grid;
+  gap: 7px;
+}
+
+.circuit-flow-value-list > span {
+  color: var(--muted-text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.circuit-flow-value-row,
+.circuit-flow-edge-signal {
+  align-items: center;
+  background: #f7f9fb;
+  border: 1px solid rgba(75, 92, 117, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 8px 9px;
+}
+
+.circuit-flow-value-row strong,
+.circuit-flow-edge-signal strong {
+  color: var(--ink);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.circuit-flow-value-row em,
+.circuit-flow-edge-signal span {
+  color: var(--muted-text);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.circuit-flow-edge-signal small {
+  color: var(--muted-text);
+  font-size: 11px;
+  grid-column: 1 / -1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.circuit-flow-value-row.matched {
+  border-color: rgba(50, 134, 91, 0.22);
+}
+
+.circuit-flow-value-row.mismatch {
+  border-color: rgba(186, 82, 70, 0.26);
+}
+
+.circuit-flow-edge-signal.one {
+  background: rgba(50, 134, 91, 0.08);
+  border-color: rgba(50, 134, 91, 0.26);
+}
+
+.circuit-flow-edge-signal.zero {
+  background: rgba(49, 107, 220, 0.07);
+  border-color: rgba(49, 107, 220, 0.22);
+}
+
+.circuit-flow-edge-signal.unknown {
+  background: rgba(186, 82, 70, 0.06);
+  border-color: rgba(186, 82, 70, 0.18);
+}
+
 .circuit-flow-node {
   background: #ffffff;
   border: 1px solid rgba(40, 52, 70, 0.22);
@@ -3153,6 +3323,32 @@ textarea:focus-visible {
 .react-flow__edge:focus .react-flow__edge-path {
   stroke: #316bdc;
   stroke-width: 3;
+}
+
+.react-flow__edge.signal-one .react-flow__edge-path {
+  stroke: #248a5b;
+  stroke-width: 3;
+}
+
+.react-flow__edge.signal-zero .react-flow__edge-path {
+  stroke: #316bdc;
+  stroke-width: 2.5;
+}
+
+.react-flow__edge.signal-unknown .react-flow__edge-path {
+  stroke: #ba5246;
+  stroke-dasharray: 6 4;
+}
+
+.react-flow__edge-text {
+  fill: #24364f;
+  font-weight: 800;
+}
+
+@media (max-width: 1060px) {
+  .circuit-flow-canvas-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Classroom account and teacher dashboard */
