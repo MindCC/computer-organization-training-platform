@@ -291,15 +291,15 @@ export function getClassOverview(db, classId) {
   return { students, summary: classSummary };
 }
 
-export function getTeacherStudentDetail(db, teacherId, studentId) {
+export function getTeacherStudentDetail(db, teacherId, studentId, classId = null) {
   const membership = db.prepare(`
     SELECT u.id, u.username, u.display_name AS displayName, c.id AS classId, c.name AS className
     FROM class_members cm
     JOIN classes c ON c.id = cm.class_id
     JOIN users u ON u.id = cm.student_id
-    WHERE cm.student_id = ? AND c.teacher_id = ?
+    WHERE cm.student_id = ? AND c.teacher_id = ? AND (? IS NULL OR c.id = ?)
     LIMIT 1
-  `).get(studentId, teacherId);
+  `).get(studentId, teacherId, classId, classId);
   if (!membership) return null;
   return {
     ...membership,

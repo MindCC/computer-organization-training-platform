@@ -16,6 +16,7 @@ const text = {
   createClass: "\u521b\u5efa\u73ed\u7ea7",
   importStudents: "\u5bfc\u5165\u5b66\u751f",
   importTemplate: "\u4e0b\u8f7d\u5bfc\u5165\u6a21\u677f",
+  classroomSettings: "\u8bfe\u5802\u8bbe\u7f6e",
   viewDetail: "\u67e5\u770b\u8be6\u60c5",
   studentDetail: "\u5b66\u751f\u8be6\u60c5",
   fillReference: "\u586b\u5165\u53c2\u8003\u7ed3\u6784",
@@ -53,18 +54,20 @@ await page.goto(baseUrl, { waitUntil: "networkidle" });
 await assertVisible(page, text.appTitle);
 await login(page, teacherUsername, teacherPassword);
 await assertVisible(page, text.teacherHeading);
+await page.locator(".teacher-studio-actions").getByRole("button", { name: text.classroomSettings }).click();
+const templateHref = await page.locator(".settings-template-link").getAttribute("href");
+assert.match(templateHref ?? "", /^data:text\/csv/);
+await page.getByRole("button", { name: "\u5173\u95ed" }).click();
 await page.screenshot({ path: artifactPath("teacher-empty.png"), fullPage: true });
 
 await page.getByLabel("\u65b0\u73ed\u7ea7\u540d\u79f0").fill(text.className);
 await page.getByRole("button", { name: text.createClass }).click();
 await assertVisible(page, text.className);
+await selectClass(page, text.className);
 await page.locator(".teacher-import-box").fill(`\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n${text.studentNo},${text.studentName},${text.studentPassword}`);
 await page.getByRole("button", { name: text.importStudents }).click();
 await page.locator(".teacher-student-table").getByText(text.studentName).waitFor({ state: "visible", timeout: 10_000 });
 await page.screenshot({ path: artifactPath("teacher-imported.png"), fullPage: true });
-const templateHref = await page.getByRole("link", { name: text.importTemplate }).getAttribute("href");
-assert.match(templateHref ?? "", /^data:text\/csv/);
-
 const csvText = await page.evaluate(async () => {
   const response = await fetch(document.querySelector('a[href$="/export.csv"]').href, { credentials: "include" });
   return response.text();
@@ -93,12 +96,15 @@ await page.screenshot({ path: artifactPath("student-records-after-refresh.png"),
 await logout(page);
 await login(page, teacherUsername, teacherPassword);
 await assertVisible(page, text.teacherHeading);
+await selectClass(page, text.className);
 await assertVisible(page, text.studentName);
 await assertVisible(page, "100%");
-await page.getByRole("button", { name: text.viewDetail }).first().click();
-await assertVisible(page, text.studentDetail);
-await assertVisible(page, "\u9010\u5173\u6700\u4f73\u6210\u7ee9");
-await assertVisible(page, "\u6700\u8fd1\u63d0\u4ea4");
+await page.locator(".teacher-student-table .record-row").filter({ hasText: text.studentName }).last().getByRole("button", { name: text.viewDetail }).click();
+const detailPanel = page.locator(".teacher-detail-panel");
+await detailPanel.waitFor({ state: "visible", timeout: 10_000 });
+await detailPanel.getByText(text.studentDetail).waitFor({ state: "visible", timeout: 10_000 });
+await detailPanel.getByText("\u9010\u5173\u6700\u4f73\u6210\u7ee9").waitFor({ state: "visible", timeout: 10_000 });
+await detailPanel.getByText("\u6700\u8fd1\u63d0\u4ea4").waitFor({ state: "visible", timeout: 10_000 });
 await page.screenshot({ path: artifactPath("teacher-overview-after-student.png"), fullPage: true });
 
 await page.setViewportSize({ width: 390, height: 900 });
@@ -129,6 +135,12 @@ async function openChallenge(targetPage, title) {
 
 async function openRecords(targetPage) {
   await targetPage.locator(".sidebar-nav .nav-item").filter({ hasText: text.records }).click();
+}
+
+async function selectClass(targetPage, className) {
+  const classButton = targetPage.locator(".teacher-class").filter({ hasText: className }).last();
+  await classButton.waitFor({ state: "visible", timeout: 10_000 });
+  await classButton.click();
 }
 
 async function verifyReactFlowChallenge(targetPage, challenge) {

@@ -279,6 +279,52 @@ const defaultComponentLabel =
 const studentImportTemplateHref =
   "data:text/csv;charset=utf-8,%E5%AD%A6%E5%8F%B7,%E5%A7%93%E5%90%8D,%E5%88%9D%E5%A7%8B%E5%AF%86%E7%A0%81%0A2026001,%E6%9D%8E%E5%90%8C%E5%AD%A6,Student123!%0A2026002,%E7%8E%8B%E5%90%8C%E5%AD%A6,Student123!";
 
+function buildTeacherAssistantInsights(classOverview, selectedClass) {
+  const students = classOverview?.students ?? [];
+  const summary = classOverview?.summary ?? {};
+  const atRiskStudents = students
+    .filter((studentItem) => studentItem.summary.completionRate < 60 || studentItem.summary.averageScore < 70)
+    .sort((left, right) => (
+      left.summary.completionRate - right.summary.completionRate
+      || left.summary.averageScore - right.summary.averageScore
+      || right.summary.totalAttempts - left.summary.totalAttempts
+    ))
+    .slice(0, 4);
+
+  const challengeStats = CHALLENGES.map((challenge) => {
+    const incompleteCount = students.filter((studentItem) => studentItem.progress?.[challenge.id]?.status !== "completed").length;
+    const averageScore = students.length > 0
+      ? Math.round(students.reduce((total, studentItem) => total + (studentItem.progress?.[challenge.id]?.bestScore ?? 0), 0) / students.length)
+      : 0;
+    return { challenge, incompleteCount, averageScore };
+  }).sort((left, right) => right.incompleteCount - left.incompleteCount || left.averageScore - right.averageScore);
+
+  const focusChallenge = challengeStats[0]?.challenge ?? CHALLENGES[0];
+  const hasClass = Boolean(selectedClass);
+  const hasStudents = students.length > 0;
+  const weakSpot = summary.weakSpot && summary.weakSpot !== "暂无高频错误" ? summary.weakSpot : focusChallenge.title;
+
+  return {
+    title: hasClass ? `${selectedClass.name} 智能助教` : "请选择班级",
+    overview: hasStudents
+      ? `本班 ${students.length} 名学生，平均完成率 ${summary.completionRate ?? 0}%，平均分 ${summary.averageScore ?? 0}。`
+      : "当前班级还没有学生数据，先导入学生或等待学生完成一次提交。",
+    focus: hasStudents
+      ? `下一节课建议聚焦「${focusChallenge.title}」，重点处理「${weakSpot}」。`
+      : "导入学生后，助教会自动生成备课重点和分层辅导名单。",
+    nextActions: hasStudents ? [
+      `课前 5 分钟复盘 ${focusChallenge.title} 的端口和信号走向。`,
+      atRiskStudents.length > 0 ? `安排 ${atRiskStudents.length} 名风险学生先完成参考结构，再独立重连一次。` : "全班基础表现稳定，可以增加限时提交或变式测试。",
+      "课后导出 CSV，保留本节课完成率、最好分和尝试次数作为课堂记录。",
+    ] : [
+      "在设置里下载 CSV 模板。",
+      "按学号、姓名、初始密码三列导入学生。",
+      "让学生完成一次提交后再查看助教建议。",
+    ],
+    atRiskStudents,
+  };
+}
+
 export function App() {
   const [auth, setAuth] = useState({ status: "loading", user: null });
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
@@ -814,7 +860,7 @@ export function App() {
   if (activeView === "lab") {
     return (
       <div className="app-shell lab-mode-shell">
-        {renderLabScreen()}
+        {renderLabStudioScreen()}
         {showSettings ? renderSettingsModal() : null}
       </div>
     );
@@ -859,7 +905,7 @@ export function App() {
             </button>
             {showUserPanel ? (
               <div className="profile-menu">
-                {auth.user?.role === "student" ? <button onClick={() => setShowSettings(true)} type="button">个人设置</button> : null}
+                <button onClick={() => setShowSettings(true)} type="button">{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</button>
                 {auth.user?.role === "student" ? <button onClick={() => changeView("records")} type="button">查看学情</button> : null}
                 {auth.user?.role === "student" ? <button onClick={() => changeView("notes")} type="button">打开笔记</button> : null}
                 <button onClick={handleLogout} type="button">退出登录</button>
@@ -916,7 +962,7 @@ export function App() {
           {activeView === "home" ? renderHome() : null}
           {activeView === "records" ? renderRecords() : null}
           {activeView === "notes" ? renderNotes() : null}
-          {activeView === "teacher" ? renderTeacherDashboard() : null}
+          {activeView === "teacher" ? renderTeacherStudioDashboard() : null}
         </main>
       </div>
 
@@ -942,6 +988,201 @@ export function App() {
           {loginError ? <p className="form-error">{loginError}</p> : null}
           <button className="primary-button" type="submit">{"\u767b\u5f55"}</button>
         </form>
+      </div>
+    );
+  }
+
+  function renderTeacherStudioDashboard() {
+    const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
+    const assistant = buildTeacherAssistantInsights(classOverview, selectedClass);
+    const students = classOverview?.students ?? [];
+
+    return (
+      <div className="teacher-studio">
+        <header className="teacher-studio-header">
+          <div>
+            <span className="eyebrow">教师数据页</span>
+            <h1>班级学情管理</h1>
+            <p>集中查看班级进度、学生成绩、提交记录和智能助教建议。</p>
+          </div>
+          <div className="teacher-studio-actions">
+            <button className="ghost-button" onClick={refreshTeacherClasses} type="button">刷新数据</button>
+            <button className="primary-button" onClick={() => setShowSettings(true)} type="button">课堂设置</button>
+          </div>
+        </header>
+
+        <div className="teacher-studio-grid">
+          <aside className="teacher-studio-rail">
+            <div className="teacher-studio-card">
+              <div className="teacher-studio-card-heading">
+                <strong>班级列表</strong>
+                <span>{teacherClasses.length} 个班</span>
+              </div>
+              <div className="teacher-class-list">
+                {teacherClasses.map((item) => (
+                  <button
+                    className={item.id === selectedTeacherClassId ? "teacher-class active" : "teacher-class"}
+                    key={item.id}
+                    onClick={() => { setSelectedTeacherClassId(item.id); refreshClassOverview(item.id); }}
+                    type="button"
+                  >
+                    <strong>{item.name}</strong>
+                    <span>{item.studentCount} 名学生</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="teacher-studio-card">
+              <div className="teacher-studio-card-heading">
+                <strong>创建班级</strong>
+              </div>
+              <div className="teacher-create-box">
+                <label className="form-row">
+                  <span>新班级名称</span>
+                  <input value={classNameDraft} onChange={(event) => setClassNameDraft(event.target.value)} />
+                </label>
+                <button className="primary-button" onClick={createTeacherClass} type="button">创建班级</button>
+              </div>
+              {teacherMessage ? <p className="teacher-message">{teacherMessage}</p> : null}
+            </div>
+          </aside>
+
+          <section className="teacher-studio-main">
+            <div className="teacher-studio-summary">
+              <Metric icon={CheckCircle} label="学生数" value={classOverview?.summary.studentCount ?? students.length} />
+              <Metric icon={Target} label="平均完成率" value={(classOverview?.summary.completionRate ?? 0) + "%"} />
+              <Metric icon={TrendUp} label="平均分" value={classOverview?.summary.averageScore ?? 0} />
+              <Metric icon={WarningCircle} label="高频问题" value={classOverview?.summary.weakSpot ?? "暂无数据"} />
+            </div>
+
+            <div className="teacher-studio-content">
+              <section className="teacher-studio-panel teacher-import-panel">
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">学生导入</span>
+                    <h2>{selectedClass?.name ?? "请先创建或选择班级"}</h2>
+                    <p>粘贴 CSV 内容后导入学生；模板下载已移动到课堂设置。</p>
+                  </div>
+                  <div className="teacher-action-row">
+                    {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>导出 CSV</a> : null}
+                  </div>
+                </div>
+                <textarea className="teacher-import-box" value={csvImportText} onChange={(event) => setCsvImportText(event.target.value)} />
+                <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">导入学生</button>
+              </section>
+
+              <section className="teacher-studio-panel teacher-assistant-panel">
+                <div className="teacher-assistant-header">
+                  <div>
+                    <span className="eyebrow">智能助教</span>
+                    <h2>{assistant.title}</h2>
+                    <p>{assistant.overview}</p>
+                  </div>
+                  <Sparkle size={26} />
+                </div>
+                <div className="teacher-assistant-focus">
+                  <strong>{assistant.focus}</strong>
+                </div>
+                <div className="teacher-assistant-actions">
+                  {assistant.nextActions.map((item) => (
+                    <p key={item}><CheckCircle size={16} weight="fill" /> {item}</p>
+                  ))}
+                </div>
+                <div className="teacher-risk-list">
+                  <strong>重点关注学生</strong>
+                  {assistant.atRiskStudents.length > 0 ? assistant.atRiskStudents.map((studentItem) => (
+                    <button className="teacher-risk-row" key={studentItem.id} onClick={() => openTeacherStudentDetail(studentItem.id)} type="button">
+                      <span>{studentItem.displayName}</span>
+                      <small>{studentItem.summary.completionRate}% · {studentItem.summary.averageScore} 分 · {studentItem.summary.totalAttempts} 次</small>
+                    </button>
+                  )) : <p className="empty-state">暂无高风险学生。</p>}
+                </div>
+              </section>
+            </div>
+
+            <section className="teacher-studio-panel">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">学生数据</span>
+                  <h2>{selectedClass ? `${selectedClass.name} 学生表现` : "请选择班级"}</h2>
+                  <p>展示每名学生的完成率、平均分、尝试次数和最近薄弱点。</p>
+                </div>
+              </div>
+              <div className="record-table teacher-student-table">
+                {students.map((studentItem) => (
+                  <div className="record-row" key={studentItem.id}>
+                    <strong>{studentItem.displayName}</strong>
+                    <span>{studentItem.username}</span>
+                    <span>{studentItem.summary.completionRate}%</span>
+                    <span>{studentItem.summary.averageScore} 分</span>
+                    <span>{studentItem.summary.totalAttempts} 次</span>
+                    <small>{studentItem.summary.weakSpot}</small>
+                    <div className="teacher-row-actions">
+                      <button className="ghost-button" onClick={() => openTeacherStudentDetail(studentItem.id)} type="button">查看详情</button>
+                      <button className="ghost-button" onClick={() => resetStudentPassword(studentItem.id)} type="button">重置密码</button>
+                    </div>
+                  </div>
+                ))}
+                {students.length === 0 ? <p className="empty-state">暂无学生数据。请先导入学生，或等待学生完成提交。</p> : null}
+              </div>
+            </section>
+
+            {selectedTeacherStudent ? (
+              <section className="teacher-studio-panel teacher-detail-panel">
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">学生详情</span>
+                    <h2>{selectedTeacherStudent.displayName}</h2>
+                    <p>{selectedTeacherStudent.username} · {selectedTeacherStudent.className}</p>
+                  </div>
+                  <button className="ghost-button" onClick={() => setSelectedTeacherStudent(null)} type="button">关闭</button>
+                </div>
+                <div className="teacher-detail-grid">
+                  <div>
+                    <h3>逐关最佳成绩</h3>
+                    <div className="teacher-progress-list">
+                      {CHALLENGES.map((challenge) => {
+                        const record = selectedTeacherStudent.progress?.[challenge.id];
+                        return (
+                          <div className="teacher-progress-row" key={challenge.id}>
+                            <strong>{challenge.title}</strong>
+                            <span>{statusText(record?.status)} · {record?.bestScore ?? 0} 分 · {record?.attempts ?? 0} 次</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <h3>最近提交</h3>
+                    <div className="teacher-attempt-list">
+                      {(selectedTeacherStudent.attempts ?? []).slice(0, 8).map((attempt) => (
+                        <div className={attempt.passed ? "teacher-attempt passed" : "teacher-attempt failed"} key={attempt.id}>
+                          <strong>{CHALLENGES.find((challenge) => challenge.id === attempt.challengeId)?.title ?? attempt.challengeId}</strong>
+                          <span>{attempt.score} 分 · {attempt.passed ? "通过" : "未通过"}</span>
+                          <small>{attempt.errors?.length ? attempt.errors.join(" / ") : "暂无错误"}</small>
+                        </div>
+                      ))}
+                      {selectedTeacherStudent.attempts?.length ? null : <p className="empty-state">暂无提交记录</p>}
+                    </div>
+                  </div>
+                  <div>
+                    <h3>学生笔记</h3>
+                    <div className="teacher-note-list">
+                      {(selectedTeacherStudent.notes ?? []).slice(0, 5).map((note) => (
+                        <article className="teacher-note" key={note.id}>
+                          <strong>{note.title}</strong>
+                          <p>{note.content}</p>
+                        </article>
+                      ))}
+                      {selectedTeacherStudent.notes?.length ? null : <p className="empty-state">暂无笔记</p>}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            ) : null}
+          </section>
+        </div>
       </div>
     );
   }
@@ -1202,6 +1443,234 @@ export function App() {
             </div>
           </article>
         </section>
+      </div>
+    );
+  }
+
+  function renderLabStudioScreen() {
+    const currentIndex = CHALLENGES.findIndex((challenge) => challenge.id === currentChallenge.id);
+    const routeMeta = challengeRouteMeta[currentChallenge.id] ?? {};
+    const requiredEdgeCount = currentCircuitModel?.requiredEdges.length ?? currentChallenge.requiredConnections.length;
+    const testCaseCount = currentCircuitModel?.testCases.length ?? 0;
+    const selectedRecordStatus = statusText(currentRecord?.status ?? "not-started");
+
+    return (
+      <div className="lab-studio">
+        <header className="lab-studio-header">
+          <div className="lab-studio-brand">
+            <button className="lab-studio-icon-button" onClick={() => changeView("home")} type="button" aria-label="返回课程首页">
+              <ArrowLeft size={19} />
+            </button>
+            <span className="lab-studio-mark"><Cpu size={24} /></span>
+            <div>
+              <strong>电路实验室</strong>
+              <small>计算机组成原理实训平台</small>
+            </div>
+          </div>
+
+          <div className="lab-studio-current">
+            <span>当前挑战 · {currentIndex + 1} / {CHALLENGES.length}</span>
+            <strong>{currentChallenge.title}</strong>
+            <em>{selectedRecordStatus}</em>
+          </div>
+
+          <div className="lab-studio-score">
+            <span>得分</span>
+            <strong>{currentRecord?.bestScore ?? 0}</strong>
+            <small>/ 100</small>
+          </div>
+
+          <div className="lab-studio-user">
+            <span>{student.name}</span>
+            <button className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button" aria-label="打开个人设置">
+              <GearSix size={19} />
+            </button>
+          </div>
+        </header>
+
+        <main className="lab-studio-grid">
+          <aside className="lab-studio-route" aria-label="挑战路径">
+            <div className="lab-studio-route-title">
+              <strong>挑战路径</strong>
+              <span>共 {CHALLENGES.length} 关</span>
+            </div>
+
+            <div className="lab-studio-stepper">
+              {CHALLENGES.map((challenge, index) => {
+                const record = progress[challenge.id];
+                const meta = challengeRouteMeta[challenge.id] ?? {};
+                const isSelected = challenge.id === selectedChallengeId;
+                return (
+                  <button
+                    className={`lab-studio-step ${statusTone(record?.status ?? "not-started")} ${isSelected ? "selected" : ""}`}
+                    key={challenge.id}
+                    onClick={() => selectChallenge(challenge.id)}
+                    type="button"
+                  >
+                    <span className="lab-studio-step-number">{index + 1}</span>
+                    <span className="lab-studio-step-copy">
+                      <strong>{challenge.title}</strong>
+                      <small>{meta.focus ?? challenge.shortTitle}</small>
+                    </span>
+                    <span className="lab-studio-step-score">{record?.bestScore ?? 0} / 100</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <section className="lab-studio-hint">
+              <Sparkle size={18} />
+              <strong>学习提示</strong>
+              <p>{routeMeta.detail ?? currentChallenge.objective}</p>
+            </section>
+          </aside>
+
+          <section className="lab-studio-workspace">
+            <div className="lab-studio-controls">
+              <div>
+                <span className="eyebrow">主画布</span>
+                <h1>{currentChallenge.title}</h1>
+                <p>{labDescription(currentChallenge.id)}</p>
+              </div>
+              <div className="lab-studio-actionbar">
+                <button onClick={runStep} type="button">
+                  <Play size={17} weight="fill" />
+                  单步执行
+                </button>
+                <button onClick={runAll} type="button">
+                  <Flame size={17} weight="fill" />
+                  自动运行
+                </button>
+              </div>
+            </div>
+
+            <div className="lab-studio-inputs">
+              {(challengeControlMeta[currentChallenge.id] ?? []).map((control) => (
+                control.type === "bit" ? (
+                  <Toggle
+                    key={control.key}
+                    label={control.label}
+                    value={inputState[control.key]}
+                    onChange={(value) => handleInputChange(control.key, value)}
+                  />
+                ) : (
+                  <Stepper
+                    key={control.key}
+                    label={control.label}
+                    value={inputState[control.key]}
+                    max={control.max}
+                    onChange={(value) => handleInputChange(control.key, value)}
+                  />
+                )
+              ))}
+            </div>
+
+            <div className="lab-studio-canvas-shell">
+              {currentCircuitModel ? (
+                <Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}>
+                  <CircuitFlowCanvas
+                    key={currentCircuitModel.id}
+                    model={currentCircuitModel}
+                    onResult={handleCircuitFlowResult}
+                  />
+                </Suspense>
+              ) : (
+                <div className="lab-stage-layout legacy">
+                  <aside className="lab-palette-panel">
+                    <div className="lab-panel-heading">
+                      <strong>元件区</strong>
+                      <small>拖动元件到目标槽位，或点击参考结构快速对照。</small>
+                    </div>
+                    <div className="component-palette">
+                      {placementBlueprint.map((componentSlot) => (
+                        <button
+                          draggable
+                          className="component-chip"
+                          key={componentSlot.id}
+                          onClick={() => {
+                            setSelectedComponent(componentSlot.displayLabel);
+                            setExpandedComponent(componentSlot.displayLabel);
+                          }}
+                          onDragStart={(event) => handlePaletteDragStart(event, componentSlot)}
+                          type="button"
+                        >
+                          <Cpu size={18} />
+                          <span>{componentSlot.displayLabel}</span>
+                          <small>{componentSlot.role}</small>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="lab-actions">
+                      <button className="primary-button" onClick={submitChallenge} type="button">提交检测</button>
+                      <button className="ghost-button" onClick={resetChallenge} type="button">重置本关</button>
+                      <button className="ghost-button" onClick={fillReferenceStructure} type="button">查看参考结构</button>
+                    </div>
+                  </aside>
+                  <section className="lab-stage-panel">
+                    <div className="circuit-canvas" onDragOver={(event) => event.preventDefault()}>
+                      <ChallengeCanvas
+                        activeStep={activeStep}
+                        challenge={currentChallenge}
+                        challengeId={currentChallenge.id}
+                        connectionBlueprint={connectionBlueprint}
+                        connections={connections}
+                        expandedComponent={expandedComponent}
+                        feedback={feedback}
+                        inputState={inputState}
+                        onBoardDragOver={(event) => event.preventDefault()}
+                        onBoardDrop={handleDrop}
+                        onPlacedComponentDragStart={handlePlacedComponentDragStart}
+                        onRemoveConnection={handleRemoveConnection}
+                        outputText={formatOutputs(simulation.outputs)}
+                        placementBlueprint={placementBlueprint}
+                        placementPreview={placementPreview}
+                        placedComponents={placedComponents}
+                        selectedComponent={selectedComponent}
+                        setExpandedComponent={setExpandedComponent}
+                        setSelectedComponent={setSelectedComponent}
+                        simulation={simulation}
+                        simulationStep={simulationStep}
+                        wireDrag={wireDrag}
+                        wireHoverEndpoint={wireHoverEndpoint}
+                        onWireDragEnd={handleWireDragEnd}
+                        onWireHoverChange={handleWireHoverChange}
+                        onWireDragMove={handleWireDragMove}
+                        onWireDragStart={handleWireDragStart}
+                        wirePreviewCopy={wirePreviewCopy}
+                        wirePreviewStatus={wirePreviewStatus}
+                      />
+                    </div>
+                  </section>
+                </div>
+              )}
+            </div>
+
+            <div className="lab-studio-inspector">
+              <section>
+                <span className="eyebrow">元件属性</span>
+                <strong>{selectedComponent}</strong>
+                <p>{selectedComponentDetail?.description ?? "选择一个元件查看端口、职责和信号走向。"}</p>
+              </section>
+              <section>
+                <span className="eyebrow">实时状态</span>
+                <strong>{statusMessage}</strong>
+                <p>必要连线 {requiredEdgeCount} 条 · 测试用例 {testCaseCount || currentChallenge.requiredConnections.length} 组 · 最近得分 {currentRecord?.bestScore ?? 0}</p>
+              </section>
+              <section>
+                <span className="eyebrow">检测反馈</span>
+                {feedback ? (
+                  feedback.passed ? (
+                    <p className="lab-studio-feedback passed"><SealCheck size={18} weight="fill" /> 本关通过，记录已保存。</p>
+                  ) : (
+                    <p className="lab-studio-feedback failed"><WarningCircle size={18} weight="fill" /> 发现 {feedback.errors.length} 类问题，请按提示修正。</p>
+                  )
+                ) : (
+                  <p className="lab-studio-feedback neutral"><Target size={18} /> 等待提交检测。</p>
+                )}
+              </section>
+            </div>
+          </section>
+        </main>
       </div>
     );
   }
@@ -1637,34 +2106,45 @@ export function App() {
         <section className="modal-card" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
           <div className="section-heading">
             <div>
-              <h2>个人设置</h2>
-              <p>这些设置会影响首页推荐和实验提示强度。</p>
+              <h2>{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</h2>
+              <p>{auth.user?.role === "teacher" ? "管理课堂常用导入格式和本地部署入口。" : "这些设置会影响首页推荐和实验提示强度。"}</p>
             </div>
             <button className="ghost-button" onClick={() => setShowSettings(false)} type="button">关闭</button>
           </div>
-          <label className="form-row">
-            <span>姓名</span>
-            <input value={student.name} onChange={(event) => updateStudent("name", event.target.value)} />
-          </label>
-          <label className="form-row">
-            <span>本周目标</span>
-            <input value={student.goal} onChange={(event) => updateStudent("goal", event.target.value)} />
-          </label>
-          <label className="form-row">
-            <span>提示模式</span>
-            <select value={student.mode} onChange={(event) => updateStudent("mode", event.target.value)}>
-              <option>强引导模式</option>
-              <option>适中提示模式</option>
-              <option>挑战模式</option>
-            </select>
-          </label>
-          <button
-            className="primary-button"
-            onClick={saveStudentSettings}
-            type="button"
-          >
-            保存设置
-          </button>
+          {auth.user?.role === "teacher" ? (
+            <div className="settings-resource-list">
+              <a className="primary-button settings-template-link" download="student-import-template.csv" href={studentImportTemplateHref}>
+                下载学生导入模板
+              </a>
+              <p>CSV 列顺序固定为：学号、姓名、初始密码。导入入口仍在教师数据页的“学生导入”区域。</p>
+            </div>
+          ) : (
+            <>
+              <label className="form-row">
+                <span>姓名</span>
+                <input value={student.name} onChange={(event) => updateStudent("name", event.target.value)} />
+              </label>
+              <label className="form-row">
+                <span>本周目标</span>
+                <input value={student.goal} onChange={(event) => updateStudent("goal", event.target.value)} />
+              </label>
+              <label className="form-row">
+                <span>提示模式</span>
+                <select value={student.mode} onChange={(event) => updateStudent("mode", event.target.value)}>
+                  <option>强引导模式</option>
+                  <option>适中提示模式</option>
+                  <option>挑战模式</option>
+                </select>
+              </label>
+              <button
+                className="primary-button"
+                onClick={saveStudentSettings}
+                type="button"
+              >
+                保存设置
+              </button>
+            </>
+          )}
         </section>
       </div>
     );

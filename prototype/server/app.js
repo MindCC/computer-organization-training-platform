@@ -150,7 +150,7 @@ export function createApp(options = {}) {
   app.get("/api/teacher/classes/:id/students/:studentId", requireRole("teacher"), (req, res) => {
     const classId = Number(req.params.id);
     if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
-    const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId));
+    const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId), classId);
     if (!detail || Number(detail.classId) !== classId) return res.status(404).json({ error: "学生不存在" });
     res.json({ student: detail });
   });

@@ -109,6 +109,25 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     assert.equal(result.body.student.notes.length, 1);
     assert.equal(result.body.student.progress["data-flow"].bestScore, 100);
 
+    result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "计组二班" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 201);
+    const secondClassId = result.body.class.id;
+
+    result = await request(baseUrl, `/api/teacher/classes/${secondClassId}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: "学号,姓名,初始密码\n2026001,李同学,Student123!\n" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    result = await request(baseUrl, `/api/teacher/classes/${secondClassId}/students/${studentId}`, {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.student.classId, secondClassId);
+
     result = await request(baseUrl, `/api/teacher/classes/${classId}/export.csv`, {}, teacherJar);
     assert.equal(result.response.status, 200);
     assert.match(result.body, /2026001/);
