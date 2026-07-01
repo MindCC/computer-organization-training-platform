@@ -1,11 +1,65 @@
+const DEFAULT_BASE_URL = "https://api.deepseek.com";
+const DEFAULT_MODEL = "deepseek-v4-flash";
+const DEFAULT_TIMEOUT_MS = 15000;
+const ALLOWED_ROLES = new Set(["system", "user", "assistant"]);
+
+const FORBIDDEN_PAYLOAD_PATTERNS = [
+  { label: "password hashes", pattern: /\bpasswordhash\b|\bpassword_hash\b/i },
+  { label: "session tokens", pattern: /\bsession[_ -]?token\b/i },
+  { label: "cookies", pattern: /\bcookie\b|\bset-cookie\b/i },
+  { label: "request headers", pattern: /\bauthorization\b|\bx-[a-z0-9-]*api[-_]key\b|\brequest headers?\b/i },
+  { label: "API keys", pattern: /\bapi[_ -]?key\b|\bsk-[a-z0-9_-]+\b/i },
+  { label: "full student note content", pattern: /\bfull student note content\b|\bstudent notes?\b|\bnote content\b/i },
+];
+
+function readNonBlankString(value, fallback) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim();
+  return normalized ? normalized : fallback;
+}
+
+function validateMessages(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    throw createAiError("AI_PAYLOAD", "Messages must be a non-empty array");
+  }
+
+  return messages.map((message, index) => {
+    if (!message || typeof message !== "object" || Array.isArray(message)) {
+      throw createAiError("AI_PAYLOAD", `Message ${index} must be an object`);
+    }
+
+    const { role, content } = message;
+    if (typeof role !== "string" || !ALLOWED_ROLES.has(role)) {
+      throw createAiError("AI_PAYLOAD", `Message ${index} has an invalid role`);
+    }
+    if (typeof content !== "string" || !content.trim()) {
+      throw createAiError("AI_PAYLOAD", `Message ${index} content must be a non-empty string`);
+    }
+
+    for (const rule of FORBIDDEN_PAYLOAD_PATTERNS) {
+      if (rule.pattern.test(content)) {
+        throw createAiError("AI_PAYLOAD", `Forbidden sensitive content detected in message ${index}: ${rule.label}`);
+      }
+    }
+
+    return {
+      role,
+      content: content.trim(),
+    };
+  });
+}
+
 export function readDeepSeekConfig(env = process.env) {
-  const timeoutMs = Number(env.AI_REQUEST_TIMEOUT_MS ?? 15000);
+  const timeoutMs = Number(env.AI_REQUEST_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
   return {
     enabled: Boolean(env.DEEPSEEK_API_KEY),
     apiKey: env.DEEPSEEK_API_KEY ?? "",
-    baseUrl: env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com",
-    model: env.DEEPSEEK_MODEL ?? "deepseek-v4-flash",
-    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 15000,
+    baseUrl: readNonBlankString(env.DEEPSEEK_BASE_URL, DEFAULT_BASE_URL),
+    model: readNonBlankString(env.DEEPSEEK_MODEL, DEFAULT_MODEL),
+    timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS,
   };
 }
 
@@ -21,6 +75,7 @@ export async function requestChatCompletion(config, messages, options = {}) {
     throw createAiError("AI_DISABLED", "DEEPSEEK_API_KEY is not configured");
   }
 
+  const validatedMessages = validateMessages(messages);
   const fetchImpl = options.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
@@ -34,7 +89,7 @@ export async function requestChatCompletion(config, messages, options = {}) {
       },
       body: JSON.stringify({
         model: config.model,
-        messages,
+        messages: validatedMessages,
         stream: false,
         response_format: { type: "json_object" },
       }),
