@@ -1,7 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import Database from "better-sqlite3";
 
+import { hashPassword } from "./auth.js";
 import { readDeepSeekConfig, requestChatCompletion } from "./aiClient.js";
+import { addStudentToClass, createClass, createUser, migrate } from "./db.js";
+import { buildFallbackAssistantReport, buildTeacherAssistantPayload } from "./teacherAssistant.js";
+
+function makeMemoryDb() {
+  const db = new Database(":memory:");
+  migrate(db);
+  return db;
+}
 
 test("readDeepSeekConfig disables AI when key is missing", () => {
   const config = readDeepSeekConfig({});
@@ -233,4 +243,53 @@ test("requestChatCompletion rejects oversized message content before fetch", asy
   );
 
   assert.equal(fetchCalls, 0);
+});
+
+test("buildTeacherAssistantPayload includes teaching data and excludes secrets", async () => {
+  const db = makeMemoryDb();
+  const teacher = createUser(db, {
+    username: "teacher-a",
+    displayName: "张老师",
+    role: "teacher",
+    passwordHash: await hashPassword("Teacher123!"),
+  });
+  const classRow = createClass(db, teacher.id, "计组一班");
+  const student = createUser(db, {
+    username: "2026001",
+    displayName: "李同学",
+    role: "student",
+    passwordHash: await hashPassword("Student123!"),
+    profile: { initialPassword: "Student123!" },
+  });
+  addStudentToClass(db, classRow.id, student.id);
+
+  const payload = buildTeacherAssistantPayload(db, classRow.id);
+  const serialized = JSON.stringify(payload);
+
+  assert.equal(payload.className, "计组一班");
+  assert.equal(payload.students[0].displayName, "李同学");
+  assert.equal(payload.students[0].username, "2026001");
+  assert.doesNotMatch(serialized, /password_hash/i);
+  assert.doesNotMatch(serialized, /Student123!/);
+  assert.doesNotMatch(serialized, /session/i);
+  assert.doesNotMatch(serialized, /cookie/i);
+});
+
+test("buildFallbackAssistantReport returns usable report shape", async () => {
+  const db = makeMemoryDb();
+  const teacher = createUser(db, {
+    username: "teacher-b",
+    displayName: "王老师",
+    role: "teacher",
+    passwordHash: await hashPassword("Teacher123!"),
+  });
+  const classRow = createClass(db, teacher.id, "空班");
+
+  const payload = buildTeacherAssistantPayload(db, classRow.id);
+  const response = buildFallbackAssistantReport(payload, "DEEPSEEK_API_KEY 未配置");
+
+  assert.equal(response.source, "fallback");
+  assert.equal(response.fallbackReason, "DEEPSEEK_API_KEY 未配置");
+  assert.equal(Array.isArray(response.report.nextClassPlan), true);
+  assert.equal(typeof response.report.teacherScript, "string");
 });
