@@ -84,7 +84,7 @@ test("requestChatCompletion sends the expected DeepSeek request shape and return
   assert.ok(call.options.signal instanceof AbortSignal);
 });
 
-test("requestChatCompletion rejects system messages by default", async () => {
+test("requestChatCompletion rejects caller-supplied system messages", async () => {
   const config = readDeepSeekConfig({ DEEPSEEK_API_KEY: "sk-test" });
   let fetchCalls = 0;
 
@@ -104,16 +104,15 @@ test("requestChatCompletion rejects system messages by default", async () => {
   assert.equal(fetchCalls, 0);
 });
 
-test("requestChatCompletion allows system messages when explicitly enabled", async () => {
+test("requestChatCompletion injects server-owned system prompt from options", async () => {
   const config = readDeepSeekConfig({ DEEPSEEK_API_KEY: "sk-test" });
   const messages = [
-    { role: "system", content: "Return JSON only." },
     { role: "user", content: "Hello" },
   ];
 
   let call = null;
   await requestChatCompletion(config, messages, {
-    allowSystemMessages: true,
+    systemPrompt: "Return JSON only.",
     fetchImpl: async (_url, options) => {
       call = JSON.parse(options.body);
       return {
@@ -129,7 +128,10 @@ test("requestChatCompletion allows system messages when explicitly enabled", asy
     },
   });
 
-  assert.deepEqual(call.messages, messages);
+  assert.deepEqual(call.messages, [
+    { role: "system", content: "Return JSON only." },
+    { role: "user", content: "Hello" },
+  ]);
 });
 
 test("requestChatCompletion throws AI_DISABLED when config is disabled", async () => {
@@ -212,7 +214,7 @@ test("requestChatCompletion rejects forbidden sensitive payload content before f
 
   await assert.rejects(
     requestChatCompletion(config, [
-      { role: "user", content: "Here is the passwordHash and session token for the student note content." },
+      { role: "user", content: "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJzdHVkZW50MSJ9.signature123" },
     ], {
       fetchImpl: async () => {
         fetchCalls += 1;
@@ -220,6 +222,25 @@ test("requestChatCompletion rejects forbidden sensitive payload content before f
       },
     }),
     (error) => error?.code === "AI_RESPONSE" && /forbidden/i.test(error.message),
+  );
+
+  assert.equal(fetchCalls, 0);
+});
+
+test("requestChatCompletion rejects oversized message content before fetch", async () => {
+  const config = readDeepSeekConfig({ DEEPSEEK_API_KEY: "sk-test" });
+  let fetchCalls = 0;
+
+  await assert.rejects(
+    requestChatCompletion(config, [
+      { role: "user", content: "x".repeat(8001) },
+    ], {
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        throw new Error("should not fetch");
+      },
+    }),
+    (error) => error?.code === "AI_RESPONSE" && /too large/i.test(error.message),
   );
 
   assert.equal(fetchCalls, 0);

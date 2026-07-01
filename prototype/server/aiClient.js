@@ -1,15 +1,16 @@
 const DEFAULT_BASE_URL = "https://api.deepseek.com";
 const DEFAULT_MODEL = "deepseek-v4-flash";
 const DEFAULT_TIMEOUT_MS = 15000;
-const ALLOWED_ROLES = new Set(["system", "user", "assistant"]);
+const ALLOWED_MESSAGE_ROLES = new Set(["user", "assistant"]);
+const MAX_MESSAGE_CONTENT_LENGTH = 8000;
+const MAX_SYSTEM_PROMPT_LENGTH = 4000;
 
 const FORBIDDEN_PAYLOAD_PATTERNS = [
-  { label: "password hashes", pattern: /\bpasswordhash\b|\bpassword_hash\b/i },
-  { label: "session tokens", pattern: /\bsession[_ -]?token\b/i },
-  { label: "cookies", pattern: /\bcookie\b|\bset-cookie\b/i },
-  { label: "request headers", pattern: /\bauthorization\b|\bx-[a-z0-9-]*api[-_]key\b|\brequest headers?\b/i },
-  { label: "API keys", pattern: /\bapi[_ -]?key\b|\bsk-[a-z0-9_-]+\b/i },
-  { label: "full student note content", pattern: /\bfull student note content\b|\bstudent notes?\b|\bnote content\b/i },
+  { label: "password hashes", pattern: /\bpassword[_-]?hash\b|\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}|\bscrypt[:$]/i },
+  { label: "session tokens", pattern: /\bsession[_ -]?token\b|\beyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}\b/i },
+  { label: "cookies", pattern: /\bset-cookie\b|\bcookie\s*[:=]/i },
+  { label: "request headers", pattern: /\bauthorization\s*[:=]|\bbearer\s+[A-Za-z0-9._~-]{20,}|\bx-[a-z0-9-]*api[-_]key\s*[:=]/i },
+  { label: "API keys", pattern: /\bapi[_ -]?key\s*[:=]|\bsk-[A-Za-z0-9_-]{16,}\b/i },
 ];
 
 function readNonBlankString(value, fallback) {
@@ -21,7 +22,32 @@ function readNonBlankString(value, fallback) {
   return normalized ? normalized : fallback;
 }
 
-function validateMessages(messages, options = {}) {
+function assertSafeContent(content, indexLabel, maxLength) {
+  if (content.length > maxLength) {
+    throw createAiError("AI_RESPONSE", `${indexLabel} is too large for the AI boundary`);
+  }
+
+  for (const rule of FORBIDDEN_PAYLOAD_PATTERNS) {
+    if (rule.pattern.test(content)) {
+      throw createAiError("AI_RESPONSE", `Forbidden sensitive content detected in ${indexLabel}: ${rule.label}`);
+    }
+  }
+}
+
+function validateSystemPrompt(systemPrompt) {
+  if (systemPrompt == null) {
+    return [];
+  }
+  if (typeof systemPrompt !== "string" || !systemPrompt.trim()) {
+    throw createAiError("AI_RESPONSE", "System prompt must be a non-empty string");
+  }
+
+  const content = systemPrompt.trim();
+  assertSafeContent(content, "system prompt", MAX_SYSTEM_PROMPT_LENGTH);
+  return [{ role: "system", content }];
+}
+
+function validateMessages(messages) {
   if (!Array.isArray(messages) || messages.length === 0) {
     throw createAiError("AI_RESPONSE", "Messages must be a non-empty array");
   }
@@ -32,25 +58,22 @@ function validateMessages(messages, options = {}) {
     }
 
     const { role, content } = message;
-    if (typeof role !== "string" || !ALLOWED_ROLES.has(role)) {
-      throw createAiError("AI_RESPONSE", `Message ${index} has an invalid role`);
-    }
-    if (role === "system" && !options.allowSystemMessages) {
+    if (role === "system") {
       throw createAiError("AI_RESPONSE", `Message ${index} contains a system role, which is not allowed`);
+    }
+    if (typeof role !== "string" || !ALLOWED_MESSAGE_ROLES.has(role)) {
+      throw createAiError("AI_RESPONSE", `Message ${index} has an invalid role`);
     }
     if (typeof content !== "string" || !content.trim()) {
       throw createAiError("AI_RESPONSE", `Message ${index} content must be a non-empty string`);
     }
 
-    for (const rule of FORBIDDEN_PAYLOAD_PATTERNS) {
-      if (rule.pattern.test(content)) {
-        throw createAiError("AI_RESPONSE", `Forbidden sensitive content detected in message ${index}: ${rule.label}`);
-      }
-    }
+    const normalizedContent = content.trim();
+    assertSafeContent(normalizedContent, `message ${index}`, MAX_MESSAGE_CONTENT_LENGTH);
 
     return {
       role,
-      content: content.trim(),
+      content: normalizedContent,
     };
   });
 }
@@ -79,9 +102,10 @@ export async function requestChatCompletion(config, messages, options = {}) {
     throw createAiError("AI_DISABLED", "DEEPSEEK_API_KEY is not configured");
   }
 
-  const validatedMessages = validateMessages(messages, {
-    allowSystemMessages: options.allowSystemMessages === true,
-  });
+  const validatedMessages = [
+    ...validateSystemPrompt(options.systemPrompt),
+    ...validateMessages(messages),
+  ];
   const fetchImpl = options.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
