@@ -11,6 +11,14 @@ test("readDeepSeekConfig disables AI when key is missing", () => {
   assert.equal(config.timeoutMs, 15000);
 });
 
+test("readDeepSeekConfig treats whitespace-only API keys as disabled", () => {
+  const config = readDeepSeekConfig({
+    DEEPSEEK_API_KEY: "   ",
+  });
+  assert.equal(config.enabled, false);
+  assert.equal(config.apiKey, "");
+});
+
 test("readDeepSeekConfig reads DeepSeek env overrides", () => {
   const config = readDeepSeekConfig({
     DEEPSEEK_API_KEY: "sk-test",
@@ -37,12 +45,11 @@ test("readDeepSeekConfig falls back to defaults for blank base and model overrid
 
 test("requestChatCompletion sends the expected DeepSeek request shape and returns assistant content", async () => {
   const config = readDeepSeekConfig({
-    DEEPSEEK_API_KEY: "sk-test",
+    DEEPSEEK_API_KEY: "  sk-test  ",
     DEEPSEEK_BASE_URL: "https://example.test/",
     DEEPSEEK_MODEL: "deepseek-v4-pro",
   });
   const messages = [
-    { role: "system", content: "Return JSON only." },
     { role: "user", content: "Summarize the submission." },
   ];
 
@@ -75,6 +82,54 @@ test("requestChatCompletion sends the expected DeepSeek request shape and return
     response_format: { type: "json_object" },
   });
   assert.ok(call.options.signal instanceof AbortSignal);
+});
+
+test("requestChatCompletion rejects system messages by default", async () => {
+  const config = readDeepSeekConfig({ DEEPSEEK_API_KEY: "sk-test" });
+  let fetchCalls = 0;
+
+  await assert.rejects(
+    requestChatCompletion(config, [
+      { role: "system", content: "Return JSON only." },
+      { role: "user", content: "Hello" },
+    ], {
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        throw new Error("should not fetch");
+      },
+    }),
+    (error) => error?.code === "AI_RESPONSE" && /system/i.test(error.message),
+  );
+
+  assert.equal(fetchCalls, 0);
+});
+
+test("requestChatCompletion allows system messages when explicitly enabled", async () => {
+  const config = readDeepSeekConfig({ DEEPSEEK_API_KEY: "sk-test" });
+  const messages = [
+    { role: "system", content: "Return JSON only." },
+    { role: "user", content: "Hello" },
+  ];
+
+  let call = null;
+  await requestChatCompletion(config, messages, {
+    allowSystemMessages: true,
+    fetchImpl: async (_url, options) => {
+      call = JSON.parse(options.body);
+      return {
+        ok: true,
+        async json() {
+          return {
+            choices: [
+              { message: { content: "{\"ok\":true}" } },
+            ],
+          };
+        },
+      };
+    },
+  });
+
+  assert.deepEqual(call.messages, messages);
 });
 
 test("requestChatCompletion throws AI_DISABLED when config is disabled", async () => {
@@ -145,7 +200,7 @@ test("requestChatCompletion rejects malformed message arrays before fetch", asyn
         throw new Error("should not fetch");
       },
     }),
-    (error) => error?.code === "AI_PAYLOAD" && /message/i.test(error.message),
+    (error) => error?.code === "AI_RESPONSE" && /message/i.test(error.message),
   );
 
   assert.equal(fetchCalls, 0);
@@ -164,7 +219,7 @@ test("requestChatCompletion rejects forbidden sensitive payload content before f
         throw new Error("should not fetch");
       },
     }),
-    (error) => error?.code === "AI_PAYLOAD" && /forbidden/i.test(error.message),
+    (error) => error?.code === "AI_RESPONSE" && /forbidden/i.test(error.message),
   );
 
   assert.equal(fetchCalls, 0);

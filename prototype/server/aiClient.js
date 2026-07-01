@@ -21,27 +21,30 @@ function readNonBlankString(value, fallback) {
   return normalized ? normalized : fallback;
 }
 
-function validateMessages(messages) {
+function validateMessages(messages, options = {}) {
   if (!Array.isArray(messages) || messages.length === 0) {
-    throw createAiError("AI_PAYLOAD", "Messages must be a non-empty array");
+    throw createAiError("AI_RESPONSE", "Messages must be a non-empty array");
   }
 
   return messages.map((message, index) => {
     if (!message || typeof message !== "object" || Array.isArray(message)) {
-      throw createAiError("AI_PAYLOAD", `Message ${index} must be an object`);
+      throw createAiError("AI_RESPONSE", `Message ${index} must be an object`);
     }
 
     const { role, content } = message;
     if (typeof role !== "string" || !ALLOWED_ROLES.has(role)) {
-      throw createAiError("AI_PAYLOAD", `Message ${index} has an invalid role`);
+      throw createAiError("AI_RESPONSE", `Message ${index} has an invalid role`);
+    }
+    if (role === "system" && !options.allowSystemMessages) {
+      throw createAiError("AI_RESPONSE", `Message ${index} contains a system role, which is not allowed`);
     }
     if (typeof content !== "string" || !content.trim()) {
-      throw createAiError("AI_PAYLOAD", `Message ${index} content must be a non-empty string`);
+      throw createAiError("AI_RESPONSE", `Message ${index} content must be a non-empty string`);
     }
 
     for (const rule of FORBIDDEN_PAYLOAD_PATTERNS) {
       if (rule.pattern.test(content)) {
-        throw createAiError("AI_PAYLOAD", `Forbidden sensitive content detected in message ${index}: ${rule.label}`);
+        throw createAiError("AI_RESPONSE", `Forbidden sensitive content detected in message ${index}: ${rule.label}`);
       }
     }
 
@@ -54,9 +57,10 @@ function validateMessages(messages) {
 
 export function readDeepSeekConfig(env = process.env) {
   const timeoutMs = Number(env.AI_REQUEST_TIMEOUT_MS ?? DEFAULT_TIMEOUT_MS);
+  const apiKey = readNonBlankString(env.DEEPSEEK_API_KEY, "");
   return {
-    enabled: Boolean(env.DEEPSEEK_API_KEY),
-    apiKey: env.DEEPSEEK_API_KEY ?? "",
+    enabled: Boolean(apiKey),
+    apiKey,
     baseUrl: readNonBlankString(env.DEEPSEEK_BASE_URL, DEFAULT_BASE_URL),
     model: readNonBlankString(env.DEEPSEEK_MODEL, DEFAULT_MODEL),
     timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : DEFAULT_TIMEOUT_MS,
@@ -75,7 +79,9 @@ export async function requestChatCompletion(config, messages, options = {}) {
     throw createAiError("AI_DISABLED", "DEEPSEEK_API_KEY is not configured");
   }
 
-  const validatedMessages = validateMessages(messages);
+  const validatedMessages = validateMessages(messages, {
+    allowSystemMessages: options.allowSystemMessages === true,
+  });
   const fetchImpl = options.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);
