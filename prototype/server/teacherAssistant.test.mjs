@@ -306,6 +306,13 @@ test("parseAssistantJson rejects invalid AI output instead of returning an empty
   );
 });
 
+test("parseAssistantJson rejects incomplete AI output instead of returning empty fields", () => {
+  assert.throws(
+    () => parseAssistantJson("{}"),
+    /缺少字段/,
+  );
+});
+
 test("generateTeacherAssistantReport returns fallback while AI generation is deferred", async () => {
   const db = makeMemoryDb();
   const teacher = createUser(db, {

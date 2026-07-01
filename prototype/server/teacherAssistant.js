@@ -122,24 +122,31 @@ export function parseAssistantJson(text) {
     throw new Error("AI JSON 解析失败：返回内容为空");
   }
 
+  let parsed;
   try {
-    const parsed = JSON.parse(text);
-    const source = parsed?.source === "ai" ? "ai" : "fallback";
-    const reportSource = isPlainObject(parsed?.report) ? parsed.report : parsed;
-    const report = REPORT_KEYS.reduce((result, key) => {
-      result[key] = reportSource?.[key] ?? buildEmptyAssistantReport().report[key];
-      return result;
-    }, {});
-
-    return {
-      source,
-      generatedAt: typeof parsed?.generatedAt === "string" ? parsed.generatedAt : new Date().toISOString(),
-      report,
-      fallbackReason: typeof parsed?.fallbackReason === "string" ? parsed.fallbackReason : null,
-    };
+    parsed = JSON.parse(text);
   } catch {
     throw new Error("AI JSON 解析失败：返回内容不是有效 JSON");
   }
+
+  const source = parsed?.source === "ai" ? "ai" : "fallback";
+  const reportSource = isPlainObject(parsed?.report) ? parsed.report : parsed;
+  for (const key of REPORT_KEYS) {
+    if (!(key in reportSource)) {
+      throw new Error(`AI JSON 缺少字段：${key}`);
+    }
+  }
+  const report = REPORT_KEYS.reduce((result, key) => {
+    result[key] = reportSource[key];
+    return result;
+  }, {});
+
+  return {
+    source,
+    generatedAt: typeof parsed?.generatedAt === "string" ? parsed.generatedAt : new Date().toISOString(),
+    report,
+    fallbackReason: typeof parsed?.fallbackReason === "string" ? parsed.fallbackReason : null,
+  };
 }
 
 export async function generateTeacherAssistantReport(db, teacherId, classId, options = {}) {
