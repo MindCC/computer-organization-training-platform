@@ -3,7 +3,6 @@ const DEFAULT_MODEL = "deepseek-v4-flash";
 const DEFAULT_TIMEOUT_MS = 15000;
 const ALLOWED_MESSAGE_ROLES = new Set(["user", "assistant"]);
 const MAX_MESSAGE_CONTENT_LENGTH = 8000;
-const MAX_SYSTEM_PROMPT_LENGTH = 4000;
 
 const FORBIDDEN_PAYLOAD_PATTERNS = [
   { label: "password hashes", pattern: /\bpassword[_-]?hash\b|\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}|\bscrypt[:$]/i },
@@ -11,6 +10,7 @@ const FORBIDDEN_PAYLOAD_PATTERNS = [
   { label: "cookies", pattern: /\bset-cookie\b|\bcookie\s*[:=]/i },
   { label: "request headers", pattern: /\bauthorization\s*[:=]|\bbearer\s+[A-Za-z0-9._~-]{20,}|\bx-[a-z0-9-]*api[-_]key\s*[:=]/i },
   { label: "API keys", pattern: /\bapi[_ -]?key\s*[:=]|\bsk-[A-Za-z0-9_-]{16,}\b/i },
+  { label: "full student note content", pattern: /\b(student\s*)?notes?\s*[:=]|\bnote\s*content\s*[:=]|\breflection\s*[:=]|学生笔记|笔记内容|学习反思|课堂记录\s*[:：]/i },
 ];
 
 function readNonBlankString(value, fallback) {
@@ -32,19 +32,6 @@ function assertSafeContent(content, indexLabel, maxLength) {
       throw createAiError("AI_RESPONSE", `Forbidden sensitive content detected in ${indexLabel}: ${rule.label}`);
     }
   }
-}
-
-function validateSystemPrompt(systemPrompt) {
-  if (systemPrompt == null) {
-    return [];
-  }
-  if (typeof systemPrompt !== "string" || !systemPrompt.trim()) {
-    throw createAiError("AI_RESPONSE", "System prompt must be a non-empty string");
-  }
-
-  const content = systemPrompt.trim();
-  assertSafeContent(content, "system prompt", MAX_SYSTEM_PROMPT_LENGTH);
-  return [{ role: "system", content }];
 }
 
 function validateMessages(messages) {
@@ -102,10 +89,7 @@ export async function requestChatCompletion(config, messages, options = {}) {
     throw createAiError("AI_DISABLED", "DEEPSEEK_API_KEY is not configured");
   }
 
-  const validatedMessages = [
-    ...validateSystemPrompt(options.systemPrompt),
-    ...validateMessages(messages),
-  ];
+  const validatedMessages = validateMessages(messages);
   const fetchImpl = options.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);

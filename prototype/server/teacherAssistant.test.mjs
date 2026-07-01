@@ -104,36 +104,6 @@ test("requestChatCompletion rejects caller-supplied system messages", async () =
   assert.equal(fetchCalls, 0);
 });
 
-test("requestChatCompletion injects server-owned system prompt from options", async () => {
-  const config = readDeepSeekConfig({ DEEPSEEK_API_KEY: "sk-test" });
-  const messages = [
-    { role: "user", content: "Hello" },
-  ];
-
-  let call = null;
-  await requestChatCompletion(config, messages, {
-    systemPrompt: "Return JSON only.",
-    fetchImpl: async (_url, options) => {
-      call = JSON.parse(options.body);
-      return {
-        ok: true,
-        async json() {
-          return {
-            choices: [
-              { message: { content: "{\"ok\":true}" } },
-            ],
-          };
-        },
-      };
-    },
-  });
-
-  assert.deepEqual(call.messages, [
-    { role: "system", content: "Return JSON only." },
-    { role: "user", content: "Hello" },
-  ]);
-});
-
 test("requestChatCompletion throws AI_DISABLED when config is disabled", async () => {
   await assert.rejects(
     requestChatCompletion(readDeepSeekConfig({}), [{ role: "user", content: "Hello" }]),
@@ -222,6 +192,25 @@ test("requestChatCompletion rejects forbidden sensitive payload content before f
       },
     }),
     (error) => error?.code === "AI_RESPONSE" && /forbidden/i.test(error.message),
+  );
+
+  assert.equal(fetchCalls, 0);
+});
+
+test("requestChatCompletion rejects student note shaped content before fetch", async () => {
+  const config = readDeepSeekConfig({ DEEPSEEK_API_KEY: "sk-test" });
+  let fetchCalls = 0;
+
+  await assert.rejects(
+    requestChatCompletion(config, [
+      { role: "user", content: "学生笔记：今天我把完整实验过程都写在这里。" },
+    ], {
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        throw new Error("should not fetch");
+      },
+    }),
+    (error) => error?.code === "AI_RESPONSE" && /note|笔记|forbidden/i.test(error.message),
   );
 
   assert.equal(fetchCalls, 0);
