@@ -5,7 +5,12 @@ import Database from "better-sqlite3";
 import { hashPassword } from "./auth.js";
 import { readDeepSeekConfig, requestChatCompletion } from "./aiClient.js";
 import { addStudentToClass, createClass, createUser, migrate } from "./db.js";
-import { buildFallbackAssistantReport, buildTeacherAssistantPayload } from "./teacherAssistant.js";
+import {
+  buildFallbackAssistantReport,
+  buildTeacherAssistantPayload,
+  generateTeacherAssistantReport,
+  parseAssistantJson,
+} from "./teacherAssistant.js";
 
 function makeMemoryDb() {
   const db = new Database(":memory:");
@@ -292,4 +297,32 @@ test("buildFallbackAssistantReport returns usable report shape", async () => {
   assert.equal(response.fallbackReason, "DEEPSEEK_API_KEY 未配置");
   assert.equal(Array.isArray(response.report.nextClassPlan), true);
   assert.equal(typeof response.report.teacherScript, "string");
+});
+
+test("parseAssistantJson rejects invalid AI output instead of returning an empty report", () => {
+  assert.throws(
+    () => parseAssistantJson("not json"),
+    /AI JSON 解析失败/,
+  );
+});
+
+test("generateTeacherAssistantReport returns fallback while AI generation is deferred", async () => {
+  const db = makeMemoryDb();
+  const teacher = createUser(db, {
+    username: "teacher-c",
+    displayName: "赵老师",
+    role: "teacher",
+    passwordHash: await hashPassword("Teacher123!"),
+  });
+  const classRow = createClass(db, teacher.id, "计组三班");
+
+  const response = await generateTeacherAssistantReport(db, teacher.id, classRow.id, {
+    env: { DEEPSEEK_API_KEY: "sk-test" },
+    fallbackReason: "AI 生成稍后接入",
+  });
+
+  assert.equal(response.source, "fallback");
+  assert.equal(response.fallbackReason, "AI 生成稍后接入");
+  assert.ok(response.report.lessonFocus);
+  assert.ok(response.report.teacherScript);
 });

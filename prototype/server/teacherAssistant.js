@@ -119,7 +119,7 @@ export function buildFallbackAssistantReport(payload, reason) {
 
 export function parseAssistantJson(text) {
   if (typeof text !== "string" || !text.trim()) {
-    return buildEmptyAssistantReport();
+    throw new Error("AI JSON 解析失败：返回内容为空");
   }
 
   try {
@@ -138,7 +138,7 @@ export function parseAssistantJson(text) {
       fallbackReason: typeof parsed?.fallbackReason === "string" ? parsed.fallbackReason : null,
     };
   } catch {
-    return buildEmptyAssistantReport();
+    throw new Error("AI JSON 解析失败：返回内容不是有效 JSON");
   }
 }
 
