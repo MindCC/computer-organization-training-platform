@@ -1,4 +1,4 @@
-import { CHALLENGES } from "../src/platformLogic.js";
+﻿import { CHALLENGES } from "../src/platformLogic.js";
 import { getClassOverview, getStudentProgress, listClassStudents, teacherOwnsClass } from "./db.js";
 import { readDeepSeekConfig, requestChatCompletion } from "./aiClient.js";
 
@@ -134,67 +134,6 @@ export function buildFallbackAssistantReport(payload, reason) {
   };
 }
 
-/*
-export function parseAssistantJson(text) {
-  if (typeof text !== "string" || !text.trim()) {
-    throw new Error("AI JSON 解析失败：返回内容为空");
-  }
-
-  let parsed;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new Error("AI JSON 解析失败：返回内容不是有效 JSON");
-  }
-
-  const source = parsed?.source === "ai" ? "ai" : "fallback";
-  const reportSource = isPlainObject(parsed?.report) ? parsed.report : parsed;
-  for (const key of REPORT_KEYS) {
-    if (!(key in reportSource)) {
-      throw new Error(`AI JSON 缺少字段：${key}`);
-    }
-  }
-  if (typeof reportSource.lessonFocus !== "string" || !reportSource.lessonFocus.trim()) {
-    throw new Error("AI JSON 字段不可为空：lessonFocus");
-  }
-  if (typeof reportSource.teacherScript !== "string" || !reportSource.teacherScript.trim()) {
-    throw new Error("AI JSON 字段不可为空：teacherScript");
-  }
-  for (const key of ["riskStudents", "groupingPlan", "commonMisconceptions", "nextClassPlan"]) {
-    if (!Array.isArray(reportSource[key])) {
-      throw new Error(`AI JSON 字段必须是数组：${key}`);
-    }
-  }
-  const report = REPORT_KEYS.reduce((result, key) => {
-    result[key] = typeof reportSource[key] === "string" ? reportSource[key].trim() : reportSource[key];
-    return result;
-  }, {});
-
-  return {
-    source,
-    generatedAt: typeof parsed?.generatedAt === "string" ? parsed.generatedAt : new Date().toISOString(),
-    report,
-    fallbackReason: typeof parsed?.fallbackReason === "string" ? parsed.fallbackReason : null,
-  };
-}
-
-export async function generateTeacherAssistantReport(db, teacherId, classId, options = {}) {
-  if (!teacherOwnsClass(db, teacherId, classId)) {
-    const error = new Error("班级不存在");
-    error.code = "CLASS_NOT_FOUND";
-    throw error;
-  }
-
-  const payload = buildTeacherAssistantPayload(db, classId);
-  const config = readDeepSeekConfig(options.env ?? process.env);
-  const fallbackReason = !config.enabled
-    ? "DEEPSEEK_API_KEY 未配置"
-    : options.fallbackReason ?? "AI 助教生成将在任务 3 中接入";
-
-  void requestChatCompletion;
-  return buildFallbackAssistantReport(payload, fallbackReason);
-}
-*/
 
 export function parseAssistantJson(text) {
   if (typeof text !== "string" || !text.trim()) {
@@ -298,3 +237,4 @@ function normalizeReason(reason) {
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
+
