@@ -313,6 +313,20 @@ test("parseAssistantJson rejects incomplete AI output instead of returning empty
   );
 });
 
+test("parseAssistantJson rejects empty required prose fields", () => {
+  assert.throws(
+    () => parseAssistantJson(JSON.stringify({
+      lessonFocus: "",
+      riskStudents: [],
+      groupingPlan: [],
+      commonMisconceptions: [],
+      nextClassPlan: [],
+      teacherScript: "   ",
+    })),
+    /不可为空/,
+  );
+});
+
 test("generateTeacherAssistantReport returns fallback while AI generation is deferred", async () => {
   const db = makeMemoryDb();
   const teacher = createUser(db, {

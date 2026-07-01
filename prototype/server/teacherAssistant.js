@@ -136,8 +136,19 @@ export function parseAssistantJson(text) {
       throw new Error(`AI JSON 缺少字段：${key}`);
     }
   }
+  if (typeof reportSource.lessonFocus !== "string" || !reportSource.lessonFocus.trim()) {
+    throw new Error("AI JSON 字段不可为空：lessonFocus");
+  }
+  if (typeof reportSource.teacherScript !== "string" || !reportSource.teacherScript.trim()) {
+    throw new Error("AI JSON 字段不可为空：teacherScript");
+  }
+  for (const key of ["riskStudents", "groupingPlan", "commonMisconceptions", "nextClassPlan"]) {
+    if (!Array.isArray(reportSource[key])) {
+      throw new Error(`AI JSON 字段必须是数组：${key}`);
+    }
+  }
   const report = REPORT_KEYS.reduce((result, key) => {
-    result[key] = reportSource[key];
+    result[key] = typeof reportSource[key] === "string" ? reportSource[key].trim() : reportSource[key];
     return result;
   }, {});
 
@@ -189,22 +200,6 @@ function normalizeReason(reason) {
     return "AI 助教暂不可用";
   }
   return reason.trim();
-}
-
-function buildEmptyAssistantReport() {
-  return {
-    source: "fallback",
-    generatedAt: new Date().toISOString(),
-    report: {
-      lessonFocus: "",
-      riskStudents: [],
-      groupingPlan: [],
-      commonMisconceptions: [],
-      nextClassPlan: [],
-      teacherScript: "",
-    },
-    fallbackReason: null,
-  };
 }
 
 function isPlainObject(value) {
