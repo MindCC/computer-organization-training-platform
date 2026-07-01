@@ -7,6 +7,7 @@ import { readDeepSeekConfig, requestChatCompletion } from "./aiClient.js";
 import { addStudentToClass, createClass, createUser, migrate } from "./db.js";
 import {
   buildFallbackAssistantReport,
+  buildTeacherAssistantMessages,
   buildTeacherAssistantPayload,
   generateTeacherAssistantReport,
   parseAssistantJson,
@@ -327,7 +328,37 @@ test("parseAssistantJson rejects empty required prose fields", () => {
   );
 });
 
-test("generateTeacherAssistantReport returns fallback while AI generation is deferred", async () => {
+test("parseAssistantJson accepts markdown-wrapped JSON", () => {
+  const report = parseAssistantJson(`\`\`\`json
+{"lessonFocus":"全加器和 Cout","riskStudents":[],"groupingPlan":[],"commonMisconceptions":[],"nextClassPlan":["复盘 Cout"],"teacherScript":"先讲 Cout 的含义。"}
+\`\`\``);
+
+  assert.equal(report.lessonFocus, "全加器和 Cout");
+  assert.deepEqual(report.nextClassPlan, ["复盘 Cout"]);
+});
+
+test("buildTeacherAssistantMessages uses only backend-owned user messages", async () => {
+  const db = makeMemoryDb();
+  const teacher = createUser(db, {
+    username: "teacher-msg",
+    displayName: "陈老师",
+    role: "teacher",
+    passwordHash: await hashPassword("Teacher123!"),
+  });
+  const classRow = createClass(db, teacher.id, "计组消息班");
+  const payload = buildTeacherAssistantPayload(db, classRow.id);
+
+  const messages = buildTeacherAssistantMessages(payload);
+
+  assert.equal(Array.isArray(messages), true);
+  assert.equal(messages.length, 1);
+  assert.deepEqual(messages.map((message) => message.role), ["user"]);
+  assert.match(messages[0].content, /严格输出 JSON/i);
+  assert.match(messages[0].content, /lessonFocus/);
+  assert.match(messages[0].content, /计组消息班/);
+});
+
+test("generateTeacherAssistantReport returns ai source when client succeeds", async () => {
   const db = makeMemoryDb();
   const teacher = createUser(db, {
     username: "teacher-c",
@@ -346,4 +377,47 @@ test("generateTeacherAssistantReport returns fallback while AI generation is def
   assert.equal(response.fallbackReason, "AI 生成稍后接入");
   assert.ok(response.report.lessonFocus);
   assert.ok(response.report.teacherScript);
+});
+test("generateTeacherAssistantReport returns ai source when client returns valid JSON", async () => {
+  const db = makeMemoryDb();
+  const teacher = createUser(db, {
+    username: "teacher-ai",
+    displayName: "孙老师",
+    role: "teacher",
+    passwordHash: await hashPassword("Teacher123!"),
+  });
+  const classRow = createClass(db, teacher.id, "计组五班");
+
+  const response = await generateTeacherAssistantReport(db, teacher.id, classRow.id, {
+    env: { DEEPSEEK_API_KEY: "sk-test" },
+    aiRequester: async (_config, messages) => {
+      assert.deepEqual(messages.map((message) => message.role), ["user"]);
+      return `\`\`\`json
+{"lessonFocus":"全加器与 Cout","riskStudents":[],"groupingPlan":[],"commonMisconceptions":["把 Sum 和 Cout 混淆"],"nextClassPlan":["复盘口线连接","重练全加器"],"teacherScript":"先看 Cout 的来源。"}
+\`\`\``;
+    },
+  });
+
+  assert.equal(response.source, "ai");
+  assert.equal(response.report.lessonFocus, "全加器与 Cout");
+  assert.equal(response.fallbackReason, null);
+});
+
+test("generateTeacherAssistantReport falls back when AI returns invalid JSON", async () => {
+  const db = makeMemoryDb();
+  const teacher = createUser(db, {
+    username: "teacher-d",
+    displayName: "钱老师",
+    role: "teacher",
+    passwordHash: await hashPassword("Teacher123!"),
+  });
+  const classRow = createClass(db, teacher.id, "计组六班");
+
+  const response = await generateTeacherAssistantReport(db, teacher.id, classRow.id, {
+    env: { DEEPSEEK_API_KEY: "sk-test" },
+    aiRequester: async () => "not json",
+  });
+
+  assert.equal(response.source, "fallback");
+  assert.match(response.fallbackReason, /JSON/);
 });

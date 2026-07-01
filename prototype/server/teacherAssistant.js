@@ -65,6 +65,23 @@ export function buildTeacherAssistantPayload(db, classId) {
   };
 }
 
+export function buildTeacherAssistantMessages(payload) {
+  return [
+    {
+      role: "user",
+      content: [
+        "你是《计算机组成原理》实验课的教师助教。",
+        "只根据给定的班级学习数据生成教学建议，不编造不存在的学生行为。",
+        "严格输出 JSON，不要 Markdown，不要额外解释。",
+        "必须包含字段：lessonFocus、riskStudents、groupingPlan、commonMisconceptions、nextClassPlan、teacherScript。",
+        "不要输出密码、令牌、Cookie、学生原始笔记等敏感内容。",
+        "以下是班级数据：",
+        JSON.stringify(payload),
+      ].join("\n"),
+    },
+  ];
+}
+
 export function buildFallbackAssistantReport(payload, reason) {
   const students = Array.isArray(payload?.students) ? payload.students : [];
   const focus = normalizeFocus(payload?.summary?.weakSpot);
@@ -117,6 +134,7 @@ export function buildFallbackAssistantReport(payload, reason) {
   };
 }
 
+/*
 export function parseAssistantJson(text) {
   if (typeof text !== "string" || !text.trim()) {
     throw new Error("AI JSON 解析失败：返回内容为空");
@@ -175,6 +193,81 @@ export async function generateTeacherAssistantReport(db, teacherId, classId, opt
 
   void requestChatCompletion;
   return buildFallbackAssistantReport(payload, fallbackReason);
+}
+*/
+
+export function parseAssistantJson(text) {
+  if (typeof text !== "string" || !text.trim()) {
+    throw new Error("AI JSON 解析失败：返回内容为空");
+  }
+
+  const trimmed = text.trim();
+  const normalizedText = trimmed.startsWith("```")
+    ? trimmed.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "")
+    : trimmed;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(normalizedText);
+  } catch {
+    throw new Error("AI JSON 解析失败：返回内容不是有效 JSON");
+  }
+
+  const reportSource = isPlainObject(parsed?.report) ? parsed.report : parsed;
+  for (const key of REPORT_KEYS) {
+    if (!(key in reportSource)) {
+      throw new Error(`AI JSON 缺少字段：${key}`);
+    }
+  }
+  if (typeof reportSource.lessonFocus !== "string" || !reportSource.lessonFocus.trim()) {
+    throw new Error("AI JSON 字段不可为空：lessonFocus");
+  }
+  if (typeof reportSource.teacherScript !== "string" || !reportSource.teacherScript.trim()) {
+    throw new Error("AI JSON 字段不可为空：teacherScript");
+  }
+
+  for (const key of ["riskStudents", "groupingPlan", "commonMisconceptions", "nextClassPlan"]) {
+    if (!Array.isArray(reportSource[key])) {
+      throw new Error(`AI JSON 字段必须是数组：${key}`);
+    }
+  }
+
+  return REPORT_KEYS.reduce((result, key) => {
+    result[key] = typeof reportSource[key] === "string" ? reportSource[key].trim() : reportSource[key];
+    return result;
+  }, {});
+}
+
+export async function generateTeacherAssistantReport(db, teacherId, classId, options = {}) {
+  if (!teacherOwnsClass(db, teacherId, classId)) {
+    const error = new Error("班级不存在");
+    error.code = "CLASS_NOT_FOUND";
+    throw error;
+  }
+
+  const payload = buildTeacherAssistantPayload(db, classId);
+  if (typeof options.fallbackReason === "string" && options.fallbackReason.trim()) {
+    return buildFallbackAssistantReport(payload, options.fallbackReason);
+  }
+
+  const config = readDeepSeekConfig(options.env ?? process.env);
+  if (!config.enabled) {
+    return buildFallbackAssistantReport(payload, "DEEPSEEK_API_KEY 未配置");
+  }
+
+  const aiRequester = options.aiRequester ?? requestChatCompletion;
+
+  try {
+    const text = await aiRequester(config, buildTeacherAssistantMessages(payload), options);
+    return {
+      source: "ai",
+      generatedAt: new Date().toISOString(),
+      report: parseAssistantJson(text),
+      fallbackReason: null,
+    };
+  } catch (error) {
+    return buildFallbackAssistantReport(payload, error?.message ?? "AI 助教生成失败");
+  }
 }
 
 function getClassName(db, classId) {
