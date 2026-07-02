@@ -1032,6 +1032,71 @@ export function App() {
     );
   }
 
+  function renderAssistantReportPanel(assistant) {
+    const report = assistantReport?.report;
+    if (!report) {
+      return (
+        <>
+          <div className="teacher-assistant-focus">
+            <strong>{assistant.focus}</strong>
+          </div>
+          <div className="teacher-assistant-actions">
+            {assistant.nextActions.map((item) => (
+              <p key={item}><CheckCircle size={16} weight="fill" /> {item}</p>
+            ))}
+          </div>
+        </>
+      );
+    }
+
+    const riskStudents = Array.isArray(report.riskStudents) ? report.riskStudents : [];
+    const groupingPlan = Array.isArray(report.groupingPlan) ? report.groupingPlan : [];
+    const misconceptions = Array.isArray(report.commonMisconceptions) ? report.commonMisconceptions : [];
+    const nextClassPlan = Array.isArray(report.nextClassPlan) ? report.nextClassPlan : [];
+
+    return (
+      <div className="teacher-ai-report">
+        <div className="teacher-ai-meta">
+          <span className={assistantReport.source === "ai" ? "ai-source-badge" : "ai-source-badge fallback"}>
+            {assistantReport.source === "ai" ? "DeepSeek 生成" : "本地降级建议"}
+          </span>
+          {assistantReport.generatedAt ? <small>{new Date(assistantReport.generatedAt).toLocaleString()}</small> : null}
+        </div>
+        {assistantReport.fallbackReason ? <p className="teacher-ai-warning">{assistantReport.fallbackReason}</p> : null}
+        <section>
+          <strong>下节课重点</strong>
+          <p>{report.lessonFocus}</p>
+        </section>
+        <section>
+          <strong>重点关注学生</strong>
+          {riskStudents.length > 0 ? riskStudents.map((studentItem, index) => (
+            <p key={`${studentItem.studentId ?? index}-${studentItem.name ?? "student"}`}>
+              {studentItem.name ?? "学生"}：{studentItem.reason ?? "需要关注"}{studentItem.suggestion ? `。${studentItem.suggestion}` : ""}
+            </p>
+          )) : <p>暂无重点风险学生。</p>}
+        </section>
+        <section>
+          <strong>分层辅导</strong>
+          {groupingPlan.length > 0 ? groupingPlan.map((item, index) => (
+            <p key={`${item.group ?? "group"}-${index}`}>{item.group ?? "分组"}：{item.activity ?? item.criteria ?? "按当前学情安排练习"}</p>
+          )) : <p>暂无分组建议。</p>}
+        </section>
+        <section>
+          <strong>共性错误</strong>
+          {misconceptions.length > 0 ? misconceptions.map((item) => <p key={item}>{item}</p>) : <p>暂无明显共性错误。</p>}
+        </section>
+        <section>
+          <strong>课堂安排</strong>
+          {nextClassPlan.length > 0 ? nextClassPlan.map((item) => <p key={item}>{item}</p>) : <p>暂无课堂安排建议。</p>}
+        </section>
+        <section>
+          <strong>教师讲解提示</strong>
+          <p>{report.teacherScript}</p>
+        </section>
+      </div>
+    );
+  }
+
   function renderTeacherStudioDashboard() {
     const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
     const assistant = buildTeacherAssistantInsights(classOverview, selectedClass);
@@ -1124,20 +1189,15 @@ export function App() {
                     <h2>{assistant.title}</h2>
                     <p>{assistant.overview}</p>
                   </div>
-                  <button className="ghost-button" disabled={!selectedTeacherClassId || assistantLoading} onClick={generateAssistantReport} type="button">
+                </div>
+                <div className="teacher-assistant-toolbar">
+                  <button className="primary-button" disabled={!selectedTeacherClassId || assistantLoading} onClick={generateAssistantReport} type="button">
                     <Sparkle size={16} />
-                    {assistantLoading ? "生成中" : "生成 AI 报告"}
+                    {assistantLoading ? "生成中..." : "生成 AI 助教建议"}
                   </button>
                 </div>
-                {assistantError ? <p className="empty-state">{assistantError}</p> : null}
-                <div className="teacher-assistant-focus">
-                  <strong>{assistant.focus}</strong>
-                </div>
-                <div className="teacher-assistant-actions">
-                  {assistant.nextActions.map((item) => (
-                    <p key={item}><CheckCircle size={16} weight="fill" /> {item}</p>
-                  ))}
-                </div>
+                {assistantError ? <p className="teacher-ai-warning">{assistantError}</p> : null}
+                {renderAssistantReportPanel(assistant)}
                 <div className="teacher-risk-list">
                   <strong>重点关注学生</strong>
                   {assistant.atRiskStudents.length > 0 ? assistant.atRiskStudents.map((studentItem) => (

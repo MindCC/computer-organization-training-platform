@@ -3990,6 +3990,13 @@ textarea:focus-visible {
   padding: 12px;
 }
 
+.teacher-assistant-toolbar {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-start;
+  margin-top: 12px;
+}
+
 .teacher-assistant-actions,
 .teacher-risk-list,
 .settings-resource-list {
@@ -4005,6 +4012,61 @@ textarea:focus-visible {
   gap: 8px;
   line-height: 1.55;
   margin: 0;
+}
+
+.teacher-ai-report {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.teacher-ai-report section {
+  background: #ffffff;
+  border: 1px solid rgba(75, 92, 117, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.teacher-ai-report p {
+  color: var(--muted-text);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.teacher-ai-meta {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.teacher-ai-meta small {
+  color: var(--muted-text);
+}
+
+.ai-source-badge {
+  background: rgba(36, 148, 95, 0.12);
+  border-radius: 999px;
+  color: #24734d;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 4px 9px;
+}
+
+.ai-source-badge.fallback,
+.teacher-ai-warning {
+  background: rgba(230, 163, 35, 0.12);
+  color: #8a5a08;
+}
+
+.teacher-ai-warning {
+  border: 1px solid rgba(230, 163, 35, 0.22);
+  border-radius: 8px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+  padding: 10px 12px;
 }
 
 .teacher-risk-row {
