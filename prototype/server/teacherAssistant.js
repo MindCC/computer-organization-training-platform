@@ -181,14 +181,11 @@ export async function generateTeacherAssistantReport(db, teacherId, classId, opt
   if (!teacherOwnsClass(db, teacherId, classId)) {
     const error = new Error("班级不存在");
     error.code = "CLASS_NOT_FOUND";
+    error.statusCode = 404;
     throw error;
   }
 
   const payload = buildTeacherAssistantPayload(db, classId);
-  if (typeof options.fallbackReason === "string" && options.fallbackReason.trim()) {
-    return buildFallbackAssistantReport(payload, options.fallbackReason);
-  }
-
   const config = readDeepSeekConfig(options.env ?? process.env);
   if (!config.enabled) {
     return buildFallbackAssistantReport(payload, "DEEPSEEK_API_KEY 未配置");

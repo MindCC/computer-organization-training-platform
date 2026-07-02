@@ -358,7 +358,7 @@ test("buildTeacherAssistantMessages uses only backend-owned user messages", asyn
   assert.match(messages[0].content, /计组消息班/);
 });
 
-test("generateTeacherAssistantReport returns ai source when client succeeds", async () => {
+test("generateTeacherAssistantReport uses AI path instead of legacy fallbackReason bypass", async () => {
   const db = makeMemoryDb();
   const teacher = createUser(db, {
     username: "teacher-c",
@@ -370,14 +370,22 @@ test("generateTeacherAssistantReport returns ai source when client succeeds", as
 
   const response = await generateTeacherAssistantReport(db, teacher.id, classRow.id, {
     env: { DEEPSEEK_API_KEY: "sk-test" },
-    fallbackReason: "AI 生成稍后接入",
+    fallbackReason: "旧的强制回退参数",
+    aiRequester: async () => JSON.stringify({
+      lessonFocus: "全加器 Cout",
+      riskStudents: [],
+      groupingPlan: [],
+      commonMisconceptions: ["Sum 和 Cout 混淆"],
+      nextClassPlan: ["复盘端口", "重连全加器"],
+      teacherScript: "先看 Cout 的来源。",
+    }),
   });
 
-  assert.equal(response.source, "fallback");
-  assert.equal(response.fallbackReason, "AI 生成稍后接入");
-  assert.ok(response.report.lessonFocus);
-  assert.ok(response.report.teacherScript);
+  assert.equal(response.source, "ai");
+  assert.equal(response.report.lessonFocus, "全加器 Cout");
+  assert.equal(response.fallbackReason, null);
 });
+
 test("generateTeacherAssistantReport returns ai source when client returns valid JSON", async () => {
   const db = makeMemoryDb();
   const teacher = createUser(db, {
@@ -420,4 +428,28 @@ test("generateTeacherAssistantReport falls back when AI returns invalid JSON", a
 
   assert.equal(response.source, "fallback");
   assert.match(response.fallbackReason, /JSON/);
+});
+
+test("generateTeacherAssistantReport marks missing or unauthorized class as 404", async () => {
+  const db = makeMemoryDb();
+  const owner = createUser(db, {
+    username: "teacher-owner",
+    displayName: "任课教师",
+    role: "teacher",
+    passwordHash: await hashPassword("Teacher123!"),
+  });
+  const otherTeacher = createUser(db, {
+    username: "teacher-other",
+    displayName: "其他教师",
+    role: "teacher",
+    passwordHash: await hashPassword("Teacher123!"),
+  });
+  const classRow = createClass(db, owner.id, "计组七班");
+
+  await assert.rejects(
+    generateTeacherAssistantReport(db, otherTeacher.id, classRow.id, {
+      env: { DEEPSEEK_API_KEY: "sk-test" },
+    }),
+    (error) => error?.code === "CLASS_NOT_FOUND" && error?.statusCode === 404,
+  );
 });
