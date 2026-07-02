@@ -2,6 +2,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
+import { generateTeacherAssistantReport } from "./teacherAssistant.js";
 import {
   addStudentToClass,
   createClass,
@@ -145,6 +146,17 @@ export function createApp(options = {}) {
     const classId = Number(req.params.id);
     if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
     res.json(getClassOverview(db, classId));
+  });
+
+  app.post("/api/teacher/classes/:id/assistant-report", requireRole("teacher"), async (req, res, next) => {
+    try {
+      const classId = Number(req.params.id);
+      const report = await generateTeacherAssistantReport(db, req.user.id, classId);
+      res.json(report);
+    } catch (error) {
+      if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
+      next(error);
+    }
   });
 
   app.get("/api/teacher/classes/:id/students/:studentId", requireRole("teacher"), (req, res) => {

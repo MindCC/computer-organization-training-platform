@@ -102,6 +102,14 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     assert.equal(result.body.students[0].summary.totalAttempts, 1);
     const studentId = result.body.students[0].id;
 
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/assistant-report`, {
+      method: "POST",
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.source, "fallback");
+    assert.equal(result.body.fallbackReason, "DEEPSEEK_API_KEY 未配置");
+    assert.equal(typeof result.body.report.lessonFocus, "string");
+
     result = await request(baseUrl, `/api/teacher/classes/${classId}/students/${studentId}`, {}, teacherJar);
     assert.equal(result.response.status, 200);
     assert.equal(result.body.student.username, "2026001");
@@ -170,6 +178,10 @@ test("unauthenticated and cross-role access is rejected", async () => {
     }, studentJar);
     assert.equal(result.response.status, 200);
     result = await request(baseUrl, "/api/teacher/classes", {}, studentJar);
+    assert.equal(result.response.status, 403);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/assistant-report`, {
+      method: "POST",
+    }, studentJar);
     assert.equal(result.response.status, 403);
   } finally {
     await new Promise((resolve) => server.close(resolve));
