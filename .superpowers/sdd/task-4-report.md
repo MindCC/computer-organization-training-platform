@@ -49,6 +49,7 @@ Result:
 
 ## Controller fix after task review
 
-- Added API-level coverage for `POST /api/teacher/classes/:id/assistant-report` returning `404` when the class does not belong to the teacher or does not exist.
+- Added API-level coverage for `POST /api/teacher/classes/:id/assistant-report` returning `404` when the class does not exist.
+- Added API-level coverage for the same endpoint returning `404` when the class exists but belongs to another teacher.
 - Corrected this report to reflect the endpoint-focused verification used for the review fix.
 - Focused test: `npm.cmd test -- server/app.test.mjs server/teacherAssistant.test.mjs` passed, 76/76.

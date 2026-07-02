@@ -39,7 +39,7 @@ test("password hashing verifies correct password and rejects wrong password", as
 });
 
 test("teacher imports students, student submits progress, teacher exports csv", async () => {
-  const { server, baseUrl } = await makeServer();
+  const { db, server, baseUrl } = await makeServer();
   const teacherJar = {};
   const studentJar = {};
   try {
@@ -113,6 +113,25 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     result = await request(baseUrl, `/api/teacher/classes/${classId + 9999}/assistant-report`, {
       method: "POST",
     }, teacherJar);
+    assert.equal(result.response.status, 404);
+    assert.equal(result.body.error, "班级不存在");
+
+    createUser(db, {
+      username: "other-teacher",
+      displayName: "其他教师",
+      role: "teacher",
+      passwordHash: await hashPassword("OtherTeacher123!"),
+    });
+    const otherTeacherJar = {};
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "other-teacher", password: "OtherTeacher123!" }),
+    }, otherTeacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/assistant-report`, {
+      method: "POST",
+    }, otherTeacherJar);
     assert.equal(result.response.status, 404);
     assert.equal(result.body.error, "班级不存在");
 
