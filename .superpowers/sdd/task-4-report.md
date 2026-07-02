@@ -27,21 +27,13 @@ Behavior:
    - the new teacher assertion failed with `404 !== 200`,
    - the cross-role assertion failed with `404 !== 403`.
 4. Implemented the minimal route in `prototype/server/app.js`.
-5. Re-ran focused and full verification.
+5. Re-ran focused endpoint/service verification.
 
 ## Verification
 
 Focused verification:
 
 - `npm.cmd test -- server/app.test.mjs server/teacherAssistant.test.mjs`
-
-Result:
-
-- pass, 76/76 tests
-
-Full verification:
-
-- `npm.cmd test`
 
 Result:
 
@@ -54,3 +46,9 @@ Result:
   - `prototype/server/app.test.mjs`
 - I did not modify `prototype/server/aiClient.js` or `prototype/server/teacherAssistant.js`.
 - There was an unrelated existing modification in `.superpowers/sdd/task-2-report.md`; it was left untouched.
+
+## Controller fix after task review
+
+- Added API-level coverage for `POST /api/teacher/classes/:id/assistant-report` returning `404` when the class does not belong to the teacher or does not exist.
+- Corrected this report to reflect the endpoint-focused verification used for the review fix.
+- Focused test: `npm.cmd test -- server/app.test.mjs server/teacherAssistant.test.mjs` passed, 76/76.

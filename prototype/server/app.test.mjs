@@ -110,6 +110,12 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     assert.equal(result.body.fallbackReason, "DEEPSEEK_API_KEY 未配置");
     assert.equal(typeof result.body.report.lessonFocus, "string");
 
+    result = await request(baseUrl, `/api/teacher/classes/${classId + 9999}/assistant-report`, {
+      method: "POST",
+    }, teacherJar);
+    assert.equal(result.response.status, 404);
+    assert.equal(result.body.error, "班级不存在");
+
     result = await request(baseUrl, `/api/teacher/classes/${classId}/students/${studentId}`, {}, teacherJar);
     assert.equal(result.response.status, 200);
     assert.equal(result.body.student.username, "2026001");
