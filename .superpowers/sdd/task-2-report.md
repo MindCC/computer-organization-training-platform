@@ -107,3 +107,14 @@ Result:
 
 - `generateTeacherAssistantReport` is intentionally fallback-only in this task. Any route that expects live AI output will need Task 3 before it can rely on parsed assistant JSON.
 - `CHALLENGES` metadata still contains existing mojibake in source data. This task avoided copying that text into new fallback content, but challenge titles/goals passed through from existing data remain unchanged.
+
+## Controller fix after task review
+
+- Changed `parseAssistantJson` so empty or invalid AI output throws a parse error instead of returning an empty fallback-shaped report.
+- Changed `parseAssistantJson` so valid JSON with missing report fields throws instead of producing empty `lessonFocus` or `teacherScript`.
+- Changed `parseAssistantJson` so present-but-empty `lessonFocus` or `teacherScript` throws instead of returning an unusable report.
+- Added coverage for invalid AI output and for the fallback-only `generateTeacherAssistantReport` skeleton returning a usable fallback.
+- Added coverage for incomplete valid JSON.
+- Added coverage for empty required prose fields.
+- Focused test: `npm.cmd test -- server/teacherAssistant.test.mjs` passed, 71/71.
+- Full test: `npm.cmd test` passed, 71/71.
