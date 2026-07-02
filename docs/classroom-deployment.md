@@ -26,6 +26,17 @@ TEACHER_NAME=任课教师
 
 `SESSION_SECRET` 和 `ADMIN_SETUP_TOKEN` 必须使用随机长字符串。`TEACHER_PASSWORD` 只用于首次执行 `npm run seed:teacher`，创建后应从环境文件中移除或改成一次性值。
 
+### DeepSeek 智能助教
+
+可选环境变量：
+
+- `DEEPSEEK_API_KEY`：DeepSeek API key。未配置时教师看板显示本地降级建议。
+- `DEEPSEEK_BASE_URL`：默认 `https://api.deepseek.com`。
+- `DEEPSEEK_MODEL`：默认 `deepseek-v4-flash`，可改为 `deepseek-v4-pro`。
+- `AI_REQUEST_TIMEOUT_MS`：默认 `15000`。
+
+课堂建议：首版只开放教师端 AI 助教报告，不把学生端自由问答开放给学生。教师端报告只发送班级学习摘要，不发送密码、session、cookie 或学生笔记全文。
+
 ## 首次部署
 
 ```bash

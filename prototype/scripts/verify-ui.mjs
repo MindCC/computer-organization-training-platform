@@ -17,6 +17,11 @@ const text = {
   importStudents: "\u5bfc\u5165\u5b66\u751f",
   importTemplate: "\u4e0b\u8f7d\u5bfc\u5165\u6a21\u677f",
   classroomSettings: "\u8bfe\u5802\u8bbe\u7f6e",
+  smartAssistant: "\u667a\u80fd\u52a9\u6559",
+  generateAssistant: "\u751f\u6210 AI \u52a9\u6559\u5efa\u8bae",
+  localFallback: "\u672c\u5730\u964d\u7ea7\u5efa\u8bae",
+  deepseekGenerated: "DeepSeek \u751f\u6210",
+  missingDeepseekKey: "DEEPSEEK_API_KEY \u672a\u914d\u7f6e",
   viewDetail: "\u67e5\u770b\u8be6\u60c5",
   studentDetail: "\u5b66\u751f\u8be6\u60c5",
   fillReference: "\u586b\u5165\u53c2\u8003\u7ed3\u6784",
@@ -64,6 +69,9 @@ await page.getByLabel("\u65b0\u73ed\u7ea7\u540d\u79f0").fill(text.className);
 await page.getByRole("button", { name: text.createClass }).click();
 await assertVisible(page, text.className);
 await selectClass(page, text.className);
+await assertVisible(page, text.smartAssistant);
+await page.getByRole("button", { name: text.generateAssistant }).click();
+await assertAssistantReportGenerated(page);
 await page.locator(".teacher-import-box").fill(`\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n${text.studentNo},${text.studentName},${text.studentPassword}`);
 await page.getByRole("button", { name: text.importStudents }).click();
 await page.locator(".teacher-student-table").getByText(text.studentName).waitFor({ state: "visible", timeout: 10_000 });
@@ -141,6 +149,18 @@ async function selectClass(targetPage, className) {
   const classButton = targetPage.locator(".teacher-class").filter({ hasText: className }).last();
   await classButton.waitFor({ state: "visible", timeout: 10_000 });
   await classButton.click();
+}
+
+async function assertAssistantReportGenerated(targetPage) {
+  await targetPage.waitForFunction(
+    ({ fallbackText, aiText }) => document.body.innerText.includes(fallbackText) || document.body.innerText.includes(aiText),
+    { fallbackText: text.localFallback, aiText: text.deepseekGenerated },
+  );
+
+  const fallbackVisible = await targetPage.getByText(text.localFallback, { exact: false }).first().isVisible().catch(() => false);
+  if (fallbackVisible) {
+    await assertVisible(targetPage, text.missingDeepseekKey);
+  }
 }
 
 async function verifyReactFlowChallenge(targetPage, challenge) {
