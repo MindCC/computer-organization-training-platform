@@ -36,3 +36,9 @@ Result:
 ## Concerns
 
 - `assistantReport`, `assistantLoading`, and `assistantError` are intentionally not rendered yet because UI rendering changes are deferred to Task 6.
+
+## Controller fix after task review
+
+- Added a selected-class ref guard so in-flight assistant report requests cannot write stale reports/errors after the teacher switches classes.
+- Class switch handlers now clear `assistantLoading` in addition to report and error state.
+- Build verification: `npm.cmd run build` passed.

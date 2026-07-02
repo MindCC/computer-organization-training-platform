@@ -358,6 +358,7 @@ export function App() {
   });
   const [teacherClasses, setTeacherClasses] = useState([]);
   const [selectedTeacherClassId, setSelectedTeacherClassId] = useState(null);
+  const selectedTeacherClassIdRef = useRef(null);
   const [classOverview, setClassOverview] = useState(null);
   const [assistantReport, setAssistantReport] = useState(null);
   const [assistantLoading, setAssistantLoading] = useState(false);
@@ -458,12 +459,14 @@ export function App() {
     const { classes } = await api.teacherClasses();
     setTeacherClasses(classes);
     const nextClassId = selectedTeacherClassId ?? classes[0]?.id ?? null;
+    selectedTeacherClassIdRef.current = nextClassId;
     setSelectedTeacherClassId(nextClassId);
     if (nextClassId) await refreshClassOverview(nextClassId);
   }
 
   async function refreshClassOverview(classId = selectedTeacherClassId) {
     if (!classId) {
+      selectedTeacherClassIdRef.current = null;
       setClassOverview(null);
       setSelectedTeacherStudent(null);
       return;
@@ -474,19 +477,26 @@ export function App() {
   }
 
   async function generateAssistantReport() {
-    if (!selectedTeacherClassId) {
+    const requestClassId = selectedTeacherClassIdRef.current ?? selectedTeacherClassId;
+    if (!requestClassId) {
       setAssistantError("请先选择班级");
       return;
     }
     setAssistantLoading(true);
     setAssistantError("");
     try {
-      const result = await api.assistantReport(selectedTeacherClassId);
-      setAssistantReport(result);
+      const result = await api.assistantReport(requestClassId);
+      if (selectedTeacherClassIdRef.current === requestClassId) {
+        setAssistantReport(result);
+      }
     } catch (error) {
-      setAssistantError(error.message);
+      if (selectedTeacherClassIdRef.current === requestClassId) {
+        setAssistantError(error.message);
+      }
     } finally {
-      setAssistantLoading(false);
+      if (selectedTeacherClassIdRef.current === requestClassId) {
+        setAssistantLoading(false);
+      }
     }
   }
 
@@ -1044,9 +1054,11 @@ export function App() {
                     className={item.id === selectedTeacherClassId ? "teacher-class active" : "teacher-class"}
                     key={item.id}
                     onClick={() => {
+                      selectedTeacherClassIdRef.current = item.id;
                       setSelectedTeacherClassId(item.id);
                       setAssistantReport(null);
                       setAssistantError("");
+                      setAssistantLoading(false);
                       refreshClassOverview(item.id);
                     }}
                     type="button"
@@ -1238,9 +1250,11 @@ export function App() {
                 className={item.id === selectedTeacherClassId ? "teacher-class active" : "teacher-class"}
                 key={item.id}
                 onClick={() => {
+                  selectedTeacherClassIdRef.current = item.id;
                   setSelectedTeacherClassId(item.id);
                   setAssistantReport(null);
                   setAssistantError("");
+                  setAssistantLoading(false);
                   refreshClassOverview(item.id);
                 }}
                 type="button"
