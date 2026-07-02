@@ -359,6 +359,9 @@ export function App() {
   const [teacherClasses, setTeacherClasses] = useState([]);
   const [selectedTeacherClassId, setSelectedTeacherClassId] = useState(null);
   const [classOverview, setClassOverview] = useState(null);
+  const [assistantReport, setAssistantReport] = useState(null);
+  const [assistantLoading, setAssistantLoading] = useState(false);
+  const [assistantError, setAssistantError] = useState("");
   const [selectedTeacherStudent, setSelectedTeacherStudent] = useState(null);
   const [classNameDraft, setClassNameDraft] = useState("\u8ba1\u7ec4\u4e00\u73ed");
   const [csvImportText, setCsvImportText] = useState("\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n2026001,\u674e\u540c\u5b66,Student123!");
@@ -468,6 +471,23 @@ export function App() {
     const overview = await api.classOverview(classId);
     setClassOverview(overview);
     setSelectedTeacherStudent(null);
+  }
+
+  async function generateAssistantReport() {
+    if (!selectedTeacherClassId) {
+      setAssistantError("请先选择班级");
+      return;
+    }
+    setAssistantLoading(true);
+    setAssistantError("");
+    try {
+      const result = await api.assistantReport(selectedTeacherClassId);
+      setAssistantReport(result);
+    } catch (error) {
+      setAssistantError(error.message);
+    } finally {
+      setAssistantLoading(false);
+    }
   }
 
   async function handleLogin(event) {
@@ -1023,7 +1043,12 @@ export function App() {
                   <button
                     className={item.id === selectedTeacherClassId ? "teacher-class active" : "teacher-class"}
                     key={item.id}
-                    onClick={() => { setSelectedTeacherClassId(item.id); refreshClassOverview(item.id); }}
+                    onClick={() => {
+                      setSelectedTeacherClassId(item.id);
+                      setAssistantReport(null);
+                      setAssistantError("");
+                      refreshClassOverview(item.id);
+                    }}
                     type="button"
                   >
                     <strong>{item.name}</strong>
@@ -1209,7 +1234,17 @@ export function App() {
           </div>
           <div className="teacher-class-list">
             {teacherClasses.map((item) => (
-              <button className={item.id === selectedTeacherClassId ? "teacher-class active" : "teacher-class"} key={item.id} onClick={() => { setSelectedTeacherClassId(item.id); refreshClassOverview(item.id); }} type="button">
+              <button
+                className={item.id === selectedTeacherClassId ? "teacher-class active" : "teacher-class"}
+                key={item.id}
+                onClick={() => {
+                  setSelectedTeacherClassId(item.id);
+                  setAssistantReport(null);
+                  setAssistantError("");
+                  refreshClassOverview(item.id);
+                }}
+                type="button"
+              >
                 <strong>{item.name}</strong>
                 <span>{item.studentCount} {"\u540d\u5b66\u751f"}</span>
               </button>
