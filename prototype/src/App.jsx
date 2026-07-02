@@ -455,10 +455,19 @@ export function App() {
     }
   }
 
+  function resetAssistantState() {
+    setAssistantReport(null);
+    setAssistantError("");
+    setAssistantLoading(false);
+  }
+
   async function refreshTeacherClasses() {
     const { classes } = await api.teacherClasses();
     setTeacherClasses(classes);
     const nextClassId = selectedTeacherClassId ?? classes[0]?.id ?? null;
+    if (selectedTeacherClassIdRef.current !== nextClassId) {
+      resetAssistantState();
+    }
     selectedTeacherClassIdRef.current = nextClassId;
     setSelectedTeacherClassId(nextClassId);
     if (nextClassId) await refreshClassOverview(nextClassId);
@@ -469,6 +478,7 @@ export function App() {
       selectedTeacherClassIdRef.current = null;
       setClassOverview(null);
       setSelectedTeacherStudent(null);
+      resetAssistantState();
       return;
     }
     const overview = await api.classOverview(classId);
@@ -1056,9 +1066,7 @@ export function App() {
                     onClick={() => {
                       selectedTeacherClassIdRef.current = item.id;
                       setSelectedTeacherClassId(item.id);
-                      setAssistantReport(null);
-                      setAssistantError("");
-                      setAssistantLoading(false);
+                      resetAssistantState();
                       refreshClassOverview(item.id);
                     }}
                     type="button"
@@ -1116,8 +1124,12 @@ export function App() {
                     <h2>{assistant.title}</h2>
                     <p>{assistant.overview}</p>
                   </div>
-                  <Sparkle size={26} />
+                  <button className="ghost-button" disabled={!selectedTeacherClassId || assistantLoading} onClick={generateAssistantReport} type="button">
+                    <Sparkle size={16} />
+                    {assistantLoading ? "生成中" : "生成 AI 报告"}
+                  </button>
                 </div>
+                {assistantError ? <p className="empty-state">{assistantError}</p> : null}
                 <div className="teacher-assistant-focus">
                   <strong>{assistant.focus}</strong>
                 </div>
@@ -1252,9 +1264,7 @@ export function App() {
                 onClick={() => {
                   selectedTeacherClassIdRef.current = item.id;
                   setSelectedTeacherClassId(item.id);
-                  setAssistantReport(null);
-                  setAssistantError("");
-                  setAssistantLoading(false);
+                  resetAssistantState();
                   refreshClassOverview(item.id);
                 }}
                 type="button"

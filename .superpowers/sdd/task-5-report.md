@@ -42,3 +42,9 @@ Result:
 - Added a selected-class ref guard so in-flight assistant report requests cannot write stale reports/errors after the teacher switches classes.
 - Class switch handlers now clear `assistantLoading` in addition to report and error state.
 - Build verification: `npm.cmd run build` passed.
+
+## Controller fix after re-review
+
+- Centralized assistant state reset and applied it to refresh-driven class changes and no-class state.
+- Wired the existing teacher assistant panel button to `generateAssistantReport()` without rendering the final report UI.
+- Build verification: `npm.cmd run build` passed.
