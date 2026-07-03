@@ -1841,6 +1841,100 @@ textarea:focus-visible {
   line-height: 1.5;
 }
 
+.machine-number-panel {
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(75, 92, 117, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.machine-number-heading {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.machine-number-heading h2 {
+  font-size: 18px;
+  margin: 4px 0 0;
+}
+
+.machine-number-heading > strong {
+  align-items: center;
+  background: #111827;
+  border-radius: 8px;
+  color: #fff;
+  display: inline-flex;
+  font-size: 22px;
+  height: 52px;
+  justify-content: center;
+  min-width: 52px;
+  padding: 0 12px;
+}
+
+.machine-number-grid,
+.machine-number-cases {
+  display: grid;
+  gap: 10px;
+}
+
+.machine-number-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.machine-number-grid > div,
+.machine-number-cases article {
+  background: #f8fafc;
+  border: 1px solid rgba(75, 92, 117, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+}
+
+.machine-number-grid span,
+.machine-number-grid small {
+  color: var(--studio-muted);
+}
+
+.machine-number-grid strong,
+.machine-number-cases code {
+  font-family: "SFMono-Regular", Consolas, monospace;
+  letter-spacing: 0;
+}
+
+.machine-number-grid strong {
+  color: var(--studio-ink);
+  font-size: 20px;
+}
+
+.machine-number-cases {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.machine-number-cases article {
+  background: #fff;
+}
+
+.machine-number-cases article.active {
+  background: #eef6ff;
+  border-color: rgba(47, 111, 235, 0.42);
+}
+
+.machine-number-cases span {
+  color: var(--studio-ink);
+  font-weight: 900;
+}
+
+.machine-number-cases code {
+  color: #334155;
+  font-size: 12px;
+}
+
 .lab-studio-inspector {
   display: grid;
   gap: 14px;
@@ -3302,7 +3396,9 @@ textarea:focus-visible {
   }
 
   .journey-strip,
-  .journey-step-grid {
+  .journey-step-grid,
+  .machine-number-grid,
+  .machine-number-cases {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3330,7 +3426,9 @@ textarea:focus-visible {
 
 @media (max-width: 780px) {
   .journey-strip,
-  .journey-step-grid {
+  .journey-step-grid,
+  .machine-number-grid,
+  .machine-number-cases {
     grid-template-columns: 1fr;
   }
 

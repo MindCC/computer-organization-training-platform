@@ -1,3 +1,5 @@
+import { encodeSignedInteger } from "./numberEncoding.js";
+
 export const CHALLENGES = [
   {
     id: "computer-components",
@@ -228,6 +230,33 @@ export const CHALLENGES = [
     principle: "全加器的和位为 A 异或 B 再异或 Cin，输出进位由 A、B、Cin 中至少两个为 1 决定。",
   },
   {
+    id: "machine-number",
+    title: "机器数编码",
+    shortTitle: "机器数",
+    goal: "把十进制整数拆成符号位和数值位，再观察原码、反码、补码的转换关系。",
+    objective: "理解计算机内部为什么常用补码表示有符号整数，并知道负数补码来自反码加一。",
+    estimatedMinutes: 12,
+    requiredConnections: ["十进制数->符号位判断", "十进制数->数值位拆分", "符号位判断->符号位观察", "数值位拆分->反码生成器", "反码生成器->补码生成器", "补码生成器->结果寄存器"],
+    components: [
+      { name: "十进制数", pins: "out", description: "课堂先使用 -7 到 7 的小整数，降低表示范围难度。" },
+      { name: "符号位判断", pins: "in/out", description: "正数符号位为 0，负数符号位为 1。" },
+      { name: "数值位拆分", pins: "in/out", description: "把绝对值写成固定宽度二进制数值位。" },
+      { name: "反码生成器", pins: "in/out", description: "正数反码不变，负数反码对数值位逐位取反。" },
+      { name: "补码生成器", pins: "in/out", description: "正数补码不变，负数补码等于反码加 1。" },
+      { name: "结果寄存器", pins: "in", description: "保存最终进入运算器的数据表示。" },
+    ],
+    hints: {
+      "十进制数->符号位判断": { type: "符号位路径缺失", message: "机器数编码第一步要判断正负，得到符号位。" },
+      "十进制数->数值位拆分": { type: "数值位路径缺失", message: "没有数值位就无法得到原码、反码和补码。" },
+      "符号位判断->符号位观察": { type: "符号位观察缺失", message: "请把符号位接到观察端，确认正数为 0、负数为 1。" },
+      "数值位拆分->反码生成器": { type: "反码数值位缺失", message: "反码生成器需要先拿到数值位。" },
+      "反码生成器->补码生成器": { type: "补码输入缺失", message: "补码应当基于反码继续生成。" },
+      "补码生成器->结果寄存器": { type: "结果寄存器缺失", message: "最终补码还没有写入结果寄存器。" },
+    },
+    summary: "你已经连通了机器数编码路径，知道负数补码需要经过符号位、反码和加一。",
+    principle: "补码让减法可以转化为加法，便于复用加法器硬件；这是机器数表示和运算器结构之间的关键连接。",
+  },
+  {
     id: "multi-adder",
     title: "多位加法器",
     shortTitle: "多位加法器",
@@ -305,6 +334,17 @@ export function buildInitialProgress(challenges) {
       completedAt: null,
       bestScore: 0,
       timeSpentMinutes: 0,
+    };
+    return progress;
+  }, {});
+}
+
+export function mergeProgressWithChallenges(challenges, savedProgress = {}) {
+  const defaults = buildInitialProgress(challenges);
+  return challenges.reduce((progress, challenge) => {
+    progress[challenge.id] = {
+      ...defaults[challenge.id],
+      ...(savedProgress?.[challenge.id] ?? {}),
     };
     return progress;
   }, {});
@@ -409,6 +449,17 @@ export function simulateChallenge(challengeId, inputs = {}) {
       `第一层异或先计算 A 异或 B=${first}。`,
       `第二层异或把临时和与 Cin=${values.cin} 合并，得到 S=${sum}。`,
       `进位逻辑判断至少两个输入为 1，得到 Cout=${carry}。`,
+    ]);
+  }
+
+  if (challengeId === "machine-number") {
+    const value = Number(inputs.signedValue ?? -5);
+    const encoded = encodeSignedInteger(value, 4);
+    return buildSimulation({ value, ...encoded }, [
+      `${value} 先判断符号：非负数符号位为 0，负数符号位为 1。`,
+      `把绝对值写成 3 位数值位，再得到原码 ${encoded.signMagnitude ?? "溢出"}。`,
+      `正数反码不变；负数反码逐位取反，得到 ${encoded.onesComplement ?? "溢出"}。`,
+      `负数补码在反码基础上加 1，最终补码为 ${encoded.twosComplement ?? "溢出"}。`,
     ]);
   }
 

@@ -5,6 +5,7 @@ import {
   CHALLENGES,
   buildInitialProgress,
   gradeConnections,
+  mergeProgressWithChallenges,
   recordAttempt,
   simulateChallenge,
   summarizeLearning,
@@ -15,6 +16,14 @@ test("第一章概述关卡排在电路实验之前", () => {
     CHALLENGES.slice(0, 4).map((challenge) => challenge.id),
     ["computer-components", "program-flow", "instruction-data", "data-flow"],
   );
+});
+
+test("机器数编码关卡衔接全加器和多位加法器", () => {
+  const ids = CHALLENGES.map((challenge) => challenge.id);
+
+  assert.equal(ids[ids.indexOf("full-adder") + 1], "machine-number");
+  assert.equal(ids[ids.indexOf("machine-number") + 1], "multi-adder");
+  assert.equal(CHALLENGES.find((challenge) => challenge.id === "machine-number").title, "机器数编码");
 });
 
 test("半加器仿真能根据输入得到和位与进位", () => {
@@ -99,7 +108,7 @@ test("学习概览能统计完成率、尝试次数和高频错误", () => {
 
   const summary = summarizeLearning(CHALLENGES, progress);
 
-  assert.equal(summary.totalChallenges, 13);
+  assert.equal(summary.totalChallenges, 14);
   assert.equal(summary.totalAttempts, 1);
   assert.equal(summary.weakSpot, "缺少进位输入");
 });

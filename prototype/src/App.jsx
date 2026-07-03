@@ -25,6 +25,7 @@ import {
   CHALLENGES,
   buildInitialProgress,
   gradeConnections,
+  mergeProgressWithChallenges,
   recordAttempt,
   simulateChallenge,
   summarizeLearning,
@@ -60,6 +61,7 @@ import {
   buildTeacherJourneyGuidance,
   getJourneyStepsForChallenge,
 } from "./dataJourney.js";
+import { buildMachineNumberExercise, encodeSignedInteger } from "./numberEncoding.js";
 import { api } from "./apiClient.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
@@ -163,6 +165,13 @@ const challengeRouteMeta = {
     preview: "full",
     focus: "Cin / Cout",
   },
+  "machine-number": {
+    eyebrow: "有符号数",
+    summary: "把正负号、数值位、反码和补码连成进入运算器前的编码路径。",
+    detail: "这一关用 4 位小整数讲清楚原码、反码、补码，不要求学生背大范围换算，重点是理解负数补码为什么要反码加一。",
+    preview: "chain",
+    focus: "原码 / 反码 / 补码",
+  },
   "multi-adder": {
     eyebrow: "级联传播",
     summary: "低位进位会一路推着高位往前算。",
@@ -223,6 +232,9 @@ const challengeControlMeta = {
     { key: "a", label: "输入A", type: "bit" },
     { key: "b", label: "输入B", type: "bit" },
     { key: "cin", label: "进位Cin", type: "bit" },
+  ],
+  "machine-number": [
+    { key: "signedValue", label: "整数", type: "stepper", min: -7, max: 7 },
   ],
   "multi-adder": [
     { key: "aNumber", label: "输入组A", type: "stepper", max: 7 },
@@ -419,7 +431,7 @@ export function App() {
   const [selectedComponent, setSelectedComponent] = useState(defaultComponentLabel);
   const [wireDrag, setWireDrag] = useState(null);
   const [wireHoverEndpoint, setWireHoverEndpoint] = useState(null);
-  const [inputState, setInputState] = useState({ a: 1, b: 1, cin: 0, select: 1, op: 0, aNumber: 5, bNumber: 3, address: 100 });
+  const [inputState, setInputState] = useState({ a: 1, b: 1, cin: 0, select: 1, op: 0, aNumber: 5, bNumber: 3, address: 100, signedValue: -5 });
   const [simulationStep, setSimulationStep] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [activityLog, setActivityLog] = useState([
@@ -522,7 +534,7 @@ export function App() {
     if (!user) return;
     if (user.role === "student") {
       const [{ progress: nextProgress }, { notes: nextNotes }] = await Promise.all([api.studentProgress(), api.listNotes()]);
-      setProgress(nextProgress);
+      setProgress(mergeProgressWithChallenges(CHALLENGES, nextProgress));
       setNotes(nextNotes);
       setStudent({
         name: user.displayName,
@@ -909,7 +921,7 @@ export function App() {
     if (auth.user?.role !== "student") return;
     try {
       const saved = await api.submitAttempt({ challengeId, result });
-      setProgress(saved.progress);
+      setProgress(mergeProgressWithChallenges(CHALLENGES, saved.progress));
     } catch (error) {
       setStatusMessage("\u63d0\u4ea4\u5df2\u5728\u672c\u9875\u8bb0\u5f55\uff0c\u4f46\u540c\u6b65\u670d\u52a1\u5668\u5931\u8d25\uff1a" + error.message);
     }
@@ -1768,6 +1780,7 @@ export function App() {
                     key={control.key}
                     label={control.label}
                     value={inputState[control.key]}
+                    min={control.min}
                     max={control.max}
                     onChange={(value) => handleInputChange(control.key, value)}
                   />
@@ -1857,6 +1870,10 @@ export function App() {
 
             {journeySteps.length > 0 ? (
               <DataJourneyPanel steps={journeySteps} activeStep={activeStep} />
+            ) : null}
+
+            {currentChallenge.id === "machine-number" ? (
+              <MachineNumberPanel value={inputState.signedValue ?? -5} />
             ) : null}
 
             <div className="lab-studio-inspector">
@@ -1950,6 +1967,7 @@ export function App() {
                     key={control.key}
                     label={control.label}
                     value={inputState[control.key]}
+                    min={control.min}
                     max={control.max}
                     onChange={(value) => handleInputChange(control.key, value)}
                   />
@@ -2663,6 +2681,26 @@ function ChallengeCanvas({
         { name: "输出端", tone: "output", className: "output dual", detail: "和位 S · 输出进位 Cout" },
       ],
     },
+    "machine-number": {
+      label: "机器数编码流水线",
+      hint: "先判断符号位，再拆数值位；负数从原码到反码，再通过加一得到补码，最后写入结果寄存器。",
+      inputText: `整数=${inputState.signedValue}`,
+      outputText,
+      wires: [
+        { className: "horizontal start", activeAt: 0 },
+        { className: "horizontal mid", activeAt: 1 },
+        { className: "horizontal chain-two", activeAt: 2 },
+        { className: "horizontal mux-out", activeAt: 3 },
+      ],
+      nodes: [
+        { name: "十进制数", tone: "io", className: "input", detail: "课堂输入 -7 到 7" },
+        { name: "符号位判断", tone: "control", className: "selector signal", detail: "正数 0 / 负数 1" },
+        { name: "数值位拆分", tone: "module", className: "module wide", detail: "绝对值转二进制" },
+        { name: "反码生成器", tone: "logic", className: "logic core", detail: "负数逐位取反" },
+        { name: "补码生成器", tone: "module", className: "mux center", detail: "负数反码加 1" },
+        { name: "结果寄存器", tone: "output", className: "output", detail: "保存最终补码" },
+      ],
+    },
     "multi-adder": {
       label: "级联传播",
       hint: "三个全加器首尾相接，低位进位会一路推向高位。",
@@ -3084,6 +3122,50 @@ function ChallengeCanvas({
   );
 }
 
+function MachineNumberPanel({ value }) {
+  const encoded = encodeSignedInteger(value, 4);
+  const exercise = buildMachineNumberExercise();
+
+  return (
+    <section className="machine-number-panel">
+      <div className="machine-number-heading">
+        <div>
+          <span className="eyebrow">机器数小测</span>
+          <h2>4 位原码、反码、补码</h2>
+        </div>
+        <strong>{value}</strong>
+      </div>
+      <div className="machine-number-grid">
+        <div>
+          <span>原码</span>
+          <strong>{encoded.signMagnitude ?? "溢出"}</strong>
+          <small>符号位 + 数值位</small>
+        </div>
+        <div>
+          <span>反码</span>
+          <strong>{encoded.onesComplement ?? "溢出"}</strong>
+          <small>负数数值位取反</small>
+        </div>
+        <div>
+          <span>补码</span>
+          <strong>{encoded.twosComplement ?? "溢出"}</strong>
+          <small>负数反码加 1</small>
+        </div>
+      </div>
+      <div className="machine-number-cases">
+        {exercise.cases.slice(0, 5).map((item) => (
+          <article className={item.value === value ? "active" : ""} key={item.value}>
+            <span>{item.value}</span>
+            <code>{item.expected.signMagnitude}</code>
+            <code>{item.expected.onesComplement}</code>
+            <code>{item.expected.twosComplement}</code>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Toggle({ label, value, onChange }) {
   return (
     <label className="toggle-control">
@@ -3095,12 +3177,12 @@ function Toggle({ label, value, onChange }) {
   );
 }
 
-function Stepper({ label, value, max, onChange }) {
+function Stepper({ label, value, min = 0, max, onChange }) {
   return (
     <label className="toggle-control">
       <span>{label}</span>
       <div className="stepper">
-        <button onClick={() => onChange(Math.max(0, value - 1))} type="button">-</button>
+        <button onClick={() => onChange(Math.max(min, value - 1))} type="button">-</button>
         <strong>{value}</strong>
         <button onClick={() => onChange(Math.min(max, value + 1))} type="button">+</button>
       </div>
@@ -3126,6 +3208,7 @@ function labDescription(challengeId) {
     "xor-gate": "这一关只看异或门：两个输入不同输出为1，相同输出为0。",
     "half-adder": "这一关会把和位和进位拆成两条并行支路，你能直观看到两种结果是如何分工产生的。",
     "full-adder": "这一关会出现真正的进位分叉：一条线继续算和位，另一条线专门负责判断是否向高位进位。",
+    "machine-number": "这一关把有符号整数进入运算器前的编码过程拆开：先判断符号位，再看原码、反码，最后得到补码。",
     "multi-adder": "这一关不再是一个模块，而是多个全加器首尾相接，重点观察进位逐级传播。",
     mux: "这一关的重点是路径选择，同一时刻两路数据都在，但只有被选择的一路会真正通过。",
     alu: "这一关会把加法、逻辑和选择控制汇总到同一块运算核心里，画布结构也会比前几关更复杂。",
@@ -3139,6 +3222,10 @@ function outputLabel(key) {
     carry: "进位",
     output: "Y",
     result: "F",
+    value: "整数",
+    signMagnitude: "原码",
+    onesComplement: "反码",
+    twosComplement: "补码",
     zero: "零标志",
   };
   return labels[key] ?? key;

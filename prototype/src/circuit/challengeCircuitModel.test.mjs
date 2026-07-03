@@ -16,7 +16,7 @@ import {
   getCircuitChallenge,
 } from "./challengeCircuitModel.js";
 
-const expectedIds = ["computer-components", "program-flow", "instruction-data", "data-flow", "and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "multi-adder", "mux", "alu"];
+const expectedIds = ["computer-components", "program-flow", "instruction-data", "data-flow", "and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "machine-number", "multi-adder", "mux", "alu"];
 
 test("结构化模型覆盖基础门到运算器路线关卡", () => {
   assert.deepEqual(CIRCUIT_CHALLENGES.map((challenge) => challenge.id), expectedIds);
@@ -71,4 +71,14 @@ test("基础逻辑门测试用例覆盖完整真值表", () => {
   assert.deepEqual(OR_GATE_CIRCUIT.testCases.map((item) => item.name), ["0 或 0", "0 或 1", "1 或 0", "1 或 1"]);
   assert.deepEqual(NOT_GATE_CIRCUIT.testCases.map((item) => item.name), ["非 0", "非 1"]);
   assert.deepEqual(XOR_GATE_CIRCUIT.testCases.map((item) => item.name), ["0 异或 0", "0 异或 1", "1 异或 0", "1 异或 1"]);
+});
+
+test("机器数编码关卡复用 React Flow 元件模型", () => {
+  const challenge = CIRCUIT_CHALLENGES.find((item) => item.id === "machine-number");
+
+  assert.ok(challenge);
+  assert.equal(challenge.title, "机器数编码");
+  assert.equal(challenge.nodes.some((node) => node.label === "补码生成器"), true);
+  assert.equal(challenge.requiredEdges.length >= 5, true);
+  assert.equal(challenge.testCases.some((testCase) => testCase.name.includes("-5")), true);
 });

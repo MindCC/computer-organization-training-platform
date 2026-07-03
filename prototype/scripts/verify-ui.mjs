@@ -10,8 +10,8 @@ const text = {
   appTitle: "\u7ec4\u6210\u539f\u7406\u5b9e\u8bad\u5e73\u53f0",
   login: "\u767b\u5f55",
   teacherHeading: "\u73ed\u7ea7\u5b66\u60c5\u7ba1\u7406",
-  className: "\u8ba1\u7ec4 UI Smoke \u73ed",
-  studentNo: "ui-smoke-001",
+  className: "\u8ba1\u7ec4 UI Smoke \u73ed " + Date.now(),
+  studentNo: "ui-smoke-" + Date.now(),
   studentName: "\u6d4b\u8bd5\u5b66\u751f",
   studentPassword: "Student123!",
   createClass: "\u521b\u5efa\u73ed\u7ea7",
@@ -37,6 +37,8 @@ const text = {
   dataJourney: "\u6570\u636e\u65c5\u7a0b",
   journeyCheckpoint: "\u6570\u636e\u65c5\u7a0b\u68c0\u67e5\u70b9",
   pcToMar: "PC -> MAR",
+  machineNumberQuiz: "\u673a\u5668\u6570\u5c0f\u6d4b",
+  twosComplement: "\u8865\u7801",
   profile: "\u5b66\u4e60\u6863\u6848",
   logout: "\u9000\u51fa\u767b\u5f55",
 };
@@ -209,6 +211,11 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   if (challenge.id === "instruction-data") {
     await assertVisible(targetPage, text.journeyCheckpoint);
     await assertVisible(targetPage, text.pcToMar);
+  }
+  if (challenge.id === "machine-number") {
+    await assertVisible(targetPage, text.machineNumberQuiz);
+    await assertVisible(targetPage, text.twosComplement);
+    await assertVisible(targetPage, "1011");
   }
   await workbench.getByRole("button", { name: text.fillReference }).click();
   await targetPage.waitForFunction(

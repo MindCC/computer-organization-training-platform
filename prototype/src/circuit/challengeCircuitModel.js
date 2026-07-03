@@ -271,6 +271,33 @@ export const FULL_ADDER_CIRCUIT = {
   ],
 };
 
+export const MACHINE_NUMBER_CIRCUIT = {
+  id: "machine-number",
+  title: "机器数编码",
+  goal: "连接符号位、数值位和补码生成器，理解负数进入运算器前如何变成补码。",
+  nodes: [
+    inputNode("decimal-input", "十进制数", 60, 150, "-5"),
+    componentNode("sign-split", "buffer", "符号位判断", 280, 90, [inPort("in", "数值"), outPort("out", "符号位")]),
+    componentNode("magnitude-split", "buffer", "数值位拆分", 280, 245, [inPort("in", "|数值|"), outPort("out", "数值位")]),
+    componentNode("ones-encoder", "buffer", "反码生成器", 520, 245, [inPort("in", "数值位"), outPort("out", "反码")]),
+    componentNode("twos-encoder", "buffer", "补码生成器", 750, 245, [inPort("in", "反码+1"), outPort("out", "补码")]),
+    outputNode("sign-output", "符号位观察", 760, 90, "S"),
+    outputNode("machine-output", "结果寄存器", 1000, 245, "补码"),
+  ],
+  requiredEdges: [
+    edge("decimal-to-sign", "decimal-input", "out", "sign-split", "in", "符号位路径缺失", "十进制数需要先判断正负，得到符号位。"),
+    edge("decimal-to-magnitude", "decimal-input", "out", "magnitude-split", "in", "数值位路径缺失", "编码前需要把绝对值拆成数值位。"),
+    edge("sign-to-output", "sign-split", "out", "sign-output", "in", "符号位观察缺失", "符号位没有接到观察端，学生看不到正负信息。"),
+    edge("magnitude-to-ones", "magnitude-split", "out", "ones-encoder", "in", "反码数值位缺失", "数值位没有进入反码生成器，无法逐位取反。"),
+    edge("ones-to-twos", "ones-encoder", "out", "twos-encoder", "in", "补码输入缺失", "补码需要在反码基础上继续处理。"),
+    edge("twos-to-output", "twos-encoder", "out", "machine-output", "in", "结果寄存器缺失", "补码结果还没有写入结果寄存器。"),
+  ],
+  testCases: [
+    { name: "-5 编码路径", inputs: { "decimal-input.out": 1 }, expected: { "machine-output.in": 1, "sign-output.in": 1 } },
+    { name: "+5 编码路径", inputs: { "decimal-input.out": 0 }, expected: { "machine-output.in": 0, "sign-output.in": 0 } },
+  ],
+};
+
 export const MUX_CIRCUIT = {
   id: "mux",
   title: "多路选择器",
@@ -351,6 +378,7 @@ export const CIRCUIT_CHALLENGES = [
   XOR_GATE_CIRCUIT,
   HALF_ADDER_CIRCUIT,
   FULL_ADDER_CIRCUIT,
+  MACHINE_NUMBER_CIRCUIT,
   MULTI_ADDER_CIRCUIT,
   MUX_CIRCUIT,
   ALU_CIRCUIT,
