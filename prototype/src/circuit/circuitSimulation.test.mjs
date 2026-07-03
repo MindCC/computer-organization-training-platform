@@ -1,10 +1,17 @@
 ﻿import assert from "node:assert/strict";
 import test from "node:test";
 
-import { CIRCUIT_CHALLENGES, HALF_ADDER_CIRCUIT } from "./challengeCircuitModel.js";
+import {
+  AND_GATE_CIRCUIT,
+  CIRCUIT_CHALLENGES,
+  HALF_ADDER_CIRCUIT,
+  NOT_GATE_CIRCUIT,
+  OR_GATE_CIRCUIT,
+  XOR_GATE_CIRCUIT,
+} from "./challengeCircuitModel.js";
 import { runCircuitTestCases, simulateCircuit } from "./circuitSimulation.js";
 
-test("六个结构化关卡的参考结构都能通过组合逻辑测试", () => {
+test("结构化关卡的参考结构都能通过组合逻辑测试", () => {
   for (const challenge of CIRCUIT_CHALLENGES) {
     const result = runCircuitTestCases(challenge, challenge.requiredEdges);
     assert.equal(result.passed, true, `${challenge.id} should pass all circuit test cases`);
@@ -16,6 +23,14 @@ test("半加器组合逻辑仿真覆盖完整真值表", () => {
 
   assert.equal(result.passed, true);
   assert.deepEqual(result.cases.map((testCase) => testCase.passed), [true, true, true, true]);
+});
+
+test("基础逻辑门组合逻辑仿真覆盖真值表", () => {
+  for (const challenge of [AND_GATE_CIRCUIT, OR_GATE_CIRCUIT, NOT_GATE_CIRCUIT, XOR_GATE_CIRCUIT]) {
+    const result = runCircuitTestCases(challenge, challenge.requiredEdges);
+    assert.equal(result.passed, true, `${challenge.id} should pass`);
+    assert.equal(result.cases.every((testCase) => testCase.passed), true, `${challenge.id} cases should pass`);
+  }
 });
 
 test("缺少导线时对应输出保持 unknown", () => {

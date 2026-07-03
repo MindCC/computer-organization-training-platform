@@ -127,7 +127,7 @@ export function createApp(options = {}) {
               displayName: row.displayName,
               role: "student",
               passwordHash: passwordHashCache.get(row.username),
-              profile: { goal: "完成六个运算器关卡", mode: "强引导模式", initialPassword },
+              profile: { goal: "完成计算机概述到运算器关卡", mode: "强引导模式", initialPassword },
             });
             report.imported += 1;
           } else {

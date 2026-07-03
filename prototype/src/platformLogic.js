@@ -1,5 +1,83 @@
 export const CHALLENGES = [
   {
+    id: "computer-components",
+    title: "认识计算机五大部件",
+    shortTitle: "五大部件",
+    goal: "把输入、存储、运算、控制和输出五类部件放到正确位置。",
+    objective: "建立计算机整机概念，知道每类部件在一次计算中的基本职责。",
+    estimatedMinutes: 8,
+    requiredConnections: ["输入设备->存储器", "存储器->控制器", "控制器->运算器", "运算器->存储器", "存储器->输出设备"],
+    components: [
+      { name: "输入设备", pins: "out", description: "把键盘、鼠标等外部信息送入计算机。" },
+      { name: "存储器", pins: "in/out", description: "保存程序、数据和中间结果。" },
+      { name: "控制器", pins: "in/out", description: "按指令节奏指挥各部件协同工作。" },
+      { name: "运算器", pins: "in/out", description: "执行算术运算和逻辑运算。" },
+      { name: "输出设备", pins: "in", description: "把计算结果呈现给用户。" },
+    ],
+    hints: {
+      "输入设备->存储器": { type: "输入路径缺失", message: "外部输入需要先进入存储器或缓冲区，后续部件才能使用。" },
+      "存储器->控制器": { type: "取指路径缺失", message: "控制器需要从存储器取得指令，才能发出控制信号。" },
+      "控制器->运算器": { type: "控制路径缺失", message: "运算器需要控制器指挥，才能按指令执行运算。" },
+      "运算器->存储器": { type: "结果回写缺失", message: "运算结果通常要写回存储器，供后续步骤使用。" },
+      "存储器->输出设备": { type: "输出路径缺失", message: "输出设备需要从存储器或结果缓冲区取得最终结果。" },
+    },
+    summary: "你已经把五大部件串成一次基本计算流程。",
+    principle: "冯·诺依曼计算机把程序和数据放在存储器中，由控制器取指挥发，运算器处理数据，再把结果送回存储或输出。",
+  },
+  {
+    id: "program-flow",
+    title: "程序运行路线",
+    shortTitle: "运行路线",
+    goal: "按顺序连接一次 1+1 计算从输入到输出的流程。",
+    objective: "理解程序运行不是单个部件完成，而是输入、存储、CPU、运算器和输出协同完成。",
+    estimatedMinutes: 8,
+    requiredConnections: ["键盘输入->主存", "主存->CPU取指", "CPU取指->运算器执行", "运算器执行->主存回写", "主存回写->屏幕输出"],
+    components: [
+      { name: "键盘输入", pins: "out", description: "用户输入表达式或数据。" },
+      { name: "主存", pins: "in/out", description: "保存输入、程序和中间结果。" },
+      { name: "CPU取指", pins: "in/out", description: "CPU从主存取出下一条要执行的指令。" },
+      { name: "运算器执行", pins: "in/out", description: "运算器完成 1+1 这类具体计算。" },
+      { name: "屏幕输出", pins: "in", description: "把最终结果显示出来。" },
+    ],
+    hints: {
+      "键盘输入->主存": { type: "输入未进入系统", message: "输入内容需要先进入主存或输入缓冲区。" },
+      "主存->CPU取指": { type: "取指路径缺失", message: "CPU需要从主存取得指令，不能凭空执行。" },
+      "CPU取指->运算器执行": { type: "执行路径缺失", message: "取到指令后，需要交给执行部件完成运算。" },
+      "运算器执行->主存回写": { type: "回写路径缺失", message: "运算完成后，结果需要回写到主存或寄存器。" },
+      "主存回写->屏幕输出": { type: "输出路径缺失", message: "屏幕显示来自最终结果，而不是直接来自键盘输入。" },
+    },
+    summary: "你已经完成一次程序从输入到输出的运行路线。",
+    principle: "程序运行的关键是取指、译码、执行、访存和回写这些阶段按顺序协同发生。",
+  },
+  {
+    id: "instruction-data",
+    title: "指令和数据",
+    shortTitle: "指令/数据",
+    goal: "区分同一片内存内容在 CPU 不同阶段中为什么会被当作指令或数据。",
+    objective: "理解指令和数据都以二进制存储，CPU靠访问阶段和使用方式区分它们。",
+    estimatedMinutes: 8,
+    requiredConnections: ["程序计数器PC->地址100", "地址100->指令寄存器IR", "地址101->操作数R1", "地址102->操作数R2", "运算结果->结果寄存器"],
+    components: [
+      { name: "程序计数器PC", pins: "out", description: "指出下一条要取的指令地址。" },
+      { name: "地址100", pins: "in/out", description: "这里存放 ADD R1,R2，被取指阶段解释为指令。" },
+      { name: "指令寄存器IR", pins: "in/out", description: "保存当前正在执行的指令。" },
+      { name: "地址101", pins: "out", description: "这里存放操作数 5，被执行阶段当作数据。" },
+      { name: "地址102", pins: "out", description: "这里存放操作数 7，被执行阶段当作数据。" },
+      { name: "操作数R1", pins: "in/out", description: "保存第一个参与运算的数据。" },
+      { name: "操作数R2", pins: "in/out", description: "保存第二个参与运算的数据。" },
+      { name: "结果寄存器", pins: "in", description: "保存运算后的结果。" },
+    ],
+    hints: {
+      "程序计数器PC->地址100": { type: "取指地址缺失", message: "PC需要先指向下一条指令所在的内存地址。" },
+      "地址100->指令寄存器IR": { type: "取指路径缺失", message: "地址100中的内容要进入IR，CPU才把它当作指令解释。" },
+      "地址101->操作数R1": { type: "数据读取缺失", message: "地址101在执行阶段被读取为第一个操作数。" },
+      "地址102->操作数R2": { type: "数据读取缺失", message: "地址102在执行阶段被读取为第二个操作数。" },
+      "运算结果->结果寄存器": { type: "结果保存缺失", message: "执行完成后需要保存运算结果。" },
+    },
+    summary: "你已经区分了取指阶段和取数阶段中内存内容的不同角色。",
+    principle: "内存本身只保存二进制位。CPU把某段内容当作指令还是数据，取决于当前阶段和控制信号。",
+  },
+  {
     id: "data-flow",
     title: "认识数据流",
     shortTitle: "数据流",
@@ -18,6 +96,89 @@ export const CHALLENGES = [
     },
     summary: "你已经完成一条最基本的数据路径，理解了输入、处理和输出的关系。",
     principle: "计算机中的每个运算部件都离不开清晰的数据流向：信号从输入端进入，经由部件处理后到达输出端。",
+  },
+  {
+    id: "and-gate",
+    title: "与门",
+    shortTitle: "与门",
+    goal: "连接两个输入到与门，观察 A 和 B 都为 1 时输出 Y 才为 1。",
+    objective: "理解与运算的基本规则：两个条件同时成立，结果才成立。",
+    estimatedMinutes: 8,
+    requiredConnections: ["输入A->与门", "输入B->与门", "与门->输出Y"],
+    components: [
+      { name: "输入A", pins: "A", description: "提供第一个 0/1 输入信号。" },
+      { name: "输入B", pins: "B", description: "提供第二个 0/1 输入信号。" },
+      { name: "与门", pins: "A/B/Y", description: "只有两个输入都为 1 时输出 1。" },
+    ],
+    hints: {
+      "输入A->与门": { type: "输入端未连接", message: "输入A没有进入与门，无法完成与运算。" },
+      "输入B->与门": { type: "输入端未连接", message: "输入B没有进入与门，无法完成与运算。" },
+      "与门->输出Y": { type: "输出端未连接", message: "与门结果没有接到输出Y。" },
+    },
+    summary: "你已完成与门实验，能观察两个输入同时为 1 时输出才为 1。",
+    principle: "与门对应逻辑乘法，常用于判断多个条件是否同时满足。",
+  },
+  {
+    id: "or-gate",
+    title: "或门",
+    shortTitle: "或门",
+    goal: "连接两个输入到或门，观察 A 或 B 至少一个为 1 时输出 Y 为 1。",
+    objective: "理解或运算的基本规则：任意一个条件成立，结果就成立。",
+    estimatedMinutes: 8,
+    requiredConnections: ["输入A->或门", "输入B->或门", "或门->输出Y"],
+    components: [
+      { name: "输入A", pins: "A", description: "提供第一个 0/1 输入信号。" },
+      { name: "输入B", pins: "B", description: "提供第二个 0/1 输入信号。" },
+      { name: "或门", pins: "A/B/Y", description: "只要有一个输入为 1 就输出 1。" },
+    ],
+    hints: {
+      "输入A->或门": { type: "输入端未连接", message: "输入A没有进入或门，无法完成或运算。" },
+      "输入B->或门": { type: "输入端未连接", message: "输入B没有进入或门，无法完成或运算。" },
+      "或门->输出Y": { type: "输出端未连接", message: "或门结果没有接到输出Y。" },
+    },
+    summary: "你已完成或门实验，能观察任意输入为 1 时输出为 1。",
+    principle: "或门对应逻辑加法，常用于把多条可能路径合并成一个判断结果。",
+  },
+  {
+    id: "not-gate",
+    title: "非门",
+    shortTitle: "非门",
+    goal: "连接输入到非门，观察 0 变 1、1 变 0 的取反关系。",
+    objective: "理解非运算的基本规则：输出总是输入的相反值。",
+    estimatedMinutes: 6,
+    requiredConnections: ["输入A->非门", "非门->输出Y"],
+    components: [
+      { name: "输入A", pins: "A", description: "提供需要取反的 0/1 输入信号。" },
+      { name: "非门", pins: "A/Y", description: "把输入信号反转后输出。" },
+      { name: "输出Y", pins: "Y", description: "显示取反后的结果。" },
+    ],
+    hints: {
+      "输入A->非门": { type: "输入端未连接", message: "输入A没有进入非门，无法完成取反。" },
+      "非门->输出Y": { type: "输出端未连接", message: "非门结果没有接到输出Y。" },
+    },
+    summary: "你已完成非门实验，能观察单个信号的取反过程。",
+    principle: "非门是最基础的反相器，常用于生成相反条件或控制信号。",
+  },
+  {
+    id: "xor-gate",
+    title: "异或门",
+    shortTitle: "异或门",
+    goal: "连接两个输入到异或门，观察 A 和 B 不同时输出 Y 为 1。",
+    objective: "理解异或运算的基本规则：两个输入不同则输出 1，相同则输出 0。",
+    estimatedMinutes: 10,
+    requiredConnections: ["输入A->异或门", "输入B->异或门", "异或门->输出Y"],
+    components: [
+      { name: "输入A", pins: "A", description: "提供第一个 0/1 输入信号。" },
+      { name: "输入B", pins: "B", description: "提供第二个 0/1 输入信号。" },
+      { name: "异或门", pins: "A/B/Y", description: "两个输入不同时输出 1。" },
+    ],
+    hints: {
+      "输入A->异或门": { type: "输入端未连接", message: "输入A没有进入异或门，无法比较两个输入。" },
+      "输入B->异或门": { type: "输入端未连接", message: "输入B没有进入异或门，无法比较两个输入。" },
+      "异或门->输出Y": { type: "输出端未连接", message: "异或门结果没有接到输出Y。" },
+    },
+    summary: "你已完成异或门实验，理解了半加器和位为什么来自异或逻辑。",
+    principle: "异或门常用于判断两个信号是否不同，也是半加器和位 S 的核心来源。",
   },
   {
     id: "half-adder",
@@ -156,7 +317,79 @@ export function simulateChallenge(challengeId, inputs = {}) {
     cin: Number(inputs.cin ?? 0),
     select: Number(inputs.select ?? 0),
     op: Number(inputs.op ?? 0),
+    address: Number(inputs.address ?? 100),
   };
+
+  if (challengeId === "computer-components") {
+    return buildSimulation({ flow: "输入-存储-控制-运算-输出" }, [
+      "输入设备把外部信息送入计算机。",
+      "存储器保存程序、数据和中间结果。",
+      "控制器从存储器取指令并指挥运算器工作。",
+      "运算器完成计算后把结果送回存储器。",
+      "输出设备把最终结果呈现给用户。",
+    ]);
+  }
+
+  if (challengeId === "program-flow") {
+    return buildSimulation({ result: 2 }, [
+      "键盘输入表达式 1+1，输入内容先进入主存或输入缓冲区。",
+      "CPU从主存取出加法相关指令。",
+      "控制器发出控制信号，运算器执行 1+1。",
+      "结果 2 写回主存或寄存器。",
+      "屏幕从结果缓冲区取得 2 并显示出来。",
+    ]);
+  }
+
+  if (challengeId === "instruction-data") {
+    const memory = {
+      100: { stage: "取指令", text: "地址100保存 ADD R1,R2；取指阶段进入IR，所以被解释为指令。" },
+      101: { stage: "取数据", text: "地址101保存 5；执行阶段读取它，所以被解释为数据。" },
+      102: { stage: "取数据", text: "地址102保存 7；执行阶段读取它，所以被解释为数据。" },
+    };
+    const selected = memory[values.address] ?? { stage: "空地址", text: "这个地址不在示例程序片段中。" };
+    return buildSimulation({ stage: selected.stage, address: values.address }, [
+      "取指阶段：PC 指向地址100，CPU把其中内容送入指令寄存器IR。",
+      "译码阶段：控制器把 ADD R1,R2 解释为一次加法操作。",
+      "执行阶段：CPU再读取地址101和地址102，此时这些内容作为操作数数据使用。",
+      selected.text,
+    ]);
+  }
+
+  if (challengeId === "and-gate") {
+    const output = values.a & values.b;
+    return buildSimulation({ output }, [
+      `输入A=${values.a}、输入B=${values.b} 同时进入与门。`,
+      `与门判断两个输入是否都为 1，得到 Y=${output}。`,
+      `输出端Y显示 ${output}。`,
+    ]);
+  }
+
+  if (challengeId === "or-gate") {
+    const output = values.a | values.b;
+    return buildSimulation({ output }, [
+      `输入A=${values.a}、输入B=${values.b} 同时进入或门。`,
+      `或门判断是否至少一个输入为 1，得到 Y=${output}。`,
+      `输出端Y显示 ${output}。`,
+    ]);
+  }
+
+  if (challengeId === "not-gate") {
+    const output = values.a ^ 1;
+    return buildSimulation({ output }, [
+      `输入A=${values.a} 进入非门。`,
+      `非门把输入取反，得到 Y=${output}。`,
+      `输出端Y显示 ${output}。`,
+    ]);
+  }
+
+  if (challengeId === "xor-gate") {
+    const output = values.a ^ values.b;
+    return buildSimulation({ output }, [
+      `输入A=${values.a}、输入B=${values.b} 同时进入异或门。`,
+      `异或门判断两个输入是否不同，得到 Y=${output}。`,
+      `输出端Y显示 ${output}。`,
+    ]);
+  }
 
   if (challengeId === "half-adder") {
     const sum = values.a ^ values.b;

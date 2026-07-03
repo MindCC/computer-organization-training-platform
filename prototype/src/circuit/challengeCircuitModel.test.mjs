@@ -2,18 +2,29 @@
 import test from "node:test";
 
 import {
+  AND_GATE_CIRCUIT,
   CIRCUIT_CHALLENGES,
+  COMPUTER_COMPONENTS_CIRCUIT,
   HALF_ADDER_CIRCUIT,
+  INSTRUCTION_DATA_CIRCUIT,
+  NOT_GATE_CIRCUIT,
+  OR_GATE_CIRCUIT,
+  PROGRAM_FLOW_CIRCUIT,
+  XOR_GATE_CIRCUIT,
   buildCircuitModelIndex,
   edgeKey,
   getCircuitChallenge,
 } from "./challengeCircuitModel.js";
 
-const expectedIds = ["data-flow", "half-adder", "full-adder", "multi-adder", "mux", "alu"];
+const expectedIds = ["computer-components", "program-flow", "instruction-data", "data-flow", "and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "multi-adder", "mux", "alu"];
 
-test("结构化模型覆盖六个运算器路线关卡", () => {
+test("结构化模型覆盖基础门到运算器路线关卡", () => {
   assert.deepEqual(CIRCUIT_CHALLENGES.map((challenge) => challenge.id), expectedIds);
+  assert.equal(getCircuitChallenge("computer-components"), COMPUTER_COMPONENTS_CIRCUIT);
+  assert.equal(getCircuitChallenge("program-flow"), PROGRAM_FLOW_CIRCUIT);
+  assert.equal(getCircuitChallenge("instruction-data"), INSTRUCTION_DATA_CIRCUIT);
   assert.equal(getCircuitChallenge("half-adder"), HALF_ADDER_CIRCUIT);
+  assert.equal(getCircuitChallenge("and-gate"), AND_GATE_CIRCUIT);
 });
 
 test("每个结构化关卡都使用稳定节点和端口 id", () => {
@@ -53,4 +64,11 @@ test("每个关卡至少有一组可运行测试用例", () => {
 
 test("半加器测试用例覆盖完整真值表", () => {
   assert.deepEqual(HALF_ADDER_CIRCUIT.testCases.map((item) => item.name), ["0 + 0", "0 + 1", "1 + 0", "1 + 1"]);
+});
+
+test("基础逻辑门测试用例覆盖完整真值表", () => {
+  assert.deepEqual(AND_GATE_CIRCUIT.testCases.map((item) => item.name), ["0 与 0", "0 与 1", "1 与 0", "1 与 1"]);
+  assert.deepEqual(OR_GATE_CIRCUIT.testCases.map((item) => item.name), ["0 或 0", "0 或 1", "1 或 0", "1 或 1"]);
+  assert.deepEqual(NOT_GATE_CIRCUIT.testCases.map((item) => item.name), ["非 0", "非 1"]);
+  assert.deepEqual(XOR_GATE_CIRCUIT.testCases.map((item) => item.name), ["0 异或 0", "0 异或 1", "1 异或 0", "1 异或 1"]);
 });

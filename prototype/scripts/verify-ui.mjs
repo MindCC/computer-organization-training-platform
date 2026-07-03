@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { CIRCUIT_CHALLENGES } from "../src/circuit/challengeCircuitModel.js";
+import { CHALLENGES } from "../src/platformLogic.js";
 
 const text = {
   appTitle: "\u7ec4\u6210\u539f\u7406\u5b9e\u8bad\u5e73\u53f0",
@@ -24,6 +25,7 @@ const text = {
   missingDeepseekKey: "DEEPSEEK_API_KEY \u672a\u914d\u7f6e",
   viewDetail: "\u67e5\u770b\u8be6\u60c5",
   studentDetail: "\u5b66\u751f\u8be6\u60c5",
+  viewReference: "\u67e5\u770b\u53c2\u8003\u7ed3\u6784",
   fillReference: "\u586b\u5165\u53c2\u8003\u7ed3\u6784",
   casePanel: "\u7528\u4f8b\u5c55\u793a",
   liveDataFlow: "\u5b9e\u65f6\u6570\u636e\u6d41\u52a8\u68c0\u6d4b",
@@ -32,6 +34,9 @@ const text = {
   backHome: "\u8fd4\u56de\u8bfe\u7a0b\u9996\u9875",
   records: "\u5b66\u4e60\u8bb0\u5f55",
   recordsTitle: "\u4e2a\u4eba\u5b66\u60c5\u8bb0\u5f55",
+  dataJourney: "\u6570\u636e\u65c5\u7a0b",
+  journeyCheckpoint: "\u6570\u636e\u65c5\u7a0b\u68c0\u67e5\u70b9",
+  pcToMar: "PC -> MAR",
   profile: "\u5b66\u4e60\u6863\u6848",
   logout: "\u9000\u51fa\u767b\u5f55",
 };
@@ -39,6 +44,9 @@ const text = {
 const baseUrl = process.env.PROTOTYPE_URL ?? "http://127.0.0.1:8787";
 const teacherUsername = process.env.TEACHER_USERNAME ?? "teacher";
 const teacherPassword = process.env.TEACHER_PASSWORD ?? "ChangeMe123!";
+const legacyOverviewChallenges = CHALLENGES.filter(
+  (challenge) => !CIRCUIT_CHALLENGES.some((circuitChallenge) => circuitChallenge.id === challenge.id),
+);
 const defaultArtifactDirUrl = new URL("../qa-artifacts/", import.meta.url);
 const artifactDir = process.env.QA_ARTIFACT_DIR ? path.resolve(process.env.QA_ARTIFACT_DIR) : fileURLToPath(defaultArtifactDirUrl);
 const artifactDirUrl = new URL(`file:///${artifactDir.replace(/\\/g, "/")}${artifactDir.endsWith("\\") ? "" : "/"}`);
@@ -62,6 +70,7 @@ await assertVisible(page, text.teacherHeading);
 await page.locator(".teacher-studio-actions").getByRole("button", { name: text.classroomSettings }).click();
 const templateHref = await page.locator(".settings-template-link").getAttribute("href");
 assert.match(templateHref ?? "", /^data:text\/csv/);
+await assertVisible(page, text.importStudents);
 await page.getByRole("button", { name: "\u5173\u95ed" }).click();
 await page.screenshot({ path: artifactPath("teacher-empty.png"), fullPage: true });
 
@@ -72,8 +81,11 @@ await selectClass(page, text.className);
 await assertVisible(page, text.smartAssistant);
 await page.getByRole("button", { name: text.generateAssistant }).click();
 await assertAssistantReportGenerated(page);
-await page.locator(".teacher-import-box").fill(`\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n${text.studentNo},${text.studentName},${text.studentPassword}`);
+assert.equal(await page.locator(".teacher-import-panel").count(), 0);
+await page.locator(".teacher-studio-actions").getByRole("button", { name: text.classroomSettings }).click();
+await page.getByLabel("\u5b66\u751f\u5bfc\u5165 CSV").fill(`\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n${text.studentNo},${text.studentName},${text.studentPassword}`);
 await page.getByRole("button", { name: text.importStudents }).click();
+await page.getByRole("button", { name: "\u5173\u95ed" }).click();
 await page.locator(".teacher-student-table").getByText(text.studentName).waitFor({ state: "visible", timeout: 10_000 });
 await page.screenshot({ path: artifactPath("teacher-imported.png"), fullPage: true });
 const csvText = await page.evaluate(async () => {
@@ -86,6 +98,14 @@ assert.match(csvText, new RegExp(text.studentName));
 await logout(page);
 await login(page, text.studentNo, text.studentPassword);
 await assertVisible(page, "\u8fd0\u7b97\u5668\u95ef\u5173\u8def\u5f84");
+await assertVisible(page, text.dataJourney);
+
+for (const challenge of legacyOverviewChallenges) {
+  await openChallenge(page, challenge.title);
+  await verifyLegacyChallenge(page, challenge);
+  await page.screenshot({ path: artifactPath(`student-lab-${challenge.id}.png`), fullPage: true });
+  await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
+}
 
 for (const challenge of CIRCUIT_CHALLENGES) {
   await openChallenge(page, challenge.title);
@@ -163,6 +183,13 @@ async function assertAssistantReportGenerated(targetPage) {
   }
 }
 
+async function verifyLegacyChallenge(targetPage, challenge) {
+  await assertVisible(targetPage, challenge.title);
+  await targetPage.getByRole("button", { name: text.viewReference }).first().click();
+  await targetPage.getByRole("button", { name: text.submit }).first().click();
+  await assertVisible(targetPage, text.passed);
+}
+
 async function verifyReactFlowChallenge(targetPage, challenge) {
   const workbench = targetPage.locator(".circuit-flow-workbench");
   await targetPage.getByTestId("react-flow-circuit-canvas").waitFor({ state: "visible", timeout: 10_000 });
@@ -178,6 +205,10 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
     await targetPage.waitForFunction(() => document.querySelectorAll(".react-flow__edge").length >= 1);
     await workbench.locator(".circuit-flow-edge-signal").first().waitFor({ state: "visible", timeout: 10_000 });
     await workbench.getByRole("button", { name: "\u91cd\u7f6e" }).click();
+  }
+  if (challenge.id === "instruction-data") {
+    await assertVisible(targetPage, text.journeyCheckpoint);
+    await assertVisible(targetPage, text.pcToMar);
   }
   await workbench.getByRole("button", { name: text.fillReference }).click();
   await targetPage.waitForFunction(

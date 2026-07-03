@@ -55,6 +55,11 @@ import {
 } from "./labPlacement.js";
 import { buildComponentStudyCard } from "./componentStudy.js";
 import { getCircuitChallenge } from "./circuit/challengeCircuitModel.js";
+import {
+  DATA_JOURNEY_STEPS,
+  buildTeacherJourneyGuidance,
+  getJourneyStepsForChallenge,
+} from "./dataJourney.js";
 import { api } from "./apiClient.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
@@ -94,6 +99,55 @@ const challengeRouteMeta = {
     detail: "理解信号从哪里进、经过哪里、最后到哪里。",
     preview: "flow",
     focus: "输入连通",
+  },
+  "computer-components": {
+    eyebrow: "整机地图",
+    summary: "先认识输入、存储、控制、运算和输出五类部件。",
+    detail: "这一关建立整机概念：一次计算不是单个部件完成，而是五大部件协同完成。",
+    preview: "flow",
+    focus: "五大部件",
+  },
+  "program-flow": {
+    eyebrow: "程序如何跑",
+    summary: "把 1+1 从键盘输入到屏幕输出的路线连起来。",
+    detail: "这一关把输入、主存、CPU取指、运算器执行和输出显示串成完整流程。",
+    preview: "flow",
+    focus: "运行流程",
+  },
+  "instruction-data": {
+    eyebrow: "冯·诺依曼结构",
+    summary: "同在内存中的二进制，为什么有时是指令、有时是数据。",
+    detail: "这一关重点理解：CPU按取指阶段和执行阶段决定如何解释内存内容。",
+    preview: "gate",
+    focus: "指令 / 数据",
+  },
+  "and-gate": {
+    eyebrow: "基础逻辑门",
+    summary: "两个输入都为 1 时，输出才为 1。",
+    detail: "先掌握与运算，再进入半加器的进位逻辑会更容易。",
+    preview: "gate",
+    focus: "A 与 B",
+  },
+  "or-gate": {
+    eyebrow: "基础逻辑门",
+    summary: "任意一个输入为 1，输出就是 1。",
+    detail: "或门帮助学生理解多条条件路径如何合并成一个结果。",
+    preview: "gate",
+    focus: "A 或 B",
+  },
+  "not-gate": {
+    eyebrow: "基础逻辑门",
+    summary: "单个输入经过非门后取反。",
+    detail: "非门是最小的反相器，适合作为控制信号的入门实验。",
+    preview: "gate",
+    focus: "取反",
+  },
+  "xor-gate": {
+    eyebrow: "基础逻辑门",
+    summary: "两个输入不同时输出 1，相同时输出 0。",
+    detail: "异或门是半加器和位 S 的来源，是进入加法器前的关键铺垫。",
+    preview: "gate",
+    focus: "不同为 1",
   },
   "half-adder": {
     eyebrow: "第一块运算砖",
@@ -136,6 +190,31 @@ const challengeControlMeta = {
   "data-flow": [
     { key: "a", label: "输入A", type: "bit" },
   ],
+  "computer-components": [
+    { key: "a", label: "输入信号", type: "bit" },
+  ],
+  "program-flow": [
+    { key: "a", label: "输入值1", type: "bit" },
+    { key: "b", label: "输入值2", type: "bit" },
+  ],
+  "instruction-data": [
+    { key: "address", label: "观察地址", type: "stepper", max: 102 },
+  ],
+  "and-gate": [
+    { key: "a", label: "输入A", type: "bit" },
+    { key: "b", label: "输入B", type: "bit" },
+  ],
+  "or-gate": [
+    { key: "a", label: "输入A", type: "bit" },
+    { key: "b", label: "输入B", type: "bit" },
+  ],
+  "not-gate": [
+    { key: "a", label: "输入A", type: "bit" },
+  ],
+  "xor-gate": [
+    { key: "a", label: "输入A", type: "bit" },
+    { key: "b", label: "输入B", type: "bit" },
+  ],
   "half-adder": [
     { key: "a", label: "输入A", type: "bit" },
     { key: "b", label: "输入B", type: "bit" },
@@ -165,7 +244,7 @@ const challengeControlMeta = {
 
 function createDemoProgress() {
   let progress = buildInitialProgress(CHALLENGES);
-  for (const challengeId of ["data-flow", "half-adder"]) {
+  for (const challengeId of ["computer-components", "program-flow"]) {
     const challenge = CHALLENGES.find((item) => item.id === challengeId);
     progress = recordAttempt(progress, challengeId, {
       passed: true,
@@ -174,9 +253,9 @@ function createDemoProgress() {
       missing: [],
     });
     progress[challengeId].bestScore = 100;
-    progress[challengeId].completedAt = challengeId === "data-flow" ? "昨天" : "今天";
-    progress[challengeId].attempts = challengeId === "data-flow" ? 1 : 2;
-    progress[challengeId].timeSpentMinutes = challengeId === "data-flow" ? 8 : 24;
+    progress[challengeId].completedAt = challengeId === "computer-components" ? "昨天" : "今天";
+    progress[challengeId].attempts = challengeId === "computer-components" ? 1 : 2;
+    progress[challengeId].timeSpentMinutes = challengeId === "computer-components" ? 8 : 10;
   }
   return progress;
 }
@@ -272,7 +351,7 @@ function buildExternalAnchorLayout(items = [], side = "input") {
   }));
 }
 
-const defaultChallenge = CHALLENGES.find((challenge) => challenge.id === "full-adder") ?? CHALLENGES[0];
+const defaultChallenge = CHALLENGES[0];
 const defaultPlacementBlueprint = buildPlacementBlueprint(defaultChallenge);
 const defaultComponentLabel =
   defaultPlacementBlueprint[0]?.displayLabel ?? defaultChallenge.components[0]?.name ?? "";
@@ -296,10 +375,11 @@ function buildTeacherAssistantInsights(classOverview, selectedClass) {
     const averageScore = students.length > 0
       ? Math.round(students.reduce((total, studentItem) => total + (studentItem.progress?.[challenge.id]?.bestScore ?? 0), 0) / students.length)
       : 0;
-    return { challenge, incompleteCount, averageScore };
+    return { challenge, challengeId: challenge.id, incompleteCount, averageScore };
   }).sort((left, right) => right.incompleteCount - left.incompleteCount || left.averageScore - right.averageScore);
 
   const focusChallenge = challengeStats[0]?.challenge ?? CHALLENGES[0];
+  const journeyGuidance = buildTeacherJourneyGuidance(challengeStats);
   const hasClass = Boolean(selectedClass);
   const hasStudents = students.length > 0;
   const weakSpot = summary.weakSpot && summary.weakSpot !== "暂无高频错误" ? summary.weakSpot : focusChallenge.title;
@@ -313,6 +393,7 @@ function buildTeacherAssistantInsights(classOverview, selectedClass) {
       ? `下一节课建议聚焦「${focusChallenge.title}」，重点处理「${weakSpot}」。`
       : "导入学生后，助教会自动生成备课重点和分层辅导名单。",
     nextActions: hasStudents ? [
+      journeyGuidance.action,
       `课前 5 分钟复盘 ${focusChallenge.title} 的端口和信号走向。`,
       atRiskStudents.length > 0 ? `安排 ${atRiskStudents.length} 名风险学生先完成参考结构，再独立重连一次。` : "全班基础表现稳定，可以增加限时提交或变式测试。",
       "课后导出 CSV，保留本节课完成率、最好分和尝试次数作为课堂记录。",
@@ -330,7 +411,7 @@ export function App() {
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [activeView, setActiveView] = useState("home");
-  const [selectedChallengeId, setSelectedChallengeId] = useState("full-adder");
+  const [selectedChallengeId, setSelectedChallengeId] = useState(defaultChallenge.id);
   const [progress, setProgress] = useState(() => buildInitialProgress(CHALLENGES));
   const [connections, setConnections] = useState(["输入A->异或门1", "输入B->异或门1"]);
   const [placedComponents, setPlacedComponents] = useState([]);
@@ -338,7 +419,7 @@ export function App() {
   const [selectedComponent, setSelectedComponent] = useState(defaultComponentLabel);
   const [wireDrag, setWireDrag] = useState(null);
   const [wireHoverEndpoint, setWireHoverEndpoint] = useState(null);
-  const [inputState, setInputState] = useState({ a: 1, b: 1, cin: 0, select: 1, op: 0, aNumber: 5, bNumber: 3 });
+  const [inputState, setInputState] = useState({ a: 1, b: 1, cin: 0, select: 1, op: 0, aNumber: 5, bNumber: 3, address: 100 });
   const [simulationStep, setSimulationStep] = useState(0);
   const [feedback, setFeedback] = useState(null);
   const [activityLog, setActivityLog] = useState([
@@ -1167,21 +1248,6 @@ export function App() {
             </div>
 
             <div className="teacher-studio-content">
-              <section className="teacher-studio-panel teacher-import-panel">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">学生导入</span>
-                    <h2>{selectedClass?.name ?? "请先创建或选择班级"}</h2>
-                    <p>粘贴 CSV 内容后导入学生；模板下载已移动到课堂设置。</p>
-                  </div>
-                  <div className="teacher-action-row">
-                    {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>导出 CSV</a> : null}
-                  </div>
-                </div>
-                <textarea className="teacher-import-box" value={csvImportText} onChange={(event) => setCsvImportText(event.target.value)} />
-                <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">导入学生</button>
-              </section>
-
               <section className="teacher-studio-panel teacher-assistant-panel">
                 <div className="teacher-assistant-header">
                   <div>
@@ -1216,6 +1282,9 @@ export function App() {
                   <span className="eyebrow">学生数据</span>
                   <h2>{selectedClass ? `${selectedClass.name} 学生表现` : "请选择班级"}</h2>
                   <p>展示每名学生的完成率、平均分、尝试次数和最近薄弱点。</p>
+                </div>
+                <div className="teacher-action-row">
+                  {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>导出 CSV</a> : null}
                 </div>
               </div>
               <div className="record-table teacher-student-table">
@@ -1439,7 +1508,7 @@ export function App() {
           <div className="hero-copy">
             <span className="eyebrow">今日学习</span>
             <h1>从输入、进位到 ALU，按路线把运算器搭起来。</h1>
-            <p>这不是六张长得差不多的课程卡，而是一条正在延伸的运算器装配线。沿着信号如何进入、分叉、传播和切换的顺序往前走，学生会更容易把每一关和整个计算过程连起来。</p>
+            <p>这不是一组孤立的课程卡，而是一条正在延伸的运算器装配线。沿着信号如何进入、分叉、传播和切换的顺序往前走，学生会更容易把每一关和整个计算过程连起来。</p>
             <div className="hero-actions">
               <button className="primary-button" onClick={() => selectChallenge(focusChallenge.id)} type="button">
                 <Play size={18} weight="fill" />
@@ -1479,6 +1548,27 @@ export function App() {
           <Metric icon={Target} label="平均得分" value={`${summary.averageScore}分`} />
           <Metric icon={Flame} label="累计尝试" value={`${summary.totalAttempts}次`} />
           <Metric icon={WarningCircle} label="当前薄弱点" value={summary.weakSpot} />
+        </section>
+
+        <section className="section-panel data-journey-home">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">数据旅程</span>
+              <h2>从一条指令看懂计算机工作过程</h2>
+              <p>学生作品里的数据旅程和三条总线思路已整理成课堂检查点，先看流程，再进入 React Flow 实验。</p>
+            </div>
+            <button className="ghost-button" onClick={() => selectChallenge("instruction-data")} type="button">进入指令和数据实验</button>
+          </div>
+          <div className="journey-strip">
+            {DATA_JOURNEY_STEPS.slice(1, 7).map((step, index) => (
+              <article className="journey-strip-card" key={step.id}>
+                <span>{String(index + 1).padStart(2, "0")}</span>
+                <strong>{step.title}</strong>
+                <code>{step.transfer}</code>
+                <small>{step.signalType} / {step.activeUnit}</small>
+              </article>
+            ))}
+          </div>
         </section>
 
         <section className="section-panel">
@@ -1572,6 +1662,7 @@ export function App() {
     const requiredEdgeCount = currentCircuitModel?.requiredEdges.length ?? currentChallenge.requiredConnections.length;
     const testCaseCount = currentCircuitModel?.testCases.length ?? 0;
     const selectedRecordStatus = statusText(currentRecord?.status ?? "not-started");
+    const journeySteps = getJourneyStepsForChallenge(currentChallenge.id);
 
     return (
       <div className="lab-studio">
@@ -1763,6 +1854,10 @@ export function App() {
                 </div>
               )}
             </div>
+
+            {journeySteps.length > 0 ? (
+              <DataJourneyPanel steps={journeySteps} activeStep={activeStep} />
+            ) : null}
 
             <div className="lab-studio-inspector">
               <section>
@@ -2220,9 +2315,11 @@ export function App() {
   }
 
   function renderSettingsModal() {
+    const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
+
     return (
       <div className="modal-backdrop" onClick={() => setShowSettings(false)} role="presentation">
-        <section className="modal-card" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+        <section className={auth.user?.role === "teacher" ? "modal-card teacher-settings-modal" : "modal-card"} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
           <div className="section-heading">
             <div>
               <h2>{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</h2>
@@ -2231,11 +2328,40 @@ export function App() {
             <button className="ghost-button" onClick={() => setShowSettings(false)} type="button">关闭</button>
           </div>
           {auth.user?.role === "teacher" ? (
-            <div className="settings-resource-list">
-              <a className="primary-button settings-template-link" download="student-import-template.csv" href={studentImportTemplateHref}>
-                下载学生导入模板
-              </a>
-              <p>CSV 列顺序固定为：学号、姓名、初始密码。导入入口仍在教师数据页的“学生导入”区域。</p>
+            <div className="settings-resource-list teacher-settings-page">
+              <section className="settings-section">
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">学生导入</span>
+                    <h3>{selectedClass?.name ?? "请先创建或选择班级"}</h3>
+                    <p>CSV 列顺序固定为：学号、姓名、初始密码。导入会新增学生或更新同学号学生信息。</p>
+                  </div>
+                </div>
+                <div className="teacher-import-actions">
+                  <a className="primary-button settings-template-link" download="student-import-template.csv" href={studentImportTemplateHref}>
+                    下载学生导入模板
+                  </a>
+                </div>
+                <textarea
+                  aria-label="学生导入 CSV"
+                  className="teacher-import-box settings-import-box"
+                  placeholder="学号,姓名,初始密码"
+                  value={csvImportText}
+                  onChange={(event) => setCsvImportText(event.target.value)}
+                />
+                <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">导入学生</button>
+              </section>
+
+              <section className="settings-section">
+                <div className="section-heading">
+                  <div>
+                    <span className="eyebrow">数据维护</span>
+                    <h3>课堂数据出口</h3>
+                    <p>用于阶段性备份或线下汇总成绩。</p>
+                  </div>
+                </div>
+                {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>导出当前班级 CSV</a> : <p className="empty-state">请选择班级后再导出。</p>}
+              </section>
             </div>
           ) : (
             <>
@@ -2268,6 +2394,41 @@ export function App() {
       </div>
     );
   }
+}
+
+function DataJourneyPanel({ steps, activeStep }) {
+  const currentIndex = steps.length > 0 ? activeStep % steps.length : 0;
+
+  return (
+    <section className="data-journey-panel">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">数据旅程检查点</span>
+          <h2>取指、译码、执行的课堂观察线</h2>
+          <p>按步骤观察地址、数据和控制信号如何经过寄存器与总线。</p>
+        </div>
+      </div>
+      <div className="journey-step-grid">
+        {steps.map((step, index) => (
+          <article className={index === currentIndex ? "journey-step-card active" : "journey-step-card"} key={step.id}>
+            <div className="journey-step-head">
+              <span>{String(index + 1).padStart(2, "0")}</span>
+              <strong>{step.title}</strong>
+            </div>
+            <code>{step.transfer}</code>
+            <p>{step.description}</p>
+            <div className="journey-registers">
+              {step.registers.map((register) => <small key={register}>{register}</small>)}
+            </div>
+            <div className="journey-checkpoint">
+              <b>{step.checkpoint.question}</b>
+              <span>{step.checkpoint.answer}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
 }
 
 function Metric({ icon: Icon, label, value }) {
@@ -2327,6 +2488,61 @@ function ChallengeCanvas({
 }) {
   const boardRef = useRef(null);
   const scenes = {
+    "computer-components": {
+      label: "五大部件协同",
+      hint: "把一次计算看成输入、存储、控制、运算和输出之间的协作，而不是单个硬件独立完成。",
+      inputText: `输入信号=${inputState.a}`,
+      outputText,
+      wires: [
+        { className: "horizontal start", activeAt: 0 },
+        { className: "horizontal mid", activeAt: 1 },
+        { className: "horizontal mux-out", activeAt: 2 },
+      ],
+      nodes: [
+        { name: "输入设备", tone: "io", className: "source top", detail: "把外部信息送入系统" },
+        { name: "存储器", tone: "module", className: "module wide", detail: "保存程序和数据" },
+        { name: "控制器", tone: "control", className: "mux center", detail: "发出控制信号" },
+        { name: "运算器", tone: "logic", className: "logic core", detail: "执行计算" },
+        { name: "输出设备", tone: "output", className: "output", detail: "呈现最终结果" },
+      ],
+    },
+    "program-flow": {
+      label: "程序运行路线",
+      hint: "从键盘输入 1+1 到屏幕显示 2，中间经过主存、CPU取指和运算器执行。",
+      inputText: `${inputState.a}+${inputState.b}`,
+      outputText,
+      wires: [
+        { className: "horizontal start", activeAt: 0 },
+        { className: "horizontal mid", activeAt: 1 },
+        { className: "horizontal top-out", activeAt: 2 },
+        { className: "horizontal mux-out", activeAt: 3 },
+      ],
+      nodes: [
+        { name: "键盘输入", tone: "io", className: "input", detail: "输入表达式" },
+        { name: "主存", tone: "module", className: "module wide", detail: "保存程序和数据" },
+        { name: "CPU取指", tone: "control", className: "mux center", detail: "取得下一条指令" },
+        { name: "运算器执行", tone: "logic", className: "adder core", detail: "执行 1+1" },
+        { name: "屏幕输出", tone: "output", className: "output", detail: "显示结果" },
+      ],
+    },
+    "instruction-data": {
+      label: "指令与数据",
+      hint: "同一片内存中的内容没有天然标签，CPU根据取指阶段或执行阶段决定如何解释它。",
+      inputText: `地址=${inputState.address}`,
+      outputText,
+      wires: [
+        { className: "horizontal upper-feed", activeAt: 0 },
+        { className: "horizontal lower-feed", activeAt: 1 },
+        { className: "horizontal mux-out", activeAt: 2 },
+      ],
+      nodes: [
+        { name: "程序计数器PC", tone: "control", className: "selector signal", detail: "指出下一条指令地址" },
+        { name: "地址100", tone: "module", className: "module wide", detail: "取指阶段是指令" },
+        { name: "地址101/102", tone: "module", className: "source bottom", detail: "执行阶段是数据" },
+        { name: "指令寄存器IR", tone: "control", className: "mux center", detail: "保存当前指令" },
+        { name: "结果寄存器", tone: "output", className: "output", detail: "保存运算结果" },
+      ],
+    },
     "data-flow": {
       label: "信号直通",
       hint: "只有一条主线，核心是把输入和结果端真正连通。",
@@ -2340,6 +2556,72 @@ function ChallengeCanvas({
         { name: "输入开关", tone: "io", className: "input", detail: "信号起点 · 切换 0/1" },
         { name: "数据通路", tone: "module", className: "module wide", detail: "单一主线 · 直通输出" },
         { name: "结果灯", tone: "output", className: "output", detail: "观察最终结果" },
+      ],
+    },
+    "and-gate": {
+      label: "与门真值表",
+      hint: "两个输入都为 1 时输出才为 1。先把 A、B 接进与门，再把结果接到输出端。",
+      inputText: `A=${inputState.a} · B=${inputState.b}`,
+      outputText,
+      wires: [
+        { className: "horizontal upper-feed", activeAt: 0 },
+        { className: "horizontal lower-feed", activeAt: 0 },
+        { className: "horizontal mux-out", activeAt: 1 },
+      ],
+      nodes: [
+        { name: "输入A", tone: "io", className: "source top", detail: "第一个条件" },
+        { name: "输入B", tone: "io", className: "source bottom", detail: "第二个条件" },
+        { name: "与门", tone: "logic", className: "logic core", detail: "同时为 1 才通过" },
+        { name: "输出Y", tone: "output", className: "output", detail: "观察与运算结果" },
+      ],
+    },
+    "or-gate": {
+      label: "或门真值表",
+      hint: "只要 A 或 B 有一个为 1，输出就为 1。重点观察 0/1 组合下的输出变化。",
+      inputText: `A=${inputState.a} · B=${inputState.b}`,
+      outputText,
+      wires: [
+        { className: "horizontal upper-feed", activeAt: 0 },
+        { className: "horizontal lower-feed", activeAt: 0 },
+        { className: "horizontal mux-out", activeAt: 1 },
+      ],
+      nodes: [
+        { name: "输入A", tone: "io", className: "source top", detail: "第一路输入" },
+        { name: "输入B", tone: "io", className: "source bottom", detail: "第二路输入" },
+        { name: "或门", tone: "logic", className: "logic core", detail: "至少一路为 1" },
+        { name: "输出Y", tone: "output", className: "output", detail: "观察或运算结果" },
+      ],
+    },
+    "not-gate": {
+      label: "非门取反",
+      hint: "非门只有一路输入。A 为 0 时输出 1，A 为 1 时输出 0。",
+      inputText: `A=${inputState.a}`,
+      outputText,
+      wires: [
+        { className: "horizontal start", activeAt: 0 },
+        { className: "horizontal mid", activeAt: 1 },
+      ],
+      nodes: [
+        { name: "输入A", tone: "io", className: "input", detail: "待取反信号" },
+        { name: "非门", tone: "logic", className: "logic core", detail: "反相输出" },
+        { name: "输出Y", tone: "output", className: "output", detail: "观察取反结果" },
+      ],
+    },
+    "xor-gate": {
+      label: "异或门真值表",
+      hint: "两个输入不同则输出 1，相同则输出 0。这一关直接铺垫半加器的和位。",
+      inputText: `A=${inputState.a} · B=${inputState.b}`,
+      outputText,
+      wires: [
+        { className: "horizontal upper-feed", activeAt: 0 },
+        { className: "horizontal lower-feed", activeAt: 0 },
+        { className: "horizontal mux-out", activeAt: 1 },
+      ],
+      nodes: [
+        { name: "输入A", tone: "io", className: "source top", detail: "第一路输入" },
+        { name: "输入B", tone: "io", className: "source bottom", detail: "第二路输入" },
+        { name: "异或门", tone: "logic", className: "xor top", detail: "不同为 1" },
+        { name: "输出Y", tone: "output", className: "output", detail: "观察异或结果" },
       ],
     },
     "half-adder": {
@@ -2834,7 +3116,14 @@ function formatOutputs(outputs) {
 
 function labDescription(challengeId) {
   const descriptions = {
+    "computer-components": "这一关先建立整机地图：输入、存储、控制、运算和输出五类部件各司其职。",
+    "program-flow": "这一关把 1+1 的运行过程串起来，重点看程序如何从输入变成输出。",
+    "instruction-data": "这一关解释为什么内存里的二进制既可能是指令，也可能是数据。",
     "data-flow": "这一关的画布是一条最基础的信号通道，先理解输入如何走到输出。",
+    "and-gate": "这一关只看与门：A 和 B 必须同时为 1，输出Y才会变成 1。",
+    "or-gate": "这一关只看或门：A 和 B 只要有一路为 1，输出Y就会变成 1。",
+    "not-gate": "这一关只看非门：输入A会被取反，0变1，1变0。",
+    "xor-gate": "这一关只看异或门：两个输入不同输出为1，相同输出为0。",
     "half-adder": "这一关会把和位和进位拆成两条并行支路，你能直观看到两种结果是如何分工产生的。",
     "full-adder": "这一关会出现真正的进位分叉：一条线继续算和位，另一条线专门负责判断是否向高位进位。",
     "multi-adder": "这一关不再是一个模块，而是多个全加器首尾相接，重点观察进位逐级传播。",

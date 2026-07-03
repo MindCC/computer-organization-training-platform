@@ -545,6 +545,48 @@ textarea:focus-visible {
   font-size: clamp(1.5rem, 2.4vw, 2.2rem);
 }
 
+.data-journey-home {
+  display: grid;
+  gap: 2px;
+}
+
+.journey-strip {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.journey-strip-card {
+  background: rgba(248, 251, 255, 0.92);
+  border: 1px solid rgba(39, 54, 76, 0.12);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 14px;
+}
+
+.journey-strip-card span {
+  color: var(--teal);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.journey-strip-card code,
+.journey-step-card code {
+  background: rgba(20, 58, 99, 0.08);
+  border-radius: 6px;
+  color: var(--navy);
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  padding: 5px 7px;
+  width: fit-content;
+}
+
+.journey-strip-card small {
+  color: var(--muted);
+}
+
 .section-panel {
   border-radius: var(--radius-xl);
   padding: 24px;
@@ -912,6 +954,34 @@ textarea:focus-visible {
 
 .route-preview.chain .route-core.core-c {
   left: 148px;
+}
+
+.route-preview.gate .trace-a,
+.route-preview.gate .trace-b {
+  left: 16px;
+  width: 78px;
+}
+
+.route-preview.gate .trace-a {
+  top: 34px;
+}
+
+.route-preview.gate .trace-b {
+  top: 66px;
+}
+
+.route-preview.gate .trace-c {
+  top: 50px;
+  left: 148px;
+  width: 70px;
+}
+
+.route-preview.gate .route-core.core-a {
+  top: 26px;
+  left: 96px;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px 24px 24px 16px;
 }
 
 .route-preview.mux .trace-a,
@@ -1606,6 +1676,7 @@ textarea:focus-visible {
 .lab-studio-controls,
 .lab-studio-inputs,
 .lab-studio-canvas-shell,
+.data-journey-panel,
 .lab-studio-inspector {
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid var(--studio-border);
@@ -1677,6 +1748,97 @@ textarea:focus-visible {
 
 .lab-studio-canvas-shell .circuit-flow-canvas {
   height: 560px;
+}
+
+.data-journey-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.data-journey-panel .section-heading {
+  margin-bottom: 0;
+}
+
+.data-journey-panel h2 {
+  font-size: 18px;
+  margin: 4px 0 6px;
+}
+
+.data-journey-panel p {
+  color: var(--studio-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+.journey-step-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.journey-step-card {
+  border: 1px solid rgba(75, 92, 117, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.journey-step-card.active {
+  border-color: rgba(47, 111, 235, 0.38);
+  box-shadow: 0 0 0 3px rgba(47, 111, 235, 0.1);
+}
+
+.journey-step-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.journey-step-head span {
+  align-items: center;
+  background: rgba(47, 111, 235, 0.1);
+  border-radius: 999px;
+  color: var(--studio-blue);
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 900;
+  height: 26px;
+  justify-content: center;
+  width: 32px;
+}
+
+.journey-registers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.journey-registers small {
+  background: rgba(36, 148, 95, 0.1);
+  border-radius: 999px;
+  color: var(--studio-green);
+  font-weight: 800;
+  padding: 4px 8px;
+}
+
+.journey-checkpoint {
+  background: rgba(20, 33, 50, 0.04);
+  border-radius: 8px;
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+}
+
+.journey-checkpoint b {
+  color: var(--studio-ink);
+}
+
+.journey-checkpoint span {
+  color: var(--studio-muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .lab-studio-inspector {
@@ -3070,6 +3232,12 @@ textarea:focus-visible {
   box-shadow: var(--shadow);
 }
 
+.teacher-settings-modal {
+  max-height: min(840px, calc(100vh - 48px));
+  overflow: auto;
+  width: min(860px, 100%);
+}
+
 .form-row {
   display: grid;
   gap: 8px;
@@ -3133,6 +3301,11 @@ textarea:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .journey-strip,
+  .journey-step-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .hero-module-stack {
     display: grid;
   }
@@ -3156,6 +3329,11 @@ textarea:focus-visible {
 }
 
 @media (max-width: 780px) {
+  .journey-strip,
+  .journey-step-grid {
+    grid-template-columns: 1fr;
+  }
+
   .topbar {
     align-items: stretch;
     flex-direction: column;
@@ -3949,7 +4127,7 @@ textarea:focus-visible {
 
 .teacher-studio-card-heading span,
 .teacher-assistant-header p,
-.teacher-import-panel p,
+.settings-section p,
 .teacher-risk-row small {
   color: var(--muted-text);
   font-size: 13px;
@@ -3969,7 +4147,7 @@ textarea:focus-visible {
 .teacher-studio-content {
   display: grid;
   gap: 14px;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, 0.85fr);
+  grid-template-columns: 1fr;
 }
 
 .teacher-assistant-panel {
@@ -4003,6 +4181,30 @@ textarea:focus-visible {
   display: grid;
   gap: 10px;
   margin-top: 12px;
+}
+
+.teacher-settings-page {
+  gap: 14px;
+}
+
+.settings-section {
+  background: #ffffff;
+  border: 1px solid rgba(75, 92, 117, 0.14);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.settings-section h3 {
+  font-size: 18px;
+  margin: 4px 0 6px;
+}
+
+.teacher-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .teacher-assistant-actions p {

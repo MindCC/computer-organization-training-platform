@@ -4,7 +4,7 @@ import test from "node:test";
 import { CIRCUIT_CHALLENGES, HALF_ADDER_CIRCUIT } from "./challengeCircuitModel.js";
 import { canConnectPorts, validateCircuitStructure } from "./circuitValidation.js";
 
-test("六个结构化关卡的参考结构验证通过", () => {
+test("结构化关卡的参考结构验证通过", () => {
   for (const challenge of CIRCUIT_CHALLENGES) {
     const result = validateCircuitStructure(challenge, challenge.requiredEdges);
     assert.equal(result.passed, true, `${challenge.id} should pass structure validation`);

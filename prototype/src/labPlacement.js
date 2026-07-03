@@ -1,8 +1,52 @@
 export const REFERENCE_SLOT_LAYOUTS = {
+  "computer-components": [
+    { x: 12, y: 56, role: "外部输入" },
+    { x: 34, y: 56, role: "程序与数据" },
+    { x: 54, y: 34, role: "控制指挥" },
+    { x: 54, y: 76, role: "执行运算" },
+    { x: 82, y: 56, role: "结果输出" },
+  ],
+  "program-flow": [
+    { x: 12, y: 56, role: "输入表达式" },
+    { x: 34, y: 56, role: "保存程序" },
+    { x: 54, y: 34, role: "取出指令" },
+    { x: 66, y: 76, role: "执行计算" },
+    { x: 86, y: 56, role: "显示结果" },
+  ],
+  "instruction-data": [
+    { x: 10, y: 30, role: "取指地址" },
+    { x: 28, y: 30, role: "指令单元" },
+    { x: 48, y: 30, role: "当前指令" },
+    { x: 28, y: 70, role: "数据5" },
+    { x: 48, y: 70, role: "数据7" },
+    { x: 68, y: 58, role: "操作数1" },
+    { x: 78, y: 72, role: "操作数2" },
+    { x: 88, y: 42, role: "结果保存" },
+  ],
   "data-flow": [
     { x: 20, y: 60, role: "信号入口" },
     { x: 50, y: 60, role: "数据通路" },
     { x: 80, y: 60, role: "结果观察" },
+  ],
+  "and-gate": [
+    { x: 22, y: 36, role: "输入A" },
+    { x: 22, y: 74, role: "输入B" },
+    { x: 56, y: 56, role: "与运算" },
+  ],
+  "or-gate": [
+    { x: 22, y: 36, role: "输入A" },
+    { x: 22, y: 74, role: "输入B" },
+    { x: 56, y: 56, role: "或运算" },
+  ],
+  "not-gate": [
+    { x: 24, y: 56, role: "输入A" },
+    { x: 56, y: 56, role: "取反" },
+    { x: 82, y: 56, role: "输出观察" },
+  ],
+  "xor-gate": [
+    { x: 22, y: 36, role: "输入A" },
+    { x: 22, y: 74, role: "输入B" },
+    { x: 56, y: 56, role: "异或运算" },
   ],
   "half-adder": [
     { x: 46, y: 34, role: "和位计算" },

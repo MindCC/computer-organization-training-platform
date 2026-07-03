@@ -29,6 +29,80 @@ function edge(id, fromNode, fromPort, toNode, toPort, type, message) {
   };
 }
 
+export const COMPUTER_COMPONENTS_CIRCUIT = {
+  id: "computer-components",
+  title: "认识计算机五大部件",
+  goal: "把输入、存储、控制、运算和输出五类部件连成一次完整计算路径。",
+  nodes: [
+    inputNode("input-device", "输入设备", 70, 170, "输入"),
+    componentNode("memory-1", "buffer", "存储器", 280, 170, [inPort("in", "输入"), outPort("out", "程序/数据")]),
+    componentNode("controller", "buffer", "控制器", 500, 95, [inPort("in", "指令"), outPort("out", "控制")]),
+    componentNode("alu", "buffer", "运算器", 500, 255, [inPort("in", "数据"), outPort("out", "结果")]),
+    outputNode("output-device", "输出设备", 730, 170, "输出"),
+  ],
+  requiredEdges: [
+    edge("input-to-memory", "input-device", "out", "memory-1", "in", "输入路径缺失", "输入设备还没有把外部信息送入存储器。"),
+    edge("memory-to-controller", "memory-1", "out", "controller", "in", "取指路径缺失", "控制器需要从存储器取得指令，才能发出控制信号。"),
+    edge("controller-to-alu", "controller", "out", "alu", "in", "控制路径缺失", "控制器没有驱动运算器，计算无法开始。"),
+    edge("alu-to-output", "alu", "out", "output-device", "in", "输出路径缺失", "运算器结果还没有送到输出设备。"),
+  ],
+  testCases: [
+    { name: "输入信号 0", inputs: { "input-device.out": 0 }, expected: { "output-device.in": 0 } },
+    { name: "输入信号 1", inputs: { "input-device.out": 1 }, expected: { "output-device.in": 1 } },
+  ],
+};
+
+export const PROGRAM_FLOW_CIRCUIT = {
+  id: "program-flow",
+  title: "程序运行路线",
+  goal: "连接从键盘输入、主存、CPU取指、运算器执行到屏幕输出的程序运行路线。",
+  nodes: [
+    inputNode("keyboard-input", "键盘输入", 60, 180, "1+1"),
+    componentNode("main-memory", "buffer", "主存", 260, 180, [inPort("in", "写入"), outPort("out", "程序")]),
+    componentNode("cpu-fetch", "buffer", "CPU取指", 460, 180, [inPort("in", "指令"), outPort("out", "控制")]),
+    componentNode("execute-unit", "buffer", "运算器执行", 660, 180, [inPort("in", "执行"), outPort("out", "结果")]),
+    outputNode("screen-output", "屏幕输出", 860, 180, "2"),
+  ],
+  requiredEdges: [
+    edge("keyboard-to-memory", "keyboard-input", "out", "main-memory", "in", "输入路径缺失", "键盘输入还没有写入主存。"),
+    edge("memory-to-fetch", "main-memory", "out", "cpu-fetch", "in", "取指路径缺失", "CPU取指阶段需要从主存取得程序。"),
+    edge("fetch-to-execute", "cpu-fetch", "out", "execute-unit", "in", "执行路径缺失", "取到的指令还没有交给运算器执行。"),
+    edge("execute-to-screen", "execute-unit", "out", "screen-output", "in", "输出路径缺失", "执行结果还没有显示到屏幕。"),
+  ],
+  testCases: [
+    { name: "表达式未触发", inputs: { "keyboard-input.out": 0 }, expected: { "screen-output.in": 0 } },
+    { name: "表达式已输入", inputs: { "keyboard-input.out": 1 }, expected: { "screen-output.in": 1 } },
+  ],
+};
+
+export const INSTRUCTION_DATA_CIRCUIT = {
+  id: "instruction-data",
+  title: "指令和数据",
+  goal: "把同一片存储器中的内容分别送到指令通路和数据通路，理解 CPU 通过阶段解释二进制。",
+  nodes: [
+    inputNode("program-counter", "程序计数器PC", 60, 110, "地址100"),
+    inputNode("data-address", "数据地址", 60, 270, "地址101/102"),
+    componentNode("instruction-memory", "buffer", "存储器:地址100", 290, 110, [inPort("in", "地址"), outPort("out", "内容")]),
+    componentNode("data-memory", "buffer", "存储器:地址101/102", 290, 270, [inPort("in", "地址"), outPort("out", "内容")]),
+    componentNode("instruction-register", "buffer", "指令寄存器IR", 540, 110, [inPort("in", "指令"), outPort("out", "控制")]),
+    componentNode("operand-register", "buffer", "操作数寄存器", 540, 270, [inPort("in", "数据"), outPort("out", "操作数")]),
+    outputNode("instruction-view", "取指观察", 780, 110, "指令"),
+    outputNode("data-view", "取数观察", 780, 270, "数据"),
+  ],
+  requiredEdges: [
+    edge("pc-to-instruction-memory", "program-counter", "out", "instruction-memory", "in", "取指地址缺失", "PC 没有把指令地址送到存储器。"),
+    edge("instruction-memory-to-ir", "instruction-memory", "out", "instruction-register", "in", "指令通路缺失", "地址100取出的内容需要进入指令寄存器。"),
+    edge("ir-to-view", "instruction-register", "out", "instruction-view", "in", "取指观察缺失", "指令寄存器的内容还没有接到取指观察端。"),
+    edge("data-to-data-memory", "data-address", "out", "data-memory", "in", "取数地址缺失", "执行阶段还需要把数据地址送到存储器。"),
+    edge("data-memory-to-operand", "data-memory", "out", "operand-register", "in", "数据通路缺失", "地址101/102取出的内容需要进入操作数寄存器。"),
+    edge("operand-to-view", "operand-register", "out", "data-view", "in", "取数观察缺失", "操作数还没有接到取数观察端。"),
+  ],
+  testCases: [
+    { name: "取指阶段", inputs: { "program-counter.out": 1, "data-address.out": 0 }, expected: { "instruction-view.in": 1, "data-view.in": 0 } },
+    { name: "取数阶段", inputs: { "program-counter.out": 0, "data-address.out": 1 }, expected: { "instruction-view.in": 0, "data-view.in": 1 } },
+  ],
+};
+
 export const DATA_FLOW_CIRCUIT = {
   id: "data-flow",
   title: "认识数据流",
@@ -45,6 +119,94 @@ export const DATA_FLOW_CIRCUIT = {
   testCases: [
     { name: "A=0", inputs: { "input-a.out": 0 }, expected: { "result-s.in": 0 } },
     { name: "A=1", inputs: { "input-a.out": 1 }, expected: { "result-s.in": 1 } },
+  ],
+};
+
+export const AND_GATE_CIRCUIT = {
+  id: "and-gate",
+  title: "与门",
+  goal: "连接两个输入到与门，观察只有 A 和 B 都为 1 时输出才为 1。",
+  nodes: [
+    inputNode("input-a", "输入A", 80, 120, "A"),
+    inputNode("input-b", "输入B", 80, 250, "B"),
+    componentNode("and-1", "and", "与门", 330, 180, [inPort("a", "A"), inPort("b", "B"), outPort("c", "Y")]),
+    outputNode("output-y", "输出Y", 610, 190, "Y"),
+  ],
+  requiredEdges: [
+    edge("input-a-to-and-a", "input-a", "out", "and-1", "a", "输入端未连接", "输入A没有进入与门，无法判断是否同时为1。"),
+    edge("input-b-to-and-b", "input-b", "out", "and-1", "b", "输入端未连接", "输入B没有进入与门，无法判断是否同时为1。"),
+    edge("and-to-output", "and-1", "c", "output-y", "in", "输出端未连接", "与门结果没有接到输出Y。"),
+  ],
+  testCases: [
+    { name: "0 与 0", inputs: { "input-a.out": 0, "input-b.out": 0 }, expected: { "output-y.in": 0 } },
+    { name: "0 与 1", inputs: { "input-a.out": 0, "input-b.out": 1 }, expected: { "output-y.in": 0 } },
+    { name: "1 与 0", inputs: { "input-a.out": 1, "input-b.out": 0 }, expected: { "output-y.in": 0 } },
+    { name: "1 与 1", inputs: { "input-a.out": 1, "input-b.out": 1 }, expected: { "output-y.in": 1 } },
+  ],
+};
+
+export const OR_GATE_CIRCUIT = {
+  id: "or-gate",
+  title: "或门",
+  goal: "连接两个输入到或门，观察只要 A 或 B 有一个为 1 输出就为 1。",
+  nodes: [
+    inputNode("input-a", "输入A", 80, 120, "A"),
+    inputNode("input-b", "输入B", 80, 250, "B"),
+    componentNode("or-1", "or", "或门", 330, 180, [inPort("a", "A"), inPort("b", "B"), outPort("out", "Y")]),
+    outputNode("output-y", "输出Y", 610, 190, "Y"),
+  ],
+  requiredEdges: [
+    edge("input-a-to-or-a", "input-a", "out", "or-1", "a", "输入端未连接", "输入A没有进入或门，无法判断是否至少一个为1。"),
+    edge("input-b-to-or-b", "input-b", "out", "or-1", "b", "输入端未连接", "输入B没有进入或门，无法判断是否至少一个为1。"),
+    edge("or-to-output", "or-1", "out", "output-y", "in", "输出端未连接", "或门结果没有接到输出Y。"),
+  ],
+  testCases: [
+    { name: "0 或 0", inputs: { "input-a.out": 0, "input-b.out": 0 }, expected: { "output-y.in": 0 } },
+    { name: "0 或 1", inputs: { "input-a.out": 0, "input-b.out": 1 }, expected: { "output-y.in": 1 } },
+    { name: "1 或 0", inputs: { "input-a.out": 1, "input-b.out": 0 }, expected: { "output-y.in": 1 } },
+    { name: "1 或 1", inputs: { "input-a.out": 1, "input-b.out": 1 }, expected: { "output-y.in": 1 } },
+  ],
+};
+
+export const NOT_GATE_CIRCUIT = {
+  id: "not-gate",
+  title: "非门",
+  goal: "连接一个输入到非门，观察 0 变 1、1 变 0 的取反关系。",
+  nodes: [
+    inputNode("input-a", "输入A", 80, 180, "A"),
+    componentNode("not-1", "not", "非门", 330, 180, [inPort("in", "A"), outPort("out", "Y")]),
+    outputNode("output-y", "输出Y", 610, 190, "Y"),
+  ],
+  requiredEdges: [
+    edge("input-a-to-not", "input-a", "out", "not-1", "in", "输入端未连接", "输入A没有进入非门，无法完成取反。"),
+    edge("not-to-output", "not-1", "out", "output-y", "in", "输出端未连接", "非门结果没有接到输出Y。"),
+  ],
+  testCases: [
+    { name: "非 0", inputs: { "input-a.out": 0 }, expected: { "output-y.in": 1 } },
+    { name: "非 1", inputs: { "input-a.out": 1 }, expected: { "output-y.in": 0 } },
+  ],
+};
+
+export const XOR_GATE_CIRCUIT = {
+  id: "xor-gate",
+  title: "异或门",
+  goal: "连接两个输入到异或门，观察 A 和 B 不同时输出为 1、相同时输出为 0。",
+  nodes: [
+    inputNode("input-a", "输入A", 80, 120, "A"),
+    inputNode("input-b", "输入B", 80, 250, "B"),
+    componentNode("xor-1", "xor", "异或门", 330, 180, [inPort("a", "A"), inPort("b", "B"), outPort("s", "Y")]),
+    outputNode("output-y", "输出Y", 610, 190, "Y"),
+  ],
+  requiredEdges: [
+    edge("input-a-to-xor-a", "input-a", "out", "xor-1", "a", "输入端未连接", "输入A没有进入异或门，无法比较两个输入是否不同。"),
+    edge("input-b-to-xor-b", "input-b", "out", "xor-1", "b", "输入端未连接", "输入B没有进入异或门，无法比较两个输入是否不同。"),
+    edge("xor-to-output", "xor-1", "s", "output-y", "in", "输出端未连接", "异或门结果没有接到输出Y。"),
+  ],
+  testCases: [
+    { name: "0 异或 0", inputs: { "input-a.out": 0, "input-b.out": 0 }, expected: { "output-y.in": 0 } },
+    { name: "0 异或 1", inputs: { "input-a.out": 0, "input-b.out": 1 }, expected: { "output-y.in": 1 } },
+    { name: "1 异或 0", inputs: { "input-a.out": 1, "input-b.out": 0 }, expected: { "output-y.in": 1 } },
+    { name: "1 异或 1", inputs: { "input-a.out": 1, "input-b.out": 1 }, expected: { "output-y.in": 0 } },
   ],
 };
 
@@ -179,7 +341,14 @@ export const ALU_CIRCUIT = {
 };
 
 export const CIRCUIT_CHALLENGES = [
+  COMPUTER_COMPONENTS_CIRCUIT,
+  PROGRAM_FLOW_CIRCUIT,
+  INSTRUCTION_DATA_CIRCUIT,
   DATA_FLOW_CIRCUIT,
+  AND_GATE_CIRCUIT,
+  OR_GATE_CIRCUIT,
+  NOT_GATE_CIRCUIT,
+  XOR_GATE_CIRCUIT,
   HALF_ADDER_CIRCUIT,
   FULL_ADDER_CIRCUIT,
   MULTI_ADDER_CIRCUIT,

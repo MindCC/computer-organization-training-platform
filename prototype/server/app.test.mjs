@@ -87,7 +87,8 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     }, studentJar);
     assert.equal(result.response.status, 201);
     assert.equal(result.body.progress["data-flow"].status, "completed");
-    assert.equal(result.body.progress["half-adder"].status, "in-progress");
+    assert.equal(result.body.progress["and-gate"].status, "in-progress");
+    assert.equal(result.body.progress["half-adder"].status, "locked");
 
     result = await request(baseUrl, "/api/student/notes", {
       method: "POST",
