@@ -13,8 +13,8 @@ import {
 
 test("第一章概述关卡排在电路实验之前", () => {
   assert.deepEqual(
-    CHALLENGES.slice(0, 4).map((challenge) => challenge.id),
-    ["computer-components", "program-flow", "instruction-data", "data-flow"],
+    CHALLENGES.slice(0, 5).map((challenge) => challenge.id),
+    ["computer-components", "program-flow", "instruction-data", "memory-address", "data-flow"],
   );
 });
 
@@ -108,7 +108,17 @@ test("学习概览能统计完成率、尝试次数和高频错误", () => {
 
   const summary = summarizeLearning(CHALLENGES, progress);
 
-  assert.equal(summary.totalChallenges, 14);
+  assert.equal(summary.totalChallenges, 15);
   assert.equal(summary.totalAttempts, 1);
   assert.equal(summary.weakSpot, "缺少进位输入");
+});
+
+
+test("\u5b58\u50a8\u5668\u8bbf\u95ee\u4eff\u771f\u80fd\u663e\u793a\u5730\u5740\u8fdb\u5165 MAR\u3001\u4e3b\u5b58\u8fd4\u56de MDR", () => {
+  const result = simulateChallenge("memory-address", { address: 100 });
+
+  assert.equal(result.outputs.address, 100);
+  assert.equal(result.outputs.data, 42);
+  assert.equal(result.steps.some((step) => step.text.includes("\u5730\u5740\u5bc4\u5b58\u5668MAR")), true);
+  assert.equal(result.steps.some((step) => step.text.includes("\u6570\u636e\u5bc4\u5b58\u5668MDR")), true);
 });

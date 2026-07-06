@@ -123,6 +123,13 @@ const challengeRouteMeta = {
     preview: "gate",
     focus: "指令 / 数据",
   },
+  "memory-address": {
+    eyebrow: "\u4e3b\u5b58\u8bbf\u95ee",
+    summary: "\u628a\u5730\u5740\u8fdb\u5165 MAR\u3001\u4e3b\u5b58\u8bfb\u51fa\u6570\u636e\u3001MDR \u9001\u56de CPU \u7684\u8def\u5f84\u8fde\u8d77\u6765\u3002",
+    detail: "\u8fd9\u4e00\u5173\u91cd\u70b9\u533a\u5206\u5730\u5740\u603b\u7ebf\u548c\u6570\u636e\u603b\u7ebf\uff1aMAR \u8d1f\u8d23\u5730\u5740\uff0cMDR \u8d1f\u8d23\u4e3b\u5b58\u8bfb\u51fa\u7684\u6570\u636e\u3002",
+    preview: "flow",
+    focus: "MAR / MDR",
+  },
   "and-gate": {
     eyebrow: "基础逻辑门",
     summary: "两个输入都为 1 时，输出才为 1。",
@@ -208,6 +215,9 @@ const challengeControlMeta = {
   ],
   "instruction-data": [
     { key: "address", label: "观察地址", type: "stepper", max: 102 },
+  ],
+  "memory-address": [
+    { key: "address", label: "\u8bbf\u95ee\u5730\u5740", type: "stepper", min: 100, max: 103 },
   ],
   "and-gate": [
     { key: "a", label: "输入A", type: "bit" },
@@ -2561,6 +2571,24 @@ function ChallengeCanvas({
         { name: "结果寄存器", tone: "output", className: "output", detail: "保存运算结果" },
       ],
     },
+    "memory-address": {
+      label: "\u5b58\u50a8\u5668\u4e0e\u5730\u5740\u8bbf\u95ee",
+      hint: "\u4e00\u6b21\u8bfb\u4e3b\u5b58\u5206\u4e24\u6761\u542b\u4e49\u4e0d\u540c\u7684\u8def\uff1a\u5730\u5740\u5148\u8fdb\u5165 MAR \u9009\u62e9\u5355\u5143\uff0c\u6570\u636e\u518d\u4ece\u4e3b\u5b58\u8fdb\u5165 MDR \u5e76\u9001\u56de CPU\u3002",
+      inputText: `\u5730\u5740=${inputState.address}`,
+      outputText,
+      wires: [
+        { className: "horizontal start", activeAt: 0 },
+        { className: "horizontal mid", activeAt: 1 },
+        { className: "horizontal mux-out", activeAt: 2 },
+      ],
+      nodes: [
+        { name: "\u8bbf\u95ee\u5730\u5740", tone: "io", className: "input", detail: "CPU \u53d1\u51fa\u5730\u5740" },
+        { name: "\u5730\u5740\u5bc4\u5b58\u5668MAR", tone: "control", className: "selector signal", detail: "\u4fdd\u5b58\u8981\u8bbf\u95ee\u7684\u5730\u5740" },
+        { name: "\u4e3b\u5b58\u5355\u5143", tone: "module", className: "module wide", detail: "\u6309\u5730\u5740\u8bfb\u51fa\u6570\u636e" },
+        { name: "\u6570\u636e\u5bc4\u5b58\u5668MDR", tone: "module", className: "mux center", detail: "\u6682\u5b58\u4e3b\u5b58\u6570\u636e" },
+        { name: "CPU\u6570\u636e\u603b\u7ebf", tone: "output", className: "output", detail: "\u9001\u56de CPU \u5185\u90e8" },
+      ],
+    },
     "data-flow": {
       label: "信号直通",
       hint: "只有一条主线，核心是把输入和结果端真正连通。",
@@ -3201,6 +3229,7 @@ function labDescription(challengeId) {
     "computer-components": "这一关先建立整机地图：输入、存储、控制、运算和输出五类部件各司其职。",
     "program-flow": "这一关把 1+1 的运行过程串起来，重点看程序如何从输入变成输出。",
     "instruction-data": "这一关解释为什么内存里的二进制既可能是指令，也可能是数据。",
+    "memory-address": "\u8fd9\u4e00\u5173\u628a\u4e00\u6b21\u4e3b\u5b58\u8bfb\u53d6\u62c6\u6210\u5730\u5740\u8def\u5f84\u548c\u6570\u636e\u8def\u5f84\uff1a\u5730\u5740\u8fdb MAR\uff0c\u4e3b\u5b58\u8bfb\u51fa\u7684\u6570\u636e\u8fdb MDR\uff0c\u518d\u56de\u5230 CPU \u6570\u636e\u603b\u7ebf\u3002",
     "data-flow": "这一关的画布是一条最基础的信号通道，先理解输入如何走到输出。",
     "and-gate": "这一关只看与门：A 和 B 必须同时为 1，输出Y才会变成 1。",
     "or-gate": "这一关只看或门：A 和 B 只要有一路为 1，输出Y就会变成 1。",

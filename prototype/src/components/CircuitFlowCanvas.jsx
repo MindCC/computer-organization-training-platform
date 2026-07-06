@@ -270,7 +270,7 @@ export function CircuitFlowCanvas({ model, onResult }) {
       {report ? (
         <div className={`circuit-flow-report ${report.passed ? "passed" : "failed"}`}>
           <strong>{report.passed ? "\u672c\u5173\u901a\u8fc7" : "\u4ecd\u9700\u4fee\u6b63"}</strong>
-          <span>{copy.score}\uff1a{report.structure.score} · {copy.testCases}\uff1a{report.tests.cases.filter((item) => item.passed).length}/{report.tests.cases.length}</span>
+          <span>{copy.score}{"\uff1a"}{report.structure.score} {"\u00b7"} {copy.testCases}{"\uff1a"}{report.tests.cases.filter((item) => item.passed).length}/{report.tests.cases.length}</span>
           {report.structure.errors.length > 0 ? <small>{report.structure.errors[0].message}</small> : null}
         </div>
       ) : null}

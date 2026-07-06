@@ -9,7 +9,7 @@ import {
 } from "./dataJourney.js";
 
 test("数据旅程覆盖第一章概述关卡", () => {
-  assert.deepEqual(JOURNEY_CHALLENGE_IDS, ["computer-components", "program-flow", "instruction-data"]);
+  assert.deepEqual(JOURNEY_CHALLENGE_IDS, ["computer-components", "program-flow", "instruction-data", "memory-address"]);
   assert.equal(DATA_JOURNEY_STEPS.length >= 8, true);
 });
 
@@ -42,4 +42,13 @@ test("教师数据旅程建议聚焦未完成的概述关卡", () => {
   assert.equal(guidance.title, "取指-译码-执行流程需要回讲");
   assert.match(guidance.action, /程序运行路线/);
   assert.match(guidance.action, /PC/);
+});
+
+
+test("\u5b58\u50a8\u5668\u4e0e\u5730\u5740\u8bbf\u95ee\u5173\u5361\u590d\u7528\u6570\u636e\u65c5\u7a0b\u4e2d\u7684 MAR \u548c MDR \u68c0\u67e5\u70b9", () => {
+  const steps = getJourneyStepsForChallenge("memory-address");
+
+  assert.equal(steps.some((step) => step.transfer === "PC -> MAR"), true);
+  assert.equal(steps.some((step) => step.transfer === "M(MAR) -> MDR"), true);
+  assert.equal(steps.some((step) => step.activeUnit.includes("MAR")), true);
 });

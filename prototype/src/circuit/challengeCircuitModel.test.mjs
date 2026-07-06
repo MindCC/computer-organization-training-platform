@@ -16,7 +16,7 @@ import {
   getCircuitChallenge,
 } from "./challengeCircuitModel.js";
 
-const expectedIds = ["computer-components", "program-flow", "instruction-data", "data-flow", "and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "machine-number", "multi-adder", "mux", "alu"];
+const expectedIds = ["computer-components", "program-flow", "instruction-data", "memory-address", "data-flow", "and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "machine-number", "multi-adder", "mux", "alu"];
 
 test("结构化模型覆盖基础门到运算器路线关卡", () => {
   assert.deepEqual(CIRCUIT_CHALLENGES.map((challenge) => challenge.id), expectedIds);
@@ -81,4 +81,16 @@ test("机器数编码关卡复用 React Flow 元件模型", () => {
   assert.equal(challenge.nodes.some((node) => node.label === "补码生成器"), true);
   assert.equal(challenge.requiredEdges.length >= 5, true);
   assert.equal(challenge.testCases.some((testCase) => testCase.name.includes("-5")), true);
+});
+
+
+test("\u5b58\u50a8\u5668\u4e0e\u5730\u5740\u8bbf\u95ee\u5173\u5361\u8986\u76d6 MAR\u3001\u4e3b\u5b58\u3001MDR \u548c\u6570\u636e\u603b\u7ebf", () => {
+  const challenge = CIRCUIT_CHALLENGES.find((item) => item.id === "memory-address");
+
+  assert.ok(challenge);
+  assert.equal(challenge.title, "\u5b58\u50a8\u5668\u4e0e\u5730\u5740\u8bbf\u95ee");
+  assert.equal(challenge.nodes.some((node) => node.label === "\u5730\u5740\u5bc4\u5b58\u5668MAR"), true);
+  assert.equal(challenge.nodes.some((node) => node.label === "\u4e3b\u5b58\u5355\u5143"), true);
+  assert.equal(challenge.nodes.some((node) => node.label === "\u6570\u636e\u5bc4\u5b58\u5668MDR"), true);
+  assert.equal(challenge.requiredEdges.length, 5);
 });

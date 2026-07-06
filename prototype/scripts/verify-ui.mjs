@@ -52,6 +52,7 @@ const legacyOverviewChallenges = CHALLENGES.filter(
 const defaultArtifactDirUrl = new URL("../qa-artifacts/", import.meta.url);
 const artifactDir = process.env.QA_ARTIFACT_DIR ? path.resolve(process.env.QA_ARTIFACT_DIR) : fileURLToPath(defaultArtifactDirUrl);
 const artifactDirUrl = new URL(`file:///${artifactDir.replace(/\\/g, "/")}${artifactDir.endsWith("\\") ? "" : "/"}`);
+const visibleMojibakeTokens = ["\\u", "\uFFFD", "\u9286", "\u9205", "\u951B", "\u9422", "\u701B", "\u95AB", "\u59AF", "\u934F", "\u9366"];
 
 async function launchBrowser() {
   try {
@@ -69,6 +70,7 @@ await page.goto(baseUrl, { waitUntil: "networkidle" });
 await assertVisible(page, text.appTitle);
 await login(page, teacherUsername, teacherPassword);
 await assertVisible(page, text.teacherHeading);
+await assertNoVisibleMojibake(page, "teacher dashboard");
 await page.locator(".teacher-studio-actions").getByRole("button", { name: text.classroomSettings }).click();
 const templateHref = await page.locator(".settings-template-link").getAttribute("href");
 assert.match(templateHref ?? "", /^data:text\/csv/);
@@ -100,6 +102,7 @@ assert.match(csvText, new RegExp(text.studentName));
 await logout(page);
 await login(page, text.studentNo, text.studentPassword);
 await assertVisible(page, "\u8fd0\u7b97\u5668\u95ef\u5173\u8def\u5f84");
+await assertNoVisibleMojibake(page, "student home");
 await assertVisible(page, text.dataJourney);
 
 for (const challenge of legacyOverviewChallenges) {
@@ -110,8 +113,10 @@ for (const challenge of legacyOverviewChallenges) {
 }
 
 for (const challenge of CIRCUIT_CHALLENGES) {
+  console.log(`Verifying React Flow lab: ${challenge.id}`);
   await openChallenge(page, challenge.title);
   await verifyReactFlowChallenge(page, challenge);
+  await assertNoVisibleMojibake(page, `react-flow lab ${challenge.id}`);
   await page.screenshot({ path: artifactPath(`student-lab-${challenge.id}.png`), fullPage: true });
   await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
 }
@@ -159,7 +164,7 @@ async function logout(targetPage) {
 }
 
 async function openChallenge(targetPage, title) {
-  await targetPage.getByRole("button", { name: new RegExp(title) }).first().click();
+  await targetPage.getByRole("button").filter({ hasText: title }).first().click();
   await assertVisible(targetPage, title);
 }
 
@@ -198,10 +203,7 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   await workbench.getByText(challenge.title).first().waitFor({ state: "visible", timeout: 10_000 });
   await workbench.getByText(text.casePanel).waitFor({ state: "visible", timeout: 10_000 });
   await workbench.getByText(text.liveDataFlow).waitFor({ state: "visible", timeout: 10_000 });
-  await targetPage.waitForFunction(
-    ({ expectedNodes }) => document.querySelectorAll(".react-flow__node").length >= expectedNodes,
-    { expectedNodes: challenge.nodes.length },
-  );
+  await waitForReactFlowNodeCount(targetPage, challenge);
   if (challenge.id === "data-flow") {
     await dragRequiredEdge(targetPage, challenge.requiredEdges[0]);
     await targetPage.waitForFunction(() => document.querySelectorAll(".react-flow__edge").length >= 1);
@@ -211,6 +213,12 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   if (challenge.id === "instruction-data") {
     await assertVisible(targetPage, text.journeyCheckpoint);
     await assertVisible(targetPage, text.pcToMar);
+  }
+  if (challenge.id === "memory-address") {
+    await assertVisible(targetPage, "\u5730\u5740\u5bc4\u5b58\u5668MAR");
+    await assertVisible(targetPage, "\u4e3b\u5b58\u5355\u5143");
+    await assertVisible(targetPage, "\u6570\u636e\u5bc4\u5b58\u5668MDR");
+    await assertVisible(targetPage, "CPU\u6570\u636e\u603b\u7ebf");
   }
   if (challenge.id === "machine-number") {
     await assertVisible(targetPage, text.machineNumberQuiz);
@@ -226,17 +234,42 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   await workbench.getByText(text.passed).first().waitFor({ state: "visible", timeout: 10_000 });
 }
 
+async function waitForReactFlowNodeCount(targetPage, challenge) {
+  const deadline = Date.now() + 30_000;
+  let nodeCount = 0;
+  while (Date.now() < deadline) {
+    nodeCount = await targetPage.locator(".react-flow__node").count();
+    if (nodeCount >= challenge.nodes.length) return;
+    await targetPage.waitForTimeout(250);
+  }
+  const bodyText = await targetPage.locator("body").innerText();
+  throw new Error(`${challenge.id} expected ${challenge.nodes.length} React Flow nodes, saw ${nodeCount}. Text: ${bodyText.slice(0, 1200)}`);
+}
+
 async function dragRequiredEdge(targetPage, edge) {
   const source = targetPage.getByTestId(`port-${edge.from.nodeId}-${edge.from.portId}`);
   const target = targetPage.getByTestId(`port-${edge.to.nodeId}-${edge.to.portId}`);
-  const sourceBox = await source.boundingBox();
-  const targetBox = await target.boundingBox();
-  assert.ok(sourceBox, "source port is visible");
-  assert.ok(targetBox, "target port is visible");
-  await targetPage.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
-  await targetPage.mouse.down();
-  await targetPage.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 12 });
-  await targetPage.mouse.up();
+  await source.waitFor({ state: "visible", timeout: 10_000 });
+  await target.waitFor({ state: "visible", timeout: 10_000 });
+
+  await source.dragTo(target, { force: true, timeout: 10_000 }).catch(async () => {
+    const sourceBox = await source.boundingBox();
+    const targetBox = await target.boundingBox();
+    assert.ok(sourceBox, "source port is visible");
+    assert.ok(targetBox, "target port is visible");
+    await targetPage.mouse.move(sourceBox.x + sourceBox.width / 2, sourceBox.y + sourceBox.height / 2);
+    await targetPage.mouse.down();
+    await targetPage.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 24 });
+    await targetPage.mouse.up();
+  });
+}
+
+async function assertNoVisibleMojibake(targetPage, label) {
+  const visibleText = await targetPage.locator("body").innerText({ timeout: 10_000 });
+  const match = visibleMojibakeTokens.find((token) => visibleText.includes(token)) ?? null;
+  const matchIndex = match ? visibleText.indexOf(match) : -1;
+  const context = matchIndex >= 0 ? visibleText.slice(Math.max(0, matchIndex - 80), matchIndex + 160) : "";
+  assert.equal(match, null, `${label} contains visible mojibake: ${match ?? ""} context=${context}`);
 }
 
 async function assertVisible(targetPage, visibleText) {

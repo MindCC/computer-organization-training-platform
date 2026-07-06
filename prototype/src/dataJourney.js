@@ -1,4 +1,4 @@
-export const JOURNEY_CHALLENGE_IDS = ["computer-components", "program-flow", "instruction-data"];
+export const JOURNEY_CHALLENGE_IDS = ["computer-components", "program-flow", "instruction-data", "memory-address"];
 
 export const DATA_JOURNEY_STEPS = [
   {
@@ -17,7 +17,7 @@ export const DATA_JOURNEY_STEPS = [
   },
   {
     id: "pc-to-mar",
-    challengeIds: ["program-flow", "instruction-data"],
+    challengeIds: ["program-flow", "instruction-data", "memory-address"],
     title: "取指令地址",
     transfer: "PC -> MAR",
     activeUnit: "PC / MAR",
@@ -31,7 +31,7 @@ export const DATA_JOURNEY_STEPS = [
   },
   {
     id: "memory-to-mdr",
-    challengeIds: ["program-flow", "instruction-data"],
+    challengeIds: ["program-flow", "instruction-data", "memory-address"],
     title: "读取主存内容",
     transfer: "M(MAR) -> MDR",
     activeUnit: "主存 / MDR",
@@ -45,7 +45,7 @@ export const DATA_JOURNEY_STEPS = [
   },
   {
     id: "mdr-to-ir",
-    challengeIds: ["instruction-data"],
+    challengeIds: ["instruction-data", "memory-address"],
     title: "指令送入 IR",
     transfer: "MDR -> IR",
     activeUnit: "IR",
@@ -59,7 +59,7 @@ export const DATA_JOURNEY_STEPS = [
   },
   {
     id: "cu-decode",
-    challengeIds: ["instruction-data"],
+    challengeIds: ["instruction-data", "memory-address"],
     title: "控制器译码",
     transfer: "OP(IR) -> CU",
     activeUnit: "CU",
@@ -73,7 +73,7 @@ export const DATA_JOURNEY_STEPS = [
   },
   {
     id: "operand-fetch",
-    challengeIds: ["instruction-data"],
+    challengeIds: ["instruction-data", "memory-address"],
     title: "取得操作数",
     transfer: "Ad(IR) -> MAR",
     activeUnit: "MAR / 主存",
@@ -87,7 +87,7 @@ export const DATA_JOURNEY_STEPS = [
   },
   {
     id: "alu-execute",
-    challengeIds: ["program-flow", "instruction-data"],
+    challengeIds: ["program-flow", "instruction-data", "memory-address"],
     title: "ALU 执行运算",
     transfer: "ACC + MDR -> ALU",
     activeUnit: "ALU",

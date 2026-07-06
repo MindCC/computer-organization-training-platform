@@ -103,6 +103,33 @@ export const INSTRUCTION_DATA_CIRCUIT = {
   ],
 };
 
+
+export const MEMORY_ADDRESS_CIRCUIT = {
+  id: "memory-address",
+  title: "\u5b58\u50a8\u5668\u4e0e\u5730\u5740\u8bbf\u95ee",
+  goal: "\u8fde\u63a5\u5730\u5740\u5bc4\u5b58\u5668\u3001\u4e3b\u5b58\u5355\u5143\u3001\u6570\u636e\u5bc4\u5b58\u5668\u548c\u6570\u636e\u603b\u7ebf\uff0c\u7406\u89e3\u4e00\u6b21\u6309\u5730\u5740\u8bfb\u6570\u7684\u57fa\u672c\u8def\u5f84\u3002",
+  nodes: [
+    inputNode("address-input", "\u8bbf\u95ee\u5730\u5740", 60, 170, "\u5730\u5740"),
+    inputNode("read-signal", "\u8bfb\u63a7\u5236", 60, 320, "Read"),
+    componentNode("mar", "buffer", "\u5730\u5740\u5bc4\u5b58\u5668MAR", 280, 170, [inPort("in", "\u5730\u5740"), outPort("out", "\u5730\u5740\u603b\u7ebf")]),
+    componentNode("memory-cell", "buffer", "\u4e3b\u5b58\u5355\u5143", 520, 170, [inPort("in", "\u5730\u5740"), outPort("out", "\u6570\u636e")]),
+    componentNode("mdr", "buffer", "\u6570\u636e\u5bc4\u5b58\u5668MDR", 760, 170, [inPort("in", "\u6570\u636e"), outPort("out", "\u6570\u636e\u603b\u7ebf")]),
+    outputNode("cpu-data-bus", "CPU\u6570\u636e\u603b\u7ebf", 1000, 170, "\u6570\u636e"),
+    outputNode("read-observe", "\u8bfb\u4f7f\u80fd\u89c2\u5bdf", 520, 320, "Read"),
+  ],
+  requiredEdges: [
+    edge("address-to-mar", "address-input", "out", "mar", "in", "MAR \u5730\u5740\u7f3a\u5931", "\u8bbf\u95ee\u4e3b\u5b58\u524d\uff0c\u5730\u5740\u9700\u8981\u5148\u8fdb\u5165 MAR\u3002"),
+    edge("mar-to-memory", "mar", "out", "memory-cell", "in", "\u5730\u5740\u603b\u7ebf\u7f3a\u5931", "MAR \u8981\u901a\u8fc7\u5730\u5740\u603b\u7ebf\u9009\u62e9\u4e3b\u5b58\u5355\u5143\u3002"),
+    edge("memory-to-mdr", "memory-cell", "out", "mdr", "in", "MDR \u6570\u636e\u7f3a\u5931", "\u4e3b\u5b58\u8bfb\u51fa\u7684\u6570\u636e\u9700\u8981\u5148\u8fdb\u5165 MDR\u3002"),
+    edge("mdr-to-bus", "mdr", "out", "cpu-data-bus", "in", "\u6570\u636e\u603b\u7ebf\u7f3a\u5931", "MDR \u9700\u8981\u628a\u6570\u636e\u9001\u5230 CPU \u6570\u636e\u603b\u7ebf\u3002"),
+    edge("read-to-observe", "read-signal", "out", "read-observe", "in", "\u8bfb\u63a7\u5236\u7f3a\u5931", "\u8bfb\u63a7\u5236\u4fe1\u53f7\u9700\u8981\u63a5\u5230\u89c2\u5bdf\u7aef\uff0c\u786e\u8ba4\u672c\u6b21\u8bbf\u95ee\u662f\u8bfb\u64cd\u4f5c\u3002"),
+  ],
+  testCases: [
+    { name: "\u8bfb\u53d6\u5730\u5740100", inputs: { "address-input.out": 1, "read-signal.out": 1 }, expected: { "cpu-data-bus.in": 1, "read-observe.in": 1 } },
+    { name: "\u672a\u8bfb\u4f7f\u80fd", inputs: { "address-input.out": 1, "read-signal.out": 0 }, expected: { "cpu-data-bus.in": 1, "read-observe.in": 0 } },
+  ],
+};
+
 export const DATA_FLOW_CIRCUIT = {
   id: "data-flow",
   title: "认识数据流",
@@ -371,6 +398,7 @@ export const CIRCUIT_CHALLENGES = [
   COMPUTER_COMPONENTS_CIRCUIT,
   PROGRAM_FLOW_CIRCUIT,
   INSTRUCTION_DATA_CIRCUIT,
+  MEMORY_ADDRESS_CIRCUIT,
   DATA_FLOW_CIRCUIT,
   AND_GATE_CIRCUIT,
   OR_GATE_CIRCUIT,
