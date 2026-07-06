@@ -90,6 +90,16 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     assert.equal(result.body.progress["and-gate"].status, "in-progress");
     assert.equal(result.body.progress["half-adder"].status, "locked");
 
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        challengeId: "game-office-pc",
+        result: { passed: true, score: 100, errors: [], elapsedMinutes: 6 },
+      }),
+    }, studentJar);
+    assert.equal(result.response.status, 201);
+    assert.equal(result.body.progress["game-office-pc"].status, "completed");
     result = await request(baseUrl, "/api/student/notes", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -100,7 +110,9 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     result = await request(baseUrl, `/api/teacher/classes/${classId}/overview`, {}, teacherJar);
     assert.equal(result.response.status, 200);
     assert.equal(result.body.students.length, 1);
-    assert.equal(result.body.students[0].summary.totalAttempts, 1);
+    assert.equal(result.body.students[0].summary.totalAttempts, 2);
+    assert.equal(result.body.hardwareGameSummary.completedCases, 1);
+    assert.equal(result.body.hardwareGameSummary.typicalBuilds[0].caseId, "game-office-pc");
     const studentId = result.body.students[0].id;
 
     result = await request(baseUrl, `/api/teacher/classes/${classId}/assistant-report`, {
@@ -139,9 +151,10 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     result = await request(baseUrl, `/api/teacher/classes/${classId}/students/${studentId}`, {}, teacherJar);
     assert.equal(result.response.status, 200);
     assert.equal(result.body.student.username, "2026001");
-    assert.equal(result.body.student.attempts.length, 1);
+    assert.equal(result.body.student.attempts.length, 2);
     assert.equal(result.body.student.notes.length, 1);
     assert.equal(result.body.student.progress["data-flow"].bestScore, 100);
+    assert.equal(result.body.student.progress["game-office-pc"].bestScore, 100);
 
     result = await request(baseUrl, "/api/classes", {
       method: "POST",
@@ -213,3 +226,4 @@ test("unauthenticated and cross-role access is rejected", async () => {
     await new Promise((resolve) => server.close(resolve));
   }
 });
+

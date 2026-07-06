@@ -1,4 +1,5 @@
 import { encodeSignedInteger } from "./numberEncoding.js";
+import { HARDWARE_GAME_PROGRESS_ITEMS } from "./hardwareGame.js";
 
 export const CHALLENGES = [
   {
@@ -350,6 +351,8 @@ export const CHALLENGES = [
   },
 ];
 
+export const LEARNING_ITEMS = [...CHALLENGES, ...HARDWARE_GAME_PROGRESS_ITEMS];
+
 export function buildInitialProgress(challenges) {
   return challenges.reduce((progress, challenge, index) => {
     progress[challenge.id] = {
@@ -362,6 +365,23 @@ export function buildInitialProgress(challenges) {
     };
     return progress;
   }, {});
+}
+
+export function buildInitialLearningProgress() {
+  return {
+    ...buildInitialProgress(CHALLENGES),
+    ...HARDWARE_GAME_PROGRESS_ITEMS.reduce((progress, item) => {
+      progress[item.id] = {
+        status: "in-progress",
+        attempts: 0,
+        errors: [],
+        completedAt: null,
+        bestScore: 0,
+        timeSpentMinutes: 0,
+      };
+      return progress;
+    }, {}),
+  };
 }
 
 export function mergeProgressWithChallenges(challenges, savedProgress = {}) {
@@ -584,7 +604,7 @@ export function recordAttempt(progress, challengeId, result) {
     current.status = "completed";
     current.completedAt = "刚刚";
     const index = CHALLENGES.findIndex((challenge) => challenge.id === challengeId);
-    const nextChallenge = CHALLENGES[index + 1];
+    const nextChallenge = index >= 0 ? CHALLENGES[index + 1] : null;
     if (nextChallenge && next[nextChallenge.id].status === "locked") {
       next[nextChallenge.id].status = "in-progress";
     }

@@ -27,7 +27,7 @@ import {
   updateUserPassword,
   updateUserProfile,
 } from "./db.js";
-import { CHALLENGES, summarizeLearning } from "../src/platformLogic.js";
+import { CHALLENGES, LEARNING_ITEMS, summarizeLearning } from "../src/platformLogic.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_NAME = "zcyl_session";
@@ -188,14 +188,14 @@ export function createApp(options = {}) {
 
   app.get("/api/student/progress", requireRole("student"), (req, res) => {
     const progress = getStudentProgress(db, req.user.id);
-    res.json({ progress, summary: summarizeLearning(CHALLENGES, progress), user: sanitizeUser(req.user) });
+    res.json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress), user: sanitizeUser(req.user) });
   });
 
   app.post("/api/student/attempts", requireRole("student"), (req, res) => {
     const { challengeId, result } = req.body ?? {};
-    if (!CHALLENGES.some((challenge) => challenge.id === challengeId)) return res.status(400).json({ error: "未知关卡" });
+    if (!LEARNING_ITEMS.some((challenge) => challenge.id === challengeId)) return res.status(400).json({ error: "\u672a\u77e5\u5173\u5361" });
     const progress = recordStudentAttempt(db, req.user.id, challengeId, result ?? {});
-    res.status(201).json({ progress, summary: summarizeLearning(CHALLENGES, progress) });
+    res.status(201).json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress) });
   });
 
   app.get("/api/student/notes", requireRole("student"), (req, res) => {
@@ -281,7 +281,7 @@ function renderScoresCsv(students) {
     `${student.summary.completionRate}%`,
     student.summary.averageScore,
     student.summary.totalAttempts,
-    ...CHALLENGES.flatMap((challenge) => {
+    ...LEARNING_ITEMS.flatMap((challenge) => {
       const record = student.progress[challenge.id];
       return [record.status, record.bestScore, record.attempts, record.timeSpentMinutes];
     }),

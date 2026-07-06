@@ -1,7 +1,8 @@
 ﻿import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
-import { CHALLENGES, buildInitialProgress, recordAttempt, summarizeLearning } from "../src/platformLogic.js";
+import { LEARNING_ITEMS, buildInitialLearningProgress, recordAttempt, summarizeLearning } from "../src/platformLogic.js";
+import { summarizeHardwareGameAttempts } from "../src/hardwareGame.js";
 
 const DEFAULT_DATABASE_PATH = path.resolve("data/classroom.sqlite");
 
@@ -176,7 +177,7 @@ export function listClassStudents(db, classId) {
 }
 
 export function ensureStudentProgress(db, studentId) {
-  const initial = buildInitialProgress(CHALLENGES);
+  const initial = buildInitialLearningProgress();
   const insert = db.prepare(`
     INSERT OR IGNORE INTO student_progress
       (student_id, challenge_id, status, attempts, errors_json, completed_at, best_score, time_spent_minutes)
@@ -202,7 +203,7 @@ export function ensureStudentProgress(db, studentId) {
 export function getStudentProgress(db, studentId) {
   ensureStudentProgress(db, studentId);
   const rows = db.prepare("SELECT * FROM student_progress WHERE student_id = ?").all(studentId);
-  const progress = buildInitialProgress(CHALLENGES);
+  const progress = buildInitialLearningProgress();
   for (const row of rows) {
     progress[row.challenge_id] = {
       status: row.status,
@@ -284,11 +285,22 @@ export function createNote(db, studentId, { title, content, tag }) {
 export function getClassOverview(db, classId) {
   const students = listClassStudents(db, classId).map((student) => {
     const progress = getStudentProgress(db, student.id);
-    const summary = summarizeLearning(CHALLENGES, progress);
+    const summary = summarizeLearning(LEARNING_ITEMS, progress);
     return { ...student, progress, summary };
   });
   const classSummary = summarizeClass(students);
-  return { students, summary: classSummary };
+  const gameAttempts = db.prepare(`
+    SELECT ca.challenge_id AS challengeId, ca.score, ca.result_json AS resultJson
+    FROM challenge_attempts ca
+    JOIN class_members cm ON cm.student_id = ca.student_id
+    WHERE cm.class_id = ? AND ca.challenge_id LIKE 'game-%'
+    ORDER BY ca.id DESC
+  `).all(classId).map((row) => ({
+    challengeId: row.challengeId,
+    score: row.score,
+    result: safeJson(row.resultJson, {}),
+  }));
+  return { students, summary: classSummary, hardwareGameSummary: summarizeHardwareGameAttempts(gameAttempts) };
 }
 
 export function getTeacherStudentDetail(db, teacherId, studentId, classId = null) {
@@ -306,9 +318,9 @@ export function getTeacherStudentDetail(db, teacherId, studentId, classId = null
     progress: getStudentProgress(db, studentId),
     notes: listNotes(db, studentId),
     attempts: db.prepare(`
-      SELECT id, challenge_id AS challengeId, score, passed, errors_json AS errorsJson, created_at AS createdAt
+      SELECT id, challenge_id AS challengeId, score, passed, errors_json AS errorsJson, result_json AS resultJson, created_at AS createdAt
       FROM challenge_attempts WHERE student_id = ? ORDER BY id DESC LIMIT 100
-    `).all(studentId).map((row) => ({ ...row, passed: Boolean(row.passed), errors: safeJson(row.errorsJson, []) })),
+    `).all(studentId).map((row) => ({ ...row, passed: Boolean(row.passed), errors: safeJson(row.errorsJson, []), result: safeJson(row.resultJson, {}) })),
   };
 }
 

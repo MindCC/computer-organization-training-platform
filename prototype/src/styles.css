@@ -4524,3 +4524,263 @@ textarea:focus-visible {
     justify-content: stretch;
   }
 }
+
+.hardware-game-page {
+  display: grid;
+  gap: 22px;
+}
+
+.hardware-game-hero {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(229, 247, 241, 0.78));
+  box-shadow: var(--shadow-soft);
+}
+
+.hardware-game-hero h1 {
+  margin: 8px 0 10px;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1;
+}
+
+.hardware-game-hero p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.hardware-score-card {
+  display: grid;
+  place-items: center;
+  min-width: 150px;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  color: #fff;
+  background: linear-gradient(145deg, #143a63, #2ba98e);
+}
+
+.hardware-score-card strong {
+  font-size: 3.2rem;
+  line-height: 1;
+}
+
+.hardware-game-grid {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr) 280px;
+  gap: 18px;
+  align-items: start;
+}
+
+.hardware-case-list,
+.hardware-builder,
+.hardware-feedback {
+  min-width: 0;
+}
+
+.hardware-case-list {
+  display: grid;
+  gap: 16px;
+}
+
+.hardware-case-list section {
+  display: grid;
+  gap: 8px;
+}
+
+.hardware-case-list h2 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.hardware-case,
+.hardware-part {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.86);
+  text-align: left;
+  cursor: pointer;
+}
+
+.hardware-case {
+  display: grid;
+  gap: 5px;
+  padding: 13px 14px;
+}
+
+.hardware-case span,
+.hardware-part small {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.hardware-case.active,
+.hardware-part.selected {
+  border-color: rgba(43, 169, 142, 0.65);
+  background: var(--teal-soft);
+  box-shadow: 0 10px 26px rgba(43, 169, 142, 0.13);
+}
+
+.hardware-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.hardware-targets span,
+.hardware-error-list span {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(20, 58, 99, 0.08);
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.hardware-part-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.hardware-part-group {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.hardware-part-group > strong {
+  font-size: 0.95rem;
+}
+
+.hardware-part {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+}
+
+.hardware-metrics {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.hardware-metrics p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.hardware-metrics span {
+  color: var(--muted);
+}
+
+.hardware-result-box {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background: rgba(238, 245, 247, 0.8);
+}
+
+.hardware-result-box p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.hardware-error-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hardware-error-list span {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+@media (max-width: 1100px) {
+  .hardware-game-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hardware-case-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .hardware-game-hero {
+    flex-direction: column;
+  }
+
+  .hardware-part-grid,
+  .hardware-case-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hardware-teacher-panel {
+  margin-bottom: 18px;
+}
+
+.hardware-teacher-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.hardware-teacher-stat,
+.hardware-teacher-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.hardware-teacher-stat span,
+.hardware-teacher-list span {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.hardware-teacher-stat strong {
+  font-size: 2rem;
+  color: var(--navy);
+}
+
+.hardware-teacher-list span {
+  display: block;
+  padding: 7px 9px;
+  border-radius: 999px;
+  background: rgba(20, 58, 99, 0.07);
+}
+
+@media (max-width: 1100px) {
+  .hardware-teacher-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .hardware-teacher-grid {
+    grid-template-columns: 1fr;
+  }
+}

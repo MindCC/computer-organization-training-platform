@@ -23,6 +23,8 @@ import {
 } from "@phosphor-icons/react";
 import {
   CHALLENGES,
+  LEARNING_ITEMS,
+  buildInitialLearningProgress,
   buildInitialProgress,
   gradeConnections,
   mergeProgressWithChallenges,
@@ -62,6 +64,7 @@ import {
   getJourneyStepsForChallenge,
 } from "./dataJourney.js";
 import { buildMachineNumberExercise, encodeSignedInteger } from "./numberEncoding.js";
+import { HARDWARE_GAME_CASES, HARDWARE_PARTS, gradeHardwareBuild } from "./hardwareGame.js";
 import { api } from "./apiClient.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
@@ -74,6 +77,7 @@ const CircuitFlowCanvas = lazy(() =>
 const navItems = [
   { id: "home", label: "课程首页", icon: House },
   { id: "lab", label: "关卡实验", icon: Flask },
+  { id: "hardware-game", label: "\u786c\u4ef6\u914d\u7f6e\u6311\u6218", icon: Cpu },
   { id: "records", label: "学习记录", icon: ChartPieSlice },
   { id: "notes", label: "学习笔记", icon: Notebook },
   { id: "teacher", label: "\u6559\u5e08\u770b\u677f", icon: ChartPieSlice, role: "teacher" },
@@ -288,6 +292,21 @@ function statusText(status) {
   return "未解锁";
 }
 
+function hardwareCategoryLabel(category) {
+  return {
+    cpu: "CPU",
+    memory: "\u5185\u5b58",
+    storage: "\u5b58\u50a8",
+    gpu: "\u663e\u5361",
+  }[category] ?? category;
+}
+
+function hardwarePartMetric(category, part) {
+  if (category === "memory") return part.capacity + "GB";
+  if (category === "storage") return part.capacity + "GB / " + part.performance;
+  return "\u6027\u80fd " + part.performance;
+}
+
 function statusTone(status) {
   if (status === "completed") return "success";
   if (status === "in-progress") return "active";
@@ -434,7 +453,7 @@ export function App() {
   const [loginError, setLoginError] = useState("");
   const [activeView, setActiveView] = useState("home");
   const [selectedChallengeId, setSelectedChallengeId] = useState(defaultChallenge.id);
-  const [progress, setProgress] = useState(() => buildInitialProgress(CHALLENGES));
+  const [progress, setProgress] = useState(() => buildInitialLearningProgress());
   const [connections, setConnections] = useState(["输入A->异或门1", "输入B->异或门1"]);
   const [placedComponents, setPlacedComponents] = useState([]);
   const [expandedComponent, setExpandedComponent] = useState(defaultComponentLabel);
@@ -470,6 +489,9 @@ export function App() {
   const [classNameDraft, setClassNameDraft] = useState("\u8ba1\u7ec4\u4e00\u73ed");
   const [csvImportText, setCsvImportText] = useState("\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n2026001,\u674e\u540c\u5b66,Student123!");
   const [teacherMessage, setTeacherMessage] = useState("");
+  const [selectedHardwareCaseId, setSelectedHardwareCaseId] = useState(HARDWARE_GAME_CASES[0].id);
+  const [hardwareSelection, setHardwareSelection] = useState({ cpu: "cpu-i3", memory: "mem-8", storage: "ssd-512", gpu: "gpu-integrated" });
+  const [hardwareFeedback, setHardwareFeedback] = useState(null);
 
   const currentChallenge = useMemo(
     () => CHALLENGES.find((challenge) => challenge.id === selectedChallengeId) ?? CHALLENGES[0],
@@ -495,7 +517,7 @@ export function App() {
     () => simulateChallenge(selectedChallengeId, inputState),
     [selectedChallengeId, inputState],
   );
-  const summary = useMemo(() => summarizeLearning(CHALLENGES, progress), [progress]);
+  const summary = useMemo(() => summarizeLearning(LEARNING_ITEMS, progress), [progress]);
   const focusChallenge = useMemo(
     () => CHALLENGES.find((challenge) => progress[challenge.id]?.status === "in-progress") ?? currentChallenge,
     [currentChallenge, progress],
@@ -544,7 +566,7 @@ export function App() {
     if (!user) return;
     if (user.role === "student") {
       const [{ progress: nextProgress }, { notes: nextNotes }] = await Promise.all([api.studentProgress(), api.listNotes()]);
-      setProgress(mergeProgressWithChallenges(CHALLENGES, nextProgress));
+      setProgress({ ...buildInitialLearningProgress(), ...nextProgress });
       setNotes(nextNotes);
       setStudent({
         name: user.displayName,
@@ -629,7 +651,7 @@ export function App() {
   async function handleLogout() {
     await api.logout();
     setAuth({ status: "anonymous", user: null });
-    setProgress(buildInitialProgress(CHALLENGES));
+    setProgress(buildInitialLearningProgress());
     setNotes([]);
     setActiveView("home");
   }
@@ -927,11 +949,27 @@ export function App() {
     setStudent((current) => ({ ...current, [key]: value }));
   }
 
+  async function submitHardwareBuild() {
+    const selectedCase = HARDWARE_GAME_CASES.find((item) => item.id === selectedHardwareCaseId) ?? HARDWARE_GAME_CASES[0];
+    const result = {
+      ...gradeHardwareBuild(selectedCase.id, hardwareSelection),
+      elapsedMinutes: 6,
+    };
+    setHardwareFeedback(result);
+    setProgress((current) => recordAttempt(current, selectedCase.id, result));
+    setActivityLog((current) => [
+      selectedCase.title + " \u914d\u7f6e\u63d0\u4ea4" + (result.passed ? "\u901a\u8fc7" : "\u672a\u901a\u8fc7") + "\uff0c\u5f97\u5206 " + result.score + "\u3002",
+      ...current.slice(0, 5),
+    ]);
+    setStatusMessage(result.passed ? selectedCase.title + " \u5df2\u8fbe\u6210\u5ba2\u6237\u76ee\u6807\u3002" : "\u5df2\u627e\u5230\u914d\u7f6e\u74f6\u9888\uff0c\u8bf7\u6839\u636e\u53cd\u9988\u8c03\u6574\u3002");
+    await persistStudentAttempt(selectedCase.id, result);
+  }
+
   async function persistStudentAttempt(challengeId, result) {
     if (auth.user?.role !== "student") return;
     try {
       const saved = await api.submitAttempt({ challengeId, result });
-      setProgress(mergeProgressWithChallenges(CHALLENGES, saved.progress));
+      setProgress({ ...buildInitialLearningProgress(), ...saved.progress });
     } catch (error) {
       setStatusMessage("\u63d0\u4ea4\u5df2\u5728\u672c\u9875\u8bb0\u5f55\uff0c\u4f46\u540c\u6b65\u670d\u52a1\u5668\u5931\u8d25\uff1a" + error.message);
     }
@@ -1104,6 +1142,7 @@ export function App() {
 
           {activeView === "home" ? renderHome() : null}
           {activeView === "records" ? renderRecords() : null}
+          {activeView === "hardware-game" ? renderHardwareGame() : null}
           {activeView === "notes" ? renderNotes() : null}
           {activeView === "teacher" ? renderTeacherStudioDashboard() : null}
         </main>
@@ -1204,6 +1243,7 @@ export function App() {
     const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
     const assistant = buildTeacherAssistantInsights(classOverview, selectedClass);
     const students = classOverview?.students ?? [];
+    const hardwareSummary = classOverview?.hardwareGameSummary ?? { completedCases: 0, averageScore: 0, frequentBottlenecks: [], typicalBuilds: [] };
 
     return (
       <div className="teacher-studio">
@@ -1268,6 +1308,38 @@ export function App() {
               <Metric icon={TrendUp} label="平均分" value={classOverview?.summary.averageScore ?? 0} />
               <Metric icon={WarningCircle} label="高频问题" value={classOverview?.summary.weakSpot ?? "暂无数据"} />
             </div>
+
+            <section className="teacher-studio-panel hardware-teacher-panel">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">{"\u786c\u4ef6\u914d\u7f6e\u6311\u6218"}</span>
+                  <h2>{"\u6e38\u620f\u7ae0\u8282\u5b66\u60c5"}</h2>
+                  <p>{"\u805a\u5408\u5b66\u751f\u5728 CPU\u3001\u5185\u5b58\u3001\u5b58\u50a8\u548c\u663e\u5361\u53d6\u820d\u4e2d\u51fa\u73b0\u7684\u5171\u6027\u95ee\u9898\u3002"}</p>
+                </div>
+              </div>
+              <div className="hardware-teacher-grid">
+                <div className="hardware-teacher-stat">
+                  <span>{"\u5b8c\u6210\u6848\u4f8b"}</span>
+                  <strong>{hardwareSummary.completedCases}</strong>
+                </div>
+                <div className="hardware-teacher-stat">
+                  <span>{"\u5e73\u5747\u5206"}</span>
+                  <strong>{hardwareSummary.averageScore}</strong>
+                </div>
+                <div className="hardware-teacher-list">
+                  <strong>{"\u9ad8\u9891\u74f6\u9888"}</strong>
+                  {hardwareSummary.frequentBottlenecks.length ? hardwareSummary.frequentBottlenecks.slice(0, 4).map((item) => (
+                    <span key={item.type}>{item.type} ? {item.count}</span>
+                  )) : <p className="empty-state">{"\u6682\u65e0\u6e38\u620f\u63d0\u4ea4\u6570\u636e"}</p>}
+                </div>
+                <div className="hardware-teacher-list">
+                  <strong>{"\u5178\u578b\u9ad8\u5206\u914d\u7f6e"}</strong>
+                  {hardwareSummary.typicalBuilds.length ? hardwareSummary.typicalBuilds.slice(0, 3).map((item) => (
+                    <span key={item.caseId}>{item.caseId} ? {item.score}</span>
+                  )) : <p className="empty-state">{"\u6682\u65e0\u9ad8\u5206\u914d\u7f6e"}</p>}
+                </div>
+              </div>
+            </section>
 
             <div className="teacher-studio-content">
               <section className="teacher-studio-panel teacher-assistant-panel">
@@ -1342,7 +1414,7 @@ export function App() {
                   <div>
                     <h3>逐关最佳成绩</h3>
                     <div className="teacher-progress-list">
-                      {CHALLENGES.map((challenge) => {
+                      {LEARNING_ITEMS.map((challenge) => {
                         const record = selectedTeacherStudent.progress?.[challenge.id];
                         return (
                           <div className="teacher-progress-row" key={challenge.id}>
@@ -1358,7 +1430,7 @@ export function App() {
                     <div className="teacher-attempt-list">
                       {(selectedTeacherStudent.attempts ?? []).slice(0, 8).map((attempt) => (
                         <div className={attempt.passed ? "teacher-attempt passed" : "teacher-attempt failed"} key={attempt.id}>
-                          <strong>{CHALLENGES.find((challenge) => challenge.id === attempt.challengeId)?.title ?? attempt.challengeId}</strong>
+                          <strong>{LEARNING_ITEMS.find((challenge) => challenge.id === attempt.challengeId)?.title ?? attempt.challengeId}</strong>
                           <span>{attempt.score} 分 · {attempt.passed ? "通过" : "未通过"}</span>
                           <small>{attempt.errors?.length ? attempt.errors.join(" / ") : "暂无错误"}</small>
                         </div>
@@ -1674,6 +1746,113 @@ export function App() {
             </div>
           </article>
         </section>
+      </div>
+    );
+  }
+
+  function renderHardwareGame() {
+    const selectedCase = HARDWARE_GAME_CASES.find((item) => item.id === selectedHardwareCaseId) ?? HARDWARE_GAME_CASES[0];
+    const preview = gradeHardwareBuild(selectedCase.id, hardwareSelection);
+    const caseGroups = [
+      { id: "overview", title: "\u7b2c\u4e00\u7ae0\u8ba1\u7b97\u673a\u6982\u8ff0" },
+      { id: "storage", title: "\u5b58\u50a8\u7cfb\u7edf" },
+    ];
+
+    return (
+      <div className="hardware-game-page">
+        <header className="hardware-game-hero">
+          <div>
+            <span className="eyebrow">{"\u6e38\u620f\u7ae0\u8282"}</span>
+            <h1>{"\u786c\u4ef6\u914d\u7f6e\u6311\u6218"}</h1>
+            <p>{"\u6839\u636e\u5ba2\u6237\u9700\u6c42\u9009\u62e9 CPU\u3001\u5185\u5b58\u3001\u5b58\u50a8\u548c\u663e\u5361\uff0c\u5728\u76ee\u6807\u9884\u7b97\u5185\u8fbe\u6210\u901f\u5ea6\u3001\u5bb9\u91cf\u548c\u573a\u666f\u8981\u6c42\u3002"}</p>
+          </div>
+          <div className="hardware-score-card">
+            <span>{"\u5f53\u524d\u9884\u4f30"}</span>
+            <strong>{preview.score}</strong>
+            <small>{preview.passed ? "\u76ee\u6807\u8fbe\u6210" : "\u9700\u8981\u8c03\u6574"}</small>
+          </div>
+        </header>
+
+        <div className="hardware-game-grid">
+          <aside className="hardware-case-list">
+            {caseGroups.map((group) => (
+              <section key={group.id}>
+                <h2>{group.title}</h2>
+                {HARDWARE_GAME_CASES.filter((item) => item.chapter === group.id).map((item) => {
+                  const record = progress[item.id] ?? {};
+                  return (
+                    <button
+                      className={item.id === selectedHardwareCaseId ? "hardware-case active" : "hardware-case"}
+                      key={item.id}
+                      onClick={() => { setSelectedHardwareCaseId(item.id); setHardwareFeedback(null); }}
+                      type="button"
+                    >
+                      <strong>{item.title}</strong>
+                      <span>{record.bestScore ?? 0} / 100 ? {record.attempts ?? 0} {"\u6b21"}</span>
+                    </button>
+                  );
+                })}
+              </section>
+            ))}
+          </aside>
+
+          <section className="hardware-builder section-panel">
+            <div className="section-heading">
+              <div>
+                <h2>{selectedCase.title}</h2>
+                <p>{selectedCase.customer}</p>
+              </div>
+              <button className="primary-button" onClick={submitHardwareBuild} type="button">{"\u63d0\u4ea4\u65b9\u6848"}</button>
+            </div>
+
+            <div className="hardware-targets">
+              <span>{"\u9884\u7b97"} ? {selectedCase.targets.budget}</span>
+              <span>CPU ? {selectedCase.targets.cpu}</span>
+              <span>{"\u5185\u5b58"} ? {selectedCase.targets.memory}GB</span>
+              <span>{"\u5bb9\u91cf"} ? {selectedCase.targets.storageCapacity}GB</span>
+              <span>{"\u901f\u5ea6"} ? {selectedCase.targets.storageSpeed}</span>
+            </div>
+
+            <div className="hardware-part-grid">
+              {Object.entries(HARDWARE_PARTS).map(([category, parts]) => (
+                <div className="hardware-part-group" key={category}>
+                  <strong>{hardwareCategoryLabel(category)}</strong>
+                  {parts.map((part) => (
+                    <button
+                      className={hardwareSelection[category] === part.id ? "hardware-part selected" : "hardware-part"}
+                      key={part.id}
+                      onClick={() => setHardwareSelection((current) => ({ ...current, [category]: part.id }))}
+                      type="button"
+                    >
+                      <span>{part.name}</span>
+                      <small>?{part.price} ? {hardwarePartMetric(category, part)}</small>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <aside className="hardware-feedback section-panel">
+            <h2>{"\u76ee\u6807\u8fbe\u6210\u68c0\u6d4b"}</h2>
+            <div className="hardware-metrics">
+              <p><span>{"\u603b\u4ef7"}</span><strong>?{preview.metrics.totalPrice}</strong></p>
+              <p><span>CPU</span><strong>{preview.metrics.cpu}</strong></p>
+              <p><span>{"\u5185\u5b58"}</span><strong>{preview.metrics.memory}GB</strong></p>
+              <p><span>{"\u5b58\u50a8"}</span><strong>{preview.metrics.storageCapacity}GB / {preview.metrics.storageSpeed}</strong></p>
+              <p><span>{"\u56fe\u5f62"}</span><strong>{preview.metrics.gpu}</strong></p>
+            </div>
+            <div className="hardware-result-box">
+              <strong>{preview.passed ? "\u5df2\u6ee1\u8db3\u5ba2\u6237\u76ee\u6807" : "\u5c1a\u672a\u8fbe\u6210\u76ee\u6807"}</strong>
+              <p>{preview.explanation}</p>
+              {(hardwareFeedback ?? preview).errors.length > 0 ? (
+                <div className="hardware-error-list">
+                  {(hardwareFeedback ?? preview).errors.map((error) => <span key={error.type}>{error.type}</span>)}
+                </div>
+              ) : null}
+            </div>
+          </aside>
+        </div>
       </div>
     );
   }

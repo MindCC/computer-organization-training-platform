@@ -33,6 +33,9 @@ const text = {
   passed: "\u672c\u5173\u901a\u8fc7",
   backHome: "\u8fd4\u56de\u8bfe\u7a0b\u9996\u9875",
   records: "\u5b66\u4e60\u8bb0\u5f55",
+  hardwareGame: "\u786c\u4ef6\u914d\u7f6e\u6311\u6218",
+  submitPlan: "\u63d0\u4ea4\u65b9\u6848",
+  goalReached: "\u5df2\u6ee1\u8db3\u5ba2\u6237\u76ee\u6807",
   recordsTitle: "\u4e2a\u4eba\u5b66\u60c5\u8bb0\u5f55",
   dataJourney: "\u6570\u636e\u65c5\u7a0b",
   journeyCheckpoint: "\u6570\u636e\u65c5\u7a0b\u68c0\u67e5\u70b9",
@@ -121,6 +124,12 @@ for (const challenge of CIRCUIT_CHALLENGES) {
   await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
 }
 
+await openHardwareGame(page);
+await assertVisible(page, text.hardwareGame);
+await page.getByRole("button", { name: text.submitPlan }).click();
+await assertVisible(page, text.goalReached);
+await page.screenshot({ path: artifactPath("student-hardware-game.png"), fullPage: true });
+
 await openRecords(page);
 await assertVisible(page, text.recordsTitle);
 await page.reload({ waitUntil: "networkidle" });
@@ -133,7 +142,7 @@ await login(page, teacherUsername, teacherPassword);
 await assertVisible(page, text.teacherHeading);
 await selectClass(page, text.className);
 await assertVisible(page, text.studentName);
-await assertVisible(page, "100%");
+await assertVisible(page, text.hardwareGame);
 await page.locator(".teacher-student-table .record-row").filter({ hasText: text.studentName }).last().getByRole("button", { name: text.viewDetail }).click();
 const detailPanel = page.locator(".teacher-detail-panel");
 await detailPanel.waitFor({ state: "visible", timeout: 10_000 });
@@ -170,6 +179,10 @@ async function openChallenge(targetPage, title) {
 
 async function openRecords(targetPage) {
   await targetPage.locator(".sidebar-nav .nav-item").filter({ hasText: text.records }).click();
+}
+
+async function openHardwareGame(targetPage) {
+  await targetPage.locator(".sidebar-nav .nav-item").filter({ hasText: text.hardwareGame }).click();
 }
 
 async function selectClass(targetPage, className) {
