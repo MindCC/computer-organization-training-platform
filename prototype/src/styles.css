@@ -4784,3 +4784,138 @@ textarea:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Hardware challenge polish */
+.hardware-game-page {
+  animation: viewFadeIn 180ms ease-out;
+}
+
+.hardware-game-hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.hardware-game-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto 28px 0 auto;
+  width: 210px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--blue), var(--teal));
+  opacity: 0.72;
+}
+
+.hardware-score-card {
+  align-self: stretch;
+  min-height: 142px;
+  box-shadow: 0 20px 42px rgba(20, 58, 99, 0.18);
+}
+
+.hardware-case,
+.hardware-part {
+  transition: transform 150ms ease, border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.hardware-case:hover,
+.hardware-part:hover {
+  transform: translateY(-1px);
+  border-color: rgba(40, 109, 232, 0.26);
+  box-shadow: 0 12px 26px rgba(46, 65, 89, 0.09);
+}
+
+.hardware-case.active,
+.hardware-part.selected {
+  position: relative;
+}
+
+.hardware-case.active::before,
+.hardware-part.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: var(--teal);
+}
+
+.hardware-targets span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border: 1px solid rgba(20, 58, 99, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.hardware-metrics p {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.hardware-metrics p.ok {
+  border-color: rgba(43, 169, 142, 0.18);
+  background: rgba(229, 247, 241, 0.72);
+}
+
+.hardware-metrics p.warn {
+  border-color: rgba(216, 93, 77, 0.18);
+  background: rgba(255, 240, 236, 0.76);
+}
+
+.hardware-metrics p.ok strong {
+  color: #147461;
+}
+
+.hardware-metrics p.warn strong {
+  color: var(--danger);
+}
+
+.hardware-result-box {
+  border: 1px solid rgba(20, 58, 99, 0.08);
+}
+
+.hardware-result-box.passed {
+  border-color: rgba(43, 169, 142, 0.28);
+  background: linear-gradient(180deg, rgba(229, 247, 241, 0.95), rgba(255, 255, 255, 0.84));
+}
+
+.hardware-result-box.needs-work {
+  border-color: rgba(214, 143, 47, 0.26);
+  background: linear-gradient(180deg, rgba(255, 247, 232, 0.95), rgba(255, 255, 255, 0.84));
+}
+
+.hardware-teacher-stat,
+.hardware-teacher-list {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(238, 245, 247, 0.62));
+  box-shadow: 0 10px 24px rgba(46, 65, 89, 0.07);
+}
+
+.hardware-teacher-list span {
+  border-radius: 12px;
+  color: var(--ink);
+  line-height: 1.45;
+}
+
+.hardware-teacher-list span small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .hardware-game-hero::after {
+    left: 28px;
+    right: 28px;
+    width: auto;
+  }
+
+  .hardware-score-card {
+    min-height: 118px;
+  }
+}

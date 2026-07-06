@@ -176,3 +176,14 @@ function buildHardwareExplanation(gameCase, errors) {
   }
   return `\u5f53\u524d\u914d\u7f6e\u8fd8\u6ca1\u6709\u6ee1\u8db3 ${gameCase.title}\uff1a${errors.map((error) => error.type).join("\u3001")}\u3002`;
 }
+
+export function hardwareCaseTitle(caseId) {
+  return HARDWARE_GAME_CASES.find((item) => item.id === caseId)?.title ?? caseId;
+}
+
+export function formatHardwareBuildParts(parts = {}) {
+  return [parts.cpu, parts.memory, parts.storage, parts.gpu]
+    .filter(Boolean)
+    .map((part) => part.name)
+    .join(" / ");
+}

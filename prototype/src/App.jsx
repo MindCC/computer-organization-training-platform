@@ -64,7 +64,7 @@ import {
   getJourneyStepsForChallenge,
 } from "./dataJourney.js";
 import { buildMachineNumberExercise, encodeSignedInteger } from "./numberEncoding.js";
-import { HARDWARE_GAME_CASES, HARDWARE_PARTS, gradeHardwareBuild } from "./hardwareGame.js";
+import { HARDWARE_GAME_CASES, HARDWARE_PARTS, formatHardwareBuildParts, gradeHardwareBuild, hardwareCaseTitle } from "./hardwareGame.js";
 import { api } from "./apiClient.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
@@ -1329,13 +1329,13 @@ export function App() {
                 <div className="hardware-teacher-list">
                   <strong>{"\u9ad8\u9891\u74f6\u9888"}</strong>
                   {hardwareSummary.frequentBottlenecks.length ? hardwareSummary.frequentBottlenecks.slice(0, 4).map((item) => (
-                    <span key={item.type}>{item.type} ? {item.count}</span>
+                    <span key={item.type}>{item.type} · {item.count}</span>
                   )) : <p className="empty-state">{"\u6682\u65e0\u6e38\u620f\u63d0\u4ea4\u6570\u636e"}</p>}
                 </div>
                 <div className="hardware-teacher-list">
                   <strong>{"\u5178\u578b\u9ad8\u5206\u914d\u7f6e"}</strong>
                   {hardwareSummary.typicalBuilds.length ? hardwareSummary.typicalBuilds.slice(0, 3).map((item) => (
-                    <span key={item.caseId}>{item.caseId} ? {item.score}</span>
+                    <span key={item.caseId}>{hardwareCaseTitle(item.caseId)} · {item.score}<small>{formatHardwareBuildParts(item.parts)}</small></span>
                   )) : <p className="empty-state">{"\u6682\u65e0\u9ad8\u5206\u914d\u7f6e"}</p>}
                 </div>
               </div>
@@ -1788,7 +1788,7 @@ export function App() {
                       type="button"
                     >
                       <strong>{item.title}</strong>
-                      <span>{record.bestScore ?? 0} / 100 ? {record.attempts ?? 0} {"\u6b21"}</span>
+                      <span>{record.bestScore ?? 0} / 100 · {record.attempts ?? 0} {"\u6b21"}</span>
                     </button>
                   );
                 })}
@@ -1806,11 +1806,11 @@ export function App() {
             </div>
 
             <div className="hardware-targets">
-              <span>{"\u9884\u7b97"} ? {selectedCase.targets.budget}</span>
-              <span>CPU ? {selectedCase.targets.cpu}</span>
-              <span>{"\u5185\u5b58"} ? {selectedCase.targets.memory}GB</span>
-              <span>{"\u5bb9\u91cf"} ? {selectedCase.targets.storageCapacity}GB</span>
-              <span>{"\u901f\u5ea6"} ? {selectedCase.targets.storageSpeed}</span>
+              <span>{"\u9884\u7b97\u4e0d\u8d85\u8fc7"} {selectedCase.targets.budget} {"\u5143"}</span>
+              <span>CPU {"\u2265"} {selectedCase.targets.cpu}</span>
+              <span>{"\u5185\u5b58"} {"\u2265"} {selectedCase.targets.memory}GB</span>
+              <span>{"\u5bb9\u91cf"} {"\u2265"} {selectedCase.targets.storageCapacity}GB</span>
+              <span>{"\u901f\u5ea6"} {"\u2265"} {selectedCase.targets.storageSpeed}</span>
             </div>
 
             <div className="hardware-part-grid">
@@ -1825,7 +1825,7 @@ export function App() {
                       type="button"
                     >
                       <span>{part.name}</span>
-                      <small>?{part.price} ? {hardwarePartMetric(category, part)}</small>
+                      <small>{part.price} {"\u5143"} · {hardwarePartMetric(category, part)}</small>
                     </button>
                   ))}
                 </div>
@@ -1836,13 +1836,13 @@ export function App() {
           <aside className="hardware-feedback section-panel">
             <h2>{"\u76ee\u6807\u8fbe\u6210\u68c0\u6d4b"}</h2>
             <div className="hardware-metrics">
-              <p><span>{"\u603b\u4ef7"}</span><strong>?{preview.metrics.totalPrice}</strong></p>
-              <p><span>CPU</span><strong>{preview.metrics.cpu}</strong></p>
-              <p><span>{"\u5185\u5b58"}</span><strong>{preview.metrics.memory}GB</strong></p>
-              <p><span>{"\u5b58\u50a8"}</span><strong>{preview.metrics.storageCapacity}GB / {preview.metrics.storageSpeed}</strong></p>
-              <p><span>{"\u56fe\u5f62"}</span><strong>{preview.metrics.gpu}</strong></p>
+              <p className={preview.metrics.totalPrice <= preview.targets.budget ? "ok" : "warn"}><span>{"\u603b\u4ef7"}</span><strong>{preview.metrics.totalPrice} {"\u5143"}</strong></p>
+              <p className={preview.metrics.cpu >= preview.targets.cpu ? "ok" : "warn"}><span>CPU</span><strong>{preview.metrics.cpu}</strong></p>
+              <p className={preview.metrics.memory >= preview.targets.memory ? "ok" : "warn"}><span>{"\u5185\u5b58"}</span><strong>{preview.metrics.memory}GB</strong></p>
+              <p className={preview.metrics.storageCapacity >= preview.targets.storageCapacity && preview.metrics.storageSpeed >= preview.targets.storageSpeed ? "ok" : "warn"}><span>{"\u5b58\u50a8"}</span><strong>{preview.metrics.storageCapacity}GB / {preview.metrics.storageSpeed}</strong></p>
+              <p className={preview.metrics.gpu >= preview.targets.gpu ? "ok" : "warn"}><span>{"\u56fe\u5f62"}</span><strong>{preview.metrics.gpu}</strong></p>
             </div>
-            <div className="hardware-result-box">
+            <div className={preview.passed ? "hardware-result-box passed" : "hardware-result-box needs-work"}>
               <strong>{preview.passed ? "\u5df2\u6ee1\u8db3\u5ba2\u6237\u76ee\u6807" : "\u5c1a\u672a\u8fbe\u6210\u76ee\u6807"}</strong>
               <p>{preview.explanation}</p>
               {(hardwareFeedback ?? preview).errors.length > 0 ? (
