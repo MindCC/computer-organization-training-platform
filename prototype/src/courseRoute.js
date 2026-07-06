@@ -56,9 +56,7 @@ export function buildCourseRouteGroups(challenges, progress = {}) {
     id: group.id,
     title: group.title,
     description: group.description,
-    items: group.challengeIds
-      .map((id) => buildRouteItem(id, challengeMap.get(id), progress[id], group.description))
-      .filter(Boolean),
+    items: group.challengeIds.map((id) => buildRouteItem(id, challengeMap.get(id), progress[id], group.description)),
   }));
 }
 
@@ -82,18 +80,16 @@ export function findNextRecommendedChallenge(challenges, progress = {}) {
 }
 
 function buildRouteItem(id, challenge, record = {}, fallbackDescription) {
-  if (!challenge) {
-    return null;
-  }
+  const fallback = LEARNING_ITEM_MAP.get(id) ?? {};
 
   return {
     id,
-    title: challenge.title,
-    description: challenge.objective ?? fallbackDescription,
+    title: challenge?.title ?? fallback.title ?? id,
+    description: challenge?.objective ?? fallbackDescription ?? fallback.shortTitle ?? "",
     status: record.status ?? "not-started",
     bestScore: record.bestScore ?? 0,
     attempts: record.attempts ?? 0,
-    estimatedMinutes: challenge.estimatedMinutes ?? 8,
+    estimatedMinutes: challenge?.estimatedMinutes ?? fallback.estimatedMinutes ?? 8,
   };
 }
 
