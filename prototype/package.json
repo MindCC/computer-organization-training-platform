@@ -11,7 +11,8 @@
     "server": "node server/server.js",
     "dev:server": "node server/server.js",
     "migrate": "node server/migrate.js",
-    "seed:teacher": "node server/seedTeacher.js"
+    "seed:teacher": "node server/seedTeacher.js",
+    "seed:demo": "node server/seedDemoClassroom.js"
   },
   "dependencies": {
     "@fontsource/manrope": "^5.2.8",

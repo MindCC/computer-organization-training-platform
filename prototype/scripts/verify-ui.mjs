@@ -28,7 +28,7 @@ const text = {
   viewReference: "\u67e5\u770b\u53c2\u8003\u7ed3\u6784",
   fillReference: "\u586b\u5165\u53c2\u8003\u7ed3\u6784",
   casePanel: "\u7528\u4f8b\u5c55\u793a",
-  liveDataFlow: "\u5b9e\u65f6\u6570\u636e\u6d41\u52a8\u68c0\u6d4b",
+  liveDataFlow: "\u5b9e\u65f6\u6570\u636e\u6d41\u68c0\u6d4b",
   submit: "\u63d0\u4ea4\u68c0\u6d4b",
   passed: "\u672c\u5173\u901a\u8fc7",
   backHome: "\u8fd4\u56de\u8bfe\u7a0b\u9996\u9875",
@@ -104,9 +104,9 @@ assert.match(csvText, new RegExp(text.studentName));
 
 await logout(page);
 await login(page, text.studentNo, text.studentPassword);
-await assertVisible(page, "\u8fd0\u7b97\u5668\u95ef\u5173\u8def\u5f84");
+await assertVisible(page, "\u8bfe\u7a0b\u8def\u7ebf\u5730\u56fe");
 await assertNoVisibleMojibake(page, "student home");
-await assertVisible(page, text.dataJourney);
+await assertVisible(page, "\u5b66\u4e60\u72b6\u6001");
 
 for (const challenge of legacyOverviewChallenges) {
   await openChallenge(page, challenge.title);
@@ -215,7 +215,7 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   await targetPage.getByTestId("react-flow-circuit-canvas").waitFor({ state: "visible", timeout: 10_000 });
   await workbench.getByText(challenge.title).first().waitFor({ state: "visible", timeout: 10_000 });
   await workbench.getByText(text.casePanel).waitFor({ state: "visible", timeout: 10_000 });
-  await workbench.getByText(text.liveDataFlow).waitFor({ state: "visible", timeout: 10_000 });
+  await targetPage.getByText(text.liveDataFlow).first().waitFor({ state: "visible", timeout: 10_000 });
   await waitForReactFlowNodeCount(targetPage, challenge);
   if (challenge.id === "data-flow") {
     await dragRequiredEdge(targetPage, challenge.requiredEdges[0]);

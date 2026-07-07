@@ -4919,3 +4919,351 @@ textarea:focus-visible {
     min-height: 118px;
   }
 }
+
+/* ── Route Map ── */
+.route-map {
+  display: grid;
+  gap: 18px;
+}
+
+.route-map-header {
+  display: grid;
+  gap: 6px;
+}
+
+.route-map-header h1 {
+  margin: 8px 0;
+  font-size: clamp(2rem, 4vw, 3.1rem);
+  line-height: 1;
+}
+
+.route-map-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 18px;
+  align-items: start;
+}
+
+.route-map-main {
+  display: grid;
+  gap: 14px;
+}
+
+.route-map-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow-soft);
+  padding: 18px;
+}
+
+.route-map-group-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.route-map-group-header h2 {
+  margin: 0 0 4px;
+}
+
+.route-map-group-header p {
+  color: var(--muted);
+}
+
+.route-map-group-progress {
+  min-width: 54px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--teal-soft);
+  color: var(--teal);
+  font-weight: 800;
+  text-align: center;
+}
+
+.route-map-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.route-card {
+  display: grid;
+  gap: 7px;
+  min-height: 128px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.route-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.route-card-status {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.route-card-status.completed {
+  background: rgba(43, 169, 142, 0.14);
+  color: var(--teal);
+}
+
+.route-card-status.in-progress {
+  background: rgba(40, 109, 232, 0.14);
+  color: var(--navy);
+}
+
+.route-card-status.not-started {
+  background: rgba(147, 157, 175, 0.12);
+  color: var(--muted);
+}
+
+.route-card.completed {
+  border-color: rgba(43, 169, 142, 0.32);
+  background: rgba(229, 247, 241, 0.72);
+}
+
+.route-card.in-progress {
+  border-color: rgba(40, 109, 232, 0.32);
+  background: rgba(238, 245, 247, 0.9);
+}
+
+.route-card strong {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.route-card p {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.route-card-footer {
+  display: flex;
+  justify-content: space-between;
+  color: var(--navy);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.next-step-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow-soft);
+  align-items: center;
+}
+
+.next-step-card-body {
+  display: grid;
+  gap: 6px;
+}
+
+.next-step-card-meta {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.82rem;
+}
+
+.next-step-card-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.route-map-sidebar {
+  display: grid;
+  gap: 12px;
+}
+
+.route-map-sidebar-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow-soft);
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.route-map-stat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+
+.route-map-note {
+  display: grid;
+  gap: 3px;
+}
+
+.route-map-note p {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 1100px) {
+  .route-map-body {
+    grid-template-columns: 1fr;
+  }
+
+  .route-map-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .route-map-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .next-step-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Teacher Settings & First-Use ── */
+.teacher-empty-action {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px dashed rgba(40, 109, 232, 0.34);
+  border-radius: var(--radius-md);
+  background: rgba(238, 245, 247, 0.72);
+}
+
+.teacher-empty-action p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(15, 23, 42, 0.5);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.settings-panel {
+  width: min(720px, 100%);
+  max-height: calc(100vh - 60px);
+  overflow-y: auto;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 28px;
+  display: grid;
+  gap: 20px;
+}
+
+.settings-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-panel-header h2 {
+  margin: 0;
+}
+
+.settings-block {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.settings-block h3 {
+  margin: 0 0 4px;
+}
+
+.teacher-import-settings textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
+.teacher-action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.first-use-guide ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.first-use-guide li {
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+/* ── Realtime Diagnostics ── */
+.realtime-diagnostics {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.realtime-diagnostics.passed {
+  border-color: rgba(43, 169, 142, 0.28);
+  background: rgba(229, 247, 241, 0.72);
+}
+
+.diagnostic-test-list {
+  display: grid;
+  gap: 8px;
+}
+
+.diagnostic-test-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(238, 245, 247, 0.86);
+}
+
+.diagnostic-issues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.diagnostic-issues span {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: var(--danger);
+  background: var(--danger-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}

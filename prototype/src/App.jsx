@@ -65,6 +65,8 @@ import {
 } from "./dataJourney.js";
 import { buildMachineNumberExercise, encodeSignedInteger } from "./numberEncoding.js";
 import { HARDWARE_GAME_CASES, HARDWARE_PARTS, formatHardwareBuildParts, gradeHardwareBuild, hardwareCaseTitle } from "./hardwareGame.js";
+import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRoute.js";
+import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { api } from "./apiClient.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
@@ -526,6 +528,8 @@ export function App() {
     const currentIndex = CHALLENGES.findIndex((challenge) => challenge.id === focusChallenge.id);
     return CHALLENGES[currentIndex + 1] ?? CHALLENGES[currentIndex] ?? CHALLENGES[0];
   }, [focusChallenge]);
+  const routeGroups = useMemo(() => buildCourseRouteGroups(CHALLENGES, progress), [progress]);
+  const nextRecommendedChallenge = useMemo(() => findNextRecommendedChallenge(CHALLENGES, progress), [progress]);
   const currentRecord = progress[selectedChallengeId];
   const activeStep = simulation.steps[Math.min(simulationStep, simulation.steps.length - 1)];
   const selectedSlot = placementBlueprint.find((slot) => slot.displayLabel === selectedComponent) ?? null;
@@ -543,6 +547,15 @@ export function App() {
   const wirePreviewCopy = useMemo(
     () => describeWirePreview(wireDrag?.startEndpoint ?? null, wireHoverEndpoint, wirePreviewStatus),
     [wireDrag, wireHoverEndpoint, wirePreviewStatus],
+  );
+  const realtimeDiagnostics = useMemo(
+    () => buildRealtimeDiagnostics({
+      challengeId: currentChallenge.id,
+      connections,
+      inputState,
+      feedback,
+    }),
+    [currentChallenge.id, connections, inputState, feedback],
   );
 
   useEffect(() => {
@@ -659,6 +672,21 @@ export function App() {
   function changeView(view) {
     setActiveView(view);
     setStatusMessage(`已切换到${navItems.find((item) => item.id === view)?.label ?? "当前页面"}。`);
+  }
+
+  function navigateToChallenge(challengeId) {
+    if (challengeId.startsWith("game-")) {
+      setSelectedHardwareCaseId(challengeId);
+      setActiveView("hardware-game");
+      setStatusMessage("已进入硬件配置挑战。");
+      return;
+    }
+    const challenge = CHALLENGES.find((item) => item.id === challengeId);
+    if (challenge) {
+      selectChallenge(challengeId);
+      return;
+    }
+    changeView("lab");
   }
 
   function selectChallenge(challengeId) {
@@ -1042,7 +1070,6 @@ export function App() {
     return (
       <div className="app-shell lab-mode-shell">
         {renderLabStudioScreen()}
-        {showSettings ? renderSettingsModal() : null}
       </div>
     );
   }
@@ -1500,21 +1527,15 @@ export function App() {
           {teacherMessage ? <p className="teacher-message">{teacherMessage}</p> : null}
         </section>
 
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <h2>{selectedClass?.name ?? "请先创建或选择班级"}</h2>
-              <p>CSV 格式：学号,姓名,初始密码</p>
-            </div>
-            <div className="teacher-action-row">
-              <a className="ghost-button" download="student-import-template.csv" href={studentImportTemplateHref}>下载导入模板</a>
-              {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>导出 CSV</a> : null}
-            </div>
+        {(classOverview?.students ?? []).length === 0 ? (
+          <div className="teacher-empty-action">
+            <strong>还没有学生数据</strong>
+            <p>请先到课堂设置导入学生，或使用演示数据检查看板效果。</p>
+            <button className="primary-button" onClick={() => changeView("teacher")} type="button">
+              打开教师看板
+            </button>
           </div>
-          <textarea className="teacher-import-box" value={csvImportText} onChange={(event) => setCsvImportText(event.target.value)} />
-          <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">导入学生</button>
-        </section>
-
+        ) : (
         <section className="section-panel">
           <div className="metric-grid">
             <Metric icon={CheckCircle} label="学生数" value={classOverview?.summary.studentCount ?? 0} />
@@ -1537,6 +1558,7 @@ export function App() {
             ))}
           </div>
         </section>
+        )}
 
         {selectedTeacherStudent ? (
           <section className="section-panel teacher-detail-panel">
@@ -1596,156 +1618,107 @@ export function App() {
   }
 
   function renderHome() {
+    const recommended = nextRecommendedChallenge;
+    const sortedGroups = routeGroups.map((group) => ({
+      ...group,
+      completedCount: group.items.filter((item) => item.status === "completed").length,
+    }));
+
     return (
-      <div className="home-layout">
-        <section className="hero-panel">
-          <div className="hero-copy">
-            <span className="eyebrow">今日学习</span>
-            <h1>从输入、进位到 ALU，按路线把运算器搭起来。</h1>
-            <p>这不是一组孤立的课程卡，而是一条正在延伸的运算器装配线。沿着信号如何进入、分叉、传播和切换的顺序往前走，学生会更容易把每一关和整个计算过程连起来。</p>
-            <div className="hero-actions">
-              <button className="primary-button" onClick={() => selectChallenge(focusChallenge.id)} type="button">
-                <Play size={18} weight="fill" />
-                从当前关卡继续
-              </button>
-              <button className="ghost-button" onClick={() => changeView("records")} type="button">
-                查看学习记录
-              </button>
-            </div>
-            <div className="hero-badges">
-              <span>6 个核心关卡</span>
-              <span>动态信号演示</span>
-              <span>自动纠错反馈</span>
-            </div>
-          </div>
-          <div className="hero-module">
-            <span>当前正在搭建</span>
-            <strong>{focusChallenge.title}</strong>
-            <p>{challengeRouteMeta[focusChallenge.id]?.detail ?? focusChallenge.objective}</p>
-            <div className="progress-bar"><span style={{ width: `${summary.completionRate}%` }} /></div>
-            <small>路线进度 {summary.completionRate}% · 下一站 {upcomingChallenge.title}</small>
-            <div className="hero-module-stack">
-              <div>
-                <span>当前焦点</span>
-                <strong>{challengeRouteMeta[focusChallenge.id]?.focus ?? "核心结构"}</strong>
-              </div>
-              <div>
-                <span>本周目标</span>
-                <strong>{student.goal}</strong>
-              </div>
-            </div>
-          </div>
-        </section>
+      <div className="route-map">
+        <header className="route-map-header">
+          <span className="eyebrow">今日学习</span>
+          <h1>课程路线地图</h1>
+          <p>从信号流动到逻辑门，再到加法器和 ALU——顺着运算器的装配线一步步走完电路路线。</p>
+        </header>
 
-        <section className="metric-grid">
-          <Metric icon={CheckCircle} label="已完成关卡" value={`${summary.completed}/${summary.totalChallenges}`} />
-          <Metric icon={Target} label="平均得分" value={`${summary.averageScore}分`} />
-          <Metric icon={Flame} label="累计尝试" value={`${summary.totalAttempts}次`} />
-          <Metric icon={WarningCircle} label="当前薄弱点" value={summary.weakSpot} />
-        </section>
+        <div className="route-map-body">
+          <div className="route-map-main">
+            {recommended ? (
+              <NextStepCard
+                challenge={recommended}
+                progress={progress[recommended.id]}
+                onEnter={() => navigateToChallenge(recommended.id)}
+              />
+            ) : null}
 
-        <section className="section-panel data-journey-home">
-          <div className="section-heading">
-            <div>
-              <span className="eyebrow">数据旅程</span>
-              <h2>从一条指令看懂计算机工作过程</h2>
-              <p>学生作品里的数据旅程和三条总线思路已整理成课堂检查点，先看流程，再进入 React Flow 实验。</p>
-            </div>
-            <button className="ghost-button" onClick={() => selectChallenge("instruction-data")} type="button">进入指令和数据实验</button>
-          </div>
-          <div className="journey-strip">
-            {DATA_JOURNEY_STEPS.slice(1, 7).map((step, index) => (
-              <article className="journey-strip-card" key={step.id}>
-                <span>{String(index + 1).padStart(2, "0")}</span>
-                <strong>{step.title}</strong>
-                <code>{step.transfer}</code>
-                <small>{step.signalType} / {step.activeUnit}</small>
-              </article>
+            {sortedGroups.map((group) => (
+              <section className="route-map-group" key={group.id}>
+                <div className="route-map-group-header">
+                  <div>
+                    <h2>{group.title}</h2>
+                    <p>{group.description}</p>
+                  </div>
+                  <span className="route-map-group-progress">
+                    {group.completedCount} / {group.items.length}
+                  </span>
+                </div>
+                <div className="route-map-cards">
+                  {group.items.map((item) => (
+                    <button
+                      className={`route-card ${item.status}`}
+                      key={item.id}
+                      onClick={() => navigateToChallenge(item.id)}
+                      type="button"
+                    >
+                      <div className="route-card-top">
+                        <span className={`route-card-status ${item.status}`}>
+                          {item.status === "completed" ? "已完成" : item.status === "in-progress" ? "进行中" : "未开始"}
+                        </span>
+                        <small>{item.estimatedMinutes} 分钟</small>
+                      </div>
+                      <strong>{item.title}</strong>
+                      <p>{item.description}</p>
+                      <div className="route-card-footer">
+                        <span>得分 {item.bestScore}</span>
+                        <small>{item.attempts} 次尝试</small>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
-        </section>
 
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <h2>运算器闯关路径</h2>
-              <p>把每一关看成运算器上的一个功能模块，顺着信号路线逐步装起来。</p>
+          <aside className="route-map-sidebar">
+            <div className="route-map-sidebar-card">
+              <strong>学习状态</strong>
+              <div className="route-map-stat">
+                <span>完成率</span>
+                <span>{summary.completionRate}%</span>
+              </div>
+              <div className="route-map-stat">
+                <span>平均得分</span>
+                <span>{summary.averageScore} 分</span>
+              </div>
+              <div className="route-map-stat">
+                <span>累计尝试</span>
+                <span>{summary.totalAttempts} 次</span>
+              </div>
             </div>
-          </div>
-          <div className="route-board">
-            {CHALLENGES.map((challenge, index) => {
-              const record = progress[challenge.id];
-              const routeMeta = challengeRouteMeta[challenge.id];
-              return (
-                <div className="route-segment" key={challenge.id}>
-                  <button
-                    className={`route-node ${routeMeta.preview} ${statusTone(record.status)} ${challenge.id === selectedChallengeId ? "selected" : ""}`}
-                    onClick={() => selectChallenge(challenge.id)}
-                    type="button"
-                  >
-                    <div className="route-node-top">
-                      <span className="route-chip">{routeMeta.eyebrow}</span>
-                      <span className="route-step">0{index + 1}</span>
-                    </div>
-                    <RoutePreview kind={routeMeta.preview} />
-                    <strong>{challenge.title}</strong>
-                    <p>{routeMeta.summary}</p>
-                    <div className="route-node-meta">
-                      <span>{routeMeta.focus}</span>
-                      <small>{record.attempts} 次尝试 · {record.bestScore} 分</small>
-                    </div>
-                    <footer>
-                      <span>{statusText(record.status)}</span>
-                      <small>{challenge.estimatedMinutes} 分钟</small>
-                    </footer>
-                  </button>
-                  {index < CHALLENGES.length - 1 ? (
-                    <div className="route-connector" aria-hidden="true">
-                      <span />
-                    </div>
-                  ) : null}
+
+            <div className="route-map-sidebar-card">
+              <strong>当前薄弱点</strong>
+              <p>{summary.weakSpot}</p>
+            </div>
+
+            <div className="route-map-sidebar-card">
+              <strong>最近笔记</strong>
+              {notes.length > 0 ? (
+                <div className="route-map-note-list">
+                  {notes.slice(0, 2).map((note) => (
+                    <article className="route-map-note" key={note.id}>
+                      <strong>{note.title}</strong>
+                      <p>{note.content}</p>
+                    </article>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-          <div className="route-callout">
-            <strong>怎么看这条路线</strong>
-            <p>每一块模块都对应一个实际电路问题：先让信号走通，再看和位/进位，再把进位串联起来，最后引入选择控制和 ALU 汇总。</p>
-          </div>
-        </section>
-
-        <section className="two-column">
-          <article className="section-panel">
-            <div className="section-heading">
-              <h2>推荐下一步</h2>
-              <Star size={22} weight="fill" />
+              ) : (
+                <p className="empty-state">暂无笔记</p>
+              )}
             </div>
-            <div className="recommend-card">
-              <strong>{focusChallenge.title}还差最后一块关键结构</strong>
-              <p>{challengeRouteMeta[focusChallenge.id]?.detail ?? focusChallenge.objective}。先点进这一关，观察端口和路径，再补全缺失连线。</p>
-              <button className="primary-button" onClick={() => selectChallenge(focusChallenge.id)} type="button">继续当前关卡</button>
-            </div>
-          </article>
-
-          <article className="section-panel">
-            <div className="section-heading">
-              <h2>学生如何看懂这张图</h2>
-              <Cpu size={22} weight="fill" />
-            </div>
-            <div className="guide-list">
-              {[
-                "先看模块名字，知道这一关要解决的是数据流、进位还是选择控制。",
-                "再看中间的小电路缩略图，理解这一关的信号会怎么走。",
-                "最后点进关卡做实验，画布里的结构会和路线图保持同一套认知。",
-              ].map((item, index) => (
-                <div className="guide-row" key={item}>
-                  <span>{index + 1}</span>
-                  <p>{item}</p>
-                </div>
-              ))}
-            </div>
-          </article>
-        </section>
+          </aside>
+        </div>
       </div>
     );
   }
@@ -2087,6 +2060,25 @@ export function App() {
                 ) : (
                   <p className="lab-studio-feedback neutral"><Target size={18} /> 等待提交检测。</p>
                 )}
+              </section>
+              <section className={`realtime-diagnostics ${realtimeDiagnostics.status}`}>
+                <strong>实时数据流检测</strong>
+                <p>{realtimeDiagnostics.summary}</p>
+                <div className="diagnostic-test-list">
+                  {realtimeDiagnostics.testRows.map((row) => (
+                    <div className={row.passed ? "passed" : "needs-work"} key={row.label}>
+                      <span>{row.label}</span>
+                      <small>实际：{row.actual}</small>
+                    </div>
+                  ))}
+                </div>
+                {realtimeDiagnostics.issues.length ? (
+                  <div className="diagnostic-issues">
+                    {realtimeDiagnostics.issues.slice(0, 3).map((issue) => (
+                      <span key={`${issue.type}-${issue.message}`}>{issue.type}</span>
+                    ))}
+                  </div>
+                ) : null}
               </section>
             </div>
           </section>
@@ -2525,53 +2517,58 @@ export function App() {
     const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
 
     return (
-      <div className="modal-backdrop" onClick={() => setShowSettings(false)} role="presentation">
-        <section className={auth.user?.role === "teacher" ? "modal-card teacher-settings-modal" : "modal-card"} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
-          <div className="section-heading">
-            <div>
-              <h2>{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</h2>
-              <p>{auth.user?.role === "teacher" ? "管理课堂常用导入格式和本地部署入口。" : "这些设置会影响首页推荐和实验提示强度。"}</p>
-            </div>
+      <div className="settings-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
+        <div className="settings-panel">
+          <div className="settings-panel-header">
+            <h2>{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</h2>
             <button className="ghost-button" onClick={() => setShowSettings(false)} type="button">关闭</button>
           </div>
+
           {auth.user?.role === "teacher" ? (
-            <div className="settings-resource-list teacher-settings-page">
-              <section className="settings-section">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">学生导入</span>
-                    <h3>{selectedClass?.name ?? "请先创建或选择班级"}</h3>
-                    <p>CSV 列顺序固定为：学号、姓名、初始密码。导入会新增学生或更新同学号学生信息。</p>
-                  </div>
+            <>
+              <section className="settings-block first-use-guide">
+                <div>
+                  <span className="eyebrow">课堂首用</span>
+                  <h3>第一次上课建议按这 4 步走</h3>
                 </div>
-                <div className="teacher-import-actions">
-                  <a className="primary-button settings-template-link" download="student-import-template.csv" href={studentImportTemplateHref}>
+                <ol>
+                  <li>创建或选择班级。</li>
+                  <li>下载 CSV 模板并导入学生。</li>
+                  <li>用一个学生账号完成一次实验提交。</li>
+                  <li>回到教师看板查看完成率、高频错误和 AI 助教建议。</li>
+                </ol>
+                <p>演示环境可运行 <code>npm run seed:demo</code> 生成课堂样例数据。</p>
+              </section>
+
+              <section className="settings-block teacher-import-settings">
+                <div>
+                  <span className="eyebrow">学生导入</span>
+                  <h3>{selectedClass?.name ?? "请先创建或选择班级"}</h3>
+                  <p>CSV 列顺序固定为：学号、姓名、初始密码。导入会新增学生或更新同学号学生信息。</p>
+                </div>
+                <div className="teacher-action-row">
+                  <a className="ghost-button settings-template-link" download="student-import-template.csv" href={studentImportTemplateHref}>
                     下载学生导入模板
                   </a>
+                  {selectedTeacherClassId ? (
+                    <a className="ghost-button" href={`/api/teacher/classes/${selectedTeacherClassId}/export.csv`}>
+                      导出当前班级 CSV
+                    </a>
+                  ) : null}
                 </div>
                 <textarea
                   aria-label="学生导入 CSV"
-                  className="teacher-import-box settings-import-box"
-                  placeholder="学号,姓名,初始密码"
                   value={csvImportText}
                   onChange={(event) => setCsvImportText(event.target.value)}
+                  placeholder="学号,姓名,初始密码"
                 />
-                <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">导入学生</button>
+                <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">
+                  导入学生
+                </button>
               </section>
-
-              <section className="settings-section">
-                <div className="section-heading">
-                  <div>
-                    <span className="eyebrow">数据维护</span>
-                    <h3>课堂数据出口</h3>
-                    <p>用于阶段性备份或线下汇总成绩。</p>
-                  </div>
-                </div>
-                {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>导出当前班级 CSV</a> : <p className="empty-state">请选择班级后再导出。</p>}
-              </section>
-            </div>
+            </>
           ) : (
-            <>
+            <section className="settings-block">
               <label className="form-row">
                 <span>姓名</span>
                 <input value={student.name} onChange={(event) => updateStudent("name", event.target.value)} />
@@ -2588,16 +2585,12 @@ export function App() {
                   <option>挑战模式</option>
                 </select>
               </label>
-              <button
-                className="primary-button"
-                onClick={saveStudentSettings}
-                type="button"
-              >
+              <button className="primary-button" onClick={saveStudentSettings} type="button">
                 保存设置
               </button>
-            </>
+            </section>
           )}
-        </section>
+        </div>
       </div>
     );
   }
@@ -2645,6 +2638,30 @@ function Metric({ icon: Icon, label, value }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </article>
+  );
+}
+
+function NextStepCard({ challenge, progress, onEnter }) {
+  const record = progress ?? {};
+  return (
+    <div className="next-step-card">
+      <div className="next-step-card-body">
+        <span className="eyebrow">推荐下一步</span>
+        <strong>{challenge.title}</strong>
+        <p>{record.status === "in-progress" ? "继续完成本关实验，补全缺失连线。" : "进入本关，理解新的电路结构。"}</p>
+        <div className="next-step-card-meta">
+          <span>得分 {record.bestScore ?? 0}</span>
+          <small>{record.attempts ?? 0} 次尝试</small>
+          <span className={`next-step-card-status ${record.status ?? "not-started"}`}>
+            {record.status === "completed" ? "已完成" : record.status === "in-progress" ? "进行中" : "未开始"}
+          </span>
+        </div>
+      </div>
+      <button className="primary-button" onClick={onEnter} type="button">
+        <Play size={18} weight="fill" />
+        进入实验
+      </button>
+    </div>
   );
 }
 
