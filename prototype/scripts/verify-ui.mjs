@@ -126,6 +126,9 @@ for (const challenge of CIRCUIT_CHALLENGES) {
 
 await openHardwareGame(page);
 await assertVisible(page, text.hardwareGame);
+await assertVisible(page, "\u7535\u8111\u88c5\u673a\u5e97\u7ecf\u8425\u6311\u6218");
+await assertVisible(page, "\u5ba2\u6237\u6ee1\u610f\u5ea6");
+await assertVisible(page, "\u7ecf\u8425\u5229\u6da6");
 await page.getByRole("button", { name: text.submitPlan }).click();
 await assertVisible(page, text.goalReached);
 await page.screenshot({ path: artifactPath("student-hardware-game.png"), fullPage: true });
@@ -228,6 +231,9 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
     await assertVisible(targetPage, text.pcToMar);
   }
   if (challenge.id === "memory-address") {
+    await assertVisible(targetPage, "简化存储系统");
+    await assertVisible(targetPage, "地址译码");
+    await assertVisible(targetPage, "控制总线");
     await assertVisible(targetPage, "\u5730\u5740\u5bc4\u5b58\u5668MAR");
     await assertVisible(targetPage, "\u4e3b\u5b58\u5355\u5143");
     await assertVisible(targetPage, "\u6570\u636e\u5bc4\u5b58\u5668MDR");

@@ -74,7 +74,7 @@ test("demo classroom seed CLI runs from npm script entrypoint", async () => {
     const db = new Database(databasePath);
     createUser(db, {
       username: "teacher",
-      displayName: "????",
+      displayName: "任课教师",
       role: "teacher",
       passwordHash: await hashPassword("Teacher123!"),
     });

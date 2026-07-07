@@ -67,6 +67,7 @@ import { buildMachineNumberExercise, encodeSignedInteger } from "./numberEncodin
 import { HARDWARE_GAME_CASES, HARDWARE_PARTS, formatHardwareBuildParts, gradeHardwareBuild, hardwareCaseTitle } from "./hardwareGame.js";
 import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRoute.js";
 import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
+import { buildMemoryAccessState } from "./memorySystem.js";
 import { api } from "./apiClient.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
@@ -494,6 +495,9 @@ export function App() {
   const [selectedHardwareCaseId, setSelectedHardwareCaseId] = useState(HARDWARE_GAME_CASES[0].id);
   const [hardwareSelection, setHardwareSelection] = useState({ cpu: "cpu-i3", memory: "mem-8", storage: "ssd-512", gpu: "gpu-integrated" });
   const [hardwareFeedback, setHardwareFeedback] = useState(null);
+  const [memoryAddress, setMemoryAddress] = useState(6);
+  const [memoryOperation, setMemoryOperation] = useState("read");
+  const [memoryWriteValue, setMemoryWriteValue] = useState("10101100");
 
   const currentChallenge = useMemo(
     () => CHALLENGES.find((challenge) => challenge.id === selectedChallengeId) ?? CHALLENGES[0],
@@ -547,6 +551,10 @@ export function App() {
   const wirePreviewCopy = useMemo(
     () => describeWirePreview(wireDrag?.startEndpoint ?? null, wireHoverEndpoint, wirePreviewStatus),
     [wireDrag, wireHoverEndpoint, wirePreviewStatus],
+  );
+  const memoryAccessState = useMemo(
+    () => buildMemoryAccessState({ address: memoryAddress, operation: memoryOperation, writeValue: memoryWriteValue }),
+    [memoryAddress, memoryOperation, memoryWriteValue],
   );
   const realtimeDiagnostics = useMemo(
     () => buildRealtimeDiagnostics({
@@ -771,7 +779,7 @@ export function App() {
       elapsedMinutes: currentChallenge.estimatedMinutes,
     };
 
-    setFeedback(null);
+    setFeedback(normalizedResult);
     setProgress((current) => recordAttempt(current, selectedChallengeId, normalizedResult));
     setActivityLog((current) => [
       currentChallenge.title + " React Flow \u5de5\u4f5c\u53f0\u63d0\u4ea4" + (result.passed ? "\u901a\u8fc7" : "\u672a\u901a\u8fc7") + "\uff0c\u5f97\u5206 " + result.score + "\u3002",
@@ -1736,8 +1744,8 @@ export function App() {
         <header className="hardware-game-hero">
           <div>
             <span className="eyebrow">{"\u6e38\u620f\u7ae0\u8282"}</span>
-            <h1>{"\u786c\u4ef6\u914d\u7f6e\u6311\u6218"}</h1>
-            <p>{"\u6839\u636e\u5ba2\u6237\u9700\u6c42\u9009\u62e9 CPU\u3001\u5185\u5b58\u3001\u5b58\u50a8\u548c\u663e\u5361\uff0c\u5728\u76ee\u6807\u9884\u7b97\u5185\u8fbe\u6210\u901f\u5ea6\u3001\u5bb9\u91cf\u548c\u573a\u666f\u8981\u6c42\u3002"}</p>
+            <h1>{"\u7535\u8111\u88c5\u673a\u5e97\u7ecf\u8425\u6311\u6218"}</h1>
+            <p>{"\u626e\u6f14\u7535\u8111\u914d\u4ef6\u5e97\u8001\u677f\uff0c\u5728\u9884\u7b97\u3001\u6027\u80fd\u3001\u5bb9\u91cf\u3001\u62a5\u4ef7\u548c\u5229\u6da6\u4e4b\u95f4\u505a\u53d6\u820d\uff0c\u7ed9\u5ba2\u6237\u914d\u51fa\u80fd\u89e3\u91ca\u5f97\u6e05\u695a\u7684\u65b9\u6848\u3002"}</p>
           </div>
           <div className="hardware-score-card">
             <span>{"\u5f53\u524d\u9884\u4f30"}</span>
@@ -1778,6 +1786,16 @@ export function App() {
               <button className="primary-button" onClick={submitHardwareBuild} type="button">{"\u63d0\u4ea4\u65b9\u6848"}</button>
             </div>
 
+            <div className="hardware-business-strip">
+              <article className="hardware-business-card"><span>{"\u5ba2\u6237\u6ee1\u610f\u5ea6"}</span><strong>{preview.satisfaction}</strong><small>/ 100</small></article>
+              <article className="hardware-business-card"><span>{"\u65b9\u6848\u62a5\u4ef7"}</span><strong>{preview.quotePrice}</strong><small>{"\u5143"}</small></article>
+              <article className="hardware-business-card"><span>{"\u7ecf\u8425\u5229\u6da6"}</span><strong>{preview.profit}</strong><small>{"\u5143"}</small></article>
+            </div>
+
+            <div className="hardware-market-tags">
+              {preview.marketTags.map((tag) => <span key={tag}>{tag}</span>)}
+            </div>
+
             <div className="hardware-targets">
               <span>{"\u9884\u7b97\u4e0d\u8d85\u8fc7"} {selectedCase.targets.budget} {"\u5143"}</span>
               <span>CPU {"\u2265"} {selectedCase.targets.cpu}</span>
@@ -1807,7 +1825,7 @@ export function App() {
           </section>
 
           <aside className="hardware-feedback section-panel">
-            <h2>{"\u76ee\u6807\u8fbe\u6210\u68c0\u6d4b"}</h2>
+            <h2>{"\u5ba2\u6237\u53cd\u9988\u4e0e\u7ecf\u8425\u8bca\u65ad"}</h2>
             <div className="hardware-metrics">
               <p className={preview.metrics.totalPrice <= preview.targets.budget ? "ok" : "warn"}><span>{"\u603b\u4ef7"}</span><strong>{preview.metrics.totalPrice} {"\u5143"}</strong></p>
               <p className={preview.metrics.cpu >= preview.targets.cpu ? "ok" : "warn"}><span>CPU</span><strong>{preview.metrics.cpu}</strong></p>
@@ -1818,6 +1836,7 @@ export function App() {
             <div className={preview.passed ? "hardware-result-box passed" : "hardware-result-box needs-work"}>
               <strong>{preview.passed ? "\u5df2\u6ee1\u8db3\u5ba2\u6237\u76ee\u6807" : "\u5c1a\u672a\u8fbe\u6210\u76ee\u6807"}</strong>
               <p>{preview.explanation}</p>
+              <small>{preview.recommendation}</small>
               {(hardwareFeedback ?? preview).errors.length > 0 ? (
                 <div className="hardware-error-list">
                   {(hardwareFeedback ?? preview).errors.map((error) => <span key={error.type}>{error.type}</span>)}
@@ -2032,6 +2051,18 @@ export function App() {
 
             {journeySteps.length > 0 ? (
               <DataJourneyPanel steps={journeySteps} activeStep={activeStep} />
+            ) : null}
+
+            {currentChallenge.id === "memory-address" ? (
+              <MemorySystemPanel
+                address={memoryAddress}
+                operation={memoryOperation}
+                state={memoryAccessState}
+                writeValue={memoryWriteValue}
+                onAddressChange={setMemoryAddress}
+                onOperationChange={setMemoryOperation}
+                onWriteValueChange={setMemoryWriteValue}
+              />
             ) : null}
 
             {currentChallenge.id === "machine-number" ? (
@@ -3343,6 +3374,52 @@ function ChallengeCanvas({
         </div>
       </div>
     </div>
+  );
+}
+
+function MemorySystemPanel({ state, address, operation, writeValue, onAddressChange, onOperationChange, onWriteValueChange }) {
+  return (
+    <section className="memory-system-panel">
+      <div className="section-heading">
+        <div>
+          <span className="eyebrow">简化存储系统</span>
+          <h2>设置地址与译码 MDR 数据通路</h2>
+          <p>{state.explanation}</p>
+        </div>
+      </div>
+
+      <div className="memory-controls">
+        <label className="memory-address-control">
+          <span>MAR地址 {state.mar}</span>
+          <input type="range" min="0" max="15" value={address} onChange={(event) => onAddressChange(Number(event.target.value))} />
+        </label>
+        <div className="segmented-control" aria-label="操作模式">
+          <button className={operation === "read" ? "active" : ""} onClick={() => onOperationChange("read")} type="button">读</button>
+          <button className={operation === "write" ? "active" : ""} onClick={() => onOperationChange("write")} type="button">写</button>
+        </div>
+        <label className="memory-write-control">
+          <span>写入数据</span>
+          <input value={writeValue} onChange={(event) => onWriteValueChange(event.target.value)} maxLength={8} aria-label="写入数据" />
+        </label>
+      </div>
+
+      <div className="memory-bus-strip">
+        <span>MAR <strong>{state.mar}</strong></span>
+        <span>地址译码 <strong>R{state.decodedRow + 1} / C{state.decodedColumn + 1}</strong></span>
+        <span>控制总线 <strong>{state.controlBus}</strong></span>
+        <span>MDR <strong>{state.mdr}</strong></span>
+        <span>数据总线 <strong>{state.dataBus}</strong></span>
+      </div>
+
+      <div className="memory-matrix" aria-label="存储单元矩阵">
+        {state.cells.map((cell) => (
+          <div className={cell.selected ? "memory-cell selected" : "memory-cell"} key={cell.address}>
+            <small>{cell.binaryAddress}</small>
+            <strong>{cell.selected && operation === "write" ? state.mdr : cell.value}</strong>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 

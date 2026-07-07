@@ -89,6 +89,7 @@ export function gradeHardwareBuild(caseId, selection) {
   const metrics = buildHardwareMetrics(parts);
   const errors = buildHardwareErrors(gameCase.targets, metrics);
   const score = Math.max(0, 100 - errors.reduce((sum, error) => sum + error.penalty, 0));
+  const business = buildHardwareBusinessResult(gameCase, metrics, errors);
 
   return {
     passed: errors.length === 0,
@@ -98,6 +99,7 @@ export function gradeHardwareBuild(caseId, selection) {
     targets: gameCase.targets,
     selectedParts: parts,
     explanation: buildHardwareExplanation(gameCase, errors),
+    ...business,
   };
 }
 
@@ -168,6 +170,24 @@ function buildHardwareErrors(targets, metrics) {
   return checks
     .filter(([, , passed]) => !passed)
     .map(([type, message, , penalty]) => ({ type, message, penalty }));
+}
+
+function buildHardwareBusinessResult(gameCase, metrics, errors) {
+  const quotePrice = Math.round(metrics.totalPrice * 1.18 + 180);
+  const profit = Math.max(0, quotePrice - metrics.totalPrice);
+  const penalty = errors.reduce((sum, error) => sum + error.penalty, 0);
+  const overBudgetPenalty = Math.max(0, metrics.totalPrice - gameCase.targets.budget) / 50;
+  const satisfaction = Math.max(0, Math.min(100, 100 - penalty - overBudgetPenalty));
+  const marketTags = [
+    metrics.totalPrice <= gameCase.targets.budget ? "预算内" : "超预算",
+    metrics.storageSpeed >= gameCase.targets.storageSpeed ? "高速存储" : "低速存储",
+    metrics.memory >= gameCase.targets.memory ? "内存充足" : "内存不足",
+  ];
+  const recommendation = errors.length === 0
+    ? "配置完全满足客户需求，可以直接报价！"
+    : "建议优先升级" + errors[0].type + "后重新报价";
+
+  return { quotePrice, profit, satisfaction: Math.round(satisfaction), marketTags, recommendation };
 }
 
 function buildHardwareExplanation(gameCase, errors) {

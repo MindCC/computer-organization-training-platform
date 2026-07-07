@@ -73,3 +73,21 @@ test("hardware game formats teacher-facing case titles and build parts", () => {
   const result = gradeHardwareBuild("game-office-pc", { cpu: "cpu-i3", memory: "mem-8", storage: "ssd-512", gpu: "gpu-integrated" });
   assert.equal(formatHardwareBuildParts(result.selectedParts), "\u5165\u95e8\u7ea7 CPU / 8GB \u5185\u5b58 / 512GB \u56fa\u6001\u786c\u76d8 / \u96c6\u6210\u663e\u5361");
 });
+
+
+test("hardware game reports business metrics and customer recommendation", () => {
+  const result = gradeHardwareBuild("game-office-pc", {
+    cpu: "cpu-i5",
+    memory: "mem-16",
+    storage: "ssd-512",
+    gpu: "gpu-integrated",
+  });
+
+  assert.equal(typeof result.quotePrice, "number");
+  assert.equal(typeof result.profit, "number");
+  assert.equal(typeof result.satisfaction, "number");
+  assert.equal(result.satisfaction >= 0 && result.satisfaction <= 100, true);
+  assert.equal(Array.isArray(result.marketTags), true);
+  assert.equal(result.marketTags.length > 0, true);
+  assert.equal(typeof result.recommendation, "string");
+});

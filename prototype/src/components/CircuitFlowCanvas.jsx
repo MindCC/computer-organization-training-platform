@@ -19,8 +19,11 @@ import {
   flowEdgesToCircuitEdges,
 } from "../circuit/reactFlowMapping.js";
 import { CircuitNode } from "./CircuitNode.jsx";
+import { CircuitBridgeEdge } from "./CircuitBridgeEdge.jsx";
+import { findWireBridgeMarkers } from "../circuit/wireIntersections.js";
 
 const nodeTypes = { circuitNode: CircuitNode };
+const edgeTypes = { bridge: CircuitBridgeEdge };
 
 const copy = {
   actionDelete: "\u5220\u9664\u9009\u4e2d\u5bfc\u7ebf",
@@ -99,18 +102,28 @@ export function CircuitFlowCanvas({ model, onResult }) {
   const liveExpectedEntries = Object.entries(selectedCase?.expected ?? {});
   const liveCasePassed = liveExpectedEntries.length > 0
     && liveExpectedEntries.every(([key, expected]) => valuesMatch(liveSimulation.values?.[key], expected));
+  const bridgeMarkers = useMemo(() => findWireBridgeMarkers(edges, nodes), [edges, nodes]);
+  const bridgeMarkersByEdge = useMemo(() => {
+    const map = new Map();
+    for (const marker of bridgeMarkers) {
+      map.set(marker.edgeId, [...(map.get(marker.edgeId) ?? []), marker]);
+    }
+    return map;
+  }, [bridgeMarkers]);
 
   const displayEdges = useMemo(() => edges.map((edge) => {
     const value = liveSimulation.values?.[portValueKey(edge.source, edge.sourceHandle)];
     const tone = signalTone(value);
     return {
       ...edge,
+      type: "bridge",
       animated: value === 1,
       className: `signal-${tone}`,
       label: formatSignal(value),
       markerEnd: undefined,
+      data: { ...(edge.data ?? {}), bridgeMarkers: bridgeMarkersByEdge.get(edge.id) ?? [] },
     };
-  }), [edges, liveSimulation.values]);
+  }), [edges, bridgeMarkersByEdge, liveSimulation.values]);
 
   useEffect(() => {
     const nextFlow = circuitModelToFlow(model);
@@ -197,6 +210,7 @@ export function CircuitFlowCanvas({ model, onResult }) {
           <ReactFlow
             connectionMode={ConnectionMode.Loose}
             edges={displayEdges}
+            edgeTypes={edgeTypes}
             fitView
             nodes={nodes}
             nodeTypes={nodeTypes}
