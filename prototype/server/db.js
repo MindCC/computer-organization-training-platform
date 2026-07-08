@@ -96,6 +96,8 @@ export function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_class_members_student_id ON class_members(student_id);
     CREATE INDEX IF NOT EXISTS idx_attempts_student_id ON challenge_attempts(student_id);
   `);
+  ensureColumn(db, "notes", "challenge_id", "TEXT");
+  ensureColumn(db, "notes", "updated_at", "TEXT");
 }
 
 export function sanitizeUser(row) {
@@ -271,15 +273,65 @@ export function recordStudentAttempt(db, studentId, challengeId, result) {
   return next;
 }
 
-export function listNotes(db, studentId) {
+export function listNotes(db, studentId, filters = {}) {
+  const where = ["student_id = ?"];
+  const params = [studentId];
+  if (filters.query) {
+    where.push("(title LIKE ? OR content LIKE ? OR tag LIKE ?)");
+    const query = `%${String(filters.query).trim()}%`;
+    params.push(query, query, query);
+  }
+  if (filters.tag) {
+    where.push("tag = ?");
+    params.push(String(filters.tag).trim());
+  }
+  if (filters.challengeId) {
+    where.push("challenge_id = ?");
+    params.push(String(filters.challengeId).trim());
+  }
   return db.prepare(`
-    SELECT id, title, content, tag, created_at AS createdAt FROM notes WHERE student_id = ? ORDER BY id DESC
-  `).all(studentId);
+    SELECT id, title, content, tag, challenge_id AS challengeId, created_at AS createdAt, COALESCE(updated_at, created_at) AS updatedAt
+    FROM notes
+    WHERE ${where.join(" AND ")}
+    ORDER BY id DESC
+  `).all(...params);
 }
 
-export function createNote(db, studentId, { title, content, tag }) {
-  const result = db.prepare("INSERT INTO notes (student_id, title, content, tag) VALUES (?, ?, ?, ?)").run(studentId, title, content, tag);
-  return db.prepare("SELECT id, title, content, tag, created_at AS createdAt FROM notes WHERE id = ?").get(result.lastInsertRowid);
+export function createNote(db, studentId, { title, content, tag, challengeId = null }) {
+  const result = db.prepare(`
+    INSERT INTO notes (student_id, title, content, tag, challenge_id, updated_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `).run(studentId, title, content, tag, normalizeNullableText(challengeId));
+  return getOwnedNote(db, studentId, result.lastInsertRowid);
+}
+
+export function updateNote(db, studentId, noteId, fields = {}) {
+  const current = getOwnedNote(db, studentId, noteId);
+  if (!current) return null;
+  const next = {
+    title: fields.title === undefined ? current.title : String(fields.title).trim(),
+    content: fields.content === undefined ? current.content : String(fields.content).trim(),
+    tag: fields.tag === undefined ? current.tag : String(fields.tag).trim(),
+    challengeId: fields.challengeId === undefined ? current.challengeId : normalizeNullableText(fields.challengeId),
+  };
+  db.prepare(`
+    UPDATE notes
+    SET title = ?, content = ?, tag = ?, challenge_id = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND student_id = ?
+  `).run(next.title || "实验复盘", next.content, next.tag || "课堂笔记", next.challengeId, noteId, studentId);
+  return getOwnedNote(db, studentId, noteId);
+}
+
+export function deleteNote(db, studentId, noteId) {
+  const result = db.prepare("DELETE FROM notes WHERE id = ? AND student_id = ?").run(noteId, studentId);
+  return result.changes > 0;
+}
+
+function getOwnedNote(db, studentId, noteId) {
+  return db.prepare(`
+    SELECT id, title, content, tag, challenge_id AS challengeId, created_at AS createdAt, COALESCE(updated_at, created_at) AS updatedAt
+    FROM notes WHERE id = ? AND student_id = ?
+  `).get(noteId, studentId) ?? null;
 }
 
 export function getClassOverview(db, classId) {
@@ -363,6 +415,18 @@ export function summarizeClass(students) {
   return { studentCount: count, completionRate, averageScore, totalAttempts, weakSpot };
 }
 
+function ensureColumn(db, tableName, columnName, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+  if (!columns.some((column) => column.name === columnName)) {
+    db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`).run();
+  }
+}
+
+function normalizeNullableText(value) {
+  const text = String(value ?? "").trim();
+  return text || null;
+}
+
 function safeJson(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; }
   catch { return fallback; }
@@ -415,4 +479,5 @@ function buildStudentHardwareSummary(db, studentId) {
     completedCases: rows.length,
   };
 }
+
 

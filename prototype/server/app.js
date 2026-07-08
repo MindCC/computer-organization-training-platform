@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
 import { normalizeStudentAttemptPayload } from "./submissionValidation.js";
+import { buildStudentMarkdownReport } from "./studentReport.js";
 import {
   addStudentToClass,
   createClass,
@@ -11,6 +12,7 @@ import {
   createSession,
   createUser,
   deleteExpiredSessions,
+  deleteNote,
   deleteSession,
   getClassOverview,
   getSessionUser,
@@ -25,6 +27,7 @@ import {
   recordStudentAttempt,
   sanitizeUser,
   teacherOwnsClass,
+  updateNote,
   updateUserPassword,
   updateUserProfile,
 } from "./db.js";
@@ -200,7 +203,26 @@ export function createApp(options = {}) {
   });
 
   app.get("/api/student/notes", requireRole("student"), (req, res) => {
-    res.json({ notes: listNotes(db, req.user.id) });
+    res.json({
+      notes: listNotes(db, req.user.id, {
+        query: req.query.query,
+        tag: req.query.tag,
+        challengeId: req.query.challengeId,
+      }),
+    });
+  });
+
+  app.get("/api/student/report.md", requireRole("student"), (req, res) => {
+    const progress = getStudentProgress(db, req.user.id);
+    const markdown = buildStudentMarkdownReport({
+      user: sanitizeUser(req.user),
+      progress,
+      summary: summarizeLearning(LEARNING_ITEMS, progress),
+      notes: listNotes(db, req.user.id),
+    });
+    res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename=${req.user.username}-experiment-report.md`);
+    res.send(markdown);
   });
 
   app.post("/api/student/notes", requireRole("student"), (req, res) => {
@@ -210,8 +232,26 @@ export function createApp(options = {}) {
       title: String(req.body?.title ?? "实验复盘"),
       content,
       tag: String(req.body?.tag ?? "课堂笔记"),
+      challengeId: req.body?.challengeId,
     });
     res.status(201).json({ note });
+  });
+
+  app.put("/api/student/notes/:noteId", requireRole("student"), (req, res) => {
+    if (req.body?.content !== undefined && !String(req.body.content).trim()) return res.status(400).json({ error: "笔记内容不能为空" });
+    const note = updateNote(db, req.user.id, Number(req.params.noteId), {
+      title: req.body?.title,
+      content: req.body?.content,
+      tag: req.body?.tag,
+      challengeId: req.body?.challengeId,
+    });
+    if (!note) return res.status(404).json({ error: "笔记不存在" });
+    res.json({ note });
+  });
+
+  app.delete("/api/student/notes/:noteId", requireRole("student"), (req, res) => {
+    if (!deleteNote(db, req.user.id, Number(req.params.noteId))) return res.status(404).json({ error: "笔记不存在" });
+    res.json({ ok: true });
   });
 
   app.put("/api/student/profile", requireRole("student"), (req, res) => {
@@ -313,4 +353,6 @@ function serializeCookie(name, value, options = {}) {
   if (options.maxAge !== undefined) segments.push("Max-Age=" + options.maxAge);
   return segments.join("; " );
 }
+
+
 

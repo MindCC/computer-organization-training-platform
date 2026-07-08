@@ -119,6 +119,8 @@ sudo certbot --nginx -d training.example.com
 
 ## 数据文件与备份
 
+> **Phase 1 状态**（2026-07-08）：备份采用文档优先方案。当前不开放数据库下载 API，仅通过本文档的备份命令完成。后续阶段评估是否增加 admin 备份接口。参见 `docs/classroom-long-term-prd.md` P0-5。
+
 默认数据库路径由 `DATABASE_PATH` 指定。建议：
 
 - 正式库：`/var/lib/zcyl-training/classroom.sqlite`

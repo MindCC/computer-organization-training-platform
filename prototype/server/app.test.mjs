@@ -109,9 +109,43 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     result = await request(baseUrl, "/api/student/notes", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "复盘", content: "我理解了进位。", tag: "课堂" }),
+      body: JSON.stringify({ title: "复盘", content: "我理解了进位。", tag: "课堂", challengeId: "data-flow" }),
     }, studentJar);
     assert.equal(result.response.status, 201);
+    const noteId = result.body.note.id;
+    assert.equal(result.body.note.challengeId, "data-flow");
+
+    result = await request(baseUrl, "/api/student/notes?query=进位&challengeId=data-flow", {}, studentJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.notes.length, 1);
+
+    result = await request(baseUrl, `/api/student/notes/${noteId}`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "数据流复盘", content: "我理解了 CPU 到内存的数据流动。", tag: "数据流", challengeId: "data-flow" }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.note.title, "数据流复盘");
+
+    result = await request(baseUrl, "/api/student/notes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: "临时笔记", content: "下课前清理。", tag: "临时", challengeId: "and-gate" }),
+    }, studentJar);
+    const deletedNoteId = result.body.note.id;
+    result = await request(baseUrl, `/api/student/notes/${deletedNoteId}`, { method: "DELETE" }, studentJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.ok, true);
+
+    result = await request(baseUrl, "/api/student/report.md", {}, studentJar);
+    assert.equal(result.response.status, 200);
+    assert.match(result.response.headers.get("content-type"), /text\/markdown/);
+    assert.match(result.body, /# 计算机组成原理实验报告/);
+    assert.match(result.body, /学号：2026001/);
+    assert.match(result.body, /数据流/);
+    assert.match(result.body, /硬件配置/);
+    assert.match(result.body, /数据流复盘/);
+    assert.match(result.body, /CPU 到内存的数据流动/);
 
     result = await request(baseUrl, `/api/teacher/classes/${classId}/overview`, {}, teacherJar);
     assert.equal(result.response.status, 200);
@@ -237,6 +271,8 @@ test("unauthenticated and cross-role access is rejected", async () => {
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+
 
 
 

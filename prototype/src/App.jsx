@@ -2367,7 +2367,10 @@ export function App() {
               <h1>个人学情记录</h1>
               <p>这里记录通关、尝试次数、得分、错误类型和建议复习点。</p>
             </div>
-            <button className="ghost-button" onClick={() => changeView("lab")} type="button">继续实验</button>
+            <div className="toolbar-actions">
+              <a className="ghost-button" href="/api/student/report.md">导出实验报告</a>
+              <button className="ghost-button" onClick={() => changeView("lab")} type="button">继续实验</button>
+            </div>
           </div>
           <div className="metric-grid">
             <Metric icon={CheckCircle} label="完成率" value={`${summary.completionRate}%`} />
@@ -3373,4 +3376,5 @@ function formatMinutes(minutes) {
   const rest = safeMinutes % 60;
   return hours > 0 ? `${hours}小时${rest}分` : `${rest}分钟`;
 }
+
 
