@@ -1,6 +1,7 @@
 ﻿import { CHALLENGES } from "../src/platformLogic.js";
 import { getClassOverview, getStudentProgress, listClassStudents, teacherOwnsClass } from "./db.js";
 import { readDeepSeekConfig, requestChatCompletion } from "./aiClient.js";
+import { buildRuleBasedAssistantReport } from "./teacherFallbackRules.js";
 
 const REPORT_KEYS = [
   "lessonFocus",
@@ -83,53 +84,10 @@ export function buildTeacherAssistantMessages(payload) {
 }
 
 export function buildFallbackAssistantReport(payload, reason) {
-  const students = Array.isArray(payload?.students) ? payload.students : [];
-  const focus = normalizeFocus(payload?.summary?.weakSpot);
-  const atRisk = students
-    .filter((student) => (student.summary?.completionRate ?? 0) < 60 || (student.summary?.averageScore ?? 0) < 70)
-    .slice(0, 4);
-
   return {
     source: "fallback",
     generatedAt: new Date().toISOString(),
-    report: {
-      lessonFocus: students.length > 0
-        ? `建议下一节课重点复盘${focus}。`
-        : "请先导入学生并等待至少一次闯关提交后，再生成课堂建议。",
-      riskStudents: atRisk.map((student) => ({
-        studentId: student.id,
-        name: student.displayName,
-        reason: `完成率 ${student.summary?.completionRate ?? 0}% ，平均分 ${(student.summary?.averageScore ?? 0)}`,
-        suggestion: "先完成一轮教师引导复盘，再独立重做对应关卡并提交。",
-      })),
-      groupingPlan: students.length > 0
-        ? [
-            {
-              group: "基础巩固组",
-              criteria: "完成率低于 60% 或平均分低于 70 分",
-              activity: "复盘数据流方向、端口连接和关键进位路径。",
-            },
-            {
-              group: "提升挑战组",
-              criteria: "完成率不低于 80% 且平均分不低于 85 分",
-              activity: "尝试限时完成多位加法器或简化 ALU 挑战。",
-            },
-          ]
-        : [],
-      commonMisconceptions: payload?.summary?.weakSpot && payload.summary.weakSpot !== EMPTY_DATA_TEXT
-        ? [payload.summary.weakSpot]
-        : [],
-      nextClassPlan: students.length > 0
-        ? [
-            "5 分钟复盘输入端、输出端和连线方向。",
-            "8 分钟集中讲解班级高频错误。",
-            "10 分钟让学生重做对应关卡并再次提交。",
-          ]
-        : [],
-      teacherScript: students.length > 0
-        ? `今天先围绕${focus}做一次集中纠错，再让学生独立完成一轮提交。`
-        : "请先导入学生并收集至少一轮学习数据，助教报告会给出更具体的课堂建议。",
-    },
+    report: buildRuleBasedAssistantReport(payload),
     fallbackReason: normalizeReason(reason),
   };
 }
@@ -234,4 +192,5 @@ function normalizeReason(reason) {
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
+
 

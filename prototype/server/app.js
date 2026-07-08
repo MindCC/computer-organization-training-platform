@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
+import { normalizeStudentAttemptPayload } from "./submissionValidation.js";
 import {
   addStudentToClass,
   createClass,
@@ -192,9 +193,9 @@ export function createApp(options = {}) {
   });
 
   app.post("/api/student/attempts", requireRole("student"), (req, res) => {
-    const { challengeId, result } = req.body ?? {};
-    if (!LEARNING_ITEMS.some((challenge) => challenge.id === challengeId)) return res.status(400).json({ error: "\u672a\u77e5\u5173\u5361" });
-    const progress = recordStudentAttempt(db, req.user.id, challengeId, result ?? {});
+    const normalized = normalizeStudentAttemptPayload(req.body ?? {}, LEARNING_ITEMS);
+    if (!normalized.ok) return res.status(normalized.status).json({ error: normalized.error });
+    const progress = recordStudentAttempt(db, req.user.id, normalized.challengeId, normalized.result);
     res.status(201).json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress) });
   });
 
@@ -312,3 +313,4 @@ function serializeCookie(name, value, options = {}) {
   if (options.maxAge !== undefined) segments.push("Max-Age=" + options.maxAge);
   return segments.join("; " );
 }
+

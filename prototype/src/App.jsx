@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+﻿import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -63,8 +63,11 @@ import {
   buildTeacherJourneyGuidance,
   getJourneyStepsForChallenge,
 } from "./dataJourney.js";
-import { buildMachineNumberExercise, encodeSignedInteger } from "./numberEncoding.js";
-import { HARDWARE_GAME_CASES, HARDWARE_PARTS, formatHardwareBuildParts, gradeHardwareBuild, hardwareCaseTitle } from "./hardwareGame.js";
+import { HARDWARE_GAME_CASES, formatHardwareBuildParts, gradeHardwareBuild, hardwareCaseTitle } from "./hardwareGame.js";
+import { HardwareGamePage } from "./components/HardwareGamePage.jsx";
+import { MachineNumberPanel } from "./components/MachineNumberPanel.jsx";
+import { MemorySystemPanel } from "./components/MemorySystemPanel.jsx";
+import { MobileLabFallback } from "./components/MobileLabFallback.jsx";
 import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRoute.js";
 import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { buildMemoryAccessState } from "./memorySystem.js";
@@ -295,21 +298,6 @@ function statusText(status) {
   return "未解锁";
 }
 
-function hardwareCategoryLabel(category) {
-  return {
-    cpu: "CPU",
-    memory: "\u5185\u5b58",
-    storage: "\u5b58\u50a8",
-    gpu: "\u663e\u5361",
-  }[category] ?? category;
-}
-
-function hardwarePartMetric(category, part) {
-  if (category === "memory") return part.capacity + "GB";
-  if (category === "storage") return part.capacity + "GB / " + part.performance;
-  return "\u6027\u80fd " + part.performance;
-}
-
 function statusTone(status) {
   if (status === "completed") return "success";
   if (status === "in-progress") return "active";
@@ -498,6 +486,14 @@ export function App() {
   const [memoryAddress, setMemoryAddress] = useState(6);
   const [memoryOperation, setMemoryOperation] = useState("read");
   const [memoryWriteValue, setMemoryWriteValue] = useState("10101100");
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handler = (event) => setIsMobile(event.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
 
   const currentChallenge = useMemo(
     () => CHALLENGES.find((challenge) => challenge.id === selectedChallengeId) ?? CHALLENGES[0],
@@ -1177,7 +1173,7 @@ export function App() {
 
           {activeView === "home" ? renderHome() : null}
           {activeView === "records" ? renderRecords() : null}
-          {activeView === "hardware-game" ? renderHardwareGame() : null}
+          {activeView === "hardware-game" ? <HardwareGamePage hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} /> : null}
           {activeView === "notes" ? renderNotes() : null}
           {activeView === "teacher" ? renderTeacherStudioDashboard() : null}
         </main>
@@ -1618,6 +1614,49 @@ export function App() {
                   {selectedTeacherStudent.notes?.length ? null : <p className="empty-state">暂无笔记</p>}
                 </div>
               </div>
+              {selectedTeacherStudent.timeDistribution?.length > 0 ? (
+              <div>
+                <h3>耗时分布</h3>
+                <div className="teacher-progress-list">
+                  {selectedTeacherStudent.timeDistribution.slice(0, 6).map((item) => {
+                    const challenge = CHALLENGES.find((c) => c.id === item.challengeId);
+                    return (
+                      <div className="teacher-progress-row" key={item.challengeId}>
+                        <strong>{challenge?.title ?? item.challengeId}</strong>
+                        <span>{item.timeSpentMinutes} 分钟 · {item.attempts} 次</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              ) : null}
+              {selectedTeacherStudent.scoreTrends?.length > 0 ? (
+              <div>
+                <h3>得分趋势</h3>
+                <div className="teacher-attempt-list">
+                  {selectedTeacherStudent.scoreTrends.slice(0, 4).map((item) => {
+                    const challenge = CHALLENGES.find((c) => c.id === item.challengeId);
+                    return (
+                      <div className="teacher-attempt" key={item.challengeId}>
+                        <strong>{challenge?.title ?? item.challengeId}</strong>
+                        <span>最高 {item.best} 分 · {item.attempts} 次</span>
+                        <small>{item.scores.map((s) => s.score).join(" → ")}</small>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              ) : null}
+              {selectedTeacherStudent.hardwareSummary ? (
+              <div>
+                <h3>硬件挑战经营</h3>
+                <div className="metric-grid mini">
+                  <div className="metric"><strong>经营利润</strong><span>{selectedTeacherStudent.hardwareSummary.totalProfit} 元</span></div>
+                  <div className="metric"><strong>客户满意度</strong><span>{selectedTeacherStudent.hardwareSummary.avgSatisfaction} / 100</span></div>
+                  <div className="metric"><strong>最佳方案</strong><span>{LEARNING_ITEMS.find((c) => c.id === selectedTeacherStudent.hardwareSummary.bestCaseId)?.title ?? "-"}</span></div>
+                </div>
+              </div>
+              ) : null}
             </div>
           </section>
         ) : null}
@@ -1730,125 +1769,6 @@ export function App() {
       </div>
     );
   }
-
-  function renderHardwareGame() {
-    const selectedCase = HARDWARE_GAME_CASES.find((item) => item.id === selectedHardwareCaseId) ?? HARDWARE_GAME_CASES[0];
-    const preview = gradeHardwareBuild(selectedCase.id, hardwareSelection);
-    const caseGroups = [
-      { id: "overview", title: "\u7b2c\u4e00\u7ae0\u8ba1\u7b97\u673a\u6982\u8ff0" },
-      { id: "storage", title: "\u5b58\u50a8\u7cfb\u7edf" },
-    ];
-
-    return (
-      <div className="hardware-game-page">
-        <header className="hardware-game-hero">
-          <div>
-            <span className="eyebrow">{"\u6e38\u620f\u7ae0\u8282"}</span>
-            <h1>{"\u7535\u8111\u88c5\u673a\u5e97\u7ecf\u8425\u6311\u6218"}</h1>
-            <p>{"\u626e\u6f14\u7535\u8111\u914d\u4ef6\u5e97\u8001\u677f\uff0c\u5728\u9884\u7b97\u3001\u6027\u80fd\u3001\u5bb9\u91cf\u3001\u62a5\u4ef7\u548c\u5229\u6da6\u4e4b\u95f4\u505a\u53d6\u820d\uff0c\u7ed9\u5ba2\u6237\u914d\u51fa\u80fd\u89e3\u91ca\u5f97\u6e05\u695a\u7684\u65b9\u6848\u3002"}</p>
-          </div>
-          <div className="hardware-score-card">
-            <span>{"\u5f53\u524d\u9884\u4f30"}</span>
-            <strong>{preview.score}</strong>
-            <small>{preview.passed ? "\u76ee\u6807\u8fbe\u6210" : "\u9700\u8981\u8c03\u6574"}</small>
-          </div>
-        </header>
-
-        <div className="hardware-game-grid">
-          <aside className="hardware-case-list">
-            {caseGroups.map((group) => (
-              <section key={group.id}>
-                <h2>{group.title}</h2>
-                {HARDWARE_GAME_CASES.filter((item) => item.chapter === group.id).map((item) => {
-                  const record = progress[item.id] ?? {};
-                  return (
-                    <button
-                      className={item.id === selectedHardwareCaseId ? "hardware-case active" : "hardware-case"}
-                      key={item.id}
-                      onClick={() => { setSelectedHardwareCaseId(item.id); setHardwareFeedback(null); }}
-                      type="button"
-                    >
-                      <strong>{item.title}</strong>
-                      <span>{record.bestScore ?? 0} / 100 · {record.attempts ?? 0} {"\u6b21"}</span>
-                    </button>
-                  );
-                })}
-              </section>
-            ))}
-          </aside>
-
-          <section className="hardware-builder section-panel">
-            <div className="section-heading">
-              <div>
-                <h2>{selectedCase.title}</h2>
-                <p>{selectedCase.customer}</p>
-              </div>
-              <button className="primary-button" onClick={submitHardwareBuild} type="button">{"\u63d0\u4ea4\u65b9\u6848"}</button>
-            </div>
-
-            <div className="hardware-business-strip">
-              <article className="hardware-business-card"><span>{"\u5ba2\u6237\u6ee1\u610f\u5ea6"}</span><strong>{preview.satisfaction}</strong><small>/ 100</small></article>
-              <article className="hardware-business-card"><span>{"\u65b9\u6848\u62a5\u4ef7"}</span><strong>{preview.quotePrice}</strong><small>{"\u5143"}</small></article>
-              <article className="hardware-business-card"><span>{"\u7ecf\u8425\u5229\u6da6"}</span><strong>{preview.profit}</strong><small>{"\u5143"}</small></article>
-            </div>
-
-            <div className="hardware-market-tags">
-              {preview.marketTags.map((tag) => <span key={tag}>{tag}</span>)}
-            </div>
-
-            <div className="hardware-targets">
-              <span>{"\u9884\u7b97\u4e0d\u8d85\u8fc7"} {selectedCase.targets.budget} {"\u5143"}</span>
-              <span>CPU {"\u2265"} {selectedCase.targets.cpu}</span>
-              <span>{"\u5185\u5b58"} {"\u2265"} {selectedCase.targets.memory}GB</span>
-              <span>{"\u5bb9\u91cf"} {"\u2265"} {selectedCase.targets.storageCapacity}GB</span>
-              <span>{"\u901f\u5ea6"} {"\u2265"} {selectedCase.targets.storageSpeed}</span>
-            </div>
-
-            <div className="hardware-part-grid">
-              {Object.entries(HARDWARE_PARTS).map(([category, parts]) => (
-                <div className="hardware-part-group" key={category}>
-                  <strong>{hardwareCategoryLabel(category)}</strong>
-                  {parts.map((part) => (
-                    <button
-                      className={hardwareSelection[category] === part.id ? "hardware-part selected" : "hardware-part"}
-                      key={part.id}
-                      onClick={() => setHardwareSelection((current) => ({ ...current, [category]: part.id }))}
-                      type="button"
-                    >
-                      <span>{part.name}</span>
-                      <small>{part.price} {"\u5143"} · {hardwarePartMetric(category, part)}</small>
-                    </button>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <aside className="hardware-feedback section-panel">
-            <h2>{"\u5ba2\u6237\u53cd\u9988\u4e0e\u7ecf\u8425\u8bca\u65ad"}</h2>
-            <div className="hardware-metrics">
-              <p className={preview.metrics.totalPrice <= preview.targets.budget ? "ok" : "warn"}><span>{"\u603b\u4ef7"}</span><strong>{preview.metrics.totalPrice} {"\u5143"}</strong></p>
-              <p className={preview.metrics.cpu >= preview.targets.cpu ? "ok" : "warn"}><span>CPU</span><strong>{preview.metrics.cpu}</strong></p>
-              <p className={preview.metrics.memory >= preview.targets.memory ? "ok" : "warn"}><span>{"\u5185\u5b58"}</span><strong>{preview.metrics.memory}GB</strong></p>
-              <p className={preview.metrics.storageCapacity >= preview.targets.storageCapacity && preview.metrics.storageSpeed >= preview.targets.storageSpeed ? "ok" : "warn"}><span>{"\u5b58\u50a8"}</span><strong>{preview.metrics.storageCapacity}GB / {preview.metrics.storageSpeed}</strong></p>
-              <p className={preview.metrics.gpu >= preview.targets.gpu ? "ok" : "warn"}><span>{"\u56fe\u5f62"}</span><strong>{preview.metrics.gpu}</strong></p>
-            </div>
-            <div className={preview.passed ? "hardware-result-box passed" : "hardware-result-box needs-work"}>
-              <strong>{preview.passed ? "\u5df2\u6ee1\u8db3\u5ba2\u6237\u76ee\u6807" : "\u5c1a\u672a\u8fbe\u6210\u76ee\u6807"}</strong>
-              <p>{preview.explanation}</p>
-              <small>{preview.recommendation}</small>
-              {(hardwareFeedback ?? preview).errors.length > 0 ? (
-                <div className="hardware-error-list">
-                  {(hardwareFeedback ?? preview).errors.map((error) => <span key={error.type}>{error.type}</span>)}
-                </div>
-              ) : null}
-            </div>
-          </aside>
-        </div>
-      </div>
-    );
-  }
-
   function renderLabStudioScreen() {
     const currentIndex = CHALLENGES.findIndex((challenge) => challenge.id === currentChallenge.id);
     const routeMeta = challengeRouteMeta[currentChallenge.id] ?? {};
@@ -1971,6 +1891,9 @@ export function App() {
 
             <div className="lab-studio-canvas-shell">
               {currentCircuitModel ? (
+                isMobile ? (
+                  <MobileLabFallback challengeTitle={currentChallenge.title} />
+                ) : (
                 <Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}>
                   <CircuitFlowCanvas
                     key={currentCircuitModel.id}
@@ -1978,6 +1901,7 @@ export function App() {
                     onResult={handleCircuitFlowResult}
                   />
                 </Suspense>
+                )
               ) : (
                 <div className="lab-stage-layout legacy">
                   <aside className="lab-palette-panel">
@@ -3377,96 +3301,6 @@ function ChallengeCanvas({
   );
 }
 
-function MemorySystemPanel({ state, address, operation, writeValue, onAddressChange, onOperationChange, onWriteValueChange }) {
-  return (
-    <section className="memory-system-panel">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">简化存储系统</span>
-          <h2>设置地址与译码 MDR 数据通路</h2>
-          <p>{state.explanation}</p>
-        </div>
-      </div>
-
-      <div className="memory-controls">
-        <label className="memory-address-control">
-          <span>MAR地址 {state.mar}</span>
-          <input type="range" min="0" max="15" value={address} onChange={(event) => onAddressChange(Number(event.target.value))} />
-        </label>
-        <div className="segmented-control" aria-label="操作模式">
-          <button className={operation === "read" ? "active" : ""} onClick={() => onOperationChange("read")} type="button">读</button>
-          <button className={operation === "write" ? "active" : ""} onClick={() => onOperationChange("write")} type="button">写</button>
-        </div>
-        <label className="memory-write-control">
-          <span>写入数据</span>
-          <input value={writeValue} onChange={(event) => onWriteValueChange(event.target.value)} maxLength={8} aria-label="写入数据" />
-        </label>
-      </div>
-
-      <div className="memory-bus-strip">
-        <span>MAR <strong>{state.mar}</strong></span>
-        <span>地址译码 <strong>R{state.decodedRow + 1} / C{state.decodedColumn + 1}</strong></span>
-        <span>控制总线 <strong>{state.controlBus}</strong></span>
-        <span>MDR <strong>{state.mdr}</strong></span>
-        <span>数据总线 <strong>{state.dataBus}</strong></span>
-      </div>
-
-      <div className="memory-matrix" aria-label="存储单元矩阵">
-        {state.cells.map((cell) => (
-          <div className={cell.selected ? "memory-cell selected" : "memory-cell"} key={cell.address}>
-            <small>{cell.binaryAddress}</small>
-            <strong>{cell.selected && operation === "write" ? state.mdr : cell.value}</strong>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function MachineNumberPanel({ value }) {
-  const encoded = encodeSignedInteger(value, 4);
-  const exercise = buildMachineNumberExercise();
-
-  return (
-    <section className="machine-number-panel">
-      <div className="machine-number-heading">
-        <div>
-          <span className="eyebrow">机器数小测</span>
-          <h2>4 位原码、反码、补码</h2>
-        </div>
-        <strong>{value}</strong>
-      </div>
-      <div className="machine-number-grid">
-        <div>
-          <span>原码</span>
-          <strong>{encoded.signMagnitude ?? "溢出"}</strong>
-          <small>符号位 + 数值位</small>
-        </div>
-        <div>
-          <span>反码</span>
-          <strong>{encoded.onesComplement ?? "溢出"}</strong>
-          <small>负数数值位取反</small>
-        </div>
-        <div>
-          <span>补码</span>
-          <strong>{encoded.twosComplement ?? "溢出"}</strong>
-          <small>负数反码加 1</small>
-        </div>
-      </div>
-      <div className="machine-number-cases">
-        {exercise.cases.slice(0, 5).map((item) => (
-          <article className={item.value === value ? "active" : ""} key={item.value}>
-            <span>{item.value}</span>
-            <code>{item.expected.signMagnitude}</code>
-            <code>{item.expected.onesComplement}</code>
-            <code>{item.expected.twosComplement}</code>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function Toggle({ label, value, onChange }) {
   return (
     <label className="toggle-control">
@@ -3539,3 +3373,4 @@ function formatMinutes(minutes) {
   const rest = safeMinutes % 60;
   return hours > 0 ? `${hours}小时${rest}分` : `${rest}分钟`;
 }
+

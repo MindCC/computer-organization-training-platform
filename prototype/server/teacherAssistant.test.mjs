@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 
@@ -298,6 +298,7 @@ test("buildFallbackAssistantReport returns usable report shape", async () => {
   assert.equal(response.fallbackReason, "DEEPSEEK_API_KEY 未配置");
   assert.equal(Array.isArray(response.report.nextClassPlan), true);
   assert.equal(typeof response.report.teacherScript, "string");
+  assert.equal(Array.isArray(response.report.evidence), true);
 });
 
 test("parseAssistantJson rejects invalid AI output instead of returning an empty report", () => {
@@ -453,3 +454,4 @@ test("generateTeacherAssistantReport marks missing or unauthorized class as 404"
     (error) => error?.code === "CLASS_NOT_FOUND" && error?.statusCode === 404,
   );
 });
+

@@ -1,4 +1,4 @@
-# 课堂集中版部署与运维
+﻿# 课堂集中版部署与运维
 
 本文档面向把 `prototype` 部署到一台云服务器、供 1-3 个班约 150 名学生长期课堂使用的场景。首版使用 Node.js + SQLite 单实例运行，后续如迁移 PostgreSQL，优先替换 `prototype/server/db.js` 中的数据访问实现。
 
@@ -130,7 +130,16 @@ sudo certbot --nginx -d training.example.com
 sqlite3 /var/lib/zcyl-training/classroom.sqlite ".backup '/var/backups/zcyl-training/classroom-$(date +%F-%H%M).sqlite'"
 ```
 
-建议每天课后备份一次，并把最近 7 天备份复制到对象存储或另一台机器。恢复时先停止服务：
+Windows 单机或本地演示环境可用 PowerShell 先停止服务进程，再复制 SQLite 文件：
+
+```powershell
+$source = "D:\workspace\zcyl_training\prototype\data\classroom.sqlite"
+$backupDir = "D:\zcyl-training-backups"
+New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+Copy-Item -LiteralPath $source -Destination (Join-Path $backupDir ("classroom-" + (Get-Date -Format "yyyyMMdd-HHmm") + ".sqlite"))
+```
+
+建议每天课后备份一次，并把最近 7 天备份复制到对象存储、移动硬盘或另一台机器。恢复时先停止服务：
 
 ```bash
 sudo systemctl stop zcyl-training
@@ -191,6 +200,16 @@ sudo systemctl start zcyl-training
 
 恢复前必须停服务，复制备份库后再启动。恢复后用教师账号登录，随机抽查一个班级导出 CSV，确认学生数和成绩正常。
 
+课堂首次正式使用前，部署者必须做一次备份恢复演练：
+
+1. 创建一个测试班级并导入 2 名学生。
+2. 让其中 1 名学生提交至少 1 次实验。
+3. 执行备份命令，记录备份文件路径。
+4. 停止服务，复制备份文件覆盖当前数据库。
+5. 启动服务，登录教师账号，确认测试班级、学生数、提交记录和 CSV 导出都正常。
+
+如恢复后页面能打开但数据不正确，优先检查 `DATABASE_PATH` 是否指向恢复后的数据库文件，以及运行服务的系统用户是否有该文件读写权限。
+
 ## 验证
 
 开发或部署后至少执行：
@@ -208,3 +227,4 @@ npm run server
 ```bash
 PROTOTYPE_URL=http://127.0.0.1:8787 node scripts/verify-ui.mjs
 ```
+

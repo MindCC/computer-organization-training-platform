@@ -95,7 +95,13 @@ test("teacher imports students, student submits progress, teacher exports csv", 
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         challengeId: "game-office-pc",
-        result: { passed: true, score: 100, errors: [], elapsedMinutes: 6 },
+        result: {
+          passed: true,
+          score: 100,
+          errors: [],
+          elapsedMinutes: 6,
+          selection: { cpu: "cpu-i3", memory: "mem-8", storage: "ssd-512", gpu: "gpu-integrated" },
+        },
       }),
     }, studentJar);
     assert.equal(result.response.status, 201);
@@ -155,6 +161,11 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     assert.equal(result.body.student.notes.length, 1);
     assert.equal(result.body.student.progress["data-flow"].bestScore, 100);
     assert.equal(result.body.student.progress["game-office-pc"].bestScore, 100);
+    assert.equal(result.body.student.timeDistribution[0].challengeId, "data-flow");
+    assert.equal(result.body.student.timeDistribution[0].timeSpentMinutes, 8);
+    assert.ok(result.body.student.scoreTrends.some((item) => item.challengeId === "data-flow" && item.best === 100));
+    assert.equal(result.body.student.hardwareSummary.completedCases, 1);
+    assert.equal(result.body.student.hardwareSummary.bestCaseId, "game-office-pc");
 
     result = await request(baseUrl, "/api/classes", {
       method: "POST",
@@ -226,4 +237,6 @@ test("unauthenticated and cross-role access is rejected", async () => {
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+
 

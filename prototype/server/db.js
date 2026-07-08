@@ -2,7 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { LEARNING_ITEMS, buildInitialLearningProgress, recordAttempt, summarizeLearning } from "../src/platformLogic.js";
-import { summarizeHardwareGameAttempts } from "../src/hardwareGame.js";
+import { HARDWARE_GAME_CASES, summarizeHardwareGameAttempts } from "../src/hardwareGame.js";
 
 const DEFAULT_DATABASE_PATH = path.resolve("data/classroom.sqlite");
 
@@ -313,14 +313,18 @@ export function getTeacherStudentDetail(db, teacherId, studentId, classId = null
     LIMIT 1
   `).get(studentId, teacherId, classId, classId);
   if (!membership) return null;
+  const progress = getStudentProgress(db, studentId);
   return {
     ...membership,
-    progress: getStudentProgress(db, studentId),
+    progress,
     notes: listNotes(db, studentId),
     attempts: db.prepare(`
       SELECT id, challenge_id AS challengeId, score, passed, errors_json AS errorsJson, result_json AS resultJson, created_at AS createdAt
       FROM challenge_attempts WHERE student_id = ? ORDER BY id DESC LIMIT 100
     `).all(studentId).map((row) => ({ ...row, passed: Boolean(row.passed), errors: safeJson(row.errorsJson, []), result: safeJson(row.resultJson, {}) })),
+    timeDistribution: buildTimeDistribution(progress),
+    scoreTrends: buildScoreTrends(db, studentId),
+    hardwareSummary: buildStudentHardwareSummary(db, studentId),
   };
 }
 
@@ -363,3 +367,52 @@ function safeJson(value, fallback) {
   try { return value ? JSON.parse(value) : fallback; }
   catch { return fallback; }
 }
+
+function buildTimeDistribution(progress) {
+  return Object.entries(progress ?? {})
+    .filter(([, record]) => (record.timeSpentMinutes ?? 0) > 0)
+    .map(([challengeId, record]) => ({ challengeId, timeSpentMinutes: record.timeSpentMinutes ?? 0, attempts: record.attempts ?? 0, bestScore: record.bestScore ?? 0 }))
+    .sort((a, b) => b.timeSpentMinutes - a.timeSpentMinutes || b.attempts - a.attempts);
+}
+
+function buildScoreTrends(db, studentId) {
+  const rows = db.prepare(`
+    SELECT challenge_id AS challengeId, score, passed, created_at AS createdAt
+    FROM challenge_attempts WHERE student_id = ? ORDER BY id DESC LIMIT 60
+  `).all(studentId);
+  const byChallenge = new Map();
+  for (const row of rows) {
+    if (!byChallenge.has(row.challengeId)) byChallenge.set(row.challengeId, []);
+    byChallenge.get(row.challengeId).unshift({ score: row.score, passed: Boolean(row.passed), at: row.createdAt });
+  }
+  return [...byChallenge.entries()]
+    .map(([challengeId, scores]) => ({ challengeId, scores: scores.slice(-8), attempts: scores.length, best: Math.max(...scores.map((s) => s.score)) }))
+    .sort((a, b) => b.attempts - a.attempts);
+}
+
+const HARDWARE_CASE_IDS = new Set(HARDWARE_GAME_CASES.map((gameCase) => gameCase.id));
+
+function buildStudentHardwareSummary(db, studentId) {
+  const rows = db.prepare(`
+    SELECT challenge_id AS challengeId, score, result_json AS resultJson
+    FROM challenge_attempts WHERE student_id = ? AND challenge_id IN (${[...HARDWARE_CASE_IDS].map(() => "?").join(",")})
+    ORDER BY id DESC
+  `).all(studentId, ...HARDWARE_CASE_IDS);
+  if (rows.length === 0) return null;
+  let totalProfit = 0, totalSatisfaction = 0, bestScore = 0;
+  let bestCaseId = "";
+  for (const row of rows) {
+    const result = safeJson(row.resultJson, {});
+    totalProfit += result.profit ?? 0;
+    totalSatisfaction += result.satisfaction ?? 0;
+    if (row.score > bestScore) { bestScore = row.score; bestCaseId = row.challengeId; }
+  }
+  return {
+    totalProfit: Math.round(totalProfit),
+    avgSatisfaction: Math.round(totalSatisfaction / rows.length),
+    bestScore,
+    bestCaseId,
+    completedCases: rows.length,
+  };
+}
+

@@ -5487,3 +5487,51 @@ textarea:focus-visible {
 .hardware-feedback h2 {
   line-height: 1.15;
 }
+
+/* Mobile lab fallback */
+.mobile-lab-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 60px 32px;
+  text-align: center;
+  min-height: 100%;
+  color: var(--ink);
+}
+
+.mobile-lab-icon {
+  width: 96px;
+  height: 96px;
+  background: rgba(43, 169, 142, 0.12);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--teal);
+}
+
+.mobile-lab-fallback h2 {
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.mobile-lab-hint {
+  max-width: 400px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.mobile-lab-desktop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
