@@ -72,6 +72,10 @@ import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRo
 import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { buildMemoryAccessState } from "./memorySystem.js";
 import { api } from "./apiClient.js";
+import { NotesPage } from "./components/NotesPage.jsx";
+import { StudentHome } from "./components/StudentHome.jsx";
+import { StudentRecords } from "./components/StudentRecords.jsx";
+import { SettingsModal } from "./components/TeacherSettingsPanel.jsx";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
 import studyDiagram from "./assets/study-tip-carry-diagram.png";
@@ -461,6 +465,11 @@ export function App() {
   ]);
   const [notes, setNotes] = useState(initialNotes);
   const [noteDraft, setNoteDraft] = useState("全加器实验中，Cin 会影响和位，也会参与 Cout 的判断。");
+  const [noteSearchQuery, setNoteSearchQuery] = useState("");
+  const [noteFilterTag, setNoteFilterTag] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteDraft, setEditingNoteDraft] = useState({ title: "", content: "", tag: "" });
+  const [noteError, setNoteError] = useState("");
   const [statusMessage, setStatusMessage] = useState("欢迎回来，今天建议继续完成“全加器”实验。");
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -960,22 +969,93 @@ export function App() {
   async function saveNote() {
     const content = noteDraft.trim();
     if (!content) {
-      setStatusMessage("\u7b14\u8bb0\u5185\u5bb9\u4e0d\u80fd\u4e3a\u7a7a\u3002");
+      setNoteError("笔记内容不能为空。");
       return;
     }
     try {
       const { note } = await api.createNote({
-        title: currentChallenge.shortTitle + "\u590d\u76d8",
+        title: `${currentChallenge.shortTitle}复盘`,
         content,
         tag: currentChallenge.shortTitle,
       });
       setNotes((current) => [note, ...current]);
       setNoteDraft("");
-      setStatusMessage("\u5b66\u4e60\u7b14\u8bb0\u5df2\u4fdd\u5b58\u5230\u670d\u52a1\u5668\u3002");
+      setNoteError("");
+      setStatusMessage("学习笔记已保存到服务器。");
     } catch (error) {
-      setStatusMessage("\u7b14\u8bb0\u4fdd\u5b58\u5931\u8d25\uff1a" + error.message);
+      setNoteError("笔记保存失败：" + error.message);
     }
   }
+
+  async function deleteNoteById(noteId) {
+    try {
+      await api.deleteNote(noteId);
+      setNotes((current) => current.filter((n) => n.id !== noteId));
+      setStatusMessage("笔记已删除。");
+    } catch (error) {
+      setNoteError("删除失败：" + error.message);
+    }
+  }
+
+  function startEditingNote(note) {
+    setEditingNoteId(note.id);
+    setEditingNoteDraft({ title: note.title, content: note.content, tag: note.tag });
+    setNoteError("");
+  }
+
+  function cancelEditingNote() {
+    setEditingNoteId(null);
+    setEditingNoteDraft({ title: "", content: "", tag: "" });
+  }
+
+  async function saveNoteEdit() {
+    if (!editingNoteId) return;
+    const content = editingNoteDraft.content.trim();
+    if (!content) {
+      setNoteError("笔记内容不能为空。");
+      return;
+    }
+    try {
+      const { note } = await api.updateNote(editingNoteId, {
+        title: editingNoteDraft.title || "实验复盘",
+        content,
+        tag: editingNoteDraft.tag || "课堂笔记",
+      });
+      setNotes((current) => current.map((n) => (n.id === editingNoteId ? note : n)));
+      cancelEditingNote();
+      setNoteError("");
+      setStatusMessage("笔记已更新。");
+    } catch (error) {
+      setNoteError("更新失败：" + error.message);
+    }
+  }
+
+  async function refreshNotes(params = {}) {
+    try {
+      const result = await api.searchNotes(params);
+      setNotes(result.notes);
+      setNoteError("");
+    } catch (error) {
+      setNoteError("加载笔记失败：" + error.message);
+    }
+  }
+
+  const filteredNotes = (() => {
+    let result = notes;
+    const q = noteSearchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((n) =>
+        n.title?.toLowerCase().includes(q) ||
+        n.content?.toLowerCase().includes(q) ||
+        n.tag?.toLowerCase().includes(q));
+    }
+    if (noteFilterTag) {
+      result = result.filter((n) => n.tag === noteFilterTag);
+    }
+    return result;
+  })();
+
+  const noteTags = [...new Set(notes.map((n) => n.tag).filter(Boolean))];
 
   function updateStudent(key, value) {
     setStudent((current) => ({ ...current, [key]: value }));
@@ -1171,15 +1251,36 @@ export function App() {
             <span>{statusMessage}</span>
           </div>
 
-          {activeView === "home" ? renderHome() : null}
-          {activeView === "records" ? renderRecords() : null}
+          {activeView === "home" ? <StudentHome progress={progress} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} /> : null}
+          {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={selectChallenge} /> : null}
           {activeView === "hardware-game" ? <HardwareGamePage hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} /> : null}
-          {activeView === "notes" ? renderNotes() : null}
+          {activeView === "notes" ? (
+            <NotesPage
+              noteDraft={noteDraft}
+              setNoteDraft={setNoteDraft}
+              noteError={noteError}
+              filteredNotes={filteredNotes}
+              noteSearchQuery={noteSearchQuery}
+              setNoteSearchQuery={setNoteSearchQuery}
+              noteFilterTag={noteFilterTag}
+              setNoteFilterTag={setNoteFilterTag}
+              noteTags={noteTags}
+              editingNoteId={editingNoteId}
+              editingNoteDraft={editingNoteDraft}
+              setEditingNoteDraft={setEditingNoteDraft}
+              currentChallenge={currentChallenge}
+              saveNote={saveNote}
+              deleteNoteById={deleteNoteById}
+              startEditingNote={startEditingNote}
+              cancelEditingNote={cancelEditingNote}
+              saveNoteEdit={saveNoteEdit}
+            />
+          ) : null}
           {activeView === "teacher" ? renderTeacherStudioDashboard() : null}
         </main>
       </div>
 
-      {showSettings ? renderSettingsModal() : null}
+      {showSettings ? <SettingsModal setShowSettings={setShowSettings} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} student={student} updateStudent={updateStudent} saveStudentSettings={saveStudentSettings} /> : null}
     </div>
   );
 
@@ -1664,111 +1765,6 @@ export function App() {
     );
   }
 
-  function renderHome() {
-    const recommended = nextRecommendedChallenge;
-    const sortedGroups = routeGroups.map((group) => ({
-      ...group,
-      completedCount: group.items.filter((item) => item.status === "completed").length,
-    }));
-
-    return (
-      <div className="route-map">
-        <header className="route-map-header">
-          <span className="eyebrow">今日学习</span>
-          <h1>课程路线地图</h1>
-          <p>从信号流动到逻辑门，再到加法器和 ALU——顺着运算器的装配线一步步走完电路路线。</p>
-        </header>
-
-        <div className="route-map-body">
-          <div className="route-map-main">
-            {recommended ? (
-              <NextStepCard
-                challenge={recommended}
-                progress={progress[recommended.id]}
-                onEnter={() => navigateToChallenge(recommended.id)}
-              />
-            ) : null}
-
-            {sortedGroups.map((group) => (
-              <section className="route-map-group" key={group.id}>
-                <div className="route-map-group-header">
-                  <div>
-                    <h2>{group.title}</h2>
-                    <p>{group.description}</p>
-                  </div>
-                  <span className="route-map-group-progress">
-                    {group.completedCount} / {group.items.length}
-                  </span>
-                </div>
-                <div className="route-map-cards">
-                  {group.items.map((item) => (
-                    <button
-                      className={`route-card ${item.status}`}
-                      key={item.id}
-                      onClick={() => navigateToChallenge(item.id)}
-                      type="button"
-                    >
-                      <div className="route-card-top">
-                        <span className={`route-card-status ${item.status}`}>
-                          {item.status === "completed" ? "已完成" : item.status === "in-progress" ? "进行中" : "未开始"}
-                        </span>
-                        <small>{item.estimatedMinutes} 分钟</small>
-                      </div>
-                      <strong>{item.title}</strong>
-                      <p>{item.description}</p>
-                      <div className="route-card-footer">
-                        <span>得分 {item.bestScore}</span>
-                        <small>{item.attempts} 次尝试</small>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-
-          <aside className="route-map-sidebar">
-            <div className="route-map-sidebar-card">
-              <strong>学习状态</strong>
-              <div className="route-map-stat">
-                <span>完成率</span>
-                <span>{summary.completionRate}%</span>
-              </div>
-              <div className="route-map-stat">
-                <span>平均得分</span>
-                <span>{summary.averageScore} 分</span>
-              </div>
-              <div className="route-map-stat">
-                <span>累计尝试</span>
-                <span>{summary.totalAttempts} 次</span>
-              </div>
-            </div>
-
-            <div className="route-map-sidebar-card">
-              <strong>当前薄弱点</strong>
-              <p>{summary.weakSpot}</p>
-            </div>
-
-            <div className="route-map-sidebar-card">
-              <strong>最近笔记</strong>
-              {notes.length > 0 ? (
-                <div className="route-map-note-list">
-                  {notes.slice(0, 2).map((note) => (
-                    <article className="route-map-note" key={note.id}>
-                      <strong>{note.title}</strong>
-                      <p>{note.content}</p>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className="empty-state">暂无笔记</p>
-              )}
-            </div>
-          </aside>
-        </div>
-      </div>
-    );
-  }
   function renderLabStudioScreen() {
     const currentIndex = CHALLENGES.findIndex((challenge) => challenge.id === currentChallenge.id);
     const routeMeta = challengeRouteMeta[currentChallenge.id] ?? {};
@@ -2358,200 +2354,6 @@ export function App() {
     );
   }
 
-  function renderRecords() {
-    return (
-      <div className="records-layout">
-        <section className="section-panel">
-          <div className="section-heading">
-            <div>
-              <h1>个人学情记录</h1>
-              <p>这里记录通关、尝试次数、得分、错误类型和建议复习点。</p>
-            </div>
-            <div className="toolbar-actions">
-              <a className="ghost-button" href="/api/student/report.md">导出实验报告</a>
-              <button className="ghost-button" onClick={() => changeView("lab")} type="button">继续实验</button>
-            </div>
-          </div>
-          <div className="metric-grid">
-            <Metric icon={CheckCircle} label="完成率" value={`${summary.completionRate}%`} />
-            <Metric icon={ClockCountdown} label="累计学习" value={formatMinutes(summary.totalStudyMinutes)} />
-            <Metric icon={TrendUp} label="平均得分" value={`${summary.averageScore}分`} />
-            <Metric icon={WarningCircle} label="建议复习" value={summary.weakSpot} />
-          </div>
-        </section>
-
-        <section className="section-panel">
-          <h2>关卡明细</h2>
-          <div className="record-table">
-            {CHALLENGES.map((challenge) => {
-              const record = progress[challenge.id];
-              return (
-                <button className="record-row" key={challenge.id} onClick={() => selectChallenge(challenge.id)} type="button">
-                  <strong>{challenge.title}</strong>
-                  <span>{statusText(record.status)}</span>
-                  <span>{record.attempts} 次尝试</span>
-                  <span>{record.bestScore} 分</span>
-                  <small>{record.errors.at(-1) ?? "暂无错误"}</small>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="two-column">
-          <article className="section-panel">
-            <h2>最近活动</h2>
-            <div className="activity-list">
-              {activityLog.map((item) => (
-                <div className="activity-item" key={item}>
-                  <CheckCircle size={18} weight="fill" />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </article>
-          <article className="section-panel">
-            <h2>复习建议</h2>
-            <p className="large-copy">优先复习“{summary.weakSpot}”。建议回到全加器实验，先运行动态演示，再补齐缺失连线。</p>
-            <button className="primary-button" onClick={() => selectChallenge("full-adder")} type="button">去复习全加器</button>
-          </article>
-        </section>
-      </div>
-    );
-  }
-
-  function renderNotes() {
-    return (
-      <div className="notes-layout">
-        <section className="section-panel note-editor">
-          <span className="eyebrow">学习笔记</span>
-          <h1>把实验复盘沉淀下来。</h1>
-          <textarea
-            aria-label="笔记内容"
-            onChange={(event) => setNoteDraft(event.target.value)}
-            value={noteDraft}
-          />
-          <div className="note-actions">
-            <button className="primary-button" onClick={saveNote} type="button">保存笔记</button>
-            <button
-              className="ghost-button"
-              onClick={() => setNoteDraft(`${currentChallenge.title}：${currentChallenge.principle}`)}
-              type="button"
-            >
-              插入当前原理
-            </button>
-          </div>
-        </section>
-
-        <section className="section-panel">
-          <div className="section-heading">
-            <h2>已保存笔记</h2>
-            <small>{notes.length} 条</small>
-          </div>
-          <div className="note-list">
-            {notes.map((note) => (
-              <article className="note-card" key={note.id}>
-                <span>{note.tag}</span>
-                <strong>{note.title}</strong>
-                <p>{note.content}</p>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="section-panel study-tip">
-          <div>
-            <span className="eyebrow">概念卡片</span>
-            <h2>二进制加法的核心是进位传播。</h2>
-            <p>每个全加器只处理 1 位，但 Cout 会成为下一位的 Cin。多位加法器就是把这个动作串起来。</p>
-          </div>
-          <img alt="进位传播示意图" src={studyDiagram} />
-        </section>
-      </div>
-    );
-  }
-
-  function renderSettingsModal() {
-    const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
-
-    return (
-      <div className="settings-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
-        <div className="settings-panel">
-          <div className="settings-panel-header">
-            <h2>{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</h2>
-            <button className="ghost-button" onClick={() => setShowSettings(false)} type="button">关闭</button>
-          </div>
-
-          {auth.user?.role === "teacher" ? (
-            <>
-              <section className="settings-block first-use-guide">
-                <div>
-                  <span className="eyebrow">课堂首用</span>
-                  <h3>第一次上课建议按这 4 步走</h3>
-                </div>
-                <ol>
-                  <li>创建或选择班级。</li>
-                  <li>下载 CSV 模板并导入学生。</li>
-                  <li>用一个学生账号完成一次实验提交。</li>
-                  <li>回到教师看板查看完成率、高频错误和 AI 助教建议。</li>
-                </ol>
-                <p>演示环境可运行 <code>npm run seed:demo</code> 生成课堂样例数据。</p>
-              </section>
-
-              <section className="settings-block teacher-import-settings">
-                <div>
-                  <span className="eyebrow">学生导入</span>
-                  <h3>{selectedClass?.name ?? "请先创建或选择班级"}</h3>
-                  <p>CSV 列顺序固定为：学号、姓名、初始密码。导入会新增学生或更新同学号学生信息。</p>
-                </div>
-                <div className="teacher-action-row">
-                  <a className="ghost-button settings-template-link" download="student-import-template.csv" href={studentImportTemplateHref}>
-                    下载学生导入模板
-                  </a>
-                  {selectedTeacherClassId ? (
-                    <a className="ghost-button" href={`/api/teacher/classes/${selectedTeacherClassId}/export.csv`}>
-                      导出当前班级 CSV
-                    </a>
-                  ) : null}
-                </div>
-                <textarea
-                  aria-label="学生导入 CSV"
-                  value={csvImportText}
-                  onChange={(event) => setCsvImportText(event.target.value)}
-                  placeholder="学号,姓名,初始密码"
-                />
-                <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">
-                  导入学生
-                </button>
-              </section>
-            </>
-          ) : (
-            <section className="settings-block">
-              <label className="form-row">
-                <span>姓名</span>
-                <input value={student.name} onChange={(event) => updateStudent("name", event.target.value)} />
-              </label>
-              <label className="form-row">
-                <span>本周目标</span>
-                <input value={student.goal} onChange={(event) => updateStudent("goal", event.target.value)} />
-              </label>
-              <label className="form-row">
-                <span>提示模式</span>
-                <select value={student.mode} onChange={(event) => updateStudent("mode", event.target.value)}>
-                  <option>强引导模式</option>
-                  <option>适中提示模式</option>
-                  <option>挑战模式</option>
-                </select>
-              </label>
-              <button className="primary-button" onClick={saveStudentSettings} type="button">
-                保存设置
-              </button>
-            </section>
-          )}
-        </div>
-      </div>
-    );
-  }
 }
 
 function DataJourneyPanel({ steps, activeStep }) {

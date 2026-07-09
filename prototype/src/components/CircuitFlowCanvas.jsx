@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addEdge,
   Background,
@@ -90,8 +90,61 @@ export function CircuitFlowCanvas({ model, onResult }) {
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [selectedCaseIndex, setSelectedCaseIndex] = useState(0);
-  const [status, setStatus] = useState(() => `\u62d6\u52a8\u4e24\u4e2a\u7aef\u53e3\u5373\u53ef\u8fde\u63a5\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u8bc6\u522b\u8f93\u51fa\u7aef\u548c\u8f93\u5165\u7aef\uff0c\u5b8c\u6210${model.title}\u7ed3\u6784\u3002`);
+  const [status, setStatus] = useState(() => `拖动两个端口即可连接，系统会自动识别输出端和输入端，完成${model.title}结构。`);
   const [report, setReport] = useState(null);
+
+  // Undo/redo history stack
+  const MAX_HISTORY = 50;
+  const historyRef = useRef([initialFlow.edges]);
+  const historyPosRef = useRef(0);
+  const skipHistoryRef = useRef(false);
+
+  const canUndo = historyPosRef.current > 0;
+  const canRedo = historyPosRef.current < historyRef.current.length - 1;
+
+  function pushHistory(nextEdges) {
+    if (skipHistoryRef.current) {
+      skipHistoryRef.current = false;
+      return;
+    }
+    const stack = historyRef.current;
+    // Drop any redo future when pushing new state
+    stack.length = historyPosRef.current + 1;
+    stack.push(nextEdges);
+    if (stack.length > MAX_HISTORY) stack.shift();
+    historyPosRef.current = stack.length - 1;
+  }
+
+  function undo() {
+    if (historyPosRef.current <= 0) return;
+    historyPosRef.current -= 1;
+    skipHistoryRef.current = true;
+    setEdges(historyRef.current[historyPosRef.current]);
+    setReport(null);
+  }
+
+  function redo() {
+    if (historyPosRef.current >= historyRef.current.length - 1) return;
+    historyPosRef.current += 1;
+    skipHistoryRef.current = true;
+    setEdges(historyRef.current[historyPosRef.current]);
+    setReport(null);
+  }
+
+  useEffect(() => {
+    function handleKey(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      }
+      if ((event.ctrlKey || event.metaKey) && (event.key === "y" || (event.key === "z" && event.shiftKey))) {
+        event.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   const studentEdges = useMemo(() => flowEdgesToCircuitEdges(edges), [edges]);
   const selectedCase = model.testCases[Math.min(selectedCaseIndex, model.testCases.length - 1)] ?? model.testCases[0] ?? null;
@@ -146,27 +199,38 @@ export function CircuitFlowCanvas({ model, onResult }) {
     }
 
     const edge = circuitEdgeToFlowEdge(circuitEdge);
-    setEdges((currentEdges) => addEdge({ ...edge, animated: false }, currentEdges));
+    setEdges((currentEdges) => {
+      const next = addEdge({ ...edge, animated: false }, currentEdges);
+      pushHistory(next);
+      return next;
+    });
     setReport(null);
     setStatus(copy.edgeConnected);
   }, [edges, model, setEdges]);
 
   const fillReference = useCallback(() => {
-    setEdges(model.requiredEdges.map((edge) => circuitEdgeToFlowEdge(edge)));
+    const next = model.requiredEdges.map((edge) => circuitEdgeToFlowEdge(edge));
+    setEdges(next);
+    pushHistory(next);
     setReport(null);
-    setStatus(`\u5df2\u586b\u5165${model.title}\u53c2\u8003\u7ed3\u6784\uff0c\u53ef\u4ee5\u63d0\u4ea4\u68c0\u6d4b\u6216\u7ee7\u7eed\u89c2\u5bdf\u7aef\u53e3\u3002`);
+    setStatus(`已填入${model.title}参考结构，可以提交检测或继续观察端口。`);
   }, [model, setEdges]);
 
   const reset = useCallback(() => {
     setEdges([]);
+    pushHistory([]);
     setSelectedEdgeId(null);
     setReport(null);
-    setStatus(`\u5df2\u91cd\u7f6e${model.title} React Flow \u753b\u5e03\u3002`);
+    setStatus(`已重置${model.title} React Flow 画布。`);
   }, [model, setEdges]);
 
   const removeSelectedEdge = useCallback(() => {
     if (!selectedEdgeId) return;
-    setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== selectedEdgeId));
+    setEdges((currentEdges) => {
+      const next = currentEdges.filter((edge) => edge.id !== selectedEdgeId);
+      pushHistory(next);
+      return next;
+    });
     setSelectedEdgeId(null);
     setReport(null);
     setStatus(copy.edgeDeleted);
@@ -196,6 +260,8 @@ export function CircuitFlowCanvas({ model, onResult }) {
           <p>{model.goal}</p>
         </div>
         <div className="circuit-flow-actions">
+          <button className="ghost-button" disabled={!canUndo} onClick={undo} title="Ctrl+Z" type="button">↩ 撤销</button>
+          <button className="ghost-button" disabled={!canRedo} onClick={redo} title="Ctrl+Y" type="button">↪ 重做</button>
           <button className="ghost-button" onClick={fillReference} type="button">{copy.actionFill}</button>
           <button className="ghost-button" disabled={!selectedEdgeId} onClick={removeSelectedEdge} type="button">{copy.actionDelete}</button>
           <button className="ghost-button" onClick={reset} type="button">{copy.actionReset}</button>

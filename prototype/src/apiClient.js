@@ -25,6 +25,16 @@ export const api = {
   submitAttempt: (payload) => apiRequest("/api/student/attempts", { method: "POST", body: JSON.stringify(payload) }),
   listNotes: () => apiRequest("/api/student/notes"),
   createNote: (payload) => apiRequest("/api/student/notes", { method: "POST", body: JSON.stringify(payload) }),
+  updateNote: (noteId, payload) => apiRequest(`/api/student/notes/${noteId}`, { method: "PUT", body: JSON.stringify(payload) }),
+  deleteNote: (noteId) => apiRequest(`/api/student/notes/${noteId}`, { method: "DELETE" }),
+  searchNotes: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.query) query.set("query", params.query);
+    if (params.tag) query.set("tag", params.tag);
+    if (params.challengeId) query.set("challengeId", params.challengeId);
+    const qs = query.toString();
+    return apiRequest(`/api/student/notes${qs ? "?" + qs : ""}`);
+  },
   updateProfile: (payload) => apiRequest("/api/student/profile", { method: "PUT", body: JSON.stringify(payload) }),
   createClass: (payload) => apiRequest("/api/classes", { method: "POST", body: JSON.stringify(payload) }),
   teacherClasses: () => apiRequest("/api/teacher/classes"),

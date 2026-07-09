@@ -3297,6 +3297,119 @@ textarea:focus-visible {
   font-weight: 900;
 }
 
+.note-toolbar {
+  display: flex;
+  gap: 10px;
+  margin: 0 0 18px;
+}
+
+.note-search-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 0.92rem;
+  background: #fff;
+}
+
+.note-filter-select {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font-size: 0.92rem;
+  background: #fff;
+  min-width: 120px;
+}
+
+.note-error {
+  color: #dc2626;
+  font-size: 0.88rem;
+  margin-top: 8px;
+}
+
+.note-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.note-tag {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: #16745d;
+  background: rgba(43, 169, 142, 0.13);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.note-challenge-link {
+  color: var(--muted);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.note-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+
+.ghost-button.danger {
+  color: #dc2626;
+}
+
+.ghost-button.danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.note-card.editing {
+  border-color: var(--primary);
+  background: #fff;
+}
+
+.note-edit-form {
+  display: grid;
+  gap: 10px;
+}
+
+.note-edit-title,
+.note-edit-content,
+.note-edit-tag {
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.note-edit-content {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.note-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 32px 16px;
+  color: var(--muted);
+}
+
+.empty-state strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1rem;
+  color: var(--text);
+}
+
 .study-tip {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 310px;
