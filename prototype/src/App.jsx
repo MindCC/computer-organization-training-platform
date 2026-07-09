@@ -72,6 +72,7 @@ import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRo
 import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { buildMemoryAccessState } from "./memorySystem.js";
 import { api } from "./apiClient.js";
+import { statusText, statusTone, formatMinutes, formatEndpointLabel } from "./components/labUtils.js";
 import { NotesPage } from "./components/NotesPage.jsx";
 import { StudentHome } from "./components/StudentHome.jsx";
 import { StudentRecords } from "./components/StudentRecords.jsx";
@@ -298,34 +299,9 @@ function createDemoProgress() {
   return progress;
 }
 
-function statusText(status) {
-  if (status === "completed") return "已完成";
-  if (status === "in-progress") return "进行中";
-  return "未解锁";
-}
-
-function statusTone(status) {
-  if (status === "completed") return "success";
-  if (status === "in-progress") return "active";
-  return "locked";
-}
 
 function clampPlacement(value, min, max) {
   return Math.min(max, Math.max(min, value));
-}
-
-function formatEndpointLabel(endpoint) {
-  if (!endpoint) return "等待拖到目标端点";
-
-  if (endpoint.componentLabel && endpoint.pin) {
-    return `${endpoint.componentLabel} · ${endpoint.pin}`;
-  }
-
-  if (endpoint.componentName && endpoint.pin) {
-    return `${endpoint.componentName} · ${endpoint.pin}`;
-  }
-
-  return endpoint.label;
 }
 
 function describeWirePreview(startEndpoint, targetEndpoint, status) {
@@ -2686,15 +2662,12 @@ function Stepper({ label, value, min = 0, max, onChange }) {
         <button onClick={() => onChange(Math.min(max, value + 1))} type="button">+</button>
       </div>
     </label>
-  );
-}
-
+  );}
 function formatOutputs(outputs) {
   return Object.entries(outputs)
     .map(([key, value]) => `${outputLabel(key)}=${value}`)
     .join(" · ");
 }
-
 function labDescription(challengeId) {
   const descriptions = {
     "computer-components": "这一关先建立整机地图：输入、存储、控制、运算和输出五类部件各司其职。",
@@ -2731,11 +2704,5 @@ function outputLabel(key) {
   return labels[key] ?? key;
 }
 
-function formatMinutes(minutes) {
-  const safeMinutes = Math.max(0, Number(minutes ?? 0));
-  const hours = Math.floor(safeMinutes / 60);
-  const rest = safeMinutes % 60;
-  return hours > 0 ? `${hours}小时${rest}分` : `${rest}分钟`;
-}
 
 
