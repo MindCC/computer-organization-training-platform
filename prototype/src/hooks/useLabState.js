@@ -1,10 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   CHALLENGES, gradeConnections, recordAttempt,
-  buildInitialProgress, buildPlacementBlueprint,
-  buildReferencePlacedComponents, findSnapTarget,
-  REFERENCE_SLOT_LAYOUTS, scorePlacedComponents,
+  buildInitialProgress,
 } from "../platformLogic.js";
+import {
+  buildPlacementBlueprint, buildReferencePlacedComponents,
+  findSnapTarget, REFERENCE_SLOT_LAYOUTS, scorePlacedComponents,
+} from "../labPlacement.js";
 import { getCircuitChallenge } from "../circuit/challengeCircuitModel.js";
 import { buildComponentStudyCard } from "../componentStudy.js";
 import { beginWireDrag, cancelWireDrag, completeWireDrag, buildConnectionBlueprint, inspectWireTarget } from "../labWiring.js";
