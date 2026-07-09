@@ -4,7 +4,7 @@ import { Suspense } from "react";
 
 export function ComputerExplodedView({ children, cameraPosition = [1.5, 1.0, 2.0], className = "" }) {
   return (
-    <div className={"computer-exploded " + className} style={{ width: "100%", height: "100%", minHeight: 480, background: "#0a0a14" }}>
+    <div className={"computer-exploded " + className} style={{ width: "100%", height: "100%", minHeight: 480, background: "#08090a" }}>
       <Suspense fallback={<div className="computer-exploded-loading">加载 3D 场景...</div>}>
         <Canvas shadows gl={{ antialias: true }}>
           <PerspectiveCamera makeDefault position={cameraPosition} fov={45} />

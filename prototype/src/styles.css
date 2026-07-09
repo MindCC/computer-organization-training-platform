@@ -5686,146 +5686,183 @@ textarea:focus-visible {
 }
 
 
-/* ── 3D Exploded View Overlay ── */
-.exploded-controls {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 8px 16px;
-  background: rgba(10,10,20,0.85);
-  border-radius: 12px;
-  backdrop-filter: blur(8px);
-  z-index: 10;
-}
-.exploded-controls button {
-  padding: 6px 14px;
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: 8px;
-  background: rgba(255,255,255,0.08);
-  color: #ccc;
-  font-size: 0.82rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.exploded-controls button:hover { background: rgba(79,195,247,0.25); color: #fff; }
-.exploded-hint { color: #888; font-size: 0.72rem; margin-left: 8px; }
-.exploded-info-card {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  padding: 12px 16px;
-  background: rgba(10,10,20,0.9);
-  border: 1px solid rgba(79,195,247,0.4);
-  border-radius: 10px;
-  color: #e0e0e0;
-  z-index: 10;
-  min-width: 140px;
-}
-.exploded-info-card strong { display: block; font-size: 0.9rem; }
-.exploded-info-card small { color: #888; font-size: 0.72rem; }
-.exploded-info-desc { margin-top: 6px; font-size: 0.75rem; color: #bbb; line-height: 1.5; }
-.exploded-info-card button {
-  position: absolute; top: 6px; right: 6px;
-  background: none; border: none; color: #888; cursor: pointer; font-size: 0.8rem;
-}
-.computer-exploded-loading {
-  display: flex; align-items: center; justify-content: center;
-  height: 100%; color: #888; font-size: 0.9rem;
+/* ── 3D Exploded View Overlay (Linear-inspired dark aesthetic) ── */
+
+/* Shared: semi-transparent panel surface */
+.exploded-panel {
+  background: rgba(15, 16, 17, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
-/* ── Hardware Builder 3D Panel ── */
-.builder-panel {
-  width: 220px;
-  background: rgba(10,10,20,0.92);
-  border-left: 1px solid rgba(255,255,255,0.1);
-  padding: 12px;
-  overflow-y: auto;
-  color: #ccc;
-}
-.builder-panel h3 { font-size: 0.85rem; margin: 0 0 10px; color: #4fc3f7; }
-.builder-slot { margin-bottom: 10px; }
-.builder-slot > span { display: block; font-size: 0.72rem; color: #888; margin-bottom: 4px; }
-.builder-options { display: flex; flex-direction: column; gap: 3px; }
-.builder-options button {
-  padding: 5px 8px;
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 6px;
-  background: rgba(255,255,255,0.04);
-  color: #aaa;
-  font-size: 0.72rem;
-  cursor: pointer;
-  text-align: left;
-  transition: all 0.2s;
-}
-.builder-options button:hover { background: rgba(79,195,247,0.15); color: #fff; }
-.builder-options button.active { border-color: #4fc3f7; background: rgba(79,195,247,0.2); color: #fff; }
-.builder-options button small { display: block; font-size: 0.62rem; color: #666; }
-.builder-options button.active small { color: #aaa; }
-.builder-score {
-  margin-top: 12px; padding: 8px;
-  background: rgba(79,195,247,0.1);
-  border-radius: 8px; text-align: center;
-}
-.builder-score strong { display: block; font-size: 1.1rem; color: #4fc3f7; }
-.builder-score small { font-size: 0.68rem; color: #888; }
-
-/* ── Step-by-step assembly ── */
+/* Top bar: mode toggle */
 .exploded-topbar {
-  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 8px; align-items: center; z-index: 10;
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 4px; align-items: center; z-index: 10;
+  padding: 4px; border-radius: 8px;
+  background: rgba(15, 16, 17, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
 }
 .exploded-topbar button {
-  padding: 6px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.15);
-  background: rgba(10,10,20,0.85); color: #aaa; font-size: 0.8rem; cursor: pointer;
-  backdrop-filter: blur(6px);
+  padding: 5px 14px; border-radius: 6px; border: none;
+  background: transparent; color: #8a8f98; font-size: 0.78rem;
+  font-weight: 500; cursor: pointer; transition: all 0.15s ease;
 }
-.exploded-topbar button.active { border-color: #4fc3f7; color: #4fc3f7; background: rgba(79,195,247,0.12); }
-.exploded-controls-inline { display: flex; gap: 4px; }
-.exploded-controls-inline button { padding: 4px 10px; font-size: 0.72rem; }
+.exploded-topbar button:hover { color: #d0d6e0; background: rgba(255, 255, 255, 0.04); }
+.exploded-topbar button.active {
+  color: #f7f8f8; background: rgba(255, 255, 255, 0.08);
+  box-shadow: rgba(0, 0, 0, 0.2) 0px 1px 3px;
+}
 
+/* Inline controls (auto mode sub-buttons) */
+.exploded-controls-inline { display: flex; gap: 3px; margin-left: 6px; padding-left: 6px; border-left: 1px solid rgba(255, 255, 255, 0.06); }
+.exploded-controls-inline button { padding: 3px 10px; font-size: 0.72rem; border-radius: 5px; }
+
+/* Step bar: bottom */
 .exploded-stepbar {
   position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 12px; z-index: 10;
-  padding: 8px 16px; background: rgba(10,10,20,0.9); border-radius: 12px;
-  backdrop-filter: blur(8px);
+  display: flex; align-items: center; gap: 10px; z-index: 10;
+  padding: 6px 10px 6px 14px; border-radius: 10px;
+  background: rgba(15, 16, 17, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
 }
 .exploded-stepbar button {
-  padding: 6px 12px; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;
-  background: rgba(255,255,255,0.06); color: #ccc; font-size: 0.78rem; cursor: pointer;
+  padding: 5px 12px; border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px; background: rgba(255, 255, 255, 0.03);
+  color: #d0d6e0; font-size: 0.76rem; font-weight: 500; cursor: pointer;
+  transition: all 0.15s ease;
 }
-.exploded-stepbar button:disabled { opacity: 0.3; cursor: default; }
-.exploded-stepbar button:not(:disabled):hover { background: rgba(79,195,247,0.2); }
-.exploded-step-indicator { display: flex; gap: 6px; }
-.exploded-step-indicator span {
-  width: 28px; height: 28px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.72rem; font-weight: 700;
-  background: rgba(255,255,255,0.06); color: #555;
-  border: 1px solid rgba(255,255,255,0.1);
+.exploded-stepbar button:disabled { opacity: 0.25; cursor: default; }
+.exploded-stepbar button:not(:disabled):hover {
+  background: rgba(255, 255, 255, 0.08); color: #f7f8f8;
 }
-.exploded-step-indicator span.done { background: rgba(79,195,247,0.2); color: #4fc3f7; border-color: #4fc3f7; }
-.exploded-step-indicator span.active { background: #4fc3f7; color: #0a0a14; border-color: #4fc3f7; }
 
+/* Step dots */
+.exploded-step-indicator { display: flex; gap: 4px; }
+.exploded-step-indicator span {
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.68rem; font-weight: 600;
+  background: rgba(255, 255, 255, 0.04); color: #62666d;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+}
+.exploded-step-indicator span.done {
+  background: rgba(94, 106, 210, 0.15); color: #828fff;
+  border-color: rgba(113, 112, 255, 0.3);
+}
+.exploded-step-indicator span.active {
+  background: #5e6ad2; color: #f7f8f8; border-color: #5e6ad2;
+  box-shadow: 0 0 8px rgba(94, 106, 210, 0.4);
+}
+
+/* Step description */
 .exploded-step-desc {
   position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
-  max-width: 480px; padding: 10px 18px;
-  background: rgba(10,10,20,0.88); border: 1px solid rgba(79,195,247,0.25);
-  border-radius: 10px; z-index: 9; text-align: center;
-  backdrop-filter: blur(8px);
+  max-width: 420px; padding: 10px 18px; border-radius: 8px; z-index: 9;
+  text-align: center; background: rgba(15, 16, 17, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
 }
-.exploded-step-desc strong { display: block; color: #4fc3f7; font-size: 0.88rem; }
-.exploded-step-desc p { color: #bbb; font-size: 0.76rem; margin: 4px 0 0; line-height: 1.5; }
+.exploded-step-desc strong { display: block; color: #f7f8f8; font-size: 0.85rem; font-weight: 600; }
+.exploded-step-desc p { color: #8a8f98; font-size: 0.74rem; margin: 4px 0 0; line-height: 1.55; }
 
-/* ── Connection legend ── */
-.exploded-legend {
-  position: absolute; bottom: 72px; left: 12px;
-  display: flex; flex-direction: column; gap: 3px; z-index: 9;
-  padding: 8px 12px; background: rgba(10,10,20,0.82);
-  border-radius: 8px; backdrop-filter: blur(6px);
+/* Info card (click part) */
+.exploded-info-card {
+  position: absolute; top: 16px; right: 16px;
+  padding: 14px 18px; min-width: 180px; max-width: 260px;
+  background: rgba(15, 16, 17, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px; z-index: 10;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(16px);
 }
-.exploded-legend span { display: flex; align-items: center; gap: 6px; color: #999; font-size: 0.7rem; }
-.exploded-legend i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+.exploded-info-card strong { display: block; font-size: 0.88rem; color: #f7f8f8; font-weight: 600; }
+.exploded-info-card small { color: #8a8f98; font-size: 0.7rem; font-weight: 400; }
+.exploded-info-desc { margin-top: 8px; font-size: 0.74rem; color: #d0d6e0; line-height: 1.55; }
+.exploded-info-card button {
+  position: absolute; top: 8px; right: 8px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #8a8f98; cursor: pointer; font-size: 0.7rem;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s ease;
+}
+.exploded-info-card button:hover { background: rgba(255, 255, 255, 0.1); color: #f7f8f8; }
+
+/* Connection legend */
+.exploded-legend {
+  position: absolute; bottom: 80px; left: 12px;
+  display: flex; flex-direction: column; gap: 4px; z-index: 9;
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(15, 16, 17, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+}
+.exploded-legend span {
+  display: flex; align-items: center; gap: 6px;
+  color: #8a8f98; font-size: 0.68rem; font-weight: 400;
+}
+.exploded-legend i {
+  width: 14px; height: 2px; border-radius: 1px; display: inline-block;
+}
+
+/* Loading state */
+.computer-exploded-loading {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; color: #8a8f98; font-size: 0.85rem; font-weight: 400;
+}
+
+/* ── Hardware Builder Panel ── */
+.builder-panel {
+  width: 210px;
+  background: rgba(15, 16, 17, 0.94);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 14px 12px;
+  overflow-y: auto;
+  color: #d0d6e0;
+  backdrop-filter: blur(16px);
+}
+.builder-panel h3 {
+  font-size: 0.8rem; font-weight: 600; margin: 0 0 12px;
+  color: #8a8f98; letter-spacing: -0.01em;
+}
+.builder-slot { margin-bottom: 12px; }
+.builder-slot > span {
+  display: block; font-size: 0.68rem; color: #62666d;
+  font-weight: 500; margin-bottom: 4px; text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.builder-options { display: flex; flex-direction: column; gap: 3px; }
+.builder-options button {
+  padding: 6px 10px; border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px; background: rgba(255, 255, 255, 0.02);
+  color: #8a8f98; font-size: 0.72rem; font-weight: 400;
+  cursor: pointer; text-align: left; transition: all 0.15s ease;
+}
+.builder-options button:hover {
+  background: rgba(255, 255, 255, 0.06); color: #d0d6e0;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.builder-options button.active {
+  border-color: rgba(94, 106, 210, 0.4); color: #f7f8f8;
+  background: rgba(94, 106, 210, 0.12);
+}
+.builder-options button small {
+  display: block; font-size: 0.62rem; color: #62666d; margin-top: 2px;
+}
+.builder-options button.active small { color: #8a8f98; }
+.builder-score {
+  margin-top: 14px; padding: 10px;
+  background: rgba(94, 106, 210, 0.08); border-radius: 8px;
+  text-align: center; border: 1px solid rgba(94, 106, 210, 0.15);
+}
+.builder-score strong { display: block; font-size: 1.05rem; color: #f7f8f8; font-weight: 600; }
+.builder-score small { font-size: 0.66rem; color: #8a8f98; font-weight: 400; }
+
+/* Remove old styles */
+.exploded-controls { display: none; }
+.exploded-hint { display: none; }
