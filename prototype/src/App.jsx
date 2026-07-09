@@ -607,6 +607,16 @@ export function App() {
     setStatusMessage(`已切换到${navItems.find((item) => item.id === view)?.label ?? "当前页面"}。`);
   }
 
+  function navigateToChallenge(challengeId) {
+    if (challengeId && challengeId.startsWith("game-")) {
+      setSelectedHardwareCaseId(challengeId);
+      setActiveView("hardware-game");
+      return;
+    }
+    lab.selectChallenge(challengeId);
+    setActiveView("lab");
+  }
+
   async function saveNote() {
     const content = noteDraft.trim();
     if (!content) {

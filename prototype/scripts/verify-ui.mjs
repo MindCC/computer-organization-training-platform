@@ -9,7 +9,7 @@ import { CHALLENGES } from "../src/platformLogic.js";
 const text = {
   appTitle: "\u7ec4\u6210\u539f\u7406\u5b9e\u8bad\u5e73\u53f0",
   login: "\u767b\u5f55",
-  teacherHeading: "\u73ed\u7ea7\u5b66\u60c5\u7ba1\u7406",
+  teacherHeading: "\u667a\u80fd\u52a9\u6559",
   className: "\u8ba1\u7ec4 UI Smoke \u73ed " + Date.now(),
   studentNo: "ui-smoke-" + Date.now(),
   studentName: "\u6d4b\u8bd5\u5b66\u751f",
