@@ -7,6 +7,7 @@ import { MobileLabFallback } from "./MobileLabFallback.jsx";
 import { MachineNumberPanel } from "./MachineNumberPanel.jsx";
 import { MemorySystemPanel } from "./MemorySystemPanel.jsx";
 import { ChallengeCanvas } from "./ChallengeCanvas.jsx";
+import { OverviewExplodedView } from "./OverviewExplodedView.jsx";
 import { statusText, statusTone, formatEndpointLabel } from "./labUtils.js";
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
@@ -26,8 +27,25 @@ export function LabPage({
 }) {
   const l = lab;
   const cur = l.currentChallenge;
+  if (cur.id === "computer-components") return <ComputerOverviewLab />;
   if (l.currentCircuitModel) return <ReactFlowLab />;
   return <LegacyLab />;
+
+  function ComputerOverviewLab() {
+    return (
+      <div className="lab-studio" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+        <header className="lab-studio-header">
+          <div className="lab-studio-brand"><button className="lab-studio-icon-button" onClick={() => changeView("home")} type="button"><ArrowLeft size={19} /></button><span className="lab-studio-mark"><Cpu size={24} /></span><div><strong>计算机组成探索</strong><small>3D 爆炸视图</small></div></div>
+          <div className="lab-studio-current"><span>第一章计算机概述</span><strong>{cur.title}</strong><em>探索模式</em></div>
+          <div className="lab-studio-score"><span>视角</span><strong>3D</strong><small>自由旋转</small></div>
+          <div className="lab-studio-user"><span>{student.name}</span><button className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button"><GearSix size={19} /></button></div>
+        </header>
+        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+          <OverviewExplodedView autoPlay={true} />
+        </div>
+      </div>
+    );
+  }
 
   function ReactFlowLab() {
     const idx = CHALLENGES.findIndex((c) => c.id === cur.id);

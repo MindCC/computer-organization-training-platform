@@ -18,12 +18,15 @@
     "@fontsource/manrope": "^5.2.8",
     "@fontsource/newsreader": "^5.2.10",
     "@phosphor-icons/react": "^2.1.10",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
     "@vitejs/plugin-react": "5.0.4",
     "@xyflow/react": "^12.11.1",
     "better-sqlite3": "^12.11.1",
     "express": "^5.2.1",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "three": "^0.185.1",
     "vite": "6.4.2"
   },
   "devDependencies": {

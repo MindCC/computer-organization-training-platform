@@ -1,4 +1,5 @@
 import { HARDWARE_GAME_CASES, HARDWARE_PARTS, gradeHardwareBuild } from "../hardwareGame.js";
+import { HardwareBuilderView } from "./HardwareBuilderView.jsx";
 
 const categoryLabel = (category) => ({ cpu: "CPU", memory: "内存", storage: "存储", gpu: "显卡" })[category] ?? category;
 const partMetric = (category, part) => category === "memory" ? part.capacity + "GB" : category === "storage" ? part.capacity + "GB / " + part.performance : "性能 " + part.performance;
@@ -22,6 +23,10 @@ export function HardwareGamePage({ hardwareSelection, setHardwareSelection, hard
           <small>{preview.passed ? "目标达成" : "需要调整"}</small>
         </div>
       </header>
+
+      <div style={{ height: 520, marginBottom: 16, borderRadius: 12, overflow: "hidden" }}>
+        <HardwareBuilderView parts={hardwareSelection} onPartChange={setHardwareSelection} score={preview} />
+      </div>
 
       <div className="hardware-game-grid">
         <aside className="hardware-case-list">
