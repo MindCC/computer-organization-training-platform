@@ -4,10 +4,18 @@ const MAX_RESULT_BYTES = 64 * 1024;
 const MAX_ELAPSED_MINUTES = 240;
 const PASSING_SCORE = 80;
 
-export function normalizeStudentAttemptPayload(payload = {}, learningItems = []) {
+export function normalizeStudentAttemptPayload(payload = {}, learningItems = [], progress = null, skipPrerequisiteCheck = false) {
   const challengeId = String(payload.challengeId ?? "");
   if (!learningItems.some((challenge) => challenge.id === challengeId)) {
     return { ok: false, status: 400, error: "未知关卡" };
+  }
+
+  // Prerequisite check: reject submissions for locked challenges
+  if (!skipPrerequisiteCheck && progress) {
+    const record = progress[challengeId];
+    if (record && record.status === "locked") {
+      return { ok: false, status: 403, error: "请先完成前置关卡" };
+    }
   }
 
   const result = normalizeResult(payload.result ?? {});

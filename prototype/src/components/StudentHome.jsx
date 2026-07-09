@@ -34,6 +34,24 @@ export function StudentHome({ progress, nextRecommendedChallenge, navigateToChal
       </header>
 
       <div className="route-map-body">
+        <div className="route-map-overview">
+          <div className="route-map-stat-card">
+            <strong>{summary.completionRate}%</strong>
+            <span>完成率</span>
+          </div>
+          <div className="route-map-stat-card">
+            <strong>{summary.averageScore}</strong>
+            <span>平均分</span>
+          </div>
+          <div className="route-map-stat-card">
+            <strong>{summary.totalStudyMinutes} 分钟</strong>
+            <span>累计耗时</span>
+          </div>
+          <div className="route-map-stat-card">
+            <strong>{recommended?.estimatedMinutes ?? "-"} 分钟</strong>
+            <span>下一关预估</span>
+          </div>
+        </div>
         <div className="route-map-main">
           {recommended ? (
             <NextStepCard

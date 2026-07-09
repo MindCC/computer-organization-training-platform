@@ -91,13 +91,37 @@ export function createApp(options = {}) {
     });
   });
 
+  // Login rate limiter: 5 failures → 60s block per username
+  const loginFailures = new Map();
+  const MAX_LOGIN_FAILURES = 5;
+  const LOGIN_BLOCK_SECONDS = 60;
+
   app.post("/api/auth/login", async (req, res, next) => {
     try {
       const { username, password } = req.body ?? {};
+      const key = String(username ?? "").trim().toLowerCase();
+      const now = Date.now();
+
+      // Check rate limit
+      const record = loginFailures.get(key);
+      if (record && record.count >= MAX_LOGIN_FAILURES && (now - record.since) < LOGIN_BLOCK_SECONDS * 1000) {
+        const remaining = Math.ceil((LOGIN_BLOCK_SECONDS * 1000 - (now - record.since)) / 1000);
+        return res.status(429).json({ error: `登录尝试过多，请 ${remaining} 秒后重试` });
+      }
+
       const user = getUserByUsername(db, username ?? "");
       if (!user || user.status !== "active" || !(await verifyPassword(password ?? "", user.password_hash))) {
-        return res.status(401).json({ error: "用户名或密码错误" });
+        // Track failure
+        const prev = loginFailures.get(key) || { count: 0, since: now };
+        prev.count += 1;
+        if (prev.count === 1) prev.since = now;
+        loginFailures.set(key, prev);
+        const remaining = MAX_LOGIN_FAILURES - prev.count;
+        return res.status(401).json({ error: remaining > 0 ? `用户名或密码错误（还剩 ${remaining} 次尝试）` : "用户名或密码错误" });
       }
+
+      // Success: clear failures
+      loginFailures.delete(key);
       deleteExpiredSessions(db);
       const token = createToken();
       const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
@@ -283,7 +307,8 @@ export function createApp(options = {}) {
   });
 
   app.post("/api/student/attempts", requireRole("student"), (req, res) => {
-    const normalized = normalizeStudentAttemptPayload(req.body ?? {}, LEARNING_ITEMS);
+    const currentProgress = getStudentProgress(db, req.user.id);
+    const normalized = normalizeStudentAttemptPayload(req.body ?? {}, LEARNING_ITEMS, currentProgress);
     if (!normalized.ok) return res.status(normalized.status).json({ error: normalized.error });
     const progress = recordStudentAttempt(db, req.user.id, normalized.challengeId, normalized.result);
     res.status(201).json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress) });

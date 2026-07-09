@@ -5061,6 +5061,34 @@ textarea:focus-visible {
   align-items: start;
 }
 
+.route-map-overview {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.route-map-stat-card {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  text-align: center;
+}
+
+.route-map-stat-card strong {
+  display: block;
+  font-size: 1.25rem;
+  color: var(--primary);
+  margin-bottom: 4px;
+}
+
+.route-map-stat-card span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 .route-map-main {
   display: grid;
   gap: 14px;

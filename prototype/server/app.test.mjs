@@ -81,14 +81,13 @@ test("teacher imports students, student submits progress, teacher exports csv", 
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        challengeId: "data-flow",
+        challengeId: "computer-components",
         result: { passed: true, score: 100, errors: [], elapsedMinutes: 8 },
       }),
     }, studentJar);
     assert.equal(result.response.status, 201);
-    assert.equal(result.body.progress["data-flow"].status, "completed");
-    assert.equal(result.body.progress["and-gate"].status, "in-progress");
-    assert.equal(result.body.progress["half-adder"].status, "locked");
+    assert.equal(result.body.progress["computer-components"].status, "completed");
+    assert.equal(result.body.progress["program-flow"].status, "in-progress");
 
     result = await request(baseUrl, "/api/student/attempts", {
       method: "POST",
@@ -193,11 +192,11 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     assert.equal(result.body.student.username, "2026001");
     assert.equal(result.body.student.attempts.length, 2);
     assert.equal(result.body.student.notes.length, 1);
-    assert.equal(result.body.student.progress["data-flow"].bestScore, 100);
+    assert.equal(result.body.student.progress["computer-components"].bestScore, 100);
     assert.equal(result.body.student.progress["game-office-pc"].bestScore, 100);
-    assert.equal(result.body.student.timeDistribution[0].challengeId, "data-flow");
+    assert.equal(result.body.student.timeDistribution[0].challengeId, "computer-components");
     assert.equal(result.body.student.timeDistribution[0].timeSpentMinutes, 8);
-    assert.ok(result.body.student.scoreTrends.some((item) => item.challengeId === "data-flow" && item.best === 100));
+    assert.ok(result.body.student.scoreTrends.some((item) => item.challengeId === "computer-components" && item.best === 100));
     assert.equal(result.body.student.hardwareSummary.completedCases, 1);
     assert.equal(result.body.student.hardwareSummary.bestCaseId, "game-office-pc");
 
