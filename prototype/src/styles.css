@@ -5866,3 +5866,35 @@ textarea:focus-visible {
 /* Remove old styles */
 .exploded-controls { display: none; }
 .exploded-hint { display: none; }
+
+.exploded-hint-bar {
+  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  padding: 6px 18px; border-radius: 999px; z-index: 8;
+  background: rgba(15, 16, 17, 0.88); border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #8a8f98; font-size: 0.72rem;
+  backdrop-filter: blur(12px);
+  animation: hintFade 5s ease forwards;
+}
+@keyframes hintFade {
+  0%, 70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.builder-warnings { margin-top: 8px; }
+.builder-warning-item {
+  display: flex; gap: 4px; align-items: flex-start;
+  padding: 5px 8px; margin-bottom: 4px; border-radius: 5px;
+  background: rgba(229, 32, 32, 0.08); border: 1px solid rgba(229, 32, 32, 0.15);
+  color: #ef9a9a; font-size: 0.66rem; line-height: 1.4;
+}
+.builder-warning-item span { font-size: 0.7rem; flex-shrink: 0; }
+
+.von-neumann-overview {
+  position: absolute; top: 12px; left: 12px; z-index: 9;
+  padding: 10px 14px; border-radius: 8px;
+  background: rgba(15, 16, 17, 0.85); border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+}
+.von-neumann-overview strong { display: block; color: #8a8f98; font-size: 0.7rem; font-weight: 500; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+.von-neumann-diagram { display: block; width: 320px; height: auto; }
+.von-neumann-overview small { display: block; color: #62666d; font-size: 0.62rem; margin-top: 4px; }

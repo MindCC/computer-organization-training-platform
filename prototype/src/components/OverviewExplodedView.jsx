@@ -59,7 +59,11 @@ export function OverviewExplodedView({ autoPlay = true }) {
   const [currentStep, setCurrentStep] = useState(0); // 0 = all parts exploded, 1-8 = assembly steps
   const [selectedPart, setSelectedPart] = useState(null);
   const timerRef = useRef(null);
+  const [showHint, setShowHint] = useState(true);
   const allParts = usePartPositions(explodeDistance);
+
+  // Auto-hide hint after 5s
+  useEffect(() => { const t = setTimeout(() => setShowHint(false), 5000); return () => clearTimeout(t); }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -194,6 +198,42 @@ export function OverviewExplodedView({ autoPlay = true }) {
         <span><i style={{ background: "#ffeb3b" }} /> 控制总线</span>
         <span><i style={{ background: "#ef5350" }} /> 供电线</span>
       </div>
+
+      {/* Von Neumann architecture overview */}
+      <div className="von-neumann-overview">
+        <strong>冯·诺依曼架构</strong>
+        <svg viewBox="0 0 420 120" className="von-neumann-diagram">
+          <rect x="10" y="10" width="70" height="28" rx="4" fill="rgba(79,195,247,0.12)" stroke="rgba(79,195,247,0.35)" strokeWidth="1" />
+          <text x="45" y="28" textAnchor="middle" fill="#4fc3f7" fontSize="9" fontWeight="600">输入设备</text>
+          <rect x="100" y="10" width="70" height="28" rx="4" fill="rgba(129,199,132,0.12)" stroke="rgba(129,199,132,0.35)" strokeWidth="1" />
+          <text x="135" y="28" textAnchor="middle" fill="#81c784" fontSize="9" fontWeight="600">存储器</text>
+          <rect x="190" y="10" width="70" height="28" rx="4" fill="rgba(255,183,77,0.12)" stroke="rgba(255,183,77,0.35)" strokeWidth="1" />
+          <text x="225" y="28" textAnchor="middle" fill="#ffb74d" fontSize="9" fontWeight="600">运算器</text>
+          <rect x="280" y="10" width="70" height="28" rx="4" fill="rgba(206,147,216,0.12)" stroke="rgba(206,147,216,0.35)" strokeWidth="1" />
+          <text x="315" y="28" textAnchor="middle" fill="#ce93d8" fontSize="9" fontWeight="600">控制器</text>
+          <rect x="340" y="50" width="70" height="28" rx="4" fill="rgba(229,115,115,0.12)" stroke="rgba(229,115,115,0.35)" strokeWidth="1" />
+          <text x="375" y="68" textAnchor="middle" fill="#ef5350" fontSize="9" fontWeight="600">输出设备</text>
+          <line x1="80" y1="24" x2="98" y2="24" stroke="rgba(255,255,255,0.15)" strokeWidth="1" markerEnd="url(#arrow)" />
+          <line x1="170" y1="24" x2="188" y2="24" stroke="rgba(255,255,255,0.15)" strokeWidth="1" markerEnd="url(#arrow)" />
+          <line x1="260" y1="24" x2="278" y2="24" stroke="rgba(255,255,255,0.15)" strokeWidth="1" markerEnd="url(#arrow)" />
+          <line x1="315" y1="38" x2="315" y2="48" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
+          <line x1="315" y1="64" x2="338" y2="64" stroke="rgba(255,255,255,0.15)" strokeWidth="1" markerEnd="url(#arrow)" />
+          <line x1="135" y1="38" x2="225" y2="10" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" strokeDasharray="3,3" />
+          <defs>
+            <marker id="arrow" viewBox="0 0 6 6" refX="5" refY="3" markerWidth="5" markerHeight="5" orient="auto">
+              <path d="M0,0 L6,3 L0,6" fill="rgba(255,255,255,0.25)" />
+            </marker>
+          </defs>
+        </svg>
+        <small>数据流：输入→存储→运算，控制信号协调全机</small>
+      </div>
+
+      {/* Operation hint */}
+      {showHint && (
+        <div className="exploded-hint-bar">
+          🖱 拖拽旋转 &nbsp;·&nbsp; 滚轮缩放 &nbsp;·&nbsp; 右键平移 &nbsp;·&nbsp; 点击部件查看详情
+        </div>
+      )}
     </div>
   );
 }

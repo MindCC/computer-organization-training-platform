@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { ComputerExplodedView } from "./ComputerExplodedView.jsx";
 import { COMPUTER_PARTS, usePartPositions } from "./computerParts.js";
 
@@ -38,7 +38,11 @@ function slotToKey(slotId) {
 
 export function HardwareBuilderView({ parts, onPartChange, score }) {
   const [selecting, setSelecting] = useState(null);
+  const [animating, setAnimating] = useState(null); // slot id that just got filled
   const positions = usePartPositions(0);
+
+  // Clear animation after 400ms
+  useEffect(() => { if (animating) { const t = setTimeout(() => setAnimating(null), 400); return () => clearTimeout(t); } }, [animating]);
 
   const slotParts = useMemo(() => BUILDER_SLOTS.map((sid) => positions.find((p) => p.id === sid)), [positions]);
 
@@ -51,6 +55,7 @@ export function HardwareBuilderView({ parts, onPartChange, score }) {
     if (!selecting) return;
     const newParts = { ...parts, [slotToKey(selecting)]: opt.id };
     onPartChange(newParts);
+    setAnimating(selecting);
     setSelecting(null);
   }
 
@@ -62,12 +67,15 @@ export function HardwareBuilderView({ parts, onPartChange, score }) {
             if (!part) return null;
             const isSelected = selecting === part.id;
             const isFilled = parts[slotToKey(part.id)] != null;
+            const isAnimating = animating === part.id;
+            const baseScale = isSelected ? 1.15 : 1;
+            const scale = isAnimating ? 1.35 : baseScale;
             return (
               <mesh
                 key={part.id}
                 geometry={part.geo}
                 position={part.position}
-                scale={isSelected ? [1.15, 1.15, 1.15] : [1, 1, 1]}
+                scale={[scale, scale, scale]}
                 onClick={() => handleSlotClick(part)}
                 castShadow
                 receiveShadow
@@ -121,6 +129,16 @@ export function HardwareBuilderView({ parts, onPartChange, score }) {
           <div className="builder-score">
             <strong>{score.score} 分</strong>
             <small>{score.passed ? "目标达成" : "需要调整"}</small>
+          </div>
+        ) : null}
+
+        {score && !score.passed && score.errors ? (
+          <div className="builder-warnings">
+            {score.errors.map((e, i) => (
+              <div key={i} className="builder-warning-item">
+                <span>⚠</span> {e}
+              </div>
+            ))}
           </div>
         ) : null}
       </div>
