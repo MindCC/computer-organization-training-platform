@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "playwright";
+import { chromium } from "@playwright/test";
 import { CIRCUIT_CHALLENGES } from "../src/circuit/challengeCircuitModel.js";
 import { CHALLENGES } from "../src/platformLogic.js";
 
