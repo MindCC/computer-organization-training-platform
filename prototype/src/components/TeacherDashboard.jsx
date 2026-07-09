@@ -1,6 +1,7 @@
 import { CheckCircle, Sparkle, Target, TrendUp, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES, LEARNING_ITEMS } from "../platformLogic.js";
 import { HARDWARE_GAME_CASES, hardwareCaseTitle, formatHardwareBuildParts } from "../hardwareGame.js";
+import { useEffect, useRef } from "react";
 
 function statusText(status) {
   return { completed: "已完成", "in-progress": "进行中", unlocked: "未开始", locked: "未解锁" }[status] ?? status;
@@ -70,6 +71,19 @@ export function TeacherStudioDashboard({
   const assistant = buildTeacherAssistantInsights(classOverview, selectedClass);
   const students = classOverview?.students ?? [];
   const hardwareSummary = classOverview?.hardwareGameSummary ?? { completedCases: 0, averageScore: 0, frequentBottlenecks: [], typicalBuilds: [] };
+  const lastRefreshRef = useRef(Date.now());
+
+  // Auto-refresh: poll class overview every 45s when a class is selected
+  useEffect(() => {
+    if (!selectedTeacherClassId) return;
+    const id = setInterval(() => {
+      lastRefreshRef.current = Date.now();
+      refreshClassOverview(selectedTeacherClassId);
+    }, 45_000);
+    return () => clearInterval(id);
+  }, [selectedTeacherClassId, refreshClassOverview]);
+
+  const lastRefreshText = new Date(lastRefreshRef.current).toLocaleTimeString();
 
   return (
     <div className="teacher-studio">
@@ -78,6 +92,7 @@ export function TeacherStudioDashboard({
           <span className="eyebrow">教师数据页</span>
           <h1>{selectedClass ? `${selectedClass.name} 学情概览` : "选择班级"}</h1>
           <p>查看每名学生的完成率、平均分、尝试次数和薄弱点，导出CSV成绩。</p>
+        <small className="refresh-indicator">最后更新：{lastRefreshText} · 每 45 秒自动刷新</small>
         </div>
       </header>
 

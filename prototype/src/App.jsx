@@ -77,6 +77,7 @@ import { StudentHome } from "./components/StudentHome.jsx";
 import { StudentRecords } from "./components/StudentRecords.jsx";
 import { SettingsModal } from "./components/TeacherSettingsPanel.jsx";
 import { TeacherStudioDashboard } from "./components/TeacherDashboard.jsx";
+import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
 import studyDiagram from "./assets/study-tip-carry-diagram.png";
@@ -1160,6 +1161,7 @@ export function App() {
   }
 
   return (
+    <ErrorBoundary>
     <div className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={() => changeView("home")} type="button">
@@ -1296,6 +1298,7 @@ export function App() {
 
       {showSettings ? <SettingsModal setShowSettings={setShowSettings} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} student={student} updateStudent={updateStudent} saveStudentSettings={saveStudentSettings} /> : null}
     </div>
+    </ErrorBoundary>
   );
 
   function renderLogin() {

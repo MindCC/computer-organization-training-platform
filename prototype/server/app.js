@@ -1,4 +1,5 @@
 ﻿import express from "express";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
@@ -7,6 +8,7 @@ import { normalizeStudentAttemptPayload } from "./submissionValidation.js";
 import { buildStudentMarkdownReport } from "./studentReport.js";
 import {
   addStudentToClass,
+  archiveClass,
   createClass,
   createNote,
   createSession,
@@ -14,6 +16,8 @@ import {
   deleteExpiredSessions,
   deleteNote,
   deleteSession,
+  disableStudent,
+  enableStudent,
   getClassOverview,
   getSessionUser,
   getStudentProgress,
@@ -27,6 +31,8 @@ import {
   recordStudentAttempt,
   sanitizeUser,
   teacherOwnsClass,
+  transferStudent,
+  unarchiveClass,
   updateNote,
   updateUserPassword,
   updateUserProfile,
@@ -47,7 +53,43 @@ export function createApp(options = {}) {
   app.use(express.text({ type: ["text/csv", "text/plain"], limit: "1mb" }));
   app.use(loadSession(db));
 
-  app.get("/api/health", (_req, res) => res.json({ ok: true }));
+  // Request logger
+  app.use((req, _res, next) => {
+    if (process.env.NODE_ENV !== "test") {
+      console.log(`${new Date().toISOString()} ${req.method} ${req.path} ${req.user ? req.user.username : "-"}`);
+    }
+    next();
+  });
+
+  // CSRF: validate Origin/Referer for state-changing requests
+  app.use((req, res, next) => {
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+    const origin = req.headers.origin || req.headers.referer;
+    if (!origin) return next(); // same-origin requests (no Origin header) are safe
+    const baseUrl = process.env.PUBLIC_BASE_URL || "";
+    if (baseUrl && !origin.startsWith(baseUrl)) {
+      return res.status(403).json({ error: "跨站请求被拒绝" });
+    }
+    next();
+  });
+
+  // Deep health check
+  const _startedAt = Date.now();
+  app.get("/api/health", (_req, res) => {
+    let dbOk = true, dbError = "";
+    try {
+      app.locals.db.prepare("SELECT 1").get();
+    } catch (e) {
+      dbOk = false;
+      dbError = e.message;
+    }
+    res.json({
+      ok: dbOk,
+      uptime: Math.floor((Date.now() - _startedAt) / 1000),
+      db: dbOk ? "ok" : `error: ${dbError}`,
+      version: process.env.HERMES_BUILD_ID || "dev",
+    });
+  });
 
   app.post("/api/auth/login", async (req, res, next) => {
     try {
@@ -187,6 +229,51 @@ export function createApp(options = {}) {
       const nextPassword = String(req.body?.password ?? "ChangeMe123!");
       updateUserPassword(db, Number(req.params.studentId), await hashPassword(nextPassword));
       res.json({ ok: true, password: nextPassword });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/teacher/classes/:id/archive", requireRole("teacher"), (req, res) => {
+    const classId = Number(req.params.id);
+    if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
+    archiveClass(db, classId);
+    res.json({ ok: true });
+  });
+
+  app.post("/api/teacher/classes/:id/unarchive", requireRole("teacher"), (req, res) => {
+    const classId = Number(req.params.id);
+    if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
+    unarchiveClass(db, classId);
+    res.json({ ok: true });
+  });
+
+  app.post("/api/teacher/students/:studentId/disable", requireRole("teacher"), (req, res, next) => {
+    try {
+      const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId));
+      if (!detail) return res.status(404).json({ error: "学生不存在" });
+      disableStudent(db, Number(req.params.studentId));
+      res.json({ ok: true });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/teacher/students/:studentId/enable", requireRole("teacher"), (req, res, next) => {
+    try {
+      const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId));
+      if (!detail) return res.status(404).json({ error: "学生不存在" });
+      enableStudent(db, Number(req.params.studentId));
+      res.json({ ok: true });
+    } catch (error) { next(error); }
+  });
+
+  app.post("/api/teacher/students/:studentId/transfer", requireRole("teacher"), (req, res, next) => {
+    try {
+      const fromId = Number(req.body.fromClassId);
+      const toId = Number(req.body.toClassId);
+      if (!fromId || !toId) return res.status(400).json({ error: "缺少班级ID" });
+      if (!teacherOwnsClass(db, req.user.id, fromId) || !teacherOwnsClass(db, req.user.id, toId)) {
+        return res.status(404).json({ error: "班级不存在" });
+      }
+      transferStudent(db, Number(req.params.studentId), fromId, toId);
+      res.json({ ok: true });
     } catch (error) { next(error); }
   });
 

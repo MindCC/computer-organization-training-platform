@@ -40,6 +40,8 @@ export function migrate(db) {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'archived')),
+      archived_at TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -95,9 +97,17 @@ export function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
     CREATE INDEX IF NOT EXISTS idx_class_members_student_id ON class_members(student_id);
     CREATE INDEX IF NOT EXISTS idx_attempts_student_id ON challenge_attempts(student_id);
+
+    CREATE TABLE IF NOT EXISTS schema_migrations (
+      version INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
   `);
   ensureColumn(db, "notes", "challenge_id", "TEXT");
   ensureColumn(db, "notes", "updated_at", "TEXT");
+  ensureColumn(db, "classes", "status", "TEXT NOT NULL DEFAULT 'active'");
+  ensureColumn(db, "classes", "archived_at", "TEXT");
 }
 
 export function sanitizeUser(row) {
@@ -152,12 +162,13 @@ export function teacherOwnsClass(db, teacherId, classId) {
   return Boolean(row);
 }
 
-export function listTeacherClasses(db, teacherId) {
+export function listTeacherClasses(db, teacherId, includeArchived = false) {
+  const statusFilter = includeArchived ? "" : "AND c.status = 'active'";
   return db.prepare(`
-    SELECT c.id, c.name, c.created_at AS createdAt, COUNT(cm.student_id) AS studentCount
+    SELECT c.id, c.name, c.status, c.archived_at AS archivedAt, c.created_at AS createdAt, COUNT(cm.student_id) AS studentCount
     FROM classes c
     LEFT JOIN class_members cm ON cm.class_id = c.id
-    WHERE c.teacher_id = ?
+    WHERE c.teacher_id = ? ${statusFilter}
     GROUP BY c.id
     ORDER BY c.id DESC
   `).all(teacherId);
@@ -478,6 +489,30 @@ function buildStudentHardwareSummary(db, studentId) {
     bestCaseId,
     completedCases: rows.length,
   };
+}
+
+export function archiveClass(db, classId) {
+  db.prepare("UPDATE classes SET status = 'archived', archived_at = CURRENT_TIMESTAMP WHERE id = ?").run(classId);
+}
+
+export function unarchiveClass(db, classId) {
+  db.prepare("UPDATE classes SET status = 'active', archived_at = NULL WHERE id = ?").run(classId);
+}
+
+export function disableStudent(db, studentId) {
+  db.prepare("UPDATE users SET status = 'disabled', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND role = 'student'").run(studentId);
+}
+
+export function enableStudent(db, studentId) {
+  db.prepare("UPDATE users SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(studentId);
+}
+
+export function transferStudent(db, studentId, fromClassId, toClassId) {
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM class_members WHERE class_id = ? AND student_id = ?").run(fromClassId, studentId);
+    addStudentToClass(db, toClassId, studentId);
+  });
+  tx();
 }
 
 
