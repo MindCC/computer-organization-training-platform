@@ -1,95 +1,122 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ComputerExplodedView } from "./ComputerExplodedView.jsx";
 import { COMPUTER_PARTS, usePartPositions } from "./computerParts.js";
 
-// Builder-only parts: cpu, ram-0, ram-1, gpu, storage
-const BUILDER_SLOTS = COMPUTER_PARTS.filter((p) =>
-  ["cpu", "gpu", "storage", "ram-0", "ram-1"].includes(p.id)
-);
+const BUILDER_SLOTS = ["cpu", "gpu", "storage", "ram-0", "ram-1"];
 
-function BuilderPart({ part, isPlaced, onClick }) {
-  const scale = isPlaced ? [1, 1, 1] : [0.6, 0.6, 0.6];
-  const opacity = isPlaced ? 1 : 0.4;
-  return (
-    <mesh
-      geometry={part.geo}
-      position={part.position}
-      scale={scale}
-      onClick={onClick}
-      castShadow
-      receiveShadow
-    >
-      <meshStandardMaterial {...part.mat} transparent opacity={opacity} />
-    </mesh>
-  );
+const PART_OPTIONS = {
+  cpu: [
+    { id: "cpu-i3", label: "Core i3", spec: "2核4线程 · ¥800", color: "#90caf9" },
+    { id: "cpu-i5", label: "Core i5", spec: "4核8线程 · ¥1500", color: "#64b5f6" },
+    { id: "cpu-i7", label: "Core i7", spec: "8核16线程 · ¥2500", color: "#42a5f5" },
+  ],
+  gpu: [
+    { id: "gpu-integrated", label: "集成显卡", spec: "日常办公 · ¥0", color: "#a5d6a7" },
+    { id: "gpu-3050", label: "GTX 3050", spec: "轻度设计 · ¥1800", color: "#81c784" },
+    { id: "gpu-4060", label: "RTX 4060", spec: "3D设计/AI · ¥3500", color: "#66bb6a" },
+  ],
+  storage: [
+    { id: "ssd-256", label: "SSD 256GB", spec: "入门 · ¥300", color: "#ffcc80" },
+    { id: "ssd-512", label: "SSD 512GB", spec: "常用 · ¥500", color: "#ffb74d" },
+    { id: "ssd-1tb", label: "SSD 1TB", spec: "大容量 · ¥900", color: "#ffa726" },
+  ],
+  "ram-0": [
+    { id: "mem-8", label: "8GB DDR4", spec: "基础办公 · ¥300", color: "#ce93d8" },
+    { id: "mem-16", label: "16GB DDR4", spec: "多任务 · ¥500", color: "#ba68c8" },
+    { id: "mem-32", label: "32GB DDR4", spec: "专业应用 · ¥1000", color: "#ab47bc" },
+  ],
+  "ram-1": [
+    { id: "mem2-8", label: "8GB DDR4", spec: "基础办公 · ¥300", color: "#ce93d8" },
+    { id: "mem2-16", label: "16GB DDR4", spec: "多任务 · ¥500", color: "#ba68c8" },
+  ],
+};
+
+function slotToKey(slotId) {
+  const m = { cpu: "cpu", gpu: "gpu", storage: "storage", "ram-0": "memory", "ram-1": "memory2" };
+  return m[slotId] ?? slotId;
 }
 
 export function HardwareBuilderView({ parts, onPartChange, score }) {
-  const [selectedSlot, setSelectedSlot] = useState(null);
-  const positions = usePartPositions(0); // Always assembled view
+  const [selecting, setSelecting] = useState(null);
+  const positions = usePartPositions(0);
+
+  const slotParts = useMemo(() => BUILDER_SLOTS.map((sid) => positions.find((p) => p.id === sid)), [positions]);
 
   function handleSlotClick(part) {
-    if (selectedSlot) {
-      // Swap: put selected part in this slot
-      const newParts = { ...parts };
-      const selectedPartId = selectedSlot.id;
-      const targetSlot = part.id;
-      // Find what was in the selected slot
-      const sourceValue = parts[slotToKey(selectedPartId)];
-      const targetValue = parts[slotToKey(targetSlot)];
-      newParts[slotToKey(targetSlot)] = sourceValue;
-      newParts[slotToKey(selectedPartId)] = targetValue;
-      onPartChange(newParts);
-      setSelectedSlot(null);
-    } else {
-      setSelectedSlot(part);
-    }
+    if (selecting === part.id) { setSelecting(null); return; }
+    setSelecting(part.id);
   }
 
-  function handlePartCardClick(slotId, partValue) {
-    const newParts = { ...parts, [slotToKey(slotId)]: partValue };
+  function handlePartSelect(opt) {
+    if (!selecting) return;
+    const newParts = { ...parts, [slotToKey(selecting)]: opt.id };
     onPartChange(newParts);
-    setSelectedSlot(null);
+    setSelecting(null);
   }
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", display: "flex" }}>
       <div style={{ flex: 1 }}>
         <ComputerExplodedView cameraPosition={[1.0, 0.8, 2.5]}>
-          {positions.map((part) => (
-            <BuilderPart
-              key={part.id}
-              part={part}
-              isPlaced={parts[slotToKey(part.id)] != null}
-              onClick={() => handleSlotClick(part)}
-            />
-          ))}
+          {slotParts.map((part) => {
+            if (!part) return null;
+            const isSelected = selecting === part.id;
+            const isFilled = parts[slotToKey(part.id)] != null;
+            return (
+              <mesh
+                key={part.id}
+                geometry={part.geo}
+                position={part.position}
+                scale={isSelected ? [1.15, 1.15, 1.15] : [1, 1, 1]}
+                onClick={() => handleSlotClick(part)}
+                castShadow
+                receiveShadow
+              >
+                <meshStandardMaterial
+                  color={isFilled ? "#4fc3f7" : isSelected ? "#ffa726" : "#555"}
+                  emissive={isSelected ? "#ffa726" : isFilled ? "#4fc3f7" : "#000"}
+                  emissiveIntensity={isSelected ? 0.6 : isFilled ? 0.4 : 0}
+                  metalness={isFilled ? 0.7 : 0.3}
+                  roughness={isFilled ? 0.2 : 0.6}
+                  transparent
+                  opacity={isFilled ? 1 : 0.55}
+                />
+              </mesh>
+            );
+          })}
         </ComputerExplodedView>
       </div>
 
-      {/* Parts panel */}
       <div className="builder-panel">
-        <h3>零件库</h3>
-        {BUILDER_SLOTS.map((slot) => (
-          <div key={slot.id} className="builder-slot">
-            <span>{slot.label}</span>
-            <div className="builder-options">
-              {getOptionsForSlot(slot.id).map((opt) => (
-                <button
-                  key={opt.id}
-                  className={parts[slotToKey(slot.id)] === opt.id ? "active" : ""}
-                  onClick={() => handlePartCardClick(slot.id, opt.id)}
-                  type="button"
-                >
-                  {opt.label}
-                  <small>{opt.spec}</small>
-                </button>
-              ))}
-            </div>
+        <h3>{selecting ? `选择 ${slotParts.find((p) => p?.id === selecting)?.label ?? "零件"}` : "点击 3D 部件选择"}</h3>
+        {selecting ? (
+          <div className="builder-options">
+            {PART_OPTIONS[selecting]?.map((opt) => (
+              <button key={opt.id} className={parts[slotToKey(selecting)] === opt.id ? "active" : ""}
+                onClick={() => handlePartSelect(opt)} type="button">
+                {opt.label}<small>{opt.spec}</small>
+              </button>
+            ))}
+            <button className="builder-options" style={{ borderColor: "#555", color: "#888" }} onClick={() => setSelecting(null)} type="button">
+              取消
+            </button>
           </div>
-        ))}
+        ) : (
+          <div className="builder-options">
+            {BUILDER_SLOTS.map((sid) => {
+              const slot = slotParts.find((p) => p?.id === sid);
+              const filled = parts[slotToKey(sid)];
+              const optName = filled ? (PART_OPTIONS[sid]?.find((o) => o.id === filled)?.label ?? filled) : "未选择";
+              return (
+                <button key={sid} onClick={() => setSelecting(sid)} type="button"
+                  style={{ borderColor: filled ? "#4fc3f7" : "#444" }}>
+                  {slot?.label ?? sid}<small>{optName}</small>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        {/* Score */}
         {score ? (
           <div className="builder-score">
             <strong>{score.score} 分</strong>
@@ -99,40 +126,4 @@ export function HardwareBuilderView({ parts, onPartChange, score }) {
       </div>
     </div>
   );
-}
-
-function slotToKey(slotId) {
-  const map = { cpu: "cpu", gpu: "gpu", storage: "storage", "ram-0": "memory", "ram-1": "memory2" };
-  return map[slotId] ?? slotId;
-}
-
-const PART_OPTIONS = {
-  cpu: [
-    { id: "cpu-i3", label: "Core i3", spec: "2核4线程 · ¥800" },
-    { id: "cpu-i5", label: "Core i5", spec: "4核8线程 · ¥1500" },
-    { id: "cpu-i7", label: "Core i7", spec: "8核16线程 · ¥2500" },
-  ],
-  gpu: [
-    { id: "gpu-integrated", label: "集成显卡", spec: "日常办公 · ¥0" },
-    { id: "gpu-3050", label: "GTX 3050", spec: "轻度设计 · ¥1800" },
-    { id: "gpu-4060", label: "RTX 4060", spec: "3D设计/AI · ¥3500" },
-  ],
-  storage: [
-    { id: "ssd-256", label: "SSD 256GB", spec: "入门 · ¥300" },
-    { id: "ssd-512", label: "SSD 512GB", spec: "常用 · ¥500" },
-    { id: "ssd-1tb", label: "SSD 1TB", spec: "大容量 · ¥900" },
-  ],
-  memory: [
-    { id: "mem-8", label: "8GB", spec: "基础办公 · ¥300" },
-    { id: "mem-16", label: "16GB", spec: "多任务 · ¥500" },
-    { id: "mem-32", label: "32GB", spec: "专业应用 · ¥1000" },
-  ],
-  memory2: [
-    { id: "mem2-8", label: "8GB", spec: "基础办公 · ¥300" },
-    { id: "mem2-16", label: "16GB", spec: "多任务 · ¥500" },
-  ],
-};
-
-function getOptionsForSlot(slotId) {
-  return PART_OPTIONS[slotToKey(slotId)] ?? [];
 }

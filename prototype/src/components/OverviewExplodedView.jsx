@@ -1,6 +1,21 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ComputerExplodedView } from "./ComputerExplodedView.jsx";
-import { COMPUTER_PARTS, usePartPositions } from "./computerParts.js";
+import { COMPUTER_PARTS, CONNECTIONS, usePartPositions } from "./computerParts.js";
+import { useMemo as useMemoThree } from "react";
+
+function ConnectionLine({ from, to, color, thickness = 0.006 }) {
+  const lineGeo = useMemoThree(() => {
+    const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
+    const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    return { len, mid: [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2] };
+  }, [from, to]);
+  return (
+    <mesh position={lineGeo.mid}>
+      <cylinderGeometry args={[thickness, thickness, lineGeo.len, 6]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
+    </mesh>
+  );
+}
 
 function Part({ part, isHovered, onClick, onPointerOver, onPointerOut }) {
   const scale = isHovered ? [1.15, 1.15, 1.15] : [1, 1, 1];
@@ -57,6 +72,9 @@ export function OverviewExplodedView({ autoPlay = true }) {
             onPointerOut={() => setHoveredPart(null)}
           />
         ))}
+        {CONNECTIONS.map((conn, i) => (
+          <ConnectionLine key={`conn-${i}`} from={conn.from} to={conn.to} color={conn.color} thickness={conn.thickness} />
+        ))}
       </ComputerExplodedView>
 
       {/* Overlay: control bar */}
@@ -71,7 +89,8 @@ export function OverviewExplodedView({ autoPlay = true }) {
       {selectedPart ? (
         <div className="exploded-info-card">
           <strong>{selectedPart.label}</strong>
-          <small>{selectedPart.category}</small>
+          <small>{selectedPart.category} · 五大部件：{selectedPart.fiveElement}</small>
+          <p className="exploded-info-desc">{selectedPart.description}</p>
           <button onClick={() => setSelectedPart(null)} type="button">✕</button>
         </div>
       ) : null}

@@ -5727,6 +5727,7 @@ textarea:focus-visible {
 }
 .exploded-info-card strong { display: block; font-size: 0.9rem; }
 .exploded-info-card small { color: #888; font-size: 0.72rem; }
+.exploded-info-desc { margin-top: 6px; font-size: 0.75rem; color: #bbb; line-height: 1.5; }
 .exploded-info-card button {
   position: absolute; top: 6px; right: 6px;
   background: none; border: none; color: #888; cursor: pointer; font-size: 0.8rem;
