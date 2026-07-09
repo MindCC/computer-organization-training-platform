@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { Quaternion, Vector3 } from "three";
+import { useFrame } from "@react-three/fiber";
 import { ComputerExplodedView } from "./ComputerExplodedView.jsx";
-import { COMPUTER_PARTS, CONNECTIONS, MOBO_DETAILS, usePartPositions } from "./computerParts.js";
+import { CONNECTIONS, MOBO_DETAILS, usePartPositions } from "./computerParts.js";
 
 // Assembly steps: which part appears at which step
 const ASSEMBLY_STEPS = [
@@ -15,15 +17,38 @@ const ASSEMBLY_STEPS = [
 ];
 
 function ConnectionLine({ from, to, color, thickness = 0.006 }) {
-  const lineGeo = useMemo(() => {
+  const { position, quaternion, length } = useMemo(() => {
     const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
     const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    return { len, mid: [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2] };
+    const mid = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2];
+    const dir = new Vector3(dx, dy, dz).normalize();
+    const quat = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir);
+    return { position: mid, quaternion: quat, length: len };
   }, [from, to]);
   return (
-    <mesh position={lineGeo.mid}>
-      <cylinderGeometry args={[thickness, thickness, lineGeo.len, 6]} />
+    <mesh position={position} quaternion={quaternion}>
+      <cylinderGeometry args={[thickness, thickness, length, 6]} />
       <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
+    </mesh>
+  );
+}
+
+function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
+  const meshRef = useRef(null);
+  const progress = useRef(Math.random()); // Random start position for each line
+  useFrame((_, delta) => {
+    if (!meshRef.current) return;
+    progress.current = (progress.current + delta * speed) % 1;
+    const t = progress.current;
+    meshRef.current.position.set(
+      from[0] + (to[0] - from[0]) * t,
+      from[1] + (to[1] - from[1]) * t,
+      from[2] + (to[2] - from[2]) * t,
+    );
+  });
+  return (
+    <mesh ref={meshRef} geometry={particleGeo}>
+      <meshBasicMaterial color={color} />
     </mesh>
   );
 }
@@ -35,6 +60,18 @@ export function OverviewExplodedView({ autoPlay = true }) {
   const [selectedPart, setSelectedPart] = useState(null);
   const timerRef = useRef(null);
   const allParts = usePartPositions(explodeDistance);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function onKey(e) {
+      if (mode !== "step") return;
+      if (e.key === "ArrowRight" && currentStep < 8) setCurrentStep((s) => s + 1);
+      if (e.key === "ArrowLeft" && currentStep > 1) setCurrentStep((s) => s - 1);
+      if (e.key === " " && currentStep < 8) { e.preventDefault(); setCurrentStep((s) => s + 1); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mode, currentStep]);
 
   // Filter parts by current step
   const visibleParts = useMemo(() => {
@@ -89,9 +126,16 @@ export function OverviewExplodedView({ autoPlay = true }) {
             </mesh>
           );
         })}
-        {(showConnections || mode === "auto") && CONNECTIONS.map((conn, i) => (
-          <ConnectionLine key={`conn-${i}`} from={conn.from} to={conn.to} color={conn.color} thickness={conn.thickness} />
-        ))}
+        {(showConnections || mode === "auto") && (
+          <>
+            {CONNECTIONS.map((conn, i) => (
+              <ConnectionLine key={`conn-${i}`} from={conn.from} to={conn.to} color={conn.color} thickness={conn.thickness} />
+            ))}
+            {CONNECTIONS.map((conn, i) => (
+              <DataFlowParticle key={`flow-${i}`} from={conn.from} to={conn.to} color={conn.color} />
+            ))}
+          </>
+        )}
         {visibleParts.some((p) => p.id === "motherboard") && MOBO_DETAILS.map((d, i) => (
           <mesh key={`mobo-${i}`} geometry={d.geo} material={d.mat} position={d.pos} />
         ))}

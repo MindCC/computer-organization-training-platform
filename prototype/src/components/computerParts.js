@@ -9,7 +9,6 @@ const matGPU = new MeshStandardMaterial({ color: "#2a2a2a", metalness: 0.6, roug
 const matStorage = new MeshStandardMaterial({ color: "#888", metalness: 0.8, roughness: 0.2 });
 const matPSU = new MeshStandardMaterial({ color: "#333", metalness: 0.5, roughness: 0.4 });
 const matCase = new MeshStandardMaterial({ color: "#1a1a2e", metalness: 0.3, roughness: 0.6, transparent: true, opacity: 0.35 });
-const matLabel = new MeshStandardMaterial({ color: "#4fc3f7", emissive: "#4fc3f7", emissiveIntensity: 0.5 });
 
 // ── Geometry factories ──
 const cpuGeo = new BoxGeometry(0.45, 0.06, 0.45);
