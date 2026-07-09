@@ -1,4 +1,4 @@
-import { BoxGeometry, CylinderGeometry, MeshStandardMaterial, Group } from "three";
+import { BoxGeometry, CylinderGeometry, MeshStandardMaterial } from "three";
 import { useMemo } from "react";
 
 // ── Materials ──
@@ -53,6 +53,21 @@ export const CONNECTIONS = [
   { from: [-0.45, -0.08, 0], to: [0.05, 0.1, 0.15], color: "#ef5350", label: "CPU 供电", thickness: 0.008 },
   { from: [-0.45, -0.08, 0], to: [0.25, 0.1, -0.15], color: "#ef5350", label: "GPU 供电", thickness: 0.006 },
 ];
+
+// ── Motherboard surface details (CPU socket, DIMM, PCIe) ──
+const cpuSocketGeo = new BoxGeometry(0.48, 0.002, 0.48);
+const dimmSlotGeo = new BoxGeometry(0.06, 0.002, 0.52);
+const pcieSlotGeo = new BoxGeometry(0.42, 0.002, 0.06);
+const socketMat = new MeshStandardMaterial({ color: "#333", metalness: 0.8, roughness: 0.3 });
+const slotMat = new MeshStandardMaterial({ color: "#1a1a1a", metalness: 0.5, roughness: 0.4 });
+
+export const MOBO_DETAILS = [
+  { geo: cpuSocketGeo, mat: socketMat, pos: [0.05, 0.067, 0.15] },
+  { geo: dimmSlotGeo, mat: slotMat, pos: [-0.3, 0.067, 0.1] },
+  { geo: dimmSlotGeo, mat: slotMat, pos: [-0.15, 0.067, 0.1] },
+  { geo: pcieSlotGeo, mat: slotMat, pos: [0.25, 0.067, -0.15] },
+];
+
 export function usePartPositions(explodeDistance = 0) {
   return useMemo(() => COMPUTER_PARTS.map((part) => ({
     ...part,
