@@ -14,3 +14,4 @@ Current durable prototype preferences:
 - Performance acceptance targets ordinary classroom Windows 10/11 PCs: four-core x86-64 CPU, 8 GB memory, integrated graphics, 1366×768, and a supported stable Edge release.
 - The latest approved design specification takes precedence over conflicting committed or uncommitted implementation; compatible behavior still requires regression coverage.
 - Browser QA should use one headless Chromium instance and one worker unless a specific test requires otherwise.
+- Visual design must borrow both interaction patterns and visible UI language from strong engineering games, without copying their copyrighted assets: use Turing Complete and Factorio for progression maps, SHENZHEN I/O and Opus Magnum for the lab workbench, while True: learn() for data-flow feedback, and a strategy-game command-room treatment for the teacher view.
