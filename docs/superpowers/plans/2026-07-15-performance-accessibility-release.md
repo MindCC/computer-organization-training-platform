@@ -1,6 +1,6 @@
 # Performance, Accessibility, and Release Quality Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [x]) syntax for tracking.
 
 **Goal:** Make the approved dual-role prototype reliable on ordinary low-end Windows classroom computers by shrinking visible assets, providing a deterministic no-WebGL path, and measuring repeated 3D navigation and frame pacing.
 
@@ -38,7 +38,7 @@
 
 - Produces npm run qa:assets, exiting non-zero for a missing or oversized production derivative.
 
-- [ ] **Step 1: Write the failing verifier**
+- [x] **Step 1: Write the failing verifier**
 
 ~~~javascript
 import assert from "node:assert/strict";
@@ -59,13 +59,13 @@ for (const [relativePath, maximumBytes] of budgets) {
 }
 ~~~
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run: node scripts/verify-asset-budget.mjs
 
 Expected: ENOENT for alex-chen-avatar.webp.
 
-- [ ] **Step 3: Produce deterministic derivatives**
+- [x] **Step 3: Produce deterministic derivatives**
 
 ~~~powershell
 @'
@@ -85,7 +85,7 @@ for source_name, target_name, size, quality in jobs:
 '@ | python -
 ~~~
 
-- [ ] **Step 4: Switch imports and CSS**
+- [x] **Step 4: Switch imports and CSS**
 
 ~~~javascript
 import avatarImage from "./assets/alex-chen-avatar.webp";
@@ -99,13 +99,13 @@ Change the login CSS URL to lab-circuit-illustration.webp and add:
 "qa:assets": "node scripts/verify-asset-budget.mjs"
 ~~~
 
-- [ ] **Step 5: Confirm GREEN**
+- [x] **Step 5: Confirm GREEN**
 
 Run npm run qa:assets and npm run build.
 
 Expected: both exit 0; dist emits the three WebP files and no imported copies of the three PNG sources.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 Commit message: perf: optimize classroom image assets
 
@@ -128,7 +128,7 @@ Commit message: perf: optimize classroom image assets
 - Produces canUseWebGL(createCanvas = defaultCreateCanvas): boolean.
 - ComputerExplodedView accepts fallback as a React node.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ~~~javascript
 import test from "node:test";
@@ -148,13 +148,13 @@ test("accepts WebGL2 or WebGL", () => {
 });
 ~~~
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run node --test src/webglSupport.test.mjs.
 
 Expected: module-not-found for webglSupport.js.
 
-- [ ] **Step 3: Implement the probe**
+- [x] **Step 3: Implement the probe**
 
 ~~~javascript
 function defaultCreateCanvas() {
@@ -170,7 +170,7 @@ export function canUseWebGL(createCanvas = defaultCreateCanvas) {
 }
 ~~~
 
-- [ ] **Step 4: Add semantic fallback and Canvas gate**
+- [x] **Step 4: Add semantic fallback and Canvas gate**
 
 Fallback must contain:
 
@@ -186,17 +186,17 @@ Fallback must contain:
 
 ComputerExplodedView calls canUseWebGL before Canvas and renders fallback when false. Keep dpr=1, antialias=false, and powerPreference=low-power when true.
 
-- [ ] **Step 5: Suppress reduced-motion particles**
+- [x] **Step 5: Suppress reduced-motion particles**
 
 Render DataFlowParticle only when prefersReducedMotion is false.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run node --test src/webglSupport.test.mjs, npm test, and npm run build.
 
 Expected: all exit 0; Three.js remains outside the common entry.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Commit message: feat: add static fallback for unavailable WebGL
 
@@ -216,7 +216,7 @@ Commit message: feat: add static fallback for unavailable WebGL
 - Produces npm run qa:performance.
 - Consumes QA_PERF_DURATION_MS, default 10000.
 
-- [ ] **Step 1: Add failing no-WebGL assertions**
+- [x] **Step 1: Add failing no-WebGL assertions**
 
 Launch a second Chromium with --disable-webgl and --disable-gpu, log in with the isolated student, and assert:
 
@@ -226,17 +226,17 @@ assert.equal(await fallbackPage.locator(".computer-exploded canvas").count(), 0)
 assert.equal(await fallbackPage.getByText("数据总线传数据", { exact: false }).isVisible(), true);
 ~~~
 
-- [ ] **Step 2: Confirm RED**
+- [x] **Step 2: Confirm RED**
 
 Run npm run qa:3d.
 
 Expected: fallback selector missing before Task 2.
 
-- [ ] **Step 3: Finish fallback cleanup and confirm GREEN**
+- [x] **Step 3: Finish fallback cleanup and confirm GREEN**
 
 Close both browsers independently in finally and include both pages' errors in the final assertion.
 
-- [ ] **Step 4: Write performance verifier**
+- [x] **Step 4: Write performance verifier**
 
 The verifier creates an isolated student, enters and leaves overview 10 times, asserts one canvas inside and zero after exit, collects garbage through CDP before and after, requires heap growth at most 24 MB, then samples requestAnimationFrame for the configured duration and requires at least 20 FPS.
 
@@ -257,7 +257,7 @@ const metrics = await page.evaluate(async (durationMs) => {
 }, durationMs);
 ~~~
 
-- [ ] **Step 5: Register command**
+- [x] **Step 5: Register command**
 
 Allow scripts/verify-performance.mjs in run-browser-qa.mjs, forward QA_PERF_DURATION_MS, and add:
 
@@ -265,13 +265,13 @@ Allow scripts/verify-performance.mjs in run-browser-qa.mjs, forward QA_PERF_DURA
 "qa:performance": "node scripts/run-browser-qa.mjs scripts/verify-performance.mjs"
 ~~~
 
-- [ ] **Step 6: Run both durations**
+- [x] **Step 6: Run both durations**
 
 Run npm run qa:performance, then set QA_PERF_DURATION_MS to 60000 and run it again.
 
 Expected: 10 clean cycles, heap delta at most 24 MB, and FPS at least 20 in both runs.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 Commit message: test: add low-end 3d performance gates
 
@@ -283,22 +283,38 @@ Commit message: test: add low-end 3d performance gates
 
 - Modify: this plan.
 
-- [ ] **Step 1: Run full matrix**
+- [x] **Step 1: Run full matrix**
 
 Run npm test, npm run qa:assets, npm run build, npm run qa:ui, npm run qa:3d, npm run qa:performance, and git diff --check.
 
 Expected: every command exits 0 using temporary QA data.
 
-- [ ] **Step 2: Inspect release scope**
+- [x] **Step 2: Inspect release scope**
 
 List the twelve largest dist assets and inspect Git status.
 
 Expected: WebP files meet budget and no PNG production copy, SQLite, .hermes, test-artifacts, dist, or browser cache enters scope.
 
-- [ ] **Step 3: Append exact evidence**
+- [x] **Step 3: Append exact evidence**
 
 Record test count, common-entry gzip size, each WebP size, normal and fallback 3D checks, 10-cycle heap delta, 10-second FPS, and 60-second FPS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 Commit message: docs: record low-end classroom quality evidence
+---
+
+## Verified Release Evidence
+
+Verified on 2026-07-15 using standalone Playwright Chromium, isolated temporary SQLite databases, a 1366x768 viewport, and one browser worker at a time.
+
+- Unit and integration tests: 137 passed, 0 failed.
+- Asset budget: avatar 1,744 bytes; lab illustration 14,236 bytes; study diagram 31,826 bytes.
+- Production build: common entry 375.80 KB raw / 115.70 KB gzip; route-lazy 3D chunk 919.07 KB raw / 249.22 KB gzip.
+- Dual-role UI smoke: passed teacher class creation/import/assistant/export and student notes, labs, progress, report, and return-to-teacher flows.
+- 3D and fallback: 25/25 checks passed, including normal overview/builder Canvas paths and the WebGL-disabled semantic teaching path with no Canvas.
+- Ten-cycle 10-second performance run after the animation fix: heap delta 2,226,900 bytes; 30.64 FPS average; 33.4 ms P95 frame time.
+- Ten-cycle 60-second stability run after the animation fix: heap delta 2,707,828 bytes; 31.65 FPS average; 33.4 ms P95 frame time.
+- Root-cause comparison: the former 40 ms React state timer capped the automatic scene near 25 FPS and produced a 50.10 ms P95 failure; frame-local mesh animation removed the repeated React reconciliation while preserving the visual animation.
+- Release scope: no dist output, SQLite file, browser cache, test artifacts, or .hermes data is tracked.
+- Final checks: npm test, npm run qa:assets, npm run build, npm run qa:ui, npm run qa:3d, npm run qa:performance, and git diff --check all exited successfully after the production change.
