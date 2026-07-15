@@ -1,4 +1,5 @@
 .superpowers/
+.worktrees/
 .hermes/
 prototype/node_modules/
 prototype/dist/
