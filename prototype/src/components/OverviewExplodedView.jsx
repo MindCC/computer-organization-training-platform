@@ -55,15 +55,61 @@ function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
   );
 }
 
+function AnimatedPart({
+  part,
+  autoAnimating,
+  explodeDistance,
+  isHighlighted,
+  onSelect,
+}) {
+  const meshRef = useRef(null);
+
+  useFrame(({ clock }) => {
+    if (!meshRef.current) return;
+    const distance = autoAnimating
+      ? 1 - Math.cos(clock.elapsedTime * 0.75)
+      : explodeDistance;
+    meshRef.current.position.set(
+      part.basePos[0] + part.explodeDir[0] * distance,
+      part.basePos[1] + part.explodeDir[1] * distance,
+      part.basePos[2] + part.explodeDir[2] * distance,
+    );
+  });
+
+  const scale = isHighlighted ? [1.2, 1.2, 1.2] : [1, 1, 1];
+  return (
+    <mesh
+      ref={meshRef}
+      geometry={part.geo}
+      material={part.mat}
+      position={part.position}
+      scale={scale}
+      onClick={onSelect}
+      castShadow
+      receiveShadow
+    >
+      {isHighlighted && (
+        <meshStandardMaterial
+          color={part.mat.color}
+          emissive="#ffa726"
+          emissiveIntensity={0.5}
+          metalness={part.mat.metalness}
+          roughness={part.mat.roughness}
+        />
+      )}
+    </mesh>
+  );
+}
+
 export function OverviewExplodedView({ autoPlay = true, completed = false, onComplete }) {
   const prefersReducedMotion = typeof window !== "undefined"
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const shouldAutoPlay = autoPlay && !prefersReducedMotion;
   const [mode, setMode] = useState(shouldAutoPlay ? "auto" : "step"); // "auto" | "step"
+  const [autoAnimating, setAutoAnimating] = useState(shouldAutoPlay);
   const [explodeDistance, setExplodeDistance] = useState(0);
   const [currentStep, setCurrentStep] = useState(shouldAutoPlay ? 0 : 1); // 0 = all parts exploded, 1-8 = assembly steps
   const [selectedPart, setSelectedPart] = useState(null);
-  const timerRef = useRef(null);
   const [showHint, setShowHint] = useState(true);
   const allParts = usePartPositions(explodeDistance);
 
@@ -93,19 +139,6 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
   const stepData = currentStep > 0 ? ASSEMBLY_STEPS[currentStep - 1] : null;
   const showConnections = stepData?.showConnections ?? false;
 
-  // Auto-play explosion
-  useEffect(() => {
-    if (mode !== "auto") { clearInterval(timerRef.current); return; }
-    let dir = 1, val = 0;
-    timerRef.current = setInterval(() => {
-      val += 0.012 * dir;
-      if (val >= 2.0) { val = 2.0; dir = -1; }
-      if (val <= 0) { val = 0; dir = 1; }
-      setExplodeDistance(val);
-    }, 40);
-    return () => clearInterval(timerRef.current);
-  }, [mode]);
-
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <ComputerExplodedView
@@ -120,28 +153,15 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
       >
         {visibleParts.map((part) => {
           const isHighlighted = stepData?.highlight === part.id;
-          const scale = isHighlighted ? [1.2, 1.2, 1.2] : [1, 1, 1];
           return (
-            <mesh
+            <AnimatedPart
               key={part.id}
-              geometry={part.geo}
-              material={part.mat}
-              position={part.position}
-              scale={scale}
-              onClick={() => setSelectedPart(selectedPart?.id === part.id ? null : part)}
-              castShadow
-              receiveShadow
-            >
-              {isHighlighted && (
-                <meshStandardMaterial
-                  color={part.mat.color}
-                  emissive="#ffa726"
-                  emissiveIntensity={0.5}
-                  metalness={part.mat.metalness}
-                  roughness={part.mat.roughness}
-                />
-              )}
-            </mesh>
+              part={part}
+              autoAnimating={mode === "auto" && autoAnimating}
+              explodeDistance={explodeDistance}
+              isHighlighted={isHighlighted}
+              onSelect={() => setSelectedPart(selectedPart?.id === part.id ? null : part)}
+            />
           );
         })}
         {(showConnections || mode === "auto") && (
@@ -161,13 +181,13 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
 
       {/* Top bar: mode toggle */}
       <div className="exploded-topbar">
-        <button className={mode === "auto" ? "active" : ""} onClick={() => { setMode("auto"); setCurrentStep(0); }} type="button">自动爆炸</button>
-        <button className={mode === "step" ? "active" : ""} onClick={() => { setMode("step"); setCurrentStep(1); }} type="button">分步组装</button>
+        <button className={mode === "auto" ? "active" : ""} onClick={() => { setMode("auto"); setCurrentStep(0); setAutoAnimating(true); }} type="button">自动爆炸</button>
+        <button className={mode === "step" ? "active" : ""} onClick={() => { setMode("step"); setCurrentStep(1); setAutoAnimating(false); }} type="button">分步组装</button>
         {mode === "auto" && (
           <div className="exploded-controls-inline">
-            <button onClick={() => setExplodeDistance(0)} type="button">装配</button>
-            <button onClick={() => setExplodeDistance(1.5)} type="button">爆炸</button>
-            <button onClick={() => setExplodeDistance(2.0)} type="button">全展开</button>
+            <button onClick={() => { setAutoAnimating(false); setExplodeDistance(0); }} type="button">装配</button>
+            <button onClick={() => { setAutoAnimating(false); setExplodeDistance(1.5); }} type="button">爆炸</button>
+            <button onClick={() => { setAutoAnimating(false); setExplodeDistance(2.0); }} type="button">全展开</button>
           </div>
         )}
       </div>
