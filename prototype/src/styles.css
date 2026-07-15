@@ -5866,6 +5866,49 @@ textarea:focus-visible {
   height: 100%; color: #8a8f98; font-size: 0.85rem; font-weight: 400;
 }
 
+.computer-exploded-fallback {
+  align-content: center;
+  background: radial-gradient(circle at top, rgba(79, 195, 247, 0.12), transparent 52%);
+  color: #d0d6e0;
+  display: grid;
+  gap: 14px;
+  min-height: 480px;
+  padding: clamp(24px, 5vw, 64px);
+}
+.computer-exploded-fallback > strong {
+  color: #f7f8f8;
+  font-size: clamp(1.1rem, 2vw, 1.45rem);
+}
+.computer-exploded-fallback > p,
+.computer-exploded-fallback > small {
+  color: #aeb4bd;
+  line-height: 1.65;
+  margin: 0;
+}
+.computer-exploded-fallback ol {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style-position: inside;
+}
+.computer-exploded-fallback li,
+.computer-exploded-fallback-buses span {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.computer-exploded-fallback-buses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.computer-exploded-fallback .primary-button {
+  justify-self: start;
+}
+
 /* ── Hardware Builder Panel ── */
 .builder-panel {
   width: 210px;

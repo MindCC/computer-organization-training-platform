@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { Quaternion, Vector3 } from "three";
 import { useFrame } from "@react-three/fiber";
 import { ComputerExplodedView } from "./ComputerExplodedView.jsx";
+import { ThreeSceneFallback } from "./ThreeSceneFallback.jsx";
 import { CONNECTIONS, MOBO_DETAILS, usePartPositions } from "./computerParts.js";
 
 // Assembly steps: which part appears at which step
@@ -107,7 +108,16 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <ComputerExplodedView cameraPosition={[1.2, 0.8, 2.0]}>
+      <ComputerExplodedView
+        cameraPosition={[1.2, 0.8, 2.0]}
+        fallback={(
+          <ThreeSceneFallback
+            completed={completed}
+            context="overview"
+            onComplete={onComplete}
+          />
+        )}
+      >
         {visibleParts.map((part) => {
           const isHighlighted = stepData?.highlight === part.id;
           const scale = isHighlighted ? [1.2, 1.2, 1.2] : [1, 1, 1];
@@ -139,7 +149,7 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
             {CONNECTIONS.map((conn, i) => (
               <ConnectionLine key={`conn-${i}`} from={conn.from} to={conn.to} color={conn.color} thickness={conn.thickness} />
             ))}
-            {CONNECTIONS.map((conn, i) => (
+            {!prefersReducedMotion && CONNECTIONS.map((conn, i) => (
               <DataFlowParticle key={`flow-${i}`} from={conn.from} to={conn.to} color={conn.color} />
             ))}
           </>

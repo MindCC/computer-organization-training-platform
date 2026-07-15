@@ -16,6 +16,7 @@ const artifactDir = process.env.QA_ARTIFACT_DIR
 await mkdir(artifactDir, { recursive: true });
 
 let browser;
+let fallbackBrowser;
 try {
   browser = await chromium.launch({ channel: "msedge", headless: true });
 } catch {
@@ -24,6 +25,7 @@ try {
 
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const pageErrors = [];
+const fallbackPageErrors = [];
 page.on("pageerror", (error) => pageErrors.push(error.message));
 let passed = 0;
 let failed = 0;
@@ -119,12 +121,42 @@ try {
   check("Builder score", await page.locator(".builder-score").isVisible());
   await page.screenshot({ path: path.join(artifactDir, "3d-builder.png"), fullPage: true });
 
+  console.log("5. Verify WebGL-disabled static teaching path");
+  fallbackBrowser = await chromium.launch({
+    headless: true,
+    args: ["--disable-webgl", "--disable-gpu"],
+  });
+  const fallbackPage = await fallbackBrowser.newPage({ viewport: { width: 1366, height: 768 } });
+  fallbackPage.on("pageerror", (error) => fallbackPageErrors.push(error.message));
+  await fallbackPage.goto(baseUrl, { waitUntil: "networkidle" });
+  await fallbackPage.getByLabel("账号").fill(studentUsername);
+  await fallbackPage.getByLabel("密码").fill(studentPassword);
+  await fallbackPage.getByRole("button", { name: "登录" }).click();
+  await fallbackPage.getByText("课程路线地图", { exact: false }).waitFor({ state: "visible", timeout: 20_000 });
+  await fallbackPage.getByRole("button").filter({ hasText: "认识计算机五大部件" }).last().click();
+  await fallbackPage.waitForSelector(".computer-exploded-fallback", { timeout: 20_000 });
+  check("Static fallback visible", await fallbackPage.locator(".computer-exploded-fallback").isVisible());
+  check("Fallback creates no canvas", await fallbackPage.locator(".computer-exploded canvas").count() === 0);
+  check("Fallback keeps bus teaching content", await fallbackPage.getByText("数据总线传数据", { exact: false }).isVisible());
+  await fallbackPage.getByRole("button", { name: "完成静态探索" }).click();
+  check("Fallback can complete overview", await fallbackPage.getByRole("button", { name: "已完成静态探索" }).isDisabled());
+
+  await fallbackPage.getByRole("button", { name: /返回课程首页/ }).click();
+  await fallbackPage.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
+  await fallbackPage.waitForSelector(".builder-panel", { timeout: 20_000 });
+  check("Builder fallback visible", await fallbackPage.locator(".computer-exploded-fallback").isVisible());
+  check("Builder controls remain usable", await fallbackPage.locator(".builder-panel").isVisible());
+
   assert.deepEqual(pageErrors, [], "3D QA must not emit page errors");
+  assert.deepEqual(fallbackPageErrors, [], "3D fallback QA must not emit page errors");
 } catch (error) {
   console.error("Error:", error.message);
   failed += 1;
 } finally {
-  await browser.close();
+  await Promise.allSettled([
+    browser?.close(),
+    fallbackBrowser?.close(),
+  ]);
 }
 
 console.log("\n" + passed + "/" + (passed + failed) + " passed");

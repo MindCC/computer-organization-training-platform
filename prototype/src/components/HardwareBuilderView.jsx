@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { ComputerExplodedView } from "./ComputerExplodedView.jsx";
+import { ThreeSceneFallback } from "./ThreeSceneFallback.jsx";
 import { COMPUTER_PARTS, usePartPositions } from "./computerParts.js";
 
 const BUILDER_SLOTS = ["cpu", "gpu", "storage", "ram-0", "ram-1"];
@@ -62,7 +63,7 @@ export function HardwareBuilderView({ parts, onPartChange, score }) {
   return (
     <div style={{ position: "relative", width: "100%", height: "100%", display: "flex" }}>
       <div style={{ flex: 1 }}>
-        <ComputerExplodedView cameraPosition={[1.0, 0.8, 2.5]}>
+        <ComputerExplodedView cameraPosition={[1.0, 0.8, 2.5]} fallback={<ThreeSceneFallback context="builder" />}>
           {slotParts.map((part) => {
             if (!part) return null;
             const isSelected = selecting === part.id;
