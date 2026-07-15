@@ -1,5 +1,5 @@
 import { Play } from "@phosphor-icons/react";
-import { buildCourseRouteGroups } from "../courseRoute.js";
+import { formatEstimatedMinutes } from "../courseRoute.js";
 
 function NextStepCard({ challenge, progress, onEnter }) {
   return (
@@ -17,9 +17,8 @@ function NextStepCard({ challenge, progress, onEnter }) {
   );
 }
 
-export function StudentHome({ progress, nextRecommendedChallenge, navigateToChallenge, summary, notes }) {
+export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes }) {
   const recommended = nextRecommendedChallenge;
-  const routeGroups = buildCourseRouteGroups();
   const sortedGroups = routeGroups.map((group) => ({
     ...group,
     completedCount: group.items.filter((item) => item.status === "completed").length,
@@ -48,7 +47,7 @@ export function StudentHome({ progress, nextRecommendedChallenge, navigateToChal
             <span>累计耗时</span>
           </div>
           <div className="route-map-stat-card">
-            <strong>{recommended?.estimatedMinutes ?? "-"} 分钟</strong>
+            <strong>{formatEstimatedMinutes(recommended?.estimatedMinutes)}</strong>
             <span>下一关预估</span>
           </div>
         </div>
@@ -77,6 +76,7 @@ export function StudentHome({ progress, nextRecommendedChallenge, navigateToChal
                   <button
                     className={`route-card ${item.status}`}
                     key={item.id}
+                    disabled={item.status === "locked"}
                     onClick={() => navigateToChallenge(item.id)}
                     type="button"
                   >
@@ -84,7 +84,7 @@ export function StudentHome({ progress, nextRecommendedChallenge, navigateToChal
                       <span className={`route-card-status ${item.status}`}>
                         {item.status === "completed" ? "已完成" : item.status === "in-progress" ? "进行中" : "未开始"}
                       </span>
-                      <small>{item.estimatedMinutes} 分钟</small>
+                      <small>{formatEstimatedMinutes(item.estimatedMinutes)}</small>
                     </div>
                     <strong>{item.title}</strong>
                     <p>{item.description}</p>

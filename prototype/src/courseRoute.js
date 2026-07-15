@@ -1,4 +1,5 @@
 import { LEARNING_ITEMS } from "./platformLogic.js";
+import { HARDWARE_GAME_PROGRESS_ITEMS } from "./hardwareGame.js";
 
 const ROUTE_GROUP_DEFINITIONS = [
   {
@@ -29,14 +30,7 @@ const ROUTE_GROUP_DEFINITIONS = [
     id: "hardware",
     title: "硬件配置挑战",
     description: "在预算、速度与容量之间做真实取舍。",
-    challengeIds: [
-      "game-office-pc",
-      "game-student-laptop",
-      "game-lab-workstation",
-      "game-storage-upgrade",
-      "game-video-editing",
-      "game-database-server",
-    ],
+    challengeIds: HARDWARE_GAME_PROGRESS_ITEMS.map((item) => item.id),
   },
 ];
 
@@ -49,8 +43,8 @@ export const COURSE_ROUTE_GROUPS = ROUTE_GROUP_DEFINITIONS.map((group) => ({
 
 const LEARNING_ITEM_MAP = new Map(LEARNING_ITEMS.map((item) => [item.id, item]));
 
-export function buildCourseRouteGroups(challenges, progress = {}) {
-  const challengeMap = new Map(challenges.map((challenge) => [challenge.id, challenge]));
+export function buildCourseRouteGroups(challenges = [], progress = {}) {
+  const challengeMap = new Map((challenges ?? []).map((challenge) => [challenge.id, challenge]));
 
   return COURSE_ROUTE_GROUPS.map((group) => ({
     id: group.id,
@@ -60,8 +54,13 @@ export function buildCourseRouteGroups(challenges, progress = {}) {
   }));
 }
 
-export function findNextRecommendedChallenge(challenges, progress = {}) {
-  const challengeMap = new Map(challenges.map((challenge) => [challenge.id, challenge]));
+export function formatEstimatedMinutes(value) {
+  const minutes = Number(value);
+  if (!Number.isFinite(minutes) || minutes <= 0) return "待评估";
+  return `${Math.round(minutes)} 分钟`;
+}
+export function findNextRecommendedChallenge(challenges = [], progress = {}) {
+  const challengeMap = new Map((challenges ?? []).map((challenge) => [challenge.id, challenge]));
   const orderedIds = COURSE_ROUTE_GROUPS.flatMap((group) => group.challengeIds);
 
   for (const id of orderedIds) {
@@ -93,9 +92,17 @@ function buildRouteItem(id, challenge, record = {}, fallbackDescription) {
   };
 }
 
-function buildRecommendation(id, challenge) {
+function buildRecommendation(id, challenge = {}) {
   return {
     id,
-    title: challenge?.title ?? id,
+    title: challenge.title ?? "未命名任务",
+    description: challenge.objective ?? challenge.shortTitle ?? "",
+    principle:
+      challenge.principle
+      ?? challenge.objective
+      ?? "完成任务后查看原理复盘。",
+    estimatedMinutes: Number(challenge.estimatedMinutes) > 0
+      ? Number(challenge.estimatedMinutes)
+      : null,
   };
 }

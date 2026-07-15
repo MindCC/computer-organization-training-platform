@@ -1,11 +1,11 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 
 import { hashPassword, verifyPassword } from "./auth.js";
 import { createApp } from "./app.js";
 import { createUser, migrate, openDatabase } from "./db.js";
 
-async function makeServer() {
+async function makeServer(options = {}) {
   const db = openDatabase(":memory:");
   migrate(db);
   createUser(db, {
@@ -14,7 +14,12 @@ async function makeServer() {
     role: "teacher",
     passwordHash: await hashPassword("Teacher123!"),
   });
-  const app = createApp({ db, serveStatic: false });
+  const app = createApp({
+    db,
+    serveStatic: false,
+    assistantOptions: { env: {} },
+    ...options,
+  });
   const server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
   const port = server.address().port;
@@ -38,6 +43,64 @@ test("password hashing verifies correct password and rejects wrong password", as
   assert.equal(await verifyPassword("wrong", hashed), false);
 });
 
+test("assistant route uses injected generator instead of host AI configuration", async () => {
+  const calls = [];
+  const { db, server, baseUrl } = await makeServer({
+    assistantOptions: { env: { DEEPSEEK_API_KEY: "must-not-be-read" } },
+    generateTeacherAssistantReport: async (_db, teacherId, classId, options) => {
+      calls.push({ teacherId, classId, options });
+      return {
+        source: "fallback",
+        generatedAt: "2026-07-15T00:00:00.000Z",
+        fallbackReason: "测试注入",
+        report: {
+          lessonFocus: "测试重点",
+          riskStudents: [],
+          groupingPlan: [],
+          commonMisconceptions: [],
+          nextClassPlan: [],
+          teacherScript: "测试讲解",
+        },
+      };
+    },
+  });
+  const jar = {};
+  try {
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, jar);
+    const created = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "依赖注入班" }),
+    }, jar);
+    const result = await request(
+      baseUrl,
+      `/api/teacher/classes/${created.body.class.id}/assistant-report`,
+      { method: "POST" },
+      jar,
+    );
+
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.fallbackReason, "测试注入");
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].options.env, { DEEPSEEK_API_KEY: "must-not-be-read" });
+    const forbidden = await request(
+      baseUrl,
+      "/api/teacher/classes/999999/assistant-report",
+      { method: "POST" },
+      jar,
+    );
+    assert.equal(forbidden.response.status, 404);
+    assert.equal(calls.length, 1);
+
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});
 test("teacher imports students, student submits progress, teacher exports csv", async () => {
   const { db, server, baseUrl } = await makeServer();
   const teacherJar = {};

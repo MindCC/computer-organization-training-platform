@@ -61,7 +61,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
           {CHALLENGES.map((challenge) => {
             const record = progress[challenge.id];
             return (
-              <button className="record-row" key={challenge.id} onClick={() => selectChallenge(challenge.id)} type="button">
+              <button className="record-row" disabled={record?.status === "locked"} key={challenge.id} onClick={() => selectChallenge(challenge.id)} type="button">
                 <strong>{challenge.title}</strong>
                 <span>{statusText(record.status)}</span>
                 <span>{record.attempts} 次尝试</span>

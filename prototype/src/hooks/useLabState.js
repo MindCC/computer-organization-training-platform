@@ -76,6 +76,10 @@ export function useLabState({
   // ── Handlers ──
   function selectChallenge(challengeId) {
     const challenge = CHALLENGES.find((item) => item.id === challengeId);
+    if (progress[challengeId]?.status === "locked") {
+      setStatusMessage("\u8bf7\u5148\u5b8c\u6210\u524d\u7f6e\u5173\u5361\u3002");
+      return false;
+    }
     if (!challenge) return;
     const nextBlueprint = buildPlacementBlueprint(challenge);
     setSelectedChallengeId(challengeId);
@@ -88,6 +92,7 @@ export function useLabState({
     setFeedback(null);
     setSimulationStep(0);
     setStatusMessage(`已进入"${challenge.title}"实验。`);
+    return true;
   }
 
   function handleInputChange(key, value) {
@@ -125,9 +130,22 @@ export function useLabState({
     await persistStudentAttempt(selectedChallengeId, result);
   }
 
+  async function completeOverviewChallenge() {
+    const result = {
+      passed: true, errors: [], score: 100, missing: [],
+      elapsedMinutes: currentChallenge.estimatedMinutes,
+    };
+    setFeedback(result);
+    setProgress((cur) => recordAttempt(cur, selectedChallengeId, result));
+    setActivityLog((cur) => [`${currentChallenge.title}\u63a2\u7d22\u5b8c\u6210\uff0c\u5f97\u5206 100\u3002`, ...cur.slice(0, 5)]);
+    setStatusMessage(`\u606d\u559c\uff0c${currentChallenge.title}\u63a2\u7d22\u5df2\u5b8c\u6210\u3002`);
+    await persistStudentAttempt(selectedChallengeId, result);
+  }
+
   async function handleCircuitFlowResult(result) {
     const normalized = { passed: result.passed, errors: result.structure?.errors ?? [], score: result.score,
       missing: result.structure?.missingEdges ?? [], extraConnections: result.structure?.extraEdges ?? [],
+      circuitEdges: result.circuitEdges ?? [],
       elapsedMinutes: currentChallenge.estimatedMinutes };
     setFeedback(normalized);
     setProgress((cur) => recordAttempt(cur, selectedChallengeId, normalized));
@@ -250,7 +268,7 @@ export function useLabState({
     realtimeDiagnostics, selectedComponentDetail, referenceComponents,
     wirePreviewCopy, wirePreviewStatus,
     selectChallenge, handleInputChange, runStep, runAll,
-    submitChallenge, handleCircuitFlowResult, resetChallenge, fillReferenceStructure,
+    submitChallenge, completeOverviewChallenge, handleCircuitFlowResult, resetChallenge, fillReferenceStructure,
     handleDrop, handlePaletteDragStart, handlePlacedComponentDragStart,
     handleWireDragStart, handleWireDragMove, handleWireHoverChange, handleWireDragEnd,
     handleRemoveConnection,

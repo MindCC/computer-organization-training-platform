@@ -9,7 +9,7 @@ import { CHALLENGES } from "../src/platformLogic.js";
 const text = {
   appTitle: "\u7ec4\u6210\u539f\u7406\u5b9e\u8bad\u5e73\u53f0",
   login: "\u767b\u5f55",
-  teacherHeading: "\u667a\u80fd\u52a9\u6559",
+  teacherHeading: "教师数据页",
   className: "\u8ba1\u7ec4 UI Smoke \u73ed " + Date.now(),
   studentNo: "ui-smoke-" + Date.now(),
   studentName: "\u6d4b\u8bd5\u5b66\u751f",
@@ -34,6 +34,7 @@ const text = {
   backHome: "\u8fd4\u56de\u8bfe\u7a0b\u9996\u9875",
   records: "\u5b66\u4e60\u8bb0\u5f55",
   hardwareGame: "\u786c\u4ef6\u914d\u7f6e\u6311\u6218",
+  teacherHardwareSummary: "\u786c\u4ef6\u6311\u6218",
   submitPlan: "\u63d0\u4ea4\u65b9\u6848",
   goalReached: "\u5df2\u6ee1\u8db3\u5ba2\u6237\u76ee\u6807",
   recordsTitle: "\u4e2a\u4eba\u5b66\u60c5\u8bb0\u5f55",
@@ -68,13 +69,16 @@ async function launchBrowser() {
 await mkdir(artifactDir, { recursive: true });
 const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1040 } });
+const pageErrors = [];
+page.on("pageerror", (error) => pageErrors.push(error.message));
 
+try {
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 await assertVisible(page, text.appTitle);
 await login(page, teacherUsername, teacherPassword);
 await assertVisible(page, text.teacherHeading);
 await assertNoVisibleMojibake(page, "teacher dashboard");
-await page.locator(".teacher-studio-actions").getByRole("button", { name: text.classroomSettings }).click();
+await openClassroomSettings(page);
 const templateHref = await page.locator(".settings-template-link").getAttribute("href");
 assert.match(templateHref ?? "", /^data:text\/csv/);
 await assertVisible(page, text.importStudents);
@@ -89,7 +93,7 @@ await assertVisible(page, text.smartAssistant);
 await page.getByRole("button", { name: text.generateAssistant }).click();
 await assertAssistantReportGenerated(page);
 assert.equal(await page.locator(".teacher-import-panel").count(), 0);
-await page.locator(".teacher-studio-actions").getByRole("button", { name: text.classroomSettings }).click();
+await openClassroomSettings(page);
 await page.getByLabel("\u5b66\u751f\u5bfc\u5165 CSV").fill(`\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n${text.studentNo},${text.studentName},${text.studentPassword}`);
 await page.getByRole("button", { name: text.importStudents }).click();
 await page.getByRole("button", { name: "\u5173\u95ed" }).click();
@@ -107,6 +111,29 @@ await login(page, text.studentNo, text.studentPassword);
 await assertVisible(page, "\u8bfe\u7a0b\u8def\u7ebf\u5730\u56fe");
 await assertNoVisibleMojibake(page, "student home");
 await assertVisible(page, "\u5b66\u4e60\u72b6\u6001");
+const lockedRoute = page.locator(".route-card.locked").filter({ hasText: "\u7a0b\u5e8f\u8fd0\u884c\u8def\u7ebf" });
+assert.equal(await lockedRoute.isDisabled(), true, "locked route must not be enterable");
+await page.locator(".sidebar-nav .nav-item").filter({ hasText: "学习笔记" }).click();
+await page.getByLabel("笔记内容").fill("3D 与总线关系复盘");
+await page.getByRole("button", { name: "保存笔记" }).click();
+await assertVisible(page, "3D 与总线关系复盘");
+await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u8bfe\u7a0b\u9996\u9875" }).click();
+await openChallenge(page, "\u8ba4\u8bc6\u8ba1\u7b97\u673a\u4e94\u5927\u90e8\u4ef6");
+await assertVisible(page, "\u5206\u6b65\u7ec4\u88c5");
+await page.getByRole("button", { name: "\u5206\u6b65\u7ec4\u88c5" }).click();
+for (let step = 1; step < 8; step += 1) {
+  await page.locator(".exploded-stepbar").getByRole("button", { name: "\u4e0b\u4e00\u6b65" }).click();
+}
+const overviewAttemptPromise = waitForAttemptResponse(page);
+await page.getByRole("button", { name: "\u5b8c\u6210\u63a2\u7d22" }).click();
+await assertAttemptSaved(await overviewAttemptPromise, "computer-components");
+await page.getByRole("button", { name: "\u5df2\u5b8c\u6210\u63a2\u7d22" }).waitFor({ state: "visible", timeout: 10_000 });
+await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
+await assertVisible(page, "\u8bfe\u7a0b\u8def\u7ebf\u5730\u56fe");
+
+await page.locator(".sidebar-nav .nav-item").filter({ hasText: "课程首页" }).click();
+await assertVisible(page, "课程路线地图");
+
 
 for (const challenge of legacyOverviewChallenges) {
   await openChallenge(page, challenge.title);
@@ -115,7 +142,7 @@ for (const challenge of legacyOverviewChallenges) {
   await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
 }
 
-for (const challenge of CIRCUIT_CHALLENGES) {
+for (const challenge of CIRCUIT_CHALLENGES.filter((item) => item.id !== "computer-components")) {
   console.log(`Verifying React Flow lab: ${challenge.id}`);
   await openChallenge(page, challenge.title);
   await verifyReactFlowChallenge(page, challenge);
@@ -129,10 +156,17 @@ await assertVisible(page, text.hardwareGame);
 await assertVisible(page, "\u7535\u8111\u88c5\u673a\u5e97\u7ecf\u8425\u6311\u6218");
 await assertVisible(page, "\u5ba2\u6237\u6ee1\u610f\u5ea6");
 await assertVisible(page, "\u7ecf\u8425\u5229\u6da6");
+const hardwareAttemptPromise = waitForAttemptResponse(page);
 await page.getByRole("button", { name: text.submitPlan }).click();
+await assertAttemptSaved(await hardwareAttemptPromise, "game-office-pc");
 await assertVisible(page, text.goalReached);
 await page.screenshot({ path: artifactPath("student-hardware-game.png"), fullPage: true });
 
+await openRecords(page);
+await assertVisible(page, text.recordsTitle);
+await page.locator(".record-table .record-row").filter({ hasText: "\u7a0b\u5e8f\u8fd0\u884c\u8def\u7ebf" }).click();
+await page.locator(".circuit-flow-workbench").waitFor({ state: "visible", timeout: 10_000 });
+await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
 await openRecords(page);
 await assertVisible(page, text.recordsTitle);
 await page.reload({ waitUntil: "networkidle" });
@@ -145,7 +179,7 @@ await login(page, teacherUsername, teacherPassword);
 await assertVisible(page, text.teacherHeading);
 await selectClass(page, text.className);
 await assertVisible(page, text.studentName);
-await assertVisible(page, text.hardwareGame);
+await assertVisible(page, text.teacherHardwareSummary);
 await page.locator(".teacher-student-table .record-row").filter({ hasText: text.studentName }).last().getByRole("button", { name: text.viewDetail }).click();
 const detailPanel = page.locator(".teacher-detail-panel");
 await detailPanel.waitFor({ state: "visible", timeout: 10_000 });
@@ -159,8 +193,19 @@ await page.goto(baseUrl, { waitUntil: "networkidle" });
 await assertVisible(page, text.teacherHeading);
 await page.screenshot({ path: artifactPath("mobile-teacher.png"), fullPage: true });
 
-await browser.close();
+assert.deepEqual(pageErrors, [], "UI smoke must not emit page errors");
 console.log("UI smoke check passed");
+} finally {
+  await browser.close();
+}
+
+async function openClassroomSettings(targetPage) {
+  const settingsButton = targetPage.getByRole("button", { name: text.classroomSettings });
+  if (!(await settingsButton.isVisible().catch(() => false))) {
+    await targetPage.locator(".profile-button").click();
+  }
+  await settingsButton.click();
+}
 
 async function login(targetPage, username, password) {
   await targetPage.getByLabel("\u8d26\u53f7").fill(username);
@@ -170,8 +215,11 @@ async function login(targetPage, username, password) {
 }
 
 async function logout(targetPage) {
-  await targetPage.locator(".profile-button").click();
-  await targetPage.getByRole("button", { name: text.logout }).click();
+  const logoutButton = targetPage.getByRole("button", { name: text.logout });
+  if (!(await logoutButton.isVisible().catch(() => false))) {
+    await targetPage.locator(".profile-button").click();
+  }
+  await logoutButton.click();
   await assertVisible(targetPage, text.login);
 }
 
@@ -249,8 +297,13 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
     ({ expectedEdges }) => document.querySelectorAll(".react-flow__edge").length >= expectedEdges,
     { expectedEdges: challenge.requiredEdges.length },
   );
+  const attemptPromise = waitForAttemptResponse(targetPage);
   await workbench.getByRole("button", { name: text.submit }).click();
-  await workbench.getByText(text.passed).first().waitFor({ state: "visible", timeout: 10_000 });
+  await assertAttemptSaved(await attemptPromise, challenge.id);
+  const report = workbench.locator(".circuit-flow-report");
+  await report.waitFor({ state: "visible", timeout: 10_000 });
+  const reportText = await report.innerText();
+  assert.match(reportText, /本关通过/, `${challenge.id} report: ${reportText}`);
 }
 
 async function waitForReactFlowNodeCount(targetPage, challenge) {
@@ -264,6 +317,24 @@ async function waitForReactFlowNodeCount(targetPage, challenge) {
   const bodyText = await targetPage.locator("body").innerText();
   throw new Error(`${challenge.id} expected ${challenge.nodes.length} React Flow nodes, saw ${nodeCount}. Text: ${bodyText.slice(0, 1200)}`);
 }
+function waitForAttemptResponse(targetPage) {
+  return targetPage.waitForResponse(
+    (response) => response.url().endsWith("/api/student/attempts")
+      && response.request().method() === "POST",
+    { timeout: 10_000 },
+  );
+}
+
+async function assertAttemptSaved(response, challengeId) {
+  const status = response.status();
+  const body = await response.text();
+  assert.equal(
+    status,
+    201,
+    `${challengeId} attempt was not saved: HTTP ${status} ${body}`,
+  );
+}
+
 
 async function dragRequiredEdge(targetPage, edge) {
   const source = targetPage.getByTestId(`port-${edge.from.nodeId}-${edge.from.portId}`);
@@ -292,8 +363,18 @@ async function assertNoVisibleMojibake(targetPage, label) {
 }
 
 async function assertVisible(targetPage, visibleText) {
-  await targetPage.getByText(visibleText, { exact: false }).first().waitFor({ state: "visible", timeout: 10_000 });
-  assert.equal(await targetPage.getByText(visibleText, { exact: false }).first().isVisible(), true);
+  const locator = targetPage.getByText(visibleText, { exact: false }).first();
+  try {
+    await locator.waitFor({ state: "visible", timeout: 10_000 });
+    assert.equal(await locator.isVisible(), true);
+  } catch (error) {
+    const bodyText = await targetPage.locator("body").innerText().catch(() => "<body unavailable>");
+    const runtimeErrors = pageErrors.length > 0 ? pageErrors.join(" | ") : "none";
+    throw new Error(
+      `Expected visible text ${JSON.stringify(visibleText)}. Runtime errors: ${runtimeErrors}. Body: ${bodyText.slice(0, 2000)}`,
+      { cause: error },
+    );
+  }
 }
 
 function artifactPath(fileName) {

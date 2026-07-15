@@ -5720,6 +5720,48 @@ textarea:focus-visible {
 .exploded-controls-inline { display: flex; gap: 3px; margin-left: 6px; padding-left: 6px; border-left: 1px solid rgba(255, 255, 255, 0.06); }
 .exploded-controls-inline button { padding: 3px 10px; font-size: 0.72rem; border-radius: 5px; }
 
+
+.exploded-part-list {
+  position: absolute;
+  top: 58px;
+  left: 12px;
+  z-index: 10;
+  display: grid;
+  gap: 5px;
+  width: 180px;
+  max-height: calc(100% - 190px);
+  overflow-y: auto;
+}
+
+.exploded-part-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(8, 17, 31, 0.9);
+  color: #f4f7fb;
+  cursor: pointer;
+}
+
+.exploded-part-list button small {
+  color: #9aa7b7;
+  font-size: 0.66rem;
+}
+
+.exploded-part-list button:hover {
+  border-color: rgba(79, 195, 247, 0.55);
+}
+
+.exploded-part-list button:focus-visible,
+.exploded-part-list button[aria-pressed="true"] {
+  border-color: #4fc3f7;
+  outline: 2px solid rgba(79, 195, 247, 0.45);
+  outline-offset: 1px;
+}
 /* Step bar: bottom */
 .exploded-stepbar {
   position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
@@ -5739,6 +5781,14 @@ textarea:focus-visible {
 .exploded-stepbar button:not(:disabled):hover {
   background: rgba(255, 255, 255, 0.08); color: #f7f8f8;
 }
+.exploded-stepbar button.complete {
+  background: rgba(62, 207, 142, 0.16);
+  border-color: rgba(62, 207, 142, 0.44);
+  color: #91efbd;
+  font-weight: 800;
+  min-width: 96px;
+}
+
 
 /* Step dots */
 .exploded-step-indicator { display: flex; gap: 4px; }

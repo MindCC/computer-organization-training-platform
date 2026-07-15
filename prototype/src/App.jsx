@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -64,10 +64,6 @@ import {
   getJourneyStepsForChallenge,
 } from "./dataJourney.js";
 import { HARDWARE_GAME_CASES, formatHardwareBuildParts, gradeHardwareBuild, hardwareCaseTitle } from "./hardwareGame.js";
-import { HardwareGamePage } from "./components/HardwareGamePage.jsx";
-import { MachineNumberPanel } from "./components/MachineNumberPanel.jsx";
-import { MemorySystemPanel } from "./components/MemorySystemPanel.jsx";
-import { MobileLabFallback } from "./components/MobileLabFallback.jsx";
 import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRoute.js";
 import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { buildMemoryAccessState } from "./memorySystem.js";
@@ -79,16 +75,14 @@ import { StudentRecords } from "./components/StudentRecords.jsx";
 import { SettingsModal } from "./components/TeacherSettingsPanel.jsx";
 import { TeacherStudioDashboard } from "./components/TeacherDashboard.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
-import { ChallengeCanvas } from "./components/ChallengeCanvas.jsx";
-import { LabPage } from "./components/LabPage.jsx";
 import { useLabState } from "./hooks/useLabState.js";
 import avatarImage from "./assets/alex-chen-avatar.png";
 import labIllustration from "./assets/lab-circuit-illustration.png";
-import studyDiagram from "./assets/study-tip-carry-diagram.png";
 
-const CircuitFlowCanvas = lazy(() =>
-  import("./components/CircuitFlowCanvas.jsx").then((module) => ({ default: module.CircuitFlowCanvas })),
-);
+const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
+  .then((module) => ({ default: module.HardwareGamePage })));
+const LabPage = lazy(() => import("./components/LabPage.jsx")
+  .then((module) => ({ default: module.LabPage })));
 
 const navItems = [
   { id: "home", label: "课程首页", icon: House },
@@ -98,6 +92,31 @@ const navItems = [
   { id: "notes", label: "学习笔记", icon: Notebook },
   { id: "teacher", label: "\u6559\u5e08\u770b\u677f", icon: ChartPieSlice, role: "teacher" },
 ];
+function FeatureLoading({ label }) {
+  return <div className="flow-loading">{label}</div>;
+}
+
+function LabFeatureFallback({ challenge, completed, onBack, onComplete }) {
+  const isOverview = challenge?.id === "computer-components";
+  return (
+    <div className="lab-screen">
+      <section className="section-panel empty-state" role="alert">
+        <strong>{isOverview ? "3D \u573a\u666f\u5df2\u5207\u6362\u4e3a\u9759\u6001\u6559\u5b66\u89c6\u56fe" : "\u5b9e\u9a8c\u5de5\u4f5c\u53f0\u6682\u65f6\u4e0d\u53ef\u7528"}</strong>
+        {isOverview ? (
+          <>
+            <p>{"\u88c5\u914d\u987a\u5e8f\uff1a\u673a\u7bb1 \u2192 \u7535\u6e90 \u2192 \u4e3b\u677f \u2192 CPU \u2192 \u5185\u5b58 \u2192 \u663e\u5361 \u2192 \u786c\u76d8\u3002"}</p>
+            <p>{"\u6570\u636e\u603b\u7ebf\u4f20\u8f93\u6570\u636e\uff0c\u5730\u5740\u603b\u7ebf\u9009\u62e9\u4f4d\u7f6e\uff0c\u63a7\u5236\u603b\u7ebf\u534f\u8c03\u8bfb\u5199\u548c\u6267\u884c\u3002"}</p>
+            <button className="primary-button" disabled={completed} onClick={onComplete} type="button">
+              {completed ? "\u5df2\u5b8c\u6210\u9759\u6001\u63a2\u7d22" : "\u5b8c\u6210\u9759\u6001\u63a2\u7d22"}
+            </button>
+          </>
+        ) : <p>{"\u8bf7\u8fd4\u56de\u8bfe\u7a0b\u9996\u9875\u540e\u91cd\u8bd5\uff0c\u5df2\u4fdd\u5b58\u7684\u5b66\u4e60\u8bb0\u5f55\u4e0d\u4f1a\u4e22\u5931\u3002"}</p>}
+        <button className="ghost-button" onClick={onBack} type="button">{"\u8fd4\u56de\u8bfe\u7a0b\u9996\u9875"}</button>
+      </section>
+    </div>
+  );
+}
+
 
 const initialNotes = [
   {
@@ -441,7 +460,7 @@ export function App() {
   const [editingNoteId, setEditingNoteId] = useState(null);
   const [editingNoteDraft, setEditingNoteDraft] = useState({ title: "", content: "", tag: "" });
   const [noteError, setNoteError] = useState("");
-  const [statusMessage, setStatusMessage] = useState("欢迎回来，今天建议继续完成“全加器”实验。");
+  const [statusMessage, setStatusMessage] = useState("已同步最新学习进度。");
   const [showUserPanel, setShowUserPanel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [student, setStudent] = useState({
@@ -452,6 +471,7 @@ export function App() {
   const [teacherClasses, setTeacherClasses] = useState([]);
   const [selectedTeacherClassId, setSelectedTeacherClassId] = useState(null);
   const selectedTeacherClassIdRef = useRef(null);
+  const classOverviewRequestIdRef = useRef(0);
   const [classOverview, setClassOverview] = useState(null);
   const [assistantReport, setAssistantReport] = useState(null);
   const [assistantLoading, setAssistantLoading] = useState(false);
@@ -472,6 +492,11 @@ export function App() {
     setStatusMessage, persistStudentAttempt, isMobile,
   });
 
+  const memoryAccessState = useMemo(
+    () => buildMemoryAccessState(memoryAddress, memoryOperation, memoryWriteValue),
+    [memoryAddress, memoryOperation, memoryWriteValue],
+  );
+
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 767px)");
     const handler = (event) => setIsMobile(event.matches);
@@ -488,8 +513,8 @@ export function App() {
     const currentIndex = CHALLENGES.findIndex((challenge) => challenge.id === focusChallenge.id);
     return CHALLENGES[currentIndex + 1] ?? CHALLENGES[currentIndex] ?? CHALLENGES[0];
   }, [focusChallenge]);
-  const routeGroups = useMemo(() => buildCourseRouteGroups(CHALLENGES, progress), [progress]);
-  const nextRecommendedChallenge = useMemo(() => findNextRecommendedChallenge(CHALLENGES, progress), [progress]);
+  const routeGroups = useMemo(() => buildCourseRouteGroups(LEARNING_ITEMS, progress), [progress]);
+  const nextRecommendedChallenge = useMemo(() => findNextRecommendedChallenge(LEARNING_ITEMS, progress), [progress]);
 
   useEffect(() => {
     let cancelled = false;
@@ -532,19 +557,22 @@ export function App() {
     setAssistantLoading(false);
   }
 
-  async function refreshTeacherClasses() {
+  async function refreshTeacherClasses(preferredClassId = selectedTeacherClassIdRef.current) {
     const { classes } = await api.teacherClasses();
     setTeacherClasses(classes);
-    const nextClassId = selectedTeacherClassId ?? classes[0]?.id ?? null;
+    const nextClassId = classes.some((item) => item.id === preferredClassId)
+      ? preferredClassId
+      : classes[0]?.id ?? null;
     if (selectedTeacherClassIdRef.current !== nextClassId) {
       resetAssistantState();
     }
     selectedTeacherClassIdRef.current = nextClassId;
     setSelectedTeacherClassId(nextClassId);
-    if (nextClassId) await refreshClassOverview(nextClassId);
+    await refreshClassOverview(nextClassId);
   }
 
-  async function refreshClassOverview(classId = selectedTeacherClassId) {
+  async function refreshClassOverview(classId = selectedTeacherClassIdRef.current) {
+    const requestId = ++classOverviewRequestIdRef.current;
     if (!classId) {
       selectedTeacherClassIdRef.current = null;
       setClassOverview(null);
@@ -553,6 +581,10 @@ export function App() {
       return;
     }
     const overview = await api.classOverview(classId);
+    if (
+      requestId !== classOverviewRequestIdRef.current
+      || selectedTeacherClassIdRef.current !== classId
+    ) return;
     setClassOverview(overview);
     setSelectedTeacherStudent(null);
   }
@@ -613,7 +645,7 @@ export function App() {
       setActiveView("hardware-game");
       return;
     }
-    lab.selectChallenge(challengeId);
+    if (!lab.selectChallenge(challengeId)) return;
     setActiveView("lab");
   }
 
@@ -625,9 +657,9 @@ export function App() {
     }
     try {
       const { note } = await api.createNote({
-        title: `${currentChallenge.shortTitle}复盘`,
+        title: `${lab.currentChallenge.shortTitle}复盘`,
         content,
-        tag: currentChallenge.shortTitle,
+        tag: lab.currentChallenge.shortTitle,
       });
       setNotes((current) => [note, ...current]);
       setNoteDraft("");
@@ -753,9 +785,9 @@ export function App() {
     try {
       const { class: createdClass } = await api.createClass({ name: classNameDraft });
       setTeacherMessage("\u73ed\u7ea7\u5df2\u521b\u5efa\uff1a" + createdClass.name);
+      selectedTeacherClassIdRef.current = createdClass.id;
       setSelectedTeacherClassId(createdClass.id);
-      await refreshTeacherClasses();
-      await refreshClassOverview(createdClass.id);
+      await refreshTeacherClasses(createdClass.id);
     } catch (error) {
       setTeacherMessage("\u521b\u5efa\u73ed\u7ea7\u5931\u8d25\uff1a" + error.message);
     }
@@ -766,8 +798,7 @@ export function App() {
     try {
       const report = await api.importStudents(selectedTeacherClassId, csvImportText);
       setTeacherMessage("\u5bfc\u5165\u5b8c\u6210\uff1a\u65b0\u589e " + report.imported + "\uff0c\u66f4\u65b0 " + report.updated + "\uff0c\u8df3\u8fc7 " + report.skipped);
-      await refreshTeacherClasses();
-      await refreshClassOverview(selectedTeacherClassId);
+      await refreshTeacherClasses(selectedTeacherClassId);
     } catch (error) {
       setTeacherMessage("\u5bfc\u5165\u5931\u8d25\uff1a" + error.message);
     }
@@ -804,11 +835,22 @@ export function App() {
   if (activeView === "lab") {
     return (
       <div className="app-shell lab-mode-shell">
-        <LabPage lab={lab} isMobile={isMobile}
-          memoryAddress={memoryAddress} memoryOperation={memoryOperation} memoryWriteValue={memoryWriteValue}
-          setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue}
-          memoryAccessState={memoryAccessState} setShowSettings={setShowSettings}
-          student={student} statusMessage={statusMessage} changeView={changeView} />
+        <ErrorBoundary fallback={(
+          <LabFeatureFallback
+            challenge={lab.currentChallenge}
+            completed={lab.currentRecord?.status === "completed"}
+            onBack={() => changeView("home")}
+            onComplete={lab.completeOverviewChallenge}
+          />
+        )}>
+          <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u5b9e\u9a8c\u5de5\u4f5c\u53f0..." />}>
+            <LabPage lab={lab} isMobile={isMobile}
+              memoryAddress={memoryAddress} memoryOperation={memoryOperation} memoryWriteValue={memoryWriteValue}
+              setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue}
+              memoryAccessState={memoryAccessState} setShowSettings={setShowSettings}
+              student={student} statusMessage={statusMessage} changeView={changeView} />
+          </Suspense>
+        </ErrorBoundary>
       </div>
     );
   }
@@ -826,11 +868,11 @@ export function App() {
         </button>
 
         <div className="topbar-actions">
-          {auth.user?.role === "student" ? (<button className="continue-pill" onClick={() => selectChallenge(selectedChallengeId)} type="button">
+          {auth.user?.role === "student" ? (<button className="continue-pill" onClick={() => navigateToChallenge(lab.selectedChallengeId)} type="button">
             <Play size={16} weight="fill" />
             <span>
               <strong>继续实验</strong>
-              <small>{currentChallenge.title} · {currentRecord?.bestScore ?? 0} 分</small>
+              <small>{lab.currentChallenge.title} · {lab.currentRecord?.bestScore ?? 0} 分</small>
             </span>
           </button>) : null}
           <button
@@ -907,9 +949,15 @@ export function App() {
             <span>{statusMessage}</span>
           </div>
 
-          {activeView === "home" ? <StudentHome progress={progress} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} /> : null}
-          {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={selectChallenge} /> : null}
-          {activeView === "hardware-game" ? <HardwareGamePage hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} /> : null}
+          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} /> : null}
+          {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
+          {activeView === "hardware-game" ? (
+            <ErrorBoundary>
+              <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u786c\u4ef6\u914d\u7f6e\u6311\u6218..." />}>
+                <HardwareGamePage hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} />
+              </Suspense>
+            </ErrorBoundary>
+          ) : null}
           {activeView === "notes" ? (
             <NotesPage
               noteDraft={noteDraft}
@@ -924,7 +972,7 @@ export function App() {
               editingNoteId={editingNoteId}
               editingNoteDraft={editingNoteDraft}
               setEditingNoteDraft={setEditingNoteDraft}
-              currentChallenge={currentChallenge}
+              currentChallenge={lab.currentChallenge}
               saveNote={saveNote}
               deleteNoteById={deleteNoteById}
               startEditingNote={startEditingNote}

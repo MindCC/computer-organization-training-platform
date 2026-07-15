@@ -1,6 +1,7 @@
 import { CheckCircle, Sparkle, Target, TrendUp, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES, LEARNING_ITEMS } from "../platformLogic.js";
 import { HARDWARE_GAME_CASES, hardwareCaseTitle, formatHardwareBuildParts } from "../hardwareGame.js";
+import { adaptHardwareGameSummary } from "../shared/api/teacherOverviewAdapter.js";
 import { useEffect, useRef } from "react";
 
 function statusText(status) {
@@ -12,8 +13,7 @@ function Metric({ icon: Icon, label, value }) {
 }
 
 export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assistantLoading, assistantError, generateAssistantReport }) {
-  if (!assistant) return null;
-  const report = assistant.report ?? {};
+  const report = assistant?.report ?? {};
   const riskStudents = report.riskStudents ?? [];
   const groupingPlan = report.groupingPlan ?? [];
   const misconceptions = report.commonMisconceptions ?? [];
@@ -24,8 +24,8 @@ export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assi
       <div className="teacher-assistant-header">
         <div>
           <span className="eyebrow">智能助教</span>
-          <h2>{assistant.title}</h2>
-          <p>{assistant.overview}</p>
+          <h2>课堂行动建议</h2>
+          <p>根据当前班级学情生成下节课重点、分层辅导和讲解提示。</p>
         </div>
       </div>
       <div className="teacher-assistant-toolbar">
@@ -34,7 +34,8 @@ export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assi
         </button>
       </div>
       {assistantError ? <p className="teacher-ai-warning">{assistantError}</p> : null}
-      <div className="teacher-assistant-report">
+      {assistant ? (
+        <div className="teacher-assistant-report">
         <div className="teacher-assistant-report-header">
           <span>{assistant.source === "ai" ? "DeepSeek 生成" : "本地降级建议"}</span>
           {assistant.generatedAt ? <small>{new Date(assistant.generatedAt).toLocaleString()}</small> : null}
@@ -54,7 +55,10 @@ export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assi
           {nextClassPlan.length > 0 ? nextClassPlan.map((n) => <p key={n}>{n}</p>) : <p>暂无课堂安排建议。</p>}
         </section>
         <section><strong>教师讲解提示</strong><p>{report.teacherScript}</p></section>
-      </div>
+        </div>
+      ) : (
+        <p className="empty-state">选择班级后生成建议；AI 不可用时会自动使用本地规则。</p>
+      )}
     </section>
   );
 }
@@ -70,7 +74,9 @@ export function TeacherStudioDashboard({
   const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
   const assistant = buildTeacherAssistantInsights(classOverview, selectedClass);
   const students = classOverview?.students ?? [];
-  const hardwareSummary = classOverview?.hardwareGameSummary ?? { completedCases: 0, averageScore: 0, frequentBottlenecks: [], typicalBuilds: [] };
+  const hardwareSummary = adaptHardwareGameSummary(
+    classOverview?.hardwareGameSummary,
+  );
   const lastRefreshRef = useRef(Date.now());
 
   // Auto-refresh: poll class overview every 45s when a class is selected
@@ -135,7 +141,11 @@ export function TeacherStudioDashboard({
             </div>
             <div className="hardware-teacher-list">
               <strong>常见瓶颈</strong>
-              {hardwareSummary.frequentBottlenecks.length ? hardwareSummary.frequentBottlenecks.map((b) => <span key={b}>{b}</span>) : <p className="empty-state">暂无游戏提交数据</p>}
+              {hardwareSummary.frequentBottlenecks.length
+                ? hardwareSummary.frequentBottlenecks.map((bottleneck) => (
+                    <span key={bottleneck.key}>{bottleneck.label}</span>
+                  ))
+                : <p className="empty-state">暂无游戏提交数据</p>}
             </div>
             <div className="hardware-teacher-list">
               <strong>典型高分配置</strong>

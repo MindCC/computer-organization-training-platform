@@ -45,6 +45,9 @@ const SESSION_DAYS = 7;
 
 export function createApp(options = {}) {
   const db = options.db ?? openDatabase(options.databasePath);
+  const assistantReportGenerator =
+    options.generateTeacherAssistantReport ?? generateTeacherAssistantReport;
+  const assistantOptions = options.assistantOptions ?? {};
   migrate(db);
   const app = express();
   app.locals.db = db;
@@ -221,7 +224,15 @@ export function createApp(options = {}) {
   app.post("/api/teacher/classes/:id/assistant-report", requireRole("teacher"), async (req, res, next) => {
     try {
       const classId = Number(req.params.id);
-      const report = await generateTeacherAssistantReport(db, req.user.id, classId);
+      if (!teacherOwnsClass(db, req.user.id, classId)) {
+        return res.status(404).json({ error: "\u73ed\u7ea7\u4e0d\u5b58\u5728" });
+      }
+      const report = await assistantReportGenerator(
+        db,
+        req.user.id,
+        classId,
+        assistantOptions,
+      );
       res.json(report);
     } catch (error) {
       if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });

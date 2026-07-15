@@ -12,7 +12,9 @@
     "dev:server": "node server/server.js",
     "migrate": "node server/migrate.js",
     "seed:teacher": "node server/seedTeacher.js",
-    "seed:demo": "node server/seedDemoClassroom.js"
+    "seed:demo": "node server/seedDemoClassroom.js",
+    "qa:3d": "node scripts/run-browser-qa.mjs scripts/verify-3d.mjs",
+    "qa:ui": "node scripts/run-browser-qa.mjs scripts/verify-ui.mjs"
   },
   "dependencies": {
     "@fontsource/manrope": "^5.2.8",

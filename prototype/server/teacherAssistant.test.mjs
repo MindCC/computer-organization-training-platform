@@ -329,6 +329,33 @@ test("parseAssistantJson rejects empty required prose fields", () => {
   );
 });
 
+test("parseAssistantJson rejects array elements that cannot be rendered safely", () => {
+  const valid = {
+    lessonFocus: "focus",
+    riskStudents: [],
+    groupingPlan: [],
+    commonMisconceptions: [],
+    nextClassPlan: [],
+    teacherScript: "script",
+  };
+
+  assert.throws(
+    () => parseAssistantJson(JSON.stringify({
+      ...valid,
+      commonMisconceptions: [{ message: "object child" }],
+    })),
+    /commonMisconceptions/,
+  );
+  assert.throws(
+    () => parseAssistantJson(JSON.stringify({
+      ...valid,
+      groupingPlan: [{ group: "A", activity: { unsafe: true } }],
+    })),
+    /groupingPlan/,
+  );
+});
+
+
 test("parseAssistantJson accepts markdown-wrapped JSON", () => {
   const report = parseAssistantJson(`\`\`\`json
 {"lessonFocus":"全加器和 Cout","riskStudents":[],"groupingPlan":[],"commonMisconceptions":[],"nextClassPlan":["复盘 Cout"],"teacherScript":"先讲 Cout 的含义。"}

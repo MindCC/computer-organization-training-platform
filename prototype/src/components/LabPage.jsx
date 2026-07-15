@@ -27,21 +27,25 @@ export function LabPage({
 }) {
   const l = lab;
   const cur = l.currentChallenge;
-  if (cur.id === "computer-components") return <ComputerOverviewLab />;
-  if (l.currentCircuitModel) return <ReactFlowLab />;
-  return <LegacyLab />;
+  if (cur.id === "computer-components") return ComputerOverviewLab();
+  if (l.currentCircuitModel) return ReactFlowLab();
+  return LegacyLab();
 
   function ComputerOverviewLab() {
     return (
       <div className="lab-studio" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
         <header className="lab-studio-header">
-          <div className="lab-studio-brand"><button className="lab-studio-icon-button" onClick={() => changeView("home")} type="button"><ArrowLeft size={19} /></button><span className="lab-studio-mark"><Cpu size={24} /></span><div><strong>计算机组成探索</strong><small>3D 爆炸视图</small></div></div>
+          <div className="lab-studio-brand"><button aria-label="返回课程首页" className="lab-studio-icon-button" onClick={() => changeView("home")} type="button"><ArrowLeft size={19} /></button><span className="lab-studio-mark"><Cpu size={24} /></span><div><strong>计算机组成探索</strong><small>3D 爆炸视图</small></div></div>
           <div className="lab-studio-current"><span>第一章计算机概述</span><strong>{cur.title}</strong><em>探索模式</em></div>
           <div className="lab-studio-score"><span>视角</span><strong>3D</strong><small>自由旋转</small></div>
-          <div className="lab-studio-user"><span>{student.name}</span><button className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button"><GearSix size={19} /></button></div>
+          <div className="lab-studio-user"><span>{student.name}</span><button aria-label="\u6253\u5f00\u4e2a\u4eba\u8bbe\u7f6e" className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button"><GearSix size={19} /></button></div>
         </header>
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          <OverviewExplodedView autoPlay={true} />
+          <OverviewExplodedView
+            autoPlay={true}
+            completed={l.currentRecord?.status === "completed"}
+            onComplete={l.completeOverviewChallenge}
+          />
         </div>
       </div>
     );
@@ -65,7 +69,7 @@ export function LabPage({
         <main className="lab-studio-grid">
           <aside className="lab-studio-route" aria-label="挑战路径">
             <div className="lab-studio-route-title"><strong>挑战路径</strong><span>共 {CHALLENGES.length} 关</span></div>
-            <div className="lab-studio-stepper">{CHALLENGES.map((c, i) => { const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} key={c.id} onClick={() => l.selectChallenge(c.id)} type="button"><span className="lab-studio-step-number">{i + 1}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{r?.bestScore ?? 0} / 100</span></button>); })}</div>
+            <div className="lab-studio-stepper">{CHALLENGES.map((c, i) => { const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} disabled={r?.status === "locked"} key={c.id} onClick={() => l.selectChallenge(c.id)} type="button"><span className="lab-studio-step-number">{i + 1}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{r?.bestScore ?? 0} / 100</span></button>); })}</div>
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
           </aside>
           <section className="lab-studio-workspace">

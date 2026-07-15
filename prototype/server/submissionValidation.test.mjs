@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { normalizeStudentAttemptPayload } from "./submissionValidation.js";
 import { LEARNING_ITEMS } from "../src/platformLogic.js";
+import { getCircuitChallenge } from "../src/circuit/challengeCircuitModel.js";
 
 test("rejects impossible scores and inconsistent passed state", () => {
   const tooHigh = normalizeStudentAttemptPayload({
@@ -53,4 +54,34 @@ test("regrades hardware game attempts from submitted selection", () => {
   assert.equal(normalized.result.selectedParts.storage.id, "hdd-1tb");
   assert.equal(normalized.result.elapsedMinutes, 6);
 });
+test("regrades circuit attempts from submitted edges instead of trusting the client score", () => {
+  const forged = normalizeStudentAttemptPayload({
+    challengeId: "data-flow",
+    result: { score: 100, passed: true, errors: [], elapsedMinutes: 8, circuitEdges: [] },
+  }, LEARNING_ITEMS);
 
+  assert.equal(forged.ok, true);
+  assert.equal(forged.result.passed, false);
+  assert.notEqual(forged.result.score, 100);
+
+  const model = getCircuitChallenge("data-flow");
+  const valid = normalizeStudentAttemptPayload({
+    challengeId: "data-flow",
+    result: { score: 0, passed: false, errors: [], elapsedMinutes: 8, circuitEdges: model.requiredEdges },
+  }, LEARNING_ITEMS);
+
+  assert.equal(valid.ok, true);
+  assert.equal(valid.result.passed, true);
+  assert.equal(valid.result.score, 100);
+});
+
+test("rejects circuit attempts that omit server-verifiable edge evidence", () => {
+  const normalized = normalizeStudentAttemptPayload({
+    challengeId: "data-flow",
+    result: { score: 100, passed: true, errors: [], elapsedMinutes: 8 },
+  }, LEARNING_ITEMS);
+
+  assert.equal(normalized.ok, false);
+  assert.equal(normalized.status, 400);
+  assert.match(normalized.error, /edge evidence/i);
+});

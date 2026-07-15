@@ -1,4 +1,4 @@
-﻿import { CHALLENGES } from "../src/platformLogic.js";
+import { CHALLENGES } from "../src/platformLogic.js";
 import { getClassOverview, getStudentProgress, listClassStudents, teacherOwnsClass } from "./db.js";
 import { readDeepSeekConfig, requestChatCompletion } from "./aiClient.js";
 import { buildRuleBasedAssistantReport } from "./teacherFallbackRules.js";
@@ -129,10 +129,45 @@ export function parseAssistantJson(text) {
     }
   }
 
-  return REPORT_KEYS.reduce((result, key) => {
-    result[key] = typeof reportSource[key] === "string" ? reportSource[key].trim() : reportSource[key];
-    return result;
-  }, {});
+  for (const key of ["commonMisconceptions", "nextClassPlan"]) {
+    if (!reportSource[key].every((item) => typeof item === "string" && item.trim())) {
+      throw new Error(`AI JSON 字段元素必须是非空字符串：${key}`);
+    }
+  }
+  if (!reportSource.riskStudents.every((item) => (
+    isPlainObject(item)
+    && typeof item.name === "string" && item.name.trim()
+    && typeof item.reason === "string" && item.reason.trim()
+    && typeof item.suggestion === "string" && item.suggestion.trim()
+  ))) {
+    throw new Error("AI JSON 字段元素格式无效：riskStudents");
+  }
+  if (!reportSource.groupingPlan.every((item) => (
+    isPlainObject(item)
+    && typeof item.group === "string" && item.group.trim()
+    && typeof item.activity === "string" && item.activity.trim()
+    && (item.criteria == null || (typeof item.criteria === "string" && item.criteria.trim()))
+  ))) {
+    throw new Error("AI JSON 字段元素格式无效：groupingPlan");
+  }
+
+  return {
+    lessonFocus: reportSource.lessonFocus.trim(),
+    riskStudents: reportSource.riskStudents.map((item) => ({
+      studentId: item.studentId ?? null,
+      name: item.name.trim(),
+      reason: item.reason.trim(),
+      suggestion: item.suggestion.trim(),
+    })),
+    groupingPlan: reportSource.groupingPlan.map((item) => ({
+      group: item.group.trim(),
+      criteria: typeof item.criteria === "string" ? item.criteria.trim() : "",
+      activity: item.activity.trim(),
+    })),
+    commonMisconceptions: reportSource.commonMisconceptions.map((item) => item.trim()),
+    nextClassPlan: reportSource.nextClassPlan.map((item) => item.trim()),
+    teacherScript: reportSource.teacherScript.trim(),
+  };
 }
 
 export async function generateTeacherAssistantReport(db, teacherId, classId, options = {}) {

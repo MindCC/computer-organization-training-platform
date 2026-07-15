@@ -1,4 +1,7 @@
 import { gradeHardwareBuild, isHardwareGameCase } from "../src/hardwareGame.js";
+import { getCircuitChallenge } from "../src/circuit/challengeCircuitModel.js";
+import { validateCircuitStructure } from "../src/circuit/circuitValidation.js";
+import { runCircuitTestCases } from "../src/circuit/circuitSimulation.js";
 
 const MAX_RESULT_BYTES = 64 * 1024;
 const MAX_ELAPSED_MINUTES = 240;
@@ -53,6 +56,30 @@ export function normalizeStudentAttemptPayload(payload = {}, learningItems = [],
     };
   }
 
+  const circuitModel = getCircuitChallenge(challengeId);
+  if (circuitModel && challengeId !== "computer-components") {
+    const circuitEdges = normalizeCircuitEdges(result.circuitEdges);
+    if (!circuitEdges) {
+      return { ok: false, status: 400, error: "circuit edge evidence is required" };
+    }
+    const structure = validateCircuitStructure(circuitModel, circuitEdges);
+    const tests = runCircuitTestCases(circuitModel, circuitEdges);
+    const serverPassed = structure.passed && tests.passed;
+    return {
+      ok: true,
+      challengeId,
+      result: {
+        passed: serverPassed,
+        score: serverPassed ? 100 : structure.score,
+        errors: structure.errors,
+        missing: structure.missingEdges,
+        extraConnections: structure.extraEdges,
+        circuitEdges,
+        elapsedMinutes,
+      },
+    };
+  }
+
   return {
     ok: true,
     challengeId,
@@ -64,6 +91,25 @@ export function normalizeStudentAttemptPayload(payload = {}, learningItems = [],
       elapsedMinutes,
     },
   };
+}
+
+function normalizeCircuitEdges(edges) {
+  if (!Array.isArray(edges) || edges.length > 256) return null;
+  const normalized = [];
+  for (const edge of edges) {
+    const fromNodeId = edge?.from?.nodeId;
+    const fromPortId = edge?.from?.portId;
+    const toNodeId = edge?.to?.nodeId;
+    const toPortId = edge?.to?.portId;
+    if (![fromNodeId, fromPortId, toNodeId, toPortId].every((value) => typeof value === "string" && value.length > 0 && value.length <= 100)) {
+      return null;
+    }
+    normalized.push({
+      from: { nodeId: fromNodeId, portId: fromPortId },
+      to: { nodeId: toNodeId, portId: toPortId },
+    });
+  }
+  return normalized;
 }
 
 function normalizeResult(result) {

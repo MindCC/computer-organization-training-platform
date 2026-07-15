@@ -244,6 +244,7 @@ export function CircuitFlowCanvas({ model, onResult }) {
       score: structure.passed && tests.passed ? 100 : structure.score,
       structure,
       tests,
+      circuitEdges: studentEdges,
     };
 
     setReport(nextReport);

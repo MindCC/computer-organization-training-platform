@@ -47,16 +47,20 @@ function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
     );
   });
   return (
-    <mesh ref={meshRef} geometry={particleGeo}>
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[0.02, 8, 8]} />
       <meshBasicMaterial color={color} />
     </mesh>
   );
 }
 
-export function OverviewExplodedView({ autoPlay = true }) {
-  const [mode, setMode] = useState(autoPlay ? "auto" : "step"); // "auto" | "step"
+export function OverviewExplodedView({ autoPlay = true, completed = false, onComplete }) {
+  const prefersReducedMotion = typeof window !== "undefined"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const shouldAutoPlay = autoPlay && !prefersReducedMotion;
+  const [mode, setMode] = useState(shouldAutoPlay ? "auto" : "step"); // "auto" | "step"
   const [explodeDistance, setExplodeDistance] = useState(0);
-  const [currentStep, setCurrentStep] = useState(0); // 0 = all parts exploded, 1-8 = assembly steps
+  const [currentStep, setCurrentStep] = useState(shouldAutoPlay ? 0 : 1); // 0 = all parts exploded, 1-8 = assembly steps
   const [selectedPart, setSelectedPart] = useState(null);
   const timerRef = useRef(null);
   const [showHint, setShowHint] = useState(true);
@@ -97,7 +101,7 @@ export function OverviewExplodedView({ autoPlay = true }) {
       if (val >= 2.0) { val = 2.0; dir = -1; }
       if (val <= 0) { val = 0; dir = 1; }
       setExplodeDistance(val);
-    }, 30);
+    }, 40);
     return () => clearInterval(timerRef.current);
   }, [mode]);
 
@@ -158,6 +162,23 @@ export function OverviewExplodedView({ autoPlay = true }) {
         )}
       </div>
 
+      <div className="exploded-part-list" aria-label="部件列表">
+        {visibleParts.map((part) => (
+          <button
+            aria-label={`查看 ${part.label} 部件`}
+            aria-pressed={selectedPart?.id === part.id}
+            key={part.id}
+            onClick={() => setSelectedPart(
+              selectedPart?.id === part.id ? null : part,
+            )}
+            type="button"
+          >
+            <span>{part.label}</span>
+            <small>{part.fiveElement}</small>
+          </button>
+        ))}
+      </div>
+
       {/* Bottom bar: step controls (step mode only) */}
       {mode === "step" && (
         <div className="exploded-stepbar">
@@ -169,7 +190,13 @@ export function OverviewExplodedView({ autoPlay = true }) {
               </span>
             ))}
           </div>
-          <button onClick={() => setCurrentStep(Math.min(8, currentStep + 1))} disabled={currentStep >= 8} type="button">下一步 ▶</button>
+          {currentStep < ASSEMBLY_STEPS.length ? (
+            <button onClick={() => setCurrentStep(currentStep + 1)} type="button">{"\u4e0b\u4e00\u6b65 \u25b6"}</button>
+          ) : (
+            <button className="complete" disabled={completed} onClick={onComplete} type="button">
+              {completed ? "\u5df2\u5b8c\u6210\u63a2\u7d22" : "\u5b8c\u6210\u63a2\u7d22"}
+            </button>
+          )}
         </div>
       )}
 
@@ -187,7 +214,7 @@ export function OverviewExplodedView({ autoPlay = true }) {
           <strong>{selectedPart.label}</strong>
           <small>{selectedPart.category} · 五大部件：{selectedPart.fiveElement}</small>
           <p className="exploded-info-desc">{selectedPart.description}</p>
-          <button onClick={() => setSelectedPart(null)} type="button">✕</button>
+          <button aria-label="\u5173\u95ed\u90e8\u4ef6\u8be6\u60c5" onClick={() => setSelectedPart(null)} type="button">✕</button>
         </div>
       )}
 

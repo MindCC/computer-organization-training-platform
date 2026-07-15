@@ -1,4 +1,5 @@
 .superpowers/
+.hermes/
 prototype/node_modules/
 prototype/dist/
 prototype/.npm-cache/
@@ -6,6 +7,7 @@ prototype/.npmrc
 prototype/.playwright-cli/
 prototype/qa-artifacts/
 prototype/qa-artifacts-current/
+prototype/test-artifacts/
 prototype/output/
 prototype/data/
 prototype/*.sqlite

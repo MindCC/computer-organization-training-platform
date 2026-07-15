@@ -1,16 +1,10 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
-import { CHALLENGES, buildInitialLearningProgress } from "./platformLogic.js";
-import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRoute.js";
+import { CHALLENGES, LEARNING_ITEMS, buildInitialLearningProgress } from "./platformLogic.js";
+import { buildCourseRouteGroups, findNextRecommendedChallenge, formatEstimatedMinutes } from "./courseRoute.js";
+import { HARDWARE_GAME_PROGRESS_ITEMS } from "./hardwareGame.js";
 
-const HARDWARE_ROUTE_IDS = [
-  "game-office-pc",
-  "game-student-laptop",
-  "game-lab-workstation",
-  "game-storage-upgrade",
-  "game-video-editing",
-  "game-database-server",
-];
+const HARDWARE_ROUTE_IDS = HARDWARE_GAME_PROGRESS_ITEMS.map((item) => item.id);
 
 test("course route groups every challenge and keeps hardware routes", () => {
   const progress = buildInitialLearningProgress();
@@ -49,4 +43,29 @@ test("course route recommends the first in-progress or unlocked challenge", () =
 
   assert.equal(next.id, "program-flow");
   assert.equal(next.title, "\u7a0b\u5e8f\u8fd0\u884c\u8def\u7ebf");
+});
+test("course route tolerates missing challenge input without exposing internal ids", () => {
+  const groups = buildCourseRouteGroups(null, {});
+  const hardware = groups.find((group) => group.id === "hardware");
+
+  assert.deepEqual(hardware.items.map((item) => item.id), HARDWARE_ROUTE_IDS);
+  assert.ok(hardware.items.every((item) => item.title && item.title !== item.id));
+});
+
+test("recommended challenge contains all fields required by the home screen", () => {
+  const progress = buildInitialLearningProgress();
+  const next = findNextRecommendedChallenge(LEARNING_ITEMS, progress);
+
+  assert.equal(next.id, "computer-components");
+  assert.equal(next.title, "认识计算机五大部件");
+  assert.equal(typeof next.principle, "string");
+  assert.ok(next.principle.length > 0);
+  assert.equal(next.estimatedMinutes, 8);
+});
+
+test("estimated time never renders a negative or placeholder minute count", () => {
+  assert.equal(formatEstimatedMinutes(undefined), "待评估");
+  assert.equal(formatEstimatedMinutes(-1), "待评估");
+  assert.equal(formatEstimatedMinutes(0), "待评估");
+  assert.equal(formatEstimatedMinutes(8), "8 分钟");
 });
