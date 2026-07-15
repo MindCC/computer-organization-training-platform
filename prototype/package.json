@@ -14,6 +14,7 @@
     "seed:teacher": "node server/seedTeacher.js",
     "seed:demo": "node server/seedDemoClassroom.js",
     "qa:3d": "node scripts/run-browser-qa.mjs scripts/verify-3d.mjs",
+    "qa:assets": "node scripts/verify-asset-budget.mjs",
     "qa:ui": "node scripts/run-browser-qa.mjs scripts/verify-ui.mjs"
   },
   "dependencies": {

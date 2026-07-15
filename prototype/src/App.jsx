@@ -76,8 +76,8 @@ import { SettingsModal } from "./components/TeacherSettingsPanel.jsx";
 import { TeacherStudioDashboard } from "./components/TeacherDashboard.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { useLabState } from "./hooks/useLabState.js";
-import avatarImage from "./assets/alex-chen-avatar.png";
-import labIllustration from "./assets/lab-circuit-illustration.png";
+import avatarImage from "./assets/alex-chen-avatar.webp";
+import labIllustration from "./assets/lab-circuit-illustration.webp";
 
 const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
   .then((module) => ({ default: module.HardwareGamePage })));

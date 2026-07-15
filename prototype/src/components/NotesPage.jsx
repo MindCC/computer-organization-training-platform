@@ -1,5 +1,5 @@
 import { CHALLENGES } from "../platformLogic.js";
-import studyDiagram from "../assets/study-tip-carry-diagram.png";
+import studyDiagram from "../assets/study-tip-carry-diagram.webp";
 
 export function NotesPage({
   noteDraft,

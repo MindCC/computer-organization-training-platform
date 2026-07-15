@@ -4204,7 +4204,7 @@ textarea:focus-visible {
   align-items: center;
   background:
     linear-gradient(135deg, rgba(25, 35, 51, 0.72), rgba(23, 77, 84, 0.52)),
-    url("./assets/lab-circuit-illustration.png") center / cover;
+    url("./assets/lab-circuit-illustration.webp") center / cover;
   display: grid;
   min-height: 100vh;
   padding: 24px;
