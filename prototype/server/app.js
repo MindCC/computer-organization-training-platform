@@ -1,5 +1,6 @@
 ﻿import express from "express";
 import crypto from "node:crypto";
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
@@ -54,6 +55,7 @@ export function createApp(options = {}) {
   migrate(db);
   const app = express();
   app.locals.db = db;
+  app.locals.dbPath = db.name;  // better-sqlite3 .name is the actual path or ":memory:"
 
   app.use(express.json({ limit: "1mb" }));
   app.use(express.text({ type: ["text/csv", "text/plain"], limit: "1mb" }));
@@ -403,6 +405,36 @@ export function createApp(options = {}) {
     const { displayName, goal, mode } = req.body ?? {};
     const user = updateUserProfile(db, req.user.id, { displayName, profile: { goal, mode } });
     res.json({ user: sanitizeUser(user) });
+  });
+
+  // Backup: download the current SQLite database
+  app.get("/api/admin/backup", requireRole("teacher"), (req, res, next) => {
+    try {
+      const dbPath = req.app.locals.dbPath;
+      if (!dbPath || dbPath === ":memory:") {
+        return res.status(400).json({ error: "内存数据库不支持备份" });
+      }
+      if (!fs.existsSync(dbPath)) {
+        return res.status(404).json({ error: "数据库文件不存在" });
+      }
+      const stat = fs.statSync(dbPath);
+      const filename = `classroom-backup-${new Date().toISOString().slice(0, 10)}.sqlite`;
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+      res.setHeader("Content-Length", stat.size);
+      fs.createReadStream(dbPath).pipe(res);
+    } catch (error) { next(error); }
+  });
+
+  app.get("/api/admin/db-info", requireRole("teacher"), (req, res) => {
+    const dbPath = req.app.locals.dbPath ?? ":memory:";
+    const isMemory = !dbPath || dbPath === ":memory:";
+    const size = isMemory ? 0 : (fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0);
+    res.json({
+      path: isMemory ? ":memory:" : path.resolve(dbPath),
+      sizeBytes: size,
+      sizeMB: Math.round(size / 1024 / 1024 * 100) / 100,
+    });
   });
 
   if (options.serveStatic !== false) {

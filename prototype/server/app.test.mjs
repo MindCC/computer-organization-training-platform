@@ -502,3 +502,26 @@ test("classroom mission full flow: teacher creates/starts, student discovers/ent
   }
 });
 
+test("admin backup endpoints return db info and reject download for in-memory", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  try {
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    result = await request(baseUrl, "/api/admin/db-info", {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.path, ":memory:");
+
+    result = await request(baseUrl, "/api/admin/backup", {}, teacherJar);
+    assert.equal(result.response.status, 400);
+    assert.match(result.body.error, /内存数据库/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
