@@ -147,6 +147,9 @@ export const DATA_FLOW_CIRCUIT = {
     { name: "A=0", inputs: { "input-a.out": 0 }, expected: { "result-s.in": 0 } },
     { name: "A=1", inputs: { "input-a.out": 1 }, expected: { "result-s.in": 1 } },
   ],
+  hiddenTestCases: [
+    { name: "快速反转", inputs: { "input-a.out": 1 }, expected: { "result-s.in": 1 } },
+  ],
 };
 
 export const AND_GATE_CIRCUIT = {

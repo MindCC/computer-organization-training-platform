@@ -163,18 +163,44 @@ export function simulateCircuit(model, studentEdges, inputs = {}) {
 }
 
 export function runCircuitTestCases(model, studentEdges) {
-  const cases = (model?.testCases ?? []).map((testCase) => {
+  return runCircuitTestCasesWithOptions(model, studentEdges, { includeHidden: false });
+}
+
+export function runAllCircuitTests(model, studentEdges) {
+  return runCircuitTestCasesWithOptions(model, studentEdges, { includeHidden: true });
+}
+
+function runCircuitTestCasesWithOptions(model, studentEdges, { includeHidden }) {
+  const publicCases = model?.testCases ?? [];
+  const hiddenCases = includeHidden ? (model?.hiddenTestCases ?? []) : [];
+  const allCases = [...publicCases, ...hiddenCases];
+  const results = allCases.map((testCase) => {
     const simulation = simulateCircuit(model, studentEdges, testCase.inputs);
     const mismatches = Object.entries(testCase.expected).filter(([key, expected]) => simulation.values[key] !== expected);
-
     return {
       name: testCase.name,
       passed: simulation.status === "ok" && mismatches.length === 0,
       expected: testCase.expected,
       actual: Object.fromEntries(Object.keys(testCase.expected).map((key) => [key, simulation.values[key] ?? UNKNOWN])),
       mismatches,
+      hidden: hiddenCases.includes(testCase),
     };
   });
 
-  return { passed: cases.every((testCase) => testCase.passed), cases };
+  const publicResults = results.filter((r) => !r.hidden);
+  const hiddenResults = results.filter((r) => r.hidden);
+  const allPassed = results.every((r) => r.passed);
+  const publicPassed = publicResults.every((r) => r.passed);
+  const hiddenPassed = hiddenResults.every((r) => r.passed);
+
+  return {
+    passed: allPassed,
+    publicPassed,
+    hiddenPassed,
+    publicCases: publicResults,
+    hiddenCount: hiddenResults.length,
+    hiddenPassedCount: hiddenResults.filter((r) => r.passed).length,
+    cases: publicResults, // backward-compat: only public cases in .cases
+    allCases: results,
+  };
 }

@@ -1,7 +1,7 @@
 import { gradeHardwareBuild, isHardwareGameCase } from "../src/hardwareGame.js";
 import { getCircuitChallenge } from "../src/circuit/challengeCircuitModel.js";
 import { validateCircuitStructure } from "../src/circuit/circuitValidation.js";
-import { runCircuitTestCases } from "../src/circuit/circuitSimulation.js";
+import { runCircuitTestCases, runAllCircuitTests } from "../src/circuit/circuitSimulation.js";
 
 const MAX_RESULT_BYTES = 64 * 1024;
 const MAX_ELAPSED_MINUTES = 240;
@@ -63,7 +63,7 @@ export function normalizeStudentAttemptPayload(payload = {}, learningItems = [],
       return { ok: false, status: 400, error: "circuit edge evidence is required" };
     }
     const structure = validateCircuitStructure(circuitModel, circuitEdges);
-    const tests = runCircuitTestCases(circuitModel, circuitEdges);
+    const tests = runAllCircuitTests(circuitModel, circuitEdges);
     const serverPassed = structure.passed && tests.passed;
     return {
       ok: true,
