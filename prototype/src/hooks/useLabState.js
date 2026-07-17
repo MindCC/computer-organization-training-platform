@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   CHALLENGES, gradeConnections, recordAttempt,
   buildInitialProgress,
@@ -12,6 +12,7 @@ import { buildComponentStudyCard } from "../componentStudy.js";
 import { beginWireDrag, cancelWireDrag, completeWireDrag, buildConnectionBlueprint, inspectWireTarget } from "../labWiring.js";
 import { buildRealtimeDiagnostics } from "../realtimeDiagnostics.js";
 import { simulateChallenge } from "../platformLogic.js";
+import { createHistory } from "../labHistory.js";
 
 function clampPlacement(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -44,6 +45,7 @@ export function useLabState({
   const [inputState, setInputState] = useState({ a: 1, b: 1, cin: 0, select: 1, op: 0, aNumber: 5, bNumber: 3, address: 100, signedValue: -5 });
   const [simulationStep, setSimulationStep] = useState(0);
   const [feedback, setFeedback] = useState(null);
+  const historyRef = useRef(createHistory(50));
 
   // ── Computed values ──
   const currentChallenge = useMemo(() => CHALLENGES.find((c) => c.id === selectedChallengeId) ?? CHALLENGES[0], [selectedChallengeId]);
@@ -74,6 +76,26 @@ export function useLabState({
   const wirePreviewStatus = wirePreviewCopy.tone;
 
   // ── Handlers ──
+  function snapshot() {
+    historyRef.current.push({ connections: [...connections], placedComponents: [...placedComponents] });
+  }
+  function undoLab() {
+    const prev = historyRef.current.undo();
+    if (!prev) return;
+    setConnections(prev.connections);
+    setPlacedComponents(prev.placedComponents);
+    setFeedback(null);
+    setStatusMessage("已撤销上一步操作。");
+  }
+  function redoLab() {
+    const next = historyRef.current.redo();
+    if (!next) return;
+    setConnections(next.connections);
+    setPlacedComponents(next.placedComponents);
+    setFeedback(null);
+    setStatusMessage("已重做操作。");
+  }
+
   function selectChallenge(challengeId) {
     const challenge = CHALLENGES.find((item) => item.id === challengeId);
     if (progress[challengeId]?.status === "locked") {
@@ -155,6 +177,7 @@ export function useLabState({
   }
 
   function resetChallenge() {
+    snapshot();
     setConnections([]);
     setPlacedComponents([]);
     setWireDrag(null);
@@ -165,6 +188,7 @@ export function useLabState({
   }
 
   function fillReferenceStructure() {
+    snapshot();
     setConnections(currentChallenge.requiredConnections);
     setPlacedComponents(buildReferencePlacedComponents(currentChallenge));
     setExpandedComponent(placementBlueprint[0]?.displayLabel ?? currentChallenge.components[0]?.name ?? "");
@@ -187,11 +211,13 @@ export function useLabState({
     const snapped = findSnapTarget(placementBlueprint, payload, { x: rX, y: rY });
     const x = snapped?.x ?? rX, y = snapped?.y ?? rY;
     if (payload.source === "canvas" && payload.id) {
+      snapshot();
       setPlacedComponents((cur) => cur.map((item) => item.id === payload.id ? { ...item, x, y } : item));
       setStatusMessage(snapped ? `"${payload.displayLabel ?? payload.name}"已吸附到槽位"${snapped.role}"。` : "已在画布中重新摆放元件。");
       return;
     }
     if (!payload.name) return;
+    snapshot();
     const next = createPlacedComponent(payload.name, x, y, { displayLabel: payload.displayLabel ?? payload.name, sourceIndex: payload.sourceIndex });
     setPlacedComponents((cur) => {
       const idx = cur.findIndex((item) => item.sourceIndex === payload.sourceIndex);
@@ -248,12 +274,14 @@ export function useLabState({
     if (wireDrag.startEndpoint.key === endpoint.key) { setStatusMessage("起点和终点不能是同一个端点。"); return; }
     if (result.status === "invalid") { setStatusMessage(`"${wireDrag.startEndpoint.label}"当前不能连接到"${endpoint.label}"。`); return; }
     if (!result.lastConnection) { setStatusMessage("这两个端点不属于本关要求的有效连线。"); return; }
+    snapshot();
     setConnections(result.connections);
     setFeedback(null);
     setStatusMessage(result.connections.includes(result.lastConnection) ? `已建立连线：${result.lastConnection}` : `已移除连线：${result.lastConnection}`);
   }
 
   function handleRemoveConnection(connection) {
+    snapshot();
     setConnections((cur) => cur.filter((item) => item !== connection));
     setFeedback(null);
     setStatusMessage(`已移除连线：${connection}`);
@@ -273,6 +301,9 @@ export function useLabState({
     handleWireDragStart, handleWireDragMove, handleWireHoverChange, handleWireDragEnd,
     handleRemoveConnection,
     setExpandedComponent, setSelectedComponent,
+    undoLab, redoLab,
+    canUndo: () => historyRef.current.canUndo(),
+    canRedo: () => historyRef.current.canRedo(),
     _progress: progress,
   };
 }
