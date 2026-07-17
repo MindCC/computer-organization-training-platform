@@ -19,6 +19,7 @@ export function openDatabase(databasePath = process.env.DATABASE_PATH) {
   const db = new Database(resolvedPath ?? DEFAULT_DATABASE_PATH);
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
+  db.pragma("busy_timeout = 5000");
   return db;
 }
 
@@ -103,11 +104,63 @@ export function migrate(db) {
       name TEXT NOT NULL,
       applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS classroom_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      teacher_id INTEGER NOT NULL REFERENCES users(id),
+      template_key TEXT NOT NULL,
+      template_version INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('draft', 'live', 'paused', 'ended')),
+      duration_minutes INTEGER NOT NULL,
+      pass_score INTEGER NOT NULL,
+      allow_makeup INTEGER NOT NULL DEFAULT 0,
+      config_json TEXT NOT NULL,
+      report_json TEXT,
+      started_at TEXT,
+      active_started_at TEXT,
+      accumulated_active_seconds INTEGER NOT NULL DEFAULT 0,
+      paused_at TEXT,
+      ended_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS student_session_states (
+      session_id INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL CHECK (status IN ('not_started', 'in_progress', 'completed')),
+      current_stage_index INTEGER NOT NULL DEFAULT 0,
+      xp INTEGER NOT NULL DEFAULT 0,
+      stars INTEGER NOT NULL DEFAULT 0,
+      streak INTEGER NOT NULL DEFAULT 0,
+      result_json TEXT,
+      entered_at TEXT,
+      last_activity_at TEXT,
+      completed_at TEXT,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (session_id, student_id)
+    );
   `);
   ensureColumn(db, "notes", "challenge_id", "TEXT");
   ensureColumn(db, "notes", "updated_at", "TEXT");
   ensureColumn(db, "classes", "status", "TEXT NOT NULL DEFAULT 'active'");
   ensureColumn(db, "classes", "archived_at", "TEXT");
+  ensureColumn(db, "challenge_attempts", "session_id", "INTEGER REFERENCES classroom_sessions(id)");
+  ensureColumn(db, "challenge_attempts", "client_submission_id", "TEXT");
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_active_session_per_class
+    ON classroom_sessions(class_id)
+    WHERE status IN ('live', 'paused');
+
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_attempts_student_submission
+    ON challenge_attempts(student_id, client_submission_id)
+    WHERE client_submission_id IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_student_session_student
+    ON student_session_states(student_id, session_id);
+  `);
 }
 
 export function sanitizeUser(row) {
