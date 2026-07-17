@@ -1,4 +1,14 @@
-﻿export async function apiRequest(path, options = {}) {
+﻿export class ApiError extends Error {
+  constructor({ status, code, message, retryable = false }) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = code;
+    this.retryable = retryable;
+  }
+}
+
+export async function apiRequest(path, options = {}) {
   const response = await fetch(path, {
     credentials: "include",
     ...options,
@@ -10,6 +20,14 @@
   const contentType = response.headers.get("content-type") ?? "";
   const body = contentType.includes("application/json") ? await response.json() : await response.text();
   if (!response.ok) {
+    if (body && typeof body === "object" && body.error && typeof body.error === "object") {
+      throw new ApiError({
+        status: response.status,
+        code: body.error.code ?? "UNKNOWN",
+        message: body.error.message ?? "请求失败",
+        retryable: body.error.retryable === true,
+      });
+    }
     const message = typeof body === "object" ? body.error : body;
     throw new Error(message || `请求失败：${response.status}`);
   }
@@ -43,4 +61,14 @@ export const api = {
   assistantReport: (classId) => apiRequest(`/api/teacher/classes/${classId}/assistant-report`, { method: "POST" }),
   studentDetail: (classId, studentId) => apiRequest(`/api/teacher/classes/${classId}/students/${studentId}`),
   resetStudentPassword: (studentId, password) => apiRequest(`/api/teacher/students/${studentId}/reset-password`, { method: "POST", body: JSON.stringify({ password }) }),
+  // Classroom APIs
+  currentClassroom: () => apiRequest("/api/student/classroom/current"),
+  enterClassroom: (sessionId) => apiRequest(`/api/student/classroom/${sessionId}/enter`, { method: "POST" }),
+  createClassroomSession: (classId, payload) => apiRequest(`/api/teacher/classes/${classId}/sessions`, { method: "POST", body: JSON.stringify(payload) }),
+  startClassroomSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/start`, { method: "POST" }),
+  pauseClassroomSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/pause`, { method: "POST" }),
+  resumeClassroomSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/resume`, { method: "POST" }),
+  endClassroomSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/end`, { method: "POST" }),
+  classroomOverview: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/overview`),
+  classroomReport: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/report`),
 };
