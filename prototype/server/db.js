@@ -142,6 +142,60 @@ export function migrate(db) {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (session_id, student_id)
     );
+
+    CREATE TABLE IF NOT EXISTS assignments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      teacher_id INTEGER NOT NULL REFERENCES users(id),
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      question_count INTEGER NOT NULL DEFAULT 0,
+      total_score INTEGER NOT NULL DEFAULT 100,
+      due_at TEXT,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'closed')),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS assignment_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      type TEXT NOT NULL CHECK (type IN ('choice', 'truefalse', 'fill', 'short_answer')),
+      stem TEXT NOT NULL,
+      options_json TEXT NOT NULL DEFAULT '[]',
+      answer_json TEXT NOT NULL,
+      score INTEGER NOT NULL DEFAULT 10,
+      explanation TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS student_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'graded')),
+      total_score INTEGER,
+      feedback TEXT,
+      submitted_at TEXT,
+      graded_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(assignment_id, student_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS submission_answers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      submission_id INTEGER NOT NULL REFERENCES student_submissions(id) ON DELETE CASCADE,
+      question_id INTEGER NOT NULL REFERENCES assignment_questions(id) ON DELETE CASCADE,
+      answer_json TEXT NOT NULL,
+      score INTEGER,
+      is_correct INTEGER,
+      UNIQUE(submission_id, question_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_assignments_class ON assignments(class_id);
+    CREATE INDEX IF NOT EXISTS idx_submissions_student ON student_submissions(student_id);
+    CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON student_submissions(assignment_id);
   `);
   ensureColumn(db, "notes", "challenge_id", "TEXT");
   ensureColumn(db, "notes", "updated_at", "TEXT");

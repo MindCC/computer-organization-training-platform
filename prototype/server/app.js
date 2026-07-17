@@ -42,6 +42,9 @@ import { CHALLENGES, LEARNING_ITEMS, summarizeLearning } from "../src/platformLo
 import { createClassroomSessionRepository } from "./classroomSessionRepository.js";
 import { createClassroomSessionService } from "./classroomSessionService.js";
 import { createClassroomSessionRouter } from "./classroomSessionRoutes.js";
+import { createAssignmentRepository } from "./assignmentRepository.js";
+import { createAssignmentService } from "./assignmentService.js";
+import { createAssignmentRouter } from "./assignmentRoutes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_NAME = "zcyl_session";
@@ -65,6 +68,10 @@ export function createApp(options = {}) {
   const sessionRepository = createClassroomSessionRepository(db);
   const sessionService = createClassroomSessionService({ db, repository: sessionRepository });
   app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole }));
+
+  const assignmentRepository = createAssignmentRepository(db);
+  const assignmentService = createAssignmentService({ db, repository: assignmentRepository });
+  app.use("/api", createAssignmentRouter({ service: assignmentService, requireRole }));
 
   // Request logger
   app.use((req, _res, next) => {
@@ -444,6 +451,9 @@ export function createApp(options = {}) {
   }
 
   app.use((error, _req, res, _next) => {
+    if (error?.status && !error?.code) {
+      return res.status(error.status).json({ error: { code: "ERROR", message: error.message } });
+    }
     if (error?.code && error?.status) {
       return res.status(error.status).json({
         error: {
