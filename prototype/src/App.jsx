@@ -78,6 +78,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { useLabState } from "./hooks/useLabState.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
+import { StudentAssignments } from "./components/StudentAssignments.jsx";
 import avatarImage from "./assets/alex-chen-avatar.webp";
 import labIllustration from "./assets/lab-circuit-illustration.webp";
 
@@ -92,7 +93,8 @@ const navItems = [
   { id: "hardware-game", label: "\u786c\u4ef6\u914d\u7f6e\u6311\u6218", icon: Cpu },
   { id: "records", label: "学习记录", icon: ChartPieSlice },
   { id: "notes", label: "学习笔记", icon: Notebook },
-  { id: "teacher", label: "\u6559\u5e08\u770b\u677f", icon: ChartPieSlice, role: "teacher" },
+  { id: "assignments", label: "课后作业", icon: Notebook },
+  { id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" },
 ];
 function FeatureLoading({ label }) {
   return <div className="flow-loading">{label}</div>;
@@ -993,6 +995,7 @@ export function App() {
               saveNoteEdit={saveNoteEdit}
             />
           ) : null}
+          {activeView === "assignments" ? <StudentAssignments /> : null}
           {activeView === "teacher" ? (
             <TeacherStudioDashboard
               teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId}

@@ -7,6 +7,7 @@ import { SessionSetupPanel } from "./classroom/teacher/SessionSetupPanel.jsx";
 import { LiveSessionDashboard, EndConfirmation } from "./classroom/teacher/LiveSessionDashboard.jsx";
 import { SessionStudentGrid } from "./classroom/teacher/SessionStudentGrid.jsx";
 import { SessionReportPanel } from "./classroom/teacher/SessionReportPanel.jsx";
+import { TeacherAssignments } from "./TeacherAssignments.jsx";
 
 function statusText(status) {
   return { completed: "已完成", "in-progress": "进行中", unlocked: "未开始", locked: "未解锁" }[status] ?? status;
@@ -134,6 +135,8 @@ export function TeacherStudioDashboard({
         <section className="teacher-studio-main">
           {/* Classroom Command Center */}
           <ClassroomCommandCenter teacherSession={teacherSession} />
+
+          {selectedTeacherClassId && <TeacherAssignments classId={selectedTeacherClassId} />}
 
           <div className="teacher-studio-summary">
             <Metric icon={CheckCircle} label="学生数" value={classOverview?.summary.studentCount ?? students.length} />
