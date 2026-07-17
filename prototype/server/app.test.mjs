@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 
 import { hashPassword, verifyPassword } from "./auth.js";
 import { createApp } from "./app.js";
@@ -334,7 +335,170 @@ test("unauthenticated and cross-role access is rejected", async () => {
   }
 });
 
+test("classroom mission full flow: teacher creates/starts, student discovers/enters/submits, duplicate idempotent, pause/reject, end/report", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  const studentJar = {};
+  try {
+    // Login
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
 
+    // Create class
+    result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "课堂测试班" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 201);
+    const classId = result.body.class.id;
 
+    // Import student
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: "cs101,张同学,Student123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.imported, 1);
 
+    // Student login
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "cs101", password: "Student123!" }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+
+    // Student: no current session
+    result = await request(baseUrl, "/api/student/classroom/current", {}, studentJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.session, null);
+
+    // Teacher: create draft
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/sessions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80, allowMakeup: false }),
+    }, teacherJar);
+    assert.equal(result.response.status, 201);
+    assert.equal(result.body.session.status, "draft");
+    const sessionId = result.body.session.id;
+
+    // Teacher: start
+    result = await request(baseUrl, `/api/teacher/sessions/${sessionId}/start`, {
+      method: "POST",
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.session.status, "live");
+
+    // Student: discover current
+    result = await request(baseUrl, "/api/student/classroom/current", {}, studentJar);
+    assert.equal(result.response.status, 200);
+    assert.ok(result.body.session);
+    assert.equal(result.body.session.id, sessionId);
+
+    // Student: enter
+    result = await request(baseUrl, `/api/student/classroom/${sessionId}/enter`, {
+      method: "POST",
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.studentState.status, "in_progress");
+
+    // Student: submit stage 1 (completed=true for participation)
+    const clientId = crypto.randomUUID();
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        clientSubmissionId: clientId,
+        challengeId: "computer-components",
+        result: { completed: true, elapsedMinutes: 3 },
+      }),
+    }, studentJar);
+    assert.equal(result.response.status, 201);
+    assert.ok(result.body.summary?.xp >= 100);
+
+    // Duplicate submission: idempotent
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        clientSubmissionId: clientId,
+        challengeId: "computer-components",
+        result: { completed: true, elapsedMinutes: 3 },
+      }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    assert.ok(result.body.duplicateResult?.passed);
+
+    // Teacher: pause
+    result = await request(baseUrl, `/api/teacher/sessions/${sessionId}/pause`, {
+      method: "POST",
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.session.status, "paused");
+
+    // Student: submit during pause → rejected
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        clientSubmissionId: crypto.randomUUID(),
+        challengeId: "computer-components",
+        result: { completed: true, elapsedMinutes: 1 },
+      }),
+    }, studentJar);
+    assert.equal(result.response.status, 409);
+    assert.equal(result.body.error.code, "SESSION_PAUSED");
+    assert.equal(result.body.error.retryable, true);
+
+    // Teacher: resume
+    result = await request(baseUrl, `/api/teacher/sessions/${sessionId}/resume`, {
+      method: "POST",
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.session.status, "live");
+
+    // Teacher: overview
+    result = await request(baseUrl, `/api/teacher/sessions/${sessionId}/overview`, {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.ok(result.body.students);
+    assert.ok(result.body.students.some((s) => s.studentId));
+
+    // Teacher: report before end → 409
+    result = await request(baseUrl, `/api/teacher/sessions/${sessionId}/report`, {}, teacherJar);
+    assert.equal(result.response.status, 409);
+    assert.equal(result.body.error.code, "SESSION_NOT_ENDED");
+
+    // Teacher: end
+    result = await request(baseUrl, `/api/teacher/sessions/${sessionId}/end`, {
+      method: "POST",
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.session.status, "ended");
+    assert.ok(result.body.report);
+
+    // Teacher: report after end
+    result = await request(baseUrl, `/api/teacher/sessions/${sessionId}/report`, {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.ok(result.body.report.frozenAt);
+    assert.ok(result.body.report.studentReports);
+
+    // Ownership 404
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    result = await request(baseUrl, `/api/teacher/sessions/${sessionId + 9999}/overview`, {}, teacherJar);
+    assert.equal(result.response.status, 404);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
 

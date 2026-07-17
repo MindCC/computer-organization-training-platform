@@ -38,6 +38,9 @@ import {
   updateUserProfile,
 } from "./db.js";
 import { CHALLENGES, LEARNING_ITEMS, summarizeLearning } from "../src/platformLogic.js";
+import { createClassroomSessionRepository } from "./classroomSessionRepository.js";
+import { createClassroomSessionService } from "./classroomSessionService.js";
+import { createClassroomSessionRouter } from "./classroomSessionRoutes.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_NAME = "zcyl_session";
@@ -55,6 +58,11 @@ export function createApp(options = {}) {
   app.use(express.json({ limit: "1mb" }));
   app.use(express.text({ type: ["text/csv", "text/plain"], limit: "1mb" }));
   app.use(loadSession(db));
+
+  // Classroom session service and routes
+  const sessionRepository = createClassroomSessionRepository(db);
+  const sessionService = createClassroomSessionService({ db, repository: sessionRepository });
+  app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole }));
 
   // Request logger
   app.use((req, _res, next) => {
@@ -317,12 +325,26 @@ export function createApp(options = {}) {
     res.json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress), user: sanitizeUser(req.user) });
   });
 
-  app.post("/api/student/attempts", requireRole("student"), (req, res) => {
-    const currentProgress = getStudentProgress(db, req.user.id);
-    const normalized = normalizeStudentAttemptPayload(req.body ?? {}, LEARNING_ITEMS, currentProgress);
-    if (!normalized.ok) return res.status(normalized.status).json({ error: normalized.error });
-    const progress = recordStudentAttempt(db, req.user.id, normalized.challengeId, normalized.result);
-    res.status(201).json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress) });
+  app.post("/api/student/attempts", requireRole("student"), (req, res, next) => {
+    try {
+      // Classroom session: delegate to service
+      if (req.body?.clientSubmissionId) {
+        const result = sessionService.submitAttempt({ studentId: req.user.id, payload: req.body });
+        if (result.session === null) {
+          // No active classroom session — fall through to ordinary practice
+        } else if (result.duplicateResult) {
+          return res.status(200).json({ progress: getStudentProgress(db, req.user.id), summary: summarizeLearning(LEARNING_ITEMS, getStudentProgress(db, req.user.id)), duplicateResult: result.duplicateResult });
+        } else {
+          return res.status(201).json({ progress: result.progress, summary: result.summary, classroomSession: result.studentState });
+        }
+      }
+      // Ordinary practice
+      const currentProgress = getStudentProgress(db, req.user.id);
+      const normalized = normalizeStudentAttemptPayload(req.body ?? {}, LEARNING_ITEMS, currentProgress);
+      if (!normalized.ok) return res.status(normalized.status).json({ error: normalized.error });
+      const progress = recordStudentAttempt(db, req.user.id, normalized.challengeId, normalized.result);
+      res.status(201).json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress) });
+    } catch (error) { next(error); }
   });
 
   app.get("/api/student/notes", requireRole("student"), (req, res) => {
@@ -390,6 +412,15 @@ export function createApp(options = {}) {
   }
 
   app.use((error, _req, res, _next) => {
+    if (error?.code && error?.status) {
+      return res.status(error.status).json({
+        error: {
+          code: error.code,
+          message: error.message,
+          retryable: error.retryable === true,
+        },
+      });
+    }
     if (process.env.NODE_ENV !== "test") console.error(error);
     res.status(500).json({ error: "服务器内部错误" });
   });
