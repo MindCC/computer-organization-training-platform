@@ -315,6 +315,282 @@
   gap: 16px;
 }
 
+/* ====== Teacher: Classroom Command Center ====== */
+
+.session-setup-panel {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.session-setup-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.session-setup-header strong {
+  display: block;
+}
+
+.session-setup-header p {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.session-setup-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+.session-setup-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.session-setup-field.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ---- Live Session Dashboard ---- */
+
+.live-session-dashboard {
+  background: var(--classroom-instrument);
+  color: var(--classroom-instrument-ink);
+  border-radius: 16px;
+  padding: 16px 24px;
+  margin-bottom: 16px;
+}
+
+.live-session-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.live-session-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.session-status-tag {
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.session-status-tag.live { background: var(--teal); color: var(--ink); }
+.session-status-tag.paused { background: var(--gold); color: var(--ink); }
+.session-status-tag.ended { background: rgba(255,255,255,0.12); }
+.session-status-tag.draft { background: rgba(255,255,255,0.12); }
+
+.live-session-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.live-session-time {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ---- Session Student Grid ---- */
+
+.session-student-grid {
+  background: var(--surface);
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.session-grid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.session-grid-counts {
+  display: flex;
+  gap: 12px;
+  font-size: 0.8rem;
+}
+
+.count-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.count-tag.needs-help { color: var(--gold); }
+.count-tag.in-progress { color: var(--blue); }
+.count-tag.completed { color: var(--teal); }
+
+.session-grid-rows {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.session-student-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+  width: 100%;
+  cursor: pointer;
+  background: none;
+  border-left: none;
+  border-right: none;
+  font: inherit;
+  text-align: left;
+}
+
+.session-student-row:hover {
+  background: rgba(0,0,0,0.02);
+}
+
+.session-student-row:last-child {
+  border-bottom: none;
+}
+
+.session-student-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  display: inline-block;
+}
+
+.session-student-status.completed { color: var(--teal); }
+.session-student-status.in_progress { color: var(--blue); }
+.session-student-name { flex: 1; font-weight: 500; }
+.session-student-stage { font-size: 0.8rem; color: var(--muted); }
+.session-student-xp { font-variant-numeric: tabular-nums; font-size: 0.85rem; }
+.star-filled { color: var(--gold); }
+.star-empty { color: var(--muted); }
+
+/* ---- Session Report Panel ---- */
+
+.session-report-panel {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 24px;
+  border: 1px solid var(--border);
+}
+
+.session-report-panel.empty {
+  text-align: center;
+  color: var(--muted);
+}
+
+.session-report-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.session-report-header span {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.session-report-metrics {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 24px;
+}
+
+.report-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.report-metric strong {
+  font-size: 1.25rem;
+}
+
+.session-report-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.report-student-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.report-student-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+/* ---- Confirmation Dialog ---- */
+
+.confirmation-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirmation-dialog {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 400px;
+  text-align: center;
+}
+
+.confirmation-dialog strong {
+  display: block;
+  font-size: 1.15rem;
+  margin-bottom: 8px;
+}
+
+.confirmation-dialog p {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+
+.confirmation-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
 /* ---- Responsive ---- */
 
 @media (max-width: 1180px) {

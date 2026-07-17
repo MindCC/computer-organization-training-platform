@@ -2,7 +2,11 @@ import { CheckCircle, Sparkle, Target, TrendUp, WarningCircle } from "@phosphor-
 import { CHALLENGES, LEARNING_ITEMS } from "../platformLogic.js";
 import { HARDWARE_GAME_CASES, hardwareCaseTitle, formatHardwareBuildParts } from "../hardwareGame.js";
 import { adaptHardwareGameSummary } from "../shared/api/teacherOverviewAdapter.js";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { SessionSetupPanel } from "./classroom/teacher/SessionSetupPanel.jsx";
+import { LiveSessionDashboard, EndConfirmation } from "./classroom/teacher/LiveSessionDashboard.jsx";
+import { SessionStudentGrid } from "./classroom/teacher/SessionStudentGrid.jsx";
+import { SessionReportPanel } from "./classroom/teacher/SessionReportPanel.jsx";
 
 function statusText(status) {
   return { completed: "已完成", "in-progress": "进行中", unlocked: "未开始", locked: "未解锁" }[status] ?? status;
@@ -70,6 +74,7 @@ export function TeacherStudioDashboard({
   classNameDraft, setClassNameDraft, teacherMessage, createTeacherClass,
   openTeacherStudentDetail, resetStudentPassword, selectedTeacherStudent,
   setSelectedTeacherStudent, buildTeacherAssistantInsights,
+  teacherSession,
 }) {
   const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
   const assistant = buildTeacherAssistantInsights(classOverview, selectedClass);
@@ -127,6 +132,9 @@ export function TeacherStudioDashboard({
         </aside>
 
         <section className="teacher-studio-main">
+          {/* Classroom Command Center */}
+          <ClassroomCommandCenter teacherSession={teacherSession} />
+
           <div className="teacher-studio-summary">
             <Metric icon={CheckCircle} label="学生数" value={classOverview?.summary.studentCount ?? students.length} />
             <Metric icon={Target} label="平均完成率" value={(classOverview?.summary.completionRate ?? 0) + "%"} />
@@ -282,6 +290,82 @@ function HardwarePanel({ data }) {
         <div className="metric"><strong>客户满意度</strong><span>{data.avgSatisfaction} / 100</span></div>
         <div className="metric"><strong>最佳方案</strong><span>{LEARNING_ITEMS.find((c) => c.id === data.bestCaseId)?.title ?? "-"}</span></div>
       </div>
+    </div>
+  );
+}
+
+function ClassroomCommandCenter({ teacherSession }) {
+  const { viewModel, createSession, control, loadOverview, loadReport, lastUpdatedAt } = teacherSession ?? {};
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [report, setReport] = useState(null);
+
+  const hasSession = viewModel?.active;
+  const sessionId = viewModel?.sessionId;
+  const isDraft = viewModel?.status === "draft";
+
+  return (
+    <div className="classroom-command-center">
+      {!hasSession ? (
+        <SessionSetupPanel
+          onCreateSession={async (config) => {
+            const session = await createSession(config);
+            viewModel ? null : teacherSession?.setViewModel?.({ active: true, sessionId: session.id, status: "draft", title: session.title });
+          }}
+        />
+      ) : (
+        <>
+          <LiveSessionDashboard
+            viewModel={viewModel}
+            onControl={async (action) => {
+              if (action === "end") {
+                setShowEndConfirm(true);
+                return;
+              }
+              const result = await control(sessionId, action);
+              if (action === "start") {
+                loadOverview(sessionId);
+              }
+            }}
+            onRefresh={() => loadOverview(sessionId)}
+            lastUpdatedAt={lastUpdatedAt}
+          />
+
+          {viewModel?.status !== "draft" && !viewModel?.ended && (
+            <SessionStudentGrid viewModel={viewModel} />
+          )}
+
+          {viewModel?.ended && (
+            <div>
+              {report ? (
+                <SessionReportPanel report={report} />
+              ) : (
+                <button
+                  className="primary-button"
+                  onClick={async () => {
+                    const r = await loadReport(sessionId);
+                    setReport(r.report ?? r);
+                  }}
+                  type="button"
+                >
+                  查看课堂报告
+                </button>
+              )}
+            </div>
+          )}
+
+          <EndConfirmation
+            visible={showEndConfirm}
+            title={viewModel?.title}
+            onConfirm={async () => {
+              setShowEndConfirm(false);
+              await control(sessionId, "end");
+              const r = await loadReport(sessionId);
+              setReport(r.report ?? r);
+            }}
+            onCancel={() => setShowEndConfirm(false)}
+          />
+        </>
+      )}
     </div>
   );
 }

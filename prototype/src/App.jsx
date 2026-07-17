@@ -77,6 +77,7 @@ import { TeacherStudioDashboard } from "./components/TeacherDashboard.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { useLabState } from "./hooks/useLabState.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
+import { useTeacherSession } from "./hooks/useTeacherSession.js";
 import avatarImage from "./assets/alex-chen-avatar.webp";
 import labIllustration from "./assets/lab-circuit-illustration.webp";
 
@@ -496,6 +497,11 @@ export function App() {
   const classroomSession = useClassroomSession({
     userId: auth.user?.id,
     enabled: auth.user?.role === "student",
+  });
+
+  const teacherSession = useTeacherSession({
+    classId: selectedTeacherClassId,
+    enabled: auth.user?.role === "teacher" && selectedTeacherClassId != null,
   });
 
   const memoryAccessState = useMemo(
@@ -999,6 +1005,7 @@ export function App() {
               openTeacherStudentDetail={openTeacherStudentDetail} resetStudentPassword={resetStudentPassword}
               selectedTeacherStudent={selectedTeacherStudent} setSelectedTeacherStudent={setSelectedTeacherStudent}
               buildTeacherAssistantInsights={buildTeacherAssistantInsights}
+              teacherSession={teacherSession}
             />
           ) : null}
         </main>
