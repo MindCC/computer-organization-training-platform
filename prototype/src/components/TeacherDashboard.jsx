@@ -199,7 +199,13 @@ export function TeacherStudioDashboard({
                   </div>
                 </div>
               ))}
-              {students.length === 0 ? <p className="empty-state">暂无学生数据。请先导入学生，或等待学生完成提交。</p> : null}
+              {students.length === 0 ? (
+                <div className="empty-state">
+                  <strong>暂无学生数据</strong>
+                  <p>请先在左侧边栏"创建班级"后导入学生 CSV。"</p>
+                  <small>模板格式：学号,姓名,初始密码</small>
+                </div>
+              ) : null}
             </div>
           </section>
 
