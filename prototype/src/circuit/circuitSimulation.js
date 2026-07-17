@@ -1,5 +1,6 @@
 ﻿import { buildCircuitModelIndex, portKey } from "./challengeCircuitModel.js";
 import { validateCircuitStructure } from "./circuitValidation.js";
+import { CHIP_DEFINITIONS } from "./chipDefinitions.js";
 
 const UNKNOWN = "unknown";
 const ERROR = "error";
@@ -101,6 +102,25 @@ function computeNode(node, values) {
     writeOutput(values, node.id, "f", result);
     writeOutput(values, node.id, "zero", result === 0 ? 1 : 0);
     writeOutput(values, node.id, "carry", operation === 0 && add > 1 ? 1 : 0);
+  }
+
+  // Chip node: delegate to chip's simulation function
+  if (node.type && node.type.startsWith("chip:")) {
+    const chipDef = CHIP_DEFINITIONS[node.type.slice(5)]; // "chip:half-adder" → "half-adder"
+    if (!chipDef) return;
+    const inputs = Object.fromEntries(
+      chipDef.ports.filter((p) => p.direction === "in").map((p) => [p.id, readInput(values, node.id, p.id)])
+    );
+    if (chipDef.ports.some((p) => p.direction === "in" && inputs[p.id] === UNKNOWN)) {
+      for (const p of chipDef.ports.filter((p) => p.direction === "out")) {
+        writeOutput(values, node.id, p.id, UNKNOWN);
+      }
+      return;
+    }
+    const outputs = chipDef.simulation(inputs);
+    for (const p of chipDef.ports.filter((p) => p.direction === "out")) {
+      writeOutput(values, node.id, p.id, normalizeSignal(outputs[p.id]));
+    }
   }
 }
 
