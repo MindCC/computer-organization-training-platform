@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "node --test src/*.test.mjs src/circuit/*.test.mjs server/*.test.mjs",
+    "test": "node --test src/*.test.mjs src/shared/*.test.mjs src/circuit/*.test.mjs server/*.test.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "server": "node server/server.js",
     "dev:server": "node server/server.js",
