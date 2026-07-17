@@ -314,14 +314,16 @@ export function saveStudentProgress(db, studentId, progress) {
   tx();
 }
 
-export function recordStudentAttempt(db, studentId, challengeId, result) {
-  const before = getStudentProgress(db, studentId);
-  const next = recordAttempt(before, challengeId, result);
-  const errors = (result.errors ?? []).map((error) => error.type ?? String(error));
-  const tx = db.transaction(() => {
+export function recordStudentAttempt(db, studentId, challengeId, result, options = {}) {
+  const run = () => {
+    const before = getStudentProgress(db, studentId);
+    const next = recordAttempt(before, challengeId, result);
+    const errors = (result.errors ?? []).map((error) => error.type ?? String(error));
     db.prepare(`
-      INSERT INTO challenge_attempts (student_id, challenge_id, score, passed, errors_json, result_json, elapsed_minutes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO challenge_attempts
+        (student_id, challenge_id, score, passed, errors_json, result_json,
+         elapsed_minutes, session_id, client_submission_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       studentId,
       challengeId,
@@ -330,11 +332,13 @@ export function recordStudentAttempt(db, studentId, challengeId, result) {
       JSON.stringify(errors),
       JSON.stringify(result),
       Number(result.elapsedMinutes ?? 0),
+      options.sessionId ?? null,
+      options.clientSubmissionId ?? null,
     );
     saveStudentProgress(db, studentId, next);
-  });
-  tx();
-  return next;
+    return next;
+  };
+  return options.inTransaction ? run() : db.transaction(run)();
 }
 
 export function listNotes(db, studentId, filters = {}) {

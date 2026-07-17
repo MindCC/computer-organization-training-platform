@@ -94,6 +94,7 @@ export function createClassroomSessionRepository(db) {
     const result = db.prepare(`
       UPDATE classroom_sessions
       SET status = ?, active_started_at = ?, accumulated_active_seconds = ?,
+          started_at = COALESCE(?, started_at),
           paused_at = ?, ended_at = ?, report_json = COALESCE(?, report_json),
           updated_at = CURRENT_TIMESTAMP
       WHERE id = ? AND status = ?
@@ -101,6 +102,7 @@ export function createClassroomSessionRepository(db) {
       nextStatus,
       fields.activeStartedAt ?? null,
       fields.accumulatedActiveSeconds ?? 0,
+      fields.startedAt ?? null,
       fields.pausedAt ?? null,
       fields.endedAt ?? null,
       fields.reportJson ?? null,
