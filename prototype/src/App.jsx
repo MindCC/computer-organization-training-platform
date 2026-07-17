@@ -76,6 +76,7 @@ import { SettingsModal } from "./components/TeacherSettingsPanel.jsx";
 import { TeacherStudioDashboard } from "./components/TeacherDashboard.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { useLabState } from "./hooks/useLabState.js";
+import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import avatarImage from "./assets/alex-chen-avatar.webp";
 import labIllustration from "./assets/lab-circuit-illustration.webp";
 
@@ -492,6 +493,11 @@ export function App() {
     setStatusMessage, persistStudentAttempt, isMobile,
   });
 
+  const classroomSession = useClassroomSession({
+    userId: auth.user?.id,
+    enabled: auth.user?.role === "student",
+  });
+
   const memoryAccessState = useMemo(
     () => buildMemoryAccessState(memoryAddress, memoryOperation, memoryWriteValue),
     [memoryAddress, memoryOperation, memoryWriteValue],
@@ -848,7 +854,8 @@ export function App() {
               memoryAddress={memoryAddress} memoryOperation={memoryOperation} memoryWriteValue={memoryWriteValue}
               setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue}
               memoryAccessState={memoryAccessState} setShowSettings={setShowSettings}
-              student={student} statusMessage={statusMessage} changeView={changeView} />
+              student={student} statusMessage={statusMessage} changeView={changeView}
+              classroomLabViewModel={classroomSession.viewModel} />
           </Suspense>
         </ErrorBoundary>
       </div>
@@ -949,7 +956,7 @@ export function App() {
             <span>{statusMessage}</span>
           </div>
 
-          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} /> : null}
+          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} classroomViewModel={classroomSession.viewModel} onClassroomEnter={(sessionId) => { classroomSession.enter(sessionId).then(() => navigateToChallenge("computer-components")); }} /> : null}
           {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
           {activeView === "hardware-game" ? (
             <ErrorBoundary>

@@ -9,6 +9,9 @@ import { MemorySystemPanel } from "./MemorySystemPanel.jsx";
 import { ChallengeCanvas } from "./ChallengeCanvas.jsx";
 import { OverviewExplodedView } from "./OverviewExplodedView.jsx";
 import { statusText, statusTone, formatEndpointLabel } from "./labUtils.js";
+import { MissionHud } from "./classroom/student/MissionHud.jsx";
+import { MissionPauseOverlay } from "./classroom/student/MissionPauseOverlay.jsx";
+import { MissionSettlement } from "./classroom/student/MissionSettlement.jsx";
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
 
@@ -24,15 +27,43 @@ export function LabPage({
   lab, isMobile, memoryAddress, memoryOperation, memoryWriteValue,
   setMemoryAddress, setMemoryOperation, setMemoryWriteValue,
   memoryAccessState, setShowSettings, student, statusMessage, changeView,
+  classroomLabViewModel,
 }) {
   const l = lab;
   const cur = l.currentChallenge;
+  const cl = classroomLabViewModel;
+
+  // Classroom settlement: replace entire lab with settlement view
+  if (cl?.ended) {
+    return (
+      <MissionSettlement
+        viewModel={cl}
+        onReturn={() => changeView("home")}
+        onReview={() => changeView("home")}
+      />
+    );
+  }
+
+  const disabled = cl?.paused === true;
+
+  // Wrap content with HUD and pause overlay for active classroom session
+  function wrapClassroom(children) {
+    if (!cl?.active) return children;
+    return (
+      <div>
+        <MissionHud viewModel={cl} />
+        <MissionPauseOverlay visible={cl.paused}>
+          {children}
+        </MissionPauseOverlay>
+      </div>
+    );
+  }
   if (cur.id === "computer-components") return ComputerOverviewLab();
   if (l.currentCircuitModel) return ReactFlowLab();
   return LegacyLab();
 
   function ComputerOverviewLab() {
-    return (
+    return wrapClassroom(
       <div className="lab-studio" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
         <header className="lab-studio-header">
           <div className="lab-studio-brand"><button aria-label="返回课程首页" className="lab-studio-icon-button" onClick={() => changeView("home")} type="button"><ArrowLeft size={19} /></button><span className="lab-studio-mark"><Cpu size={24} /></span><div><strong>计算机组成探索</strong><small>3D 爆炸视图</small></div></div>
@@ -58,7 +89,7 @@ export function LabPage({
     const tc = l.currentCircuitModel?.testCases.length ?? 0;
     const st = statusText(l.currentRecord?.status ?? "not-started");
     const js = getJourneyStepsForChallenge(cur.id);
-    return (
+    return wrapClassroom(
       <div className="lab-studio">
         <header className="lab-studio-header">
           <div className="lab-studio-brand"><button className="lab-studio-icon-button" onClick={() => changeView("home")} type="button" aria-label="返回课程首页"><ArrowLeft size={19} /></button><span className="lab-studio-mark"><Cpu size={24} /></span><div><strong>电路实验室</strong><small>计算机组成原理实训平台</small></div></div>
@@ -92,7 +123,7 @@ export function LabPage({
   }
 
   function LegacyLab() {
-    return (
+    return wrapClassroom(
       <div className="lab-screen">
         <div className="lab-stage-layout legacy">
           <aside className="lab-palette-panel">

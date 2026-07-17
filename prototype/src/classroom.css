@@ -1,0 +1,334 @@
+/* Classroom visual tokens */
+:root {
+  --classroom-instrument: #102a46;
+  --classroom-instrument-ink: #eff9ff;
+  --classroom-data: var(--teal);
+  --classroom-address: var(--blue);
+  --classroom-control: var(--gold);
+  --classroom-power: var(--danger);
+}
+
+/* ---- Student: Mission Home ---- */
+
+.mission-home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  gap: 18px;
+  min-height: calc(100vh - 96px);
+}
+
+.mission-channel-bar {
+  min-height: 64px;
+}
+
+/* ---- Mission Channel Card ---- */
+
+.mission-channel-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(135deg, var(--classroom-instrument), #1a3a5c);
+  color: var(--classroom-instrument-ink);
+  border-radius: 16px;
+  padding: 12px 20px;
+}
+
+.mission-channel-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.mission-channel-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--classroom-data);
+  animation: mission-pulse 2s ease-in-out infinite;
+}
+
+@keyframes mission-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.mission-channel-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mission-channel-info strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.mission-channel-info span {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.mission-channel-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+
+.mission-channel-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+}
+
+.mission-channel-paused {
+  background: var(--gold);
+  color: var(--ink);
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.mission-enter-button {
+  padding: 6px 16px;
+  font-size: 0.85rem;
+}
+
+/* ---- Mission Route Board (Student Home) ---- */
+
+.mission-route-board {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mission-route-canvas {
+  flex: 1;
+}
+
+.mission-brief-panel {
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+
+/* ---- Mission HUD ---- */
+
+.mission-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 20px;
+  background: var(--classroom-instrument);
+  color: var(--classroom-instrument-ink);
+  border-radius: 0;
+  min-height: 56px;
+  font-size: 0.85rem;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mission-hud-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mission-hud-stage {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mission-hud-status {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.mission-hud-status.paused {
+  color: var(--gold);
+}
+
+.mission-hud-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mission-hud-timer,
+.mission-hud-xp,
+.mission-hud-stars,
+.mission-hud-streak {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mission-hud-timer {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Mission Pause Overlay ---- */
+
+.mission-pause-shell {
+  position: relative;
+  width: 100%;
+}
+
+.mission-pause-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(16, 42, 70, 0.85);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.mission-pause-message {
+  text-align: center;
+  color: #fff;
+}
+
+.mission-pause-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.mission-pause-message strong {
+  display: block;
+  font-size: 1.25rem;
+  margin-bottom: 8px;
+}
+
+.mission-pause-message p {
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+
+/* ---- Mission Settlement ---- */
+
+.mission-settlement {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 40px 20px;
+}
+
+.mission-settlement-card {
+  background: var(--surface);
+  border-radius: 22px;
+  padding: 40px;
+  text-align: center;
+  max-width: 480px;
+  width: 100%;
+  border: 1px solid var(--border);
+}
+
+.mission-settlement-badge {
+  margin-bottom: 16px;
+}
+
+.mission-settlement-badge.passed {
+  color: var(--teal);
+}
+
+.mission-settlement-badge.failed {
+  color: var(--danger);
+}
+
+.mission-settlement-x {
+  font-size: 48px;
+  font-weight: 700;
+}
+
+.mission-settlement-card h2 {
+  margin: 0 0 24px;
+  font-size: 1.5rem;
+}
+
+.mission-settlement-stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 20px;
+}
+
+.mission-settlement-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.mission-settlement-stat strong {
+  font-size: 1.25rem;
+}
+
+.mission-settlement-badges {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.mission-badge {
+  background: var(--classroom-instrument);
+  color: var(--classroom-instrument-ink);
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.mission-settlement-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* ---- Classroom Lab Grid ---- */
+
+.classroom-lab-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(720px, 1fr) 300px;
+  gap: 16px;
+}
+
+/* ---- Responsive ---- */
+
+@media (max-width: 1180px) {
+  .classroom-lab-grid,
+  .mission-home {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mission-route-node,
+  .classroom-signal,
+  .mission-channel-dot {
+    animation: none !important;
+    transition: none !important;
+  }
+}

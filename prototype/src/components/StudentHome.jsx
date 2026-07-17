@@ -1,5 +1,6 @@
 import { Play } from "@phosphor-icons/react";
 import { formatEstimatedMinutes } from "../courseRoute.js";
+import { CurrentMissionCard } from "./classroom/student/CurrentMissionCard.jsx";
 
 function NextStepCard({ challenge, progress, onEnter }) {
   return (
@@ -17,12 +18,83 @@ function NextStepCard({ challenge, progress, onEnter }) {
   );
 }
 
-export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes }) {
+export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter }) {
   const recommended = nextRecommendedChallenge;
   const sortedGroups = routeGroups.map((group) => ({
     ...group,
     completedCount: group.items.filter((item) => item.status === "completed").length,
   }));
+
+  if (classroomViewModel?.active) {
+    return (
+      <main className="mission-home">
+        <section className="mission-route-board" aria-label="课程电路路线">
+          <header className="mission-channel-bar">
+            <CurrentMissionCard
+              viewModel={classroomViewModel}
+              onEnter={() => onClassroomEnter?.(classroomViewModel.sessionId)}
+            />
+          </header>
+          <div className="mission-route-canvas">
+            <div className="route-map-header">
+              <span className="eyebrow">课程路线</span>
+              <h1>电路装配路线图</h1>
+              <p>从信号流动到逻辑门，再到加法器和 ALU——顺着运算器的装配线一步步完成。</p>
+            </div>
+            {sortedGroups.map((group) => (
+              <section className="route-map-group" key={group.id}>
+                <div className="route-map-group-header">
+                  <div>
+                    <h2>{group.title}</h2>
+                    <p>{group.description}</p>
+                  </div>
+                  <span className="route-map-group-progress">
+                    {group.completedCount} / {group.items.length}
+                  </span>
+                </div>
+                <div className="route-map-cards">
+                  {group.items.map((item) => (
+                    <button
+                      className={`route-card ${item.status}`}
+                      key={item.id}
+                      disabled={item.status === "locked"}
+                      onClick={() => navigateToChallenge(item.id)}
+                      type="button"
+                    >
+                      <div className="route-card-top">
+                        <span className={`route-card-status ${item.status}`}>
+                          {item.status === "completed" ? "已完成" : item.status === "in-progress" ? "进行中" : "未开始"}
+                        </span>
+                        <small>{formatEstimatedMinutes(item.estimatedMinutes)}</small>
+                      </div>
+                      <strong>{item.title}</strong>
+                      <p>{item.description}</p>
+                      <div className="route-card-footer">
+                        <span>得分 {item.bestScore}</span>
+                        <small>{item.attempts} 次尝试</small>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </section>
+        <aside className="mission-brief-panel">
+          <strong>任务简报</strong>
+          <p>{summary.weakSpot || "暂无高频错误"}</p>
+          <div className="route-map-stat">
+            <span>完成率</span>
+            <span>{summary.completionRate}%</span>
+          </div>
+          <div className="route-map-stat">
+            <span>平均得分</span>
+            <span>{summary.averageScore} 分</span>
+          </div>
+        </aside>
+      </main>
+    );
+  }
 
   return (
     <div className="route-map">
