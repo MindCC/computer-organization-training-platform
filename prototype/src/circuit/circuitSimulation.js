@@ -177,12 +177,22 @@ function runCircuitTestCasesWithOptions(model, studentEdges, { includeHidden }) 
   const results = allCases.map((testCase) => {
     const simulation = simulateCircuit(model, studentEdges, testCase.inputs);
     const mismatches = Object.entries(testCase.expected).filter(([key, expected]) => simulation.values[key] !== expected);
+    // Find the first simulation step where a mismatch appears
+    let firstFailStep = -1;
+    if (mismatches.length > 0 && simulation.steps) {
+      for (let i = 0; i < simulation.steps.length; i++) {
+        const stepValues = simulation.steps[i]?.values ?? {};
+        const stepMismatch = Object.entries(testCase.expected).some(([key, expected]) => stepValues[key] !== expected);
+        if (stepMismatch) { firstFailStep = i; break; }
+      }
+    }
     return {
       name: testCase.name,
       passed: simulation.status === "ok" && mismatches.length === 0,
       expected: testCase.expected,
       actual: Object.fromEntries(Object.keys(testCase.expected).map((key) => [key, simulation.values[key] ?? UNKNOWN])),
       mismatches,
+      firstFailStep,
       hidden: hiddenCases.includes(testCase),
     };
   });

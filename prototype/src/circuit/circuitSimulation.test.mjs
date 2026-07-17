@@ -79,3 +79,13 @@ test("hidden test cases fail when edges are wrong", () => {
   assert.equal(result.hiddenPassed, false);
   assert.equal(result.hiddenPassedCount, 0);
 });
+
+test("firstFailStep identifies the simulation iteration where output first diverges", () => {
+  // Remove one required edge to create a mismatch
+  const badEdges = HALF_ADDER_CIRCUIT.requiredEdges.filter((e) => e.id !== "xor-s-to-sum");
+  const result = runAllCircuitTests(HALF_ADDER_CIRCUIT, badEdges);
+  const failedCase = result.allCases.find((c) => !c.passed);
+  assert.ok(failedCase, "at least one case should fail");
+  assert.ok(failedCase.firstFailStep >= 0, "firstFailStep should be identified");
+  assert.ok(failedCase.mismatches.length > 0, "mismatches should be present");
+});
