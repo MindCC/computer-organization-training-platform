@@ -211,6 +211,11 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       if (fresh.status !== "live" && fresh.status !== "paused") {
         throw classroomError("SESSION_NOT_FOUND", "课堂场次不存在", 404, false);
       }
+      // Verify student is a member of the session's class
+      const isMember = db.prepare(
+        "SELECT 1 FROM class_members WHERE class_id = ? AND student_id = ?"
+      ).get(fresh.class_id, studentId);
+      if (!isMember) throw classroomError("NOT_CLASS_MEMBER", "你不在该班级中", 403, false);
       const studentState = repository.enterStudent(fresh.id, studentId);
       const mission = getClassroomMission(fresh.template_key, fresh.template_version);
       return { session: fresh, studentState, mission };
@@ -244,6 +249,10 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       const studentState = repository.getStudentState(fresh.id, studentId);
       const stageIndex = studentState?.current_stage_index ?? 0;
       const mission = getClassroomMission(fresh.template_key, fresh.template_version);
+      const expectedChallengeId = mission.stages[stageIndex]?.challengeId;
+      if (!expectedChallengeId || payload.challengeId !== expectedChallengeId) {
+        throw classroomError("STAGE_MISMATCH", "提交的关卡与当前课堂阶段不匹配", 409, false);
+      }
       const currentProgress = {}; // classroom grading doesn't need full progress
       const graded = gradeClassroomEvidence({ mission, stageIndex, payload, progress: currentProgress });
       if (!graded.ok && graded.ok !== undefined) {
@@ -257,24 +266,31 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
         graded.result,
         { sessionId: fresh.id, clientSubmissionId: payload.clientSubmissionId, inTransaction: true },
       );
-      // Calculate updated rewards
+      // Calculate updated rewards — track per-stage attempts
+      const prevResult = safeJson(studentState.result_json) ?? {};
+      const prevStageAttempts = prevResult.stageAttempts ?? mission.stages.map(() => 0);
+      const prevFirstPass = prevResult.firstAttemptPasses ?? mission.stages.map(() => false);
+      const newStageAttempts = [...prevStageAttempts];
+      const newFirstPass = [...prevFirstPass];
+      newStageAttempts[stageIndex] = (newStageAttempts[stageIndex] ?? 0) + 1;
+      if (newStageAttempts[stageIndex] === 1 && graded.result.passed) {
+        newFirstPass[stageIndex] = true;
+      }
       const allStageScores = mission.stages.map((stage, index) => {
-        if (index < stageIndex) {
-          const previousResult = safeJson(studentState.result_json);
-          return previousResult?.stageScores?.[index] ?? 0;
-        }
+        if (index < stageIndex) return prevResult.stageScores?.[index] ?? 0;
         if (index === stageIndex) return graded.result.score;
         return NaN;
       });
-      const completedStages = allStageScores.filter((s) => Number.isFinite(s));
+      const completedScoreCount = allStageScores.filter((s) => Number.isFinite(s)).length;
       const passedStageIds = mission.stages.filter((stage, index) =>
-        index < stageIndex || (index === stageIndex && graded.result.passed)
+        (index < stageIndex) || (index === stageIndex && graded.result.passed)
       ).map((s) => s.id);
+      const streak = graded.result.passed ? (studentState.streak + 1) : 0;
       const rewards = calculateRewards({
         stageScores: allStageScores,
-        firstAttemptPasses: allStageScores.map((s, i) => i < stageIndex || (i === stageIndex && graded.result.passed)),
-        stageAttempts: allStageScores.map(() => 1),
-        streak: studentState.streak + (graded.result.passed ? 1 : 0),
+        firstAttemptPasses: newFirstPass,
+        stageAttempts: newStageAttempts,
+        streak: Math.min(streak, 4),
         passScore: fresh.pass_score,
       });
       const badges = calculateBadges(passedStageIds);
@@ -288,7 +304,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
         xp: rewards.xp,
         stars: rewards.stars,
         streak: graded.result.passed ? studentState.streak + 1 : 0,
-        result: { stageScores: allStageScores, passedStageIds, badges, averageScore: rewards.average },
+        result: { stageScores: allStageScores, passedStageIds, badges, averageScore: rewards.average, stageAttempts: newStageAttempts, firstAttemptPasses: newFirstPass },
         completedAt: allDone ? new Date(now()).toISOString() : null,
       });
       return {

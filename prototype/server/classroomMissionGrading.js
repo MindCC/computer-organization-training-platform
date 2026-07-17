@@ -25,7 +25,7 @@ export function gradeClassroomEvidence({ mission, stageIndex, payload, progress 
     throw classroomError("INVALID_STAGE_EVIDENCE", "电路证据必须包含不超过 256 条规范连线", 400, false);
   }
   const normalized = normalizeStudentAttemptPayload(
-    { challengeId: stage.challengeId, result: payload.result },
+    { challengeId: stage.challengeId, result: { ...payload.result, circuitEdges: payload.result.edges } },
     LEARNING_ITEMS,
     progress,
     true,

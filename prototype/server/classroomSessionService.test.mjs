@@ -206,3 +206,72 @@ test("cross-class active session conflict detection", () => {
   assert.throws(() => ctx.service.start({ teacherId: teacher.id, sessionId: sessionB.id }), /有学生在其他活动课堂中/);
   ctx.db.close();
 });
+
+test("enterStudent rejects non-class-member", () => {
+  const ctx = makeContext();
+  const teacher = createUser(ctx.db, { username: "t11", displayName: "T11", role: "teacher", passwordHash: "pw" });
+  const student = createUser(ctx.db, { username: "s11", displayName: "S11", role: "student", passwordHash: "pw" });
+  const outsider = createUser(ctx.db, { username: "outsider", displayName: "Outsider", role: "student", passwordHash: "pw" });
+  const classRow = createClass(ctx.db, teacher.id, "成员检查班");
+  addStudentToClass(ctx.db, classRow.id, student.id);
+  const session = ctx.service.createDraft({ teacherId: teacher.id, classId: classRow.id, config: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80 } });
+  ctx.service.start({ teacherId: teacher.id, sessionId: session.id });
+  assert.throws(() => ctx.service.enterStudent({ studentId: outsider.id, sessionId: session.id }), /不在该班级/);
+  ctx.db.close();
+});
+
+test("submitAttempt rejects wrong challengeId for current stage", () => {
+  const ctx = makeContext();
+  const teacher = createUser(ctx.db, { username: "t12", displayName: "T12", role: "teacher", passwordHash: "pw" });
+  const student = createUser(ctx.db, { username: "s12", displayName: "S12", role: "student", passwordHash: "pw" });
+  const classRow = createClass(ctx.db, teacher.id, "阶段检查班");
+  addStudentToClass(ctx.db, classRow.id, student.id);
+  const session = ctx.service.createDraft({ teacherId: teacher.id, classId: classRow.id, config: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80 } });
+  ctx.service.start({ teacherId: teacher.id, sessionId: session.id });
+  ctx.service.enterStudent({ studentId: student.id, sessionId: session.id });
+  // Submit wrong challenge for stage 0 (should be "computer-components")
+  assert.throws(() => ctx.service.submitAttempt({
+    studentId: student.id,
+    payload: { clientSubmissionId: "wrong-stage", challengeId: "program-flow", result: { completed: true } },
+  }), /关卡与当前课堂阶段不匹配/);
+  ctx.db.close();
+});
+
+test("submitAttempt tracks per-stage attempts and first-attempt-pass accurately", () => {
+  const ctx = makeContext();
+  const teacher = createUser(ctx.db, { username: "t13", displayName: "T13", role: "teacher", passwordHash: "pw" });
+  const student = createUser(ctx.db, { username: "s13", displayName: "S13", role: "student", passwordHash: "pw" });
+  const classRow = createClass(ctx.db, teacher.id, "追踪班");
+  addStudentToClass(ctx.db, classRow.id, student.id);
+  const session = ctx.service.createDraft({ teacherId: teacher.id, classId: classRow.id, config: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80 } });
+  ctx.service.start({ teacherId: teacher.id, sessionId: session.id });
+  ctx.service.enterStudent({ studentId: student.id, sessionId: session.id });
+  // Stage 0 (participation): pass first attempt — advances to stageIndex=1
+  ctx.service.submitAttempt({
+    studentId: student.id,
+    payload: { clientSubmissionId: "track-0", challengeId: "computer-components", result: { completed: true, elapsedMinutes: 3 } },
+  });
+  // Stage 1 (circuit): fail first attempt (valid edges format, but incomplete connections)
+  const failCircuit = { edges: [{ from: { nodeId: "a", portId: "out" }, to: { nodeId: "b", portId: "in" } }], score: 0, passed: false, errors: [], elapsedMinutes: 1 };
+  ctx.service.submitAttempt({
+    studentId: student.id,
+    payload: { clientSubmissionId: "track-1", challengeId: "program-flow", result: failCircuit },
+  });
+  // Stage 1 (circuit): fail again
+  ctx.service.submitAttempt({
+    studentId: student.id,
+    payload: { clientSubmissionId: "track-2", challengeId: "program-flow", result: failCircuit },
+  });
+  // Stage 1 (circuit): pass third attempt
+  const r3 = ctx.service.submitAttempt({
+    studentId: student.id,
+    payload: { clientSubmissionId: "track-3", challengeId: "program-flow", result: { edges: [{ from: { nodeId: "a", portId: "out" }, to: { nodeId: "b", portId: "in" } }], score: 100, passed: true, errors: [], elapsedMinutes: 2 } },
+  });
+  const state = r3.studentState;
+  const parsed = JSON.parse(state.result_json);
+  assert.equal(parsed.stageAttempts[0], 1, "stage 0: 1 attempt");
+  assert.equal(parsed.firstAttemptPasses[0], true, "stage 0: first-attempt pass");
+  assert.equal(parsed.stageAttempts[1], 3, "stage 1: 3 attempts (2 fail, 1 pass)");
+  assert.equal(parsed.firstAttemptPasses[1], false, "stage 1: not first-attempt pass");
+  ctx.db.close();
+});
