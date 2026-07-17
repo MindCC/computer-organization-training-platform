@@ -1,6 +1,22 @@
 # Classroom Mission Loop Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
+>
+> **Review 2026-07-17:** 计划评审通过，已记录以下调整。按顺序执行 Task 1-10，每步严格遵循 red-green TDD。
+
+## Review Notes（实施前必读）
+
+1. **Task 2 边界：延迟加入学生** — 草稿创建时快照现有班级成员，之后加入的学生在 `enterStudent` 或 `findCurrentForStudent` 时补建状态（用 INSERT OR IGNORE，不能只用 UPDATE）。详见 Task 2 Step 4 中 `enterStudent` 的修改。
+
+2. **Task 3 兼容性：`recordStudentAttempt`** — 新增 `options` 参数默认 `{}`，现有调用方（`app.js:324`, `seedDemoClassroom.js:116`）无需修改即可兼容。必须加测试覆盖"不带 options 时 INSERT 写入 NULL"。
+
+3. **Task 4 依赖注入：`requireRole`** — `requireRole` 是 `createApp()` 内部闭包函数，不导出。传递给 `createClassroomSessionRouter({ service, requireRole })` 作为依赖。不要在 app.js 中新增导出。
+
+4. **Task 6 接口膨胀：LabPage props** — 课堂状态（paused, submitClassroom, classroomSession）通过一个合并的 `classroomLabViewModel` 对象传入，不逐 prop 添加。
+
+5. **Task 8 截图路径：** 统一保存到 `prototype/qa-artifacts/`（已在 `.gitignore` 中）。
+
+6. **Task 9 前置依赖：** Task 9 依赖 Task 8 创建的 `qa:classroom` 和 `qa:classroom-load` 命令，必须顺序执行。
 
 **Goal:** Build a reliable classroom mission loop in which teachers can run a four-stage computer data-flow session and students can discover, resume, complete, and review it through a game-inspired dual-role interface.
 
@@ -264,6 +280,16 @@ test("draft creation snapshots every current class member", async () => {
   });
   assert.equal(session.status, "draft");
   assert.equal(repository.getStudentState(session.id, student.id).status, "not_started");
+  // Late-joining student gets backfilled on enter
+  const lateStudent = createUser(db, {
+    username: "late-student",
+    displayName: "迟到学生",
+    role: "student",
+    passwordHash: await hashPassword("Student123!"),
+  });
+  addStudentToClass(db, classRow.id, lateStudent.id);
+  const entered = repository.enterStudent(session.id, lateStudent.id);
+  assert.equal(entered.status, "in_progress");
   db.close();
 });
 ~~~
@@ -379,6 +405,10 @@ export function createClassroomSessionRepository(db) {
   }
 
   function enterStudent(sessionId, studentId) {
+    db.prepare(`
+      INSERT OR IGNORE INTO student_session_states (session_id, student_id, status)
+      VALUES (?, ?, 'not_started')
+    `).run(sessionId, studentId);
     db.prepare(`
       UPDATE student_session_states
       SET status = CASE WHEN status = 'not_started' THEN 'in_progress' ELSE status END,
@@ -628,6 +658,8 @@ export function recordStudentAttempt(db, studentId, challengeId, result, options
 }
 ~~~
 
+> **兼容性要求：** 现有调用方 `app.js:324` 和 `seedDemoClassroom.js:116` 不传 `options` 时应继续正常工作。Task 3 的测试必须单独验证：不带 options 调用时 `session_id` 和 `client_submission_id` 列写入 NULL，现有测试用例不受影响。
+
 - [ ] **Step 6: Run focused and full service tests**
 
 Run: <code>cd prototype; node --test server/classroomMissionGrading.test.mjs server/classroomSessionService.test.mjs</code>
@@ -732,7 +764,7 @@ export function createClassroomSessionRouter({ service, requireRole }) {
 }
 ~~~
 
-Mount at <code>/api</code> from createApp. Keep requireRole in app.js exported or pass it as a dependency. Do not duplicate authentication logic.
+Mount at <code>/api</code> from createApp. <strong>requireRole 不导出</strong>（它是 createApp 内部闭包）。直接从 createApp 传入 createClassroomSessionRouter 作为依赖参数 `{ service, requireRole }`，不在 app.js 中新增 export。
 
 - [ ] **Step 3: Delegate active classroom submissions**
 
@@ -922,6 +954,8 @@ Use this structural contract:
 
 LabPage keeps OverviewExplodedView, CircuitFlowCanvas, MachineNumberPanel, MemorySystemPanel, and MobileLabFallback. Add MissionHud above the active workspace, pass disabled to run/submit controls while paused, overlay MissionPauseOverlay without resetting lab state, and replace the normal completion panel with MissionSettlement only when the classroom session is ended.
 
+> **接口约定：** 课堂相关状态（`paused`, `submitClassroom`, `classroomSession`）通过一个合并的 `classroomLabViewModel` prop 传入 LabPage，不逐个 prop 添加。LabPage 自身不调用 `useClassroomSession` hook。
+
 - [ ] **Step 5: Add the approved low-cost visual system**
 
 Import classroom.css after styles.css. Define:
@@ -1084,7 +1118,7 @@ Launch one headless Edge/Chromium process. Create teacher and student browser co
 
 - [ ] **Step 3: Capture fixed visual evidence**
 
-Use viewport 1366×768 and save these exact files under the configured artifact directory:
+Use viewport 1366×768 and save these exact files under <strong>`prototype/qa-artifacts/`</strong>（已在 `.gitignore` 中，不进入版本控制）：
 
 - classroom-student-route.png
 - classroom-student-workbench.png
