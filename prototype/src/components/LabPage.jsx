@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { ArrowLeft, Cpu, Flame, GearSix, Play, SealCheck, Sparkle, Target, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES } from "../platformLogic.js";
 import { getJourneyStepsForChallenge } from "../dataJourney.js";
@@ -45,6 +45,16 @@ export function LabPage({
   }
 
   const disabled = cl?.paused === true;
+
+  // Keyboard shortcuts: Ctrl+Z undo, Ctrl+Y redo
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.ctrlKey && e.key === "z" && !e.shiftKey) { e.preventDefault(); l.undoLab?.(); }
+      if (e.ctrlKey && e.key === "y") { e.preventDefault(); l.redoLab?.(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [l]);
 
   // Wrap content with HUD and pause overlay for active classroom session
   function wrapClassroom(children) {

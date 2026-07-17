@@ -6,6 +6,7 @@
   --classroom-address: var(--blue);
   --classroom-control: var(--gold);
   --classroom-power: var(--danger);
+  --border: rgba(0, 0, 0, 0.08);
 }
 
 /* ---- Student: Mission Home ---- */
