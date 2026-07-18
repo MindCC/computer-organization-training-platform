@@ -36,15 +36,18 @@ export function createAssignmentRouter({ service, requireRole }) {
   // Teacher: assignment detail (with answers)
   router.get("/teacher/assignments/:id", requireRole("teacher"), (req, res, next) => {
     try {
-      res.json(service.getAssignmentDetail({ assignmentId: Number(req.params.id) }));
+      res.json(service.getTeacherAssignmentDetail({ teacherId: req.user.id, assignmentId: Number(req.params.id) }));
     } catch (e) { next(e); }
   });
 
   // Teacher: list submissions for an assignment
   router.get("/teacher/assignments/:id/submissions", requireRole("teacher"), (req, res, next) => {
     try {
-      const subs = service.repository.listSubmissions(Number(req.params.id));
-      res.json({ submissions: subs });
+      const submissions = service.listTeacherSubmissions({
+        teacherId: req.user.id,
+        assignmentId: Number(req.params.id),
+      });
+      res.json({ submissions });
     } catch (e) { next(e); }
   });
 
@@ -72,23 +75,17 @@ export function createAssignmentRouter({ service, requireRole }) {
   // Student: get published assignments for my classes
   router.get("/student/assignments", requireRole("student"), (req, res, next) => {
     try {
-      const rows = service.db.prepare(`
-        SELECT a.* FROM assignments a
-        JOIN class_members cm ON cm.class_id = a.class_id
-        WHERE cm.student_id = ? AND a.status = 'published'
-        ORDER BY a.id DESC
-      `).all(req.user.id);
-      res.json({ assignments: rows });
+      res.json({ assignments: service.getStudentAssignments({ studentId: req.user.id }) });
     } catch (e) { next(e); }
   });
 
   // Student: get assignment detail (without answers)
   router.get("/student/assignments/:id", requireRole("student"), (req, res, next) => {
     try {
-      const detail = service.getAssignmentDetail({ assignmentId: Number(req.params.id) });
-      const questions = detail.questions.map((q) => ({ ...q, answer_json: undefined }));
-      const sub = service.repository.getSubmission(Number(req.params.id), req.user.id);
-      res.json({ ...detail, questions, submission: sub });
+      res.json(service.getStudentAssignmentDetail({
+        studentId: req.user.id,
+        assignmentId: Number(req.params.id),
+      }));
     } catch (e) { next(e); }
   });
 

@@ -104,3 +104,123 @@ test("assignment validation: reject publish without questions, reject modify aft
     await new Promise((r) => server.close(r));
   }
 });
+test("assignment resources enforce teacher ownership and student membership", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherAJar = {};
+  const teacherBJar = {};
+  const studentAJar = {};
+  const sharedStudentJar = {};
+
+  async function login(username, password, jar) {
+    const result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password }),
+    }, jar);
+    assert.equal(result.response.status, 200);
+  }
+
+  async function createClass(jar, name) {
+    const result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name }),
+    }, jar);
+    assert.equal(result.response.status, 201);
+    return result.body.class.id;
+  }
+
+  async function publishAssignment(jar, classId, title) {
+    let result = await request(baseUrl, `/api/teacher/classes/${classId}/assignments`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title }),
+    }, jar);
+    const assignmentId = result.body.assignment.id;
+    result = await request(baseUrl, `/api/teacher/assignments/${assignmentId}/questions`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "truefalse", stem: "Authorized?", answer: "true", score: 10 }),
+    }, jar);
+    const questionId = result.body.question.id;
+    result = await request(baseUrl, `/api/teacher/assignments/${assignmentId}/publish`, {
+      method: "POST",
+    }, jar);
+    assert.equal(result.response.status, 200);
+    return { assignmentId, questionId };
+  }
+
+  try {
+    createUser(db, {
+      username: "teacher-b",
+      displayName: "Teacher B",
+      role: "teacher",
+      passwordHash: await hashPassword("TeacherB123!"),
+    });
+    await login("teacher", "Teacher123!", teacherAJar);
+    await login("teacher-b", "TeacherB123!", teacherBJar);
+
+    const classA = await createClass(teacherAJar, "Class A");
+    const classB = await createClass(teacherBJar, "Class B");
+    let result = await request(baseUrl, `/api/teacher/classes/${classA}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: "student-a,Student A,StudentA123!\nshared,Shared Student,Shared123!" }),
+    }, teacherAJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, `/api/teacher/classes/${classB}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: "student-b,Student B,StudentB123!\nshared,Shared Student,Shared123!" }),
+    }, teacherBJar);
+    assert.equal(result.response.status, 200);
+
+    await login("student-a", "StudentA123!", studentAJar);
+    await login("shared", "Shared123!", sharedStudentJar);
+    const sharedStudentId = db.prepare("SELECT id FROM users WHERE username = ?").get("shared").id;
+
+    const assignmentA = await publishAssignment(teacherAJar, classA, "Assignment A");
+    const assignmentB = await publishAssignment(teacherBJar, classB, "Assignment B");
+
+    for (const assignment of [assignmentA, assignmentB]) {
+      result = await request(baseUrl, `/api/student/assignments/${assignment.assignmentId}/submit`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ answers: [{ questionId: assignment.questionId, value: "true" }] }),
+      }, sharedStudentJar);
+      assert.equal(result.response.status, 200);
+    }
+
+    result = await request(baseUrl, `/api/teacher/assignments/${assignmentA.assignmentId}`, {}, teacherAJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(typeof result.body.questions[0].answer_json, "string");
+    result = await request(baseUrl, `/api/student/assignments/${assignmentA.assignmentId}`, {}, studentAJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(Object.hasOwn(result.body.questions[0], "answer_json"), false);
+
+    assert.equal((await request(baseUrl, `/api/teacher/assignments/${assignmentB.assignmentId}`, {}, teacherAJar)).response.status, 404);
+    assert.equal((await request(baseUrl, `/api/teacher/assignments/${assignmentB.assignmentId}/submissions`, {}, teacherAJar)).response.status, 404);
+    assert.equal((await request(baseUrl, `/api/student/assignments/${assignmentB.assignmentId}`, {}, studentAJar)).response.status, 404);
+    assert.equal((await request(baseUrl, `/api/student/assignments/${assignmentB.assignmentId}/draft`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ answers: [] }),
+    }, studentAJar)).response.status, 404);
+    assert.equal((await request(baseUrl, `/api/student/assignments/${assignmentB.assignmentId}/submit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ answers: [] }),
+    }, studentAJar)).response.status, 404);
+
+    result = await request(baseUrl, `/api/teacher/students/${sharedStudentId}/assignment-analytics`, {}, teacherAJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.analytics.totalAssignments, 1);
+    assert.deepEqual(
+      result.body.analytics.submissions.map((submission) => submission.assignmentId),
+      [assignmentA.assignmentId],
+    );
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});
