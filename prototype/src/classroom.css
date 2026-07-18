@@ -592,6 +592,25 @@
   justify-content: center;
 }
 
+/* ---- Heatmap ---- */
+
+.session-heatmap { background: var(--surface); border-radius: 12px; padding: 16px; margin-bottom: 12px; border: 1px solid var(--border); }
+.heatmap-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.heatmap-grid { display: flex; flex-direction: column; gap: 8px; }
+.heatmap-bar { display: flex; align-items: center; gap: 10px; }
+.heatmap-bar.bottleneck { background: rgba(214,143,47,0.06); padding: 4px 8px; border-radius: 6px; }
+.heatmap-label { width: 120px; font-size: 0.8rem; }
+.heatmap-track { flex: 1; height: 16px; background: rgba(0,0,0,0.05); border-radius: 8px; position: relative; overflow: hidden; }
+.heatmap-fill { position: absolute; top: 0; height: 100%; border-radius: 8px; }
+.heatmap-fill.completed { background: var(--teal); z-index: 2; }
+.heatmap-fill.in-progress { background: var(--blue); z-index: 1; }
+.heatmap-count { font-size: 0.75rem; color: var(--muted); min-width: 100px; }
+.heatmap-alert { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding: 8px 12px; background: rgba(214,143,47,0.1); border-radius: 8px; font-size: 0.85rem; color: var(--gold); }
+.heatmap-errors { margin-top: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.heatmap-errors strong { font-size: 0.8rem; }
+.error-chip { background: rgba(216,93,77,0.1); color: var(--danger); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
+.heatmap-inactive { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 0.8rem; color: var(--muted); }
+
 /* ---- Assignment System ---- */
 
 .assignment-panel { margin-top: 16px; }

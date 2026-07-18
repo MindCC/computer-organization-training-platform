@@ -7,6 +7,7 @@ import { SessionSetupPanel } from "./classroom/teacher/SessionSetupPanel.jsx";
 import { LiveSessionDashboard, EndConfirmation } from "./classroom/teacher/LiveSessionDashboard.jsx";
 import { SessionStudentGrid } from "./classroom/teacher/SessionStudentGrid.jsx";
 import { SessionReportPanel } from "./classroom/teacher/SessionReportPanel.jsx";
+import { SessionHeatmap } from "./classroom/teacher/SessionHeatmap.jsx";
 import { TeacherAssignments } from "./TeacherAssignments.jsx";
 
 function statusText(status) {
@@ -340,7 +341,10 @@ function ClassroomCommandCenter({ teacherSession }) {
           />
 
           {viewModel?.status !== "draft" && !viewModel?.ended && (
-            <SessionStudentGrid viewModel={viewModel} />
+            <>
+              <SessionHeatmap sessionId={sessionId} />
+              <SessionStudentGrid viewModel={viewModel} />
+            </>
           )}
 
           {viewModel?.ended && (

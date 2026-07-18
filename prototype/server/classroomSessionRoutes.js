@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { buildClassroomHeatmap, buildStudentReplay } from "./classroomAnalytics.js";
+import { getClassroomMission } from "../src/shared/classroomMissionDefinitions.js";
 
 export function createClassroomSessionRouter({ service, requireRole }) {
   const router = Router();
@@ -38,9 +40,24 @@ export function createClassroomSessionRouter({ service, requireRole }) {
   router.get("/teacher/sessions/:id/report", requireRole("teacher"), (req, res, next) => {
     try {
       res.json({ report: service.getReport({ teacherId: req.user.id, sessionId: Number(req.params.id) }) });
-    } catch (error) {
-      next(error);
-    }
+    } catch (error) { next(error); }
+  });
+
+  router.get("/teacher/sessions/:id/analytics", requireRole("teacher"), (req, res, next) => {
+    try {
+      const overview = service.getTeacherOverview({ teacherId: req.user.id, sessionId: Number(req.params.id) });
+      const s = overview.session;
+      const m = getClassroomMission(s.template_key, s.template_version);
+      res.json(buildClassroomHeatmap({ session: s, students: overview.students, mission: m }));
+    } catch (error) { next(error); }
+  });
+
+  router.get("/teacher/sessions/:sessionId/students/:studentId/replay", requireRole("teacher"), (req, res, next) => {
+    try {
+      const rows = service.db.prepare("SELECT * FROM challenge_attempts WHERE student_id = ? AND session_id = ? ORDER BY id ASC")
+        .all(Number(req.params.studentId), Number(req.params.sessionId));
+      res.json(buildStudentReplay(Number(req.params.sessionId), rows));
+    } catch (error) { next(error); }
   });
 
   router.get("/student/classroom/current", requireRole("student"), (req, res, next) => {
