@@ -1,5 +1,6 @@
 ﻿import express from "express";
 import crypto from "node:crypto";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -73,13 +74,21 @@ export function createApp(options = {}) {
   const assignmentService = createAssignmentService({ db, repository: assignmentRepository });
   app.use("/api", createAssignmentRouter({ service: assignmentService, requireRole }));
 
-  // Request logger
-  app.use((req, _res, next) => {
-    if (process.env.NODE_ENV !== "test") {
-      console.log(`${new Date().toISOString()} ${req.method} ${req.path} ${req.user ? req.user.username : "-"}`);
-    }
+  // Request logger with response timing
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on("finish", () => {
+      if (process.env.NODE_ENV !== "test") {
+        const duration = Date.now() - start;
+        const user = req.user ? req.user.username : "-";
+        const level = res.statusCode >= 500 ? "ERROR" : res.statusCode >= 400 ? "WARN" : "INFO";
+        console.log(`[${level}] ${new Date().toISOString()} ${req.method} ${req.path} ${res.statusCode} ${duration}ms user=${user}`);
+      }
+    });
     next();
   });
+
+  // Deep health check
 
   // CSRF: validate Origin/Referer for state-changing requests
   app.use((req, res, next) => {
@@ -95,19 +104,33 @@ export function createApp(options = {}) {
 
   // Deep health check
   const _startedAt = Date.now();
+  const buildId = process.env.HERMES_BUILD_ID || "dev";
   app.get("/api/health", (_req, res) => {
-    let dbOk = true, dbError = "";
+    let dbOk = true, dbError = "", dbWrite = false;
     try {
       app.locals.db.prepare("SELECT 1").get();
-    } catch (e) {
-      dbOk = false;
-      dbError = e.message;
-    }
+      dbOk = true;
+    } catch (e) { dbOk = false; dbError = e.message; }
+    try {
+      app.locals.db.prepare("CREATE TABLE IF NOT EXISTS _health_check (t INTEGER)").run();
+      app.locals.db.prepare("DROP TABLE IF EXISTS _health_check").run();
+      dbWrite = true;
+    } catch {}
+    const dbPath = app.locals.dbPath;
+    let diskFree = null;
+    try {
+      const out = dbPath !== ":memory:" ? execSync(`df -k "${dbPath}" 2>/dev/null || echo "0"`, { encoding: "utf8", timeout: 2000 }).trim() : "0";
+      const lines = out.split("\n").filter(Boolean);
+      diskFree = lines.length > 1 ? parseInt(lines[1].split(/\s+/)[3]) * 1024 : null;
+    } catch {}
     res.json({
-      ok: dbOk,
+      ok: dbOk && dbWrite,
       uptime: Math.floor((Date.now() - _startedAt) / 1000),
-      db: dbOk ? "ok" : `error: ${dbError}`,
-      version: process.env.HERMES_BUILD_ID || "dev",
+      db: dbOk ? (dbWrite ? "ok" : "readonly") : `error: ${dbError}`,
+      dbPath: dbPath === ":memory:" ? ":memory:" : path.basename(dbPath),
+      diskFree,
+      version: buildId,
+      memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
     });
   });
 
