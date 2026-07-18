@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { buildClassroomHeatmap, buildStudentReplay } from "./classroomAnalytics.js";
+import { buildClassroomHeatmap } from "./classroomAnalytics.js";
 import { getClassroomMission } from "../src/shared/classroomMissionDefinitions.js";
 
 export function createClassroomSessionRouter({ service, requireRole }) {
@@ -54,9 +54,11 @@ export function createClassroomSessionRouter({ service, requireRole }) {
 
   router.get("/teacher/sessions/:sessionId/students/:studentId/replay", requireRole("teacher"), (req, res, next) => {
     try {
-      const rows = service.db.prepare("SELECT * FROM challenge_attempts WHERE student_id = ? AND session_id = ? ORDER BY id ASC")
-        .all(Number(req.params.studentId), Number(req.params.sessionId));
-      res.json(buildStudentReplay(Number(req.params.sessionId), rows));
+      res.json(service.getStudentReplay({
+        teacherId: req.user.id,
+        sessionId: Number(req.params.sessionId),
+        studentId: Number(req.params.studentId),
+      }));
     } catch (error) { next(error); }
   });
 

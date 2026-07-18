@@ -1,6 +1,7 @@
 import { validateClassroomSessionConfig, getClassroomMission } from "../src/shared/classroomMissionDefinitions.js";
 import { recordStudentAttempt, teacherOwnsClass, getStudentProgress } from "./db.js";
 import { gradeClassroomEvidence, classroomError } from "./classroomMissionGrading.js";
+import { buildStudentReplay } from "./classroomAnalytics.js";
 
 export const ALLOWED_TRANSITIONS = Object.freeze({
   draft: new Set(["live"]),
@@ -339,6 +340,23 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
         })),
         updatedAt: fresh.updated_at,
       };
+    },
+
+    getStudentReplay({ teacherId, sessionId, studentId }) {
+      const session = repository.getById(sessionId);
+      if (!session) {
+        throw classroomError("SESSION_NOT_FOUND", "课堂场次不存在", 404, false);
+      }
+      assertTeacherOwns(session, teacherId);
+      if (!repository.getStudentState(sessionId, studentId)) {
+        throw classroomError("STUDENT_NOT_FOUND", "学生不存在", 404, false);
+      }
+      const rows = db.prepare(`
+        SELECT * FROM challenge_attempts
+        WHERE student_id = ? AND session_id = ?
+        ORDER BY id ASC
+      `).all(studentId, sessionId);
+      return buildStudentReplay(sessionId, rows);
     },
 
     getReport({ teacherId, sessionId }) {

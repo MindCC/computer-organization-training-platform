@@ -511,6 +511,7 @@ test("classroom mission full flow: teacher creates/starts, student discovers/ent
     assert.equal(result.response.status, 200);
     assert.ok(result.body.students);
     assert.ok(result.body.students.some((s) => s.studentId));
+    const replayStudentId = result.body.students[0].studentId;
 
     // Teacher: report before end → 409
     result = await request(baseUrl, `/api/teacher/sessions/${sessionId}/report`, {}, teacherJar);
@@ -530,6 +531,36 @@ test("classroom mission full flow: teacher creates/starts, student discovers/ent
     assert.equal(result.response.status, 200);
     assert.ok(result.body.report.frozenAt);
     assert.ok(result.body.report.studentReports);
+
+    // Replay is visible only to the owning teacher.
+    result = await request(
+      baseUrl,
+      `/api/teacher/sessions/${sessionId}/students/${replayStudentId}/replay`,
+      {},
+      teacherJar,
+    );
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.totalSubmissions, 1);
+
+    createUser(db, {
+      username: "replay-other-teacher",
+      displayName: "Replay Other Teacher",
+      role: "teacher",
+      passwordHash: await hashPassword("ReplayTeacher123!"),
+    });
+    const otherTeacherJar = {};
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "replay-other-teacher", password: "ReplayTeacher123!" }),
+    }, otherTeacherJar);
+    result = await request(
+      baseUrl,
+      `/api/teacher/sessions/${sessionId}/students/${replayStudentId}/replay`,
+      {},
+      otherTeacherJar,
+    );
+    assert.equal(result.response.status, 404);
 
     // Ownership 404
     await request(baseUrl, "/api/auth/login", {
