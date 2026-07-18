@@ -1,13 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 import { hashPassword, verifyPassword } from "./auth.js";
 import { createApp } from "./app.js";
 import { createUser, migrate, openDatabase } from "./db.js";
 
 async function makeServer(options = {}) {
-  const db = openDatabase(":memory:");
+  const db = openDatabase(options.databasePath ?? ":memory:");
+  const { databasePath: _databasePath, ...appOptions } = options;
   migrate(db);
   createUser(db, {
     username: "teacher",
@@ -19,7 +23,7 @@ async function makeServer(options = {}) {
     db,
     serveStatic: false,
     assistantOptions: { env: {} },
-    ...options,
+    ...appOptions,
   });
   const server = app.listen(0);
   await new Promise((resolve) => server.once("listening", resolve));
@@ -563,3 +567,80 @@ test("admin backup endpoints return db info and reject download for in-memory", 
   }
 });
 
+test("student import and backup never expose recoverable initial passwords", async () => {
+  const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "zcyl-password-backup-"));
+  const databasePath = path.join(tempDirectory, "classroom.sqlite");
+  const knownPassword = "RecoverableSecret123!";
+  const { db, server, baseUrl } = await makeServer({ databasePath });
+  const teacherJar = {};
+  const studentJar = {};
+  try {
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Password boundary" }),
+    }, teacherJar);
+    const classId = result.body.class.id;
+
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: `secure001,Safe Student,${knownPassword}` }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    const imported = db.prepare("SELECT id, profile_json FROM users WHERE username = ?").get("secure001");
+    assert.equal(Object.hasOwn(JSON.parse(imported.profile_json), "initialPassword"), false);
+
+    db.prepare("UPDATE users SET profile_json = ? WHERE id = ?").run(
+      JSON.stringify({ initialPassword: knownPassword, goal: "legacy", mustChangePassword: true }),
+      imported.id,
+    );
+    migrate(db);
+    const migrated = db.prepare("SELECT profile_json FROM users WHERE id = ?").get(imported.id);
+    assert.deepEqual(JSON.parse(migrated.profile_json), { goal: "legacy", mustChangePassword: true });
+
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "secure001", password: knownPassword }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/auth/me", {}, studentJar);
+    assert.equal(JSON.stringify(result.body).includes("initialPassword"), false);
+    assert.equal(JSON.stringify(result.body).includes(knownPassword), false);
+    assert.equal(result.body.user.profile.mustChangePassword, true);
+
+    const nextPassword = "ChangedSecret456!";
+    result = await request(baseUrl, "/api/auth/change-password", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ currentPassword: knownPassword, nextPassword }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    const changedProfile = JSON.parse(
+      db.prepare("SELECT profile_json FROM users WHERE id = ?").get(imported.id).profile_json,
+    );
+    assert.equal(changedProfile.mustChangePassword, false);
+    assert.match(changedProfile.passwordChangedAt, /^\d{4}-\d{2}-\d{2}T/);
+
+    const backupResponse = await fetch(`${baseUrl}/api/admin/backup`, {
+      headers: { cookie: teacherJar.cookie },
+    });
+    assert.equal(backupResponse.status, 200);
+    const backupBytes = Buffer.from(await backupResponse.arrayBuffer());
+    assert.equal(backupBytes.includes(Buffer.from(knownPassword, "utf8")), false);
+    assert.equal(backupBytes.includes(Buffer.from(nextPassword, "utf8")), false);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+    fs.rmSync(tempDirectory, { recursive: true, force: true });
+  }
+});

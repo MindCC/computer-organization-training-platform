@@ -38,6 +38,13 @@ test("demo classroom seed creates classes, students, and attempts", async () => 
     assert.equal(result.classesCreated, 2);
     assert.ok(result.studentsCreated >= 30);
     assert.ok(result.attemptsCreated > 0);
+
+    const verifyDb = new Database(databasePath);
+    const profiles = verifyDb.prepare("SELECT profile_json FROM users WHERE role = 'student'").all();
+    verifyDb.close();
+    assert.ok(profiles.length >= 30);
+    assert.equal(profiles.some((row) => row.profile_json.includes("initialPassword")), false);
+    assert.equal(profiles.every((row) => JSON.parse(row.profile_json).mustChangePassword === true), true);
   } finally {
     rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
   }

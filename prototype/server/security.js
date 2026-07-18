@@ -56,3 +56,9 @@ export function createLoginFailureTracker({
     },
   };
 }
+
+export function sanitizeProfile(profile) {
+  const source = profile && typeof profile === "object" && !Array.isArray(profile) ? profile : {};
+  const { initialPassword: _discarded, ...safe } = source;
+  return safe;
+}

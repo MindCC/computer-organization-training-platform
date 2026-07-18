@@ -80,7 +80,7 @@ export async function seedDemoClassroom({
         displayName: studentName,
         role: "student",
         passwordHash,
-        profile: { seeded: true, initialPassword: DEFAULT_STUDENT_PASSWORD },
+        profile: { seeded: true, mustChangePassword: true },
       });
       studentsCreated++;
     }

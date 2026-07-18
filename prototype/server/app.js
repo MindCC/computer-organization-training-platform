@@ -2,6 +2,7 @@
 import crypto from "node:crypto";
 import { execSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
@@ -194,6 +195,9 @@ export function createApp(options = {}) {
       const user = getUserById(db, req.user.id);
       if (!(await verifyPassword(currentPassword ?? "", user.password_hash))) return res.status(400).json({ error: "当前密码不正确" });
       updateUserPassword(db, req.user.id, await hashPassword(nextPassword));
+      updateUserProfile(db, req.user.id, {
+        profile: { mustChangePassword: false, passwordChangedAt: new Date().toISOString() },
+      });
       res.json({ ok: true });
     } catch (error) { next(error); }
   });
@@ -230,7 +234,6 @@ export function createApp(options = {}) {
             report.errors.push({ line: row.line, message: "缺少学号或姓名" });
             continue;
           }
-          const initialPassword = row.password || "ChangeMe123!";
           let user = getUserByUsername(db, row.username);
           if (user && user.role !== "student") {
             report.skipped += 1;
@@ -243,7 +246,7 @@ export function createApp(options = {}) {
               displayName: row.displayName,
               role: "student",
               passwordHash: passwordHashCache.get(row.username),
-              profile: { goal: "完成计算机概述到运算器关卡", mode: "强引导模式", initialPassword },
+              profile: { goal: "完成计算机概述到运算器关卡", mode: "强引导模式", mustChangePassword: true },
             });
             report.imported += 1;
           } else {
@@ -440,8 +443,14 @@ export function createApp(options = {}) {
     res.json({ user: sanitizeUser(user) });
   });
 
-  // Backup: download the current SQLite database
+  // Backup: create a compact logical SQLite snapshot before download.
   app.get("/api/admin/backup", requireRole("teacher"), (req, res, next) => {
+    let tempDirectory = null;
+    const cleanup = () => {
+      if (!tempDirectory) return;
+      fs.rmSync(tempDirectory, { recursive: true, force: true });
+      tempDirectory = null;
+    };
     try {
       const dbPath = req.app.locals.dbPath;
       if (!dbPath || dbPath === ":memory:") {
@@ -450,13 +459,28 @@ export function createApp(options = {}) {
       if (!fs.existsSync(dbPath)) {
         return res.status(404).json({ error: "数据库文件不存在" });
       }
-      const stat = fs.statSync(dbPath);
+
+      tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "zcyl-backup-"));
+      const snapshotPath = path.join(tempDirectory, "classroom.sqlite");
+      db.prepare("VACUUM INTO ?").run(snapshotPath);
+
+      const stat = fs.statSync(snapshotPath);
       const filename = `classroom-backup-${new Date().toISOString().slice(0, 10)}.sqlite`;
       res.setHeader("Content-Type", "application/octet-stream");
       res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
       res.setHeader("Content-Length", stat.size);
-      fs.createReadStream(dbPath).pipe(res);
-    } catch (error) { next(error); }
+      res.once("finish", cleanup);
+      res.once("close", cleanup);
+      const stream = fs.createReadStream(snapshotPath);
+      stream.once("error", (error) => {
+        cleanup();
+        next(error);
+      });
+      stream.pipe(res);
+    } catch (error) {
+      cleanup();
+      next(error);
+    }
   });
 
   app.get("/api/admin/db-info", requireRole("teacher"), (req, res) => {

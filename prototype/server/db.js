@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { LEARNING_ITEMS, buildInitialLearningProgress, recordAttempt, summarizeLearning } from "../src/platformLogic.js";
 import { HARDWARE_GAME_CASES, summarizeHardwareGameAttempts } from "../src/hardwareGame.js";
+import { sanitizeProfile } from "./security.js";
 
 const DEFAULT_DATABASE_PATH = path.resolve("data/classroom.sqlite");
 
@@ -215,11 +216,28 @@ export function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_student_session_student
     ON student_session_states(student_id, session_id);
   `);
+  sanitizeStoredUserProfiles(db);
+}
+
+function sanitizeStoredUserProfiles(db) {
+  const rows = db.prepare(`
+    SELECT id, profile_json FROM users
+    WHERE instr(profile_json, '"initialPassword"') > 0
+  `).all();
+  if (rows.length === 0) return;
+  const update = db.prepare(`
+    UPDATE users SET profile_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+  `);
+  db.transaction(() => {
+    for (const row of rows) {
+      update.run(JSON.stringify(sanitizeProfile(safeJson(row.profile_json, {}))), row.id);
+    }
+  })();
 }
 
 export function sanitizeUser(row) {
   if (!row) return null;
-  const profile = safeJson(row.profile_json, {});
+  const profile = sanitizeProfile(safeJson(row.profile_json, {}));
   return {
     id: row.id,
     username: row.username,
@@ -242,13 +260,13 @@ export function createUser(db, { username, displayName, role, passwordHash, prof
   const result = db.prepare(`
     INSERT INTO users (username, display_name, role, password_hash, profile_json)
     VALUES (?, ?, ?, ?, ?)
-  `).run(String(username).trim(), displayName, role, passwordHash, JSON.stringify(profile));
+  `).run(String(username).trim(), displayName, role, passwordHash, JSON.stringify(sanitizeProfile(profile)));
   return getUserById(db, result.lastInsertRowid);
 }
 
 export function updateUserProfile(db, userId, { displayName, profile }) {
   const current = getUserById(db, userId);
-  const nextProfile = { ...safeJson(current.profile_json, {}), ...(profile ?? {}) };
+  const nextProfile = sanitizeProfile({ ...safeJson(current.profile_json, {}), ...(profile ?? {}) });
   db.prepare(`
     UPDATE users SET display_name = COALESCE(?, display_name), profile_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `).run(displayName ?? null, JSON.stringify(nextProfile), userId);

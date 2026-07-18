@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
+import { createLoginFailureTracker, isTrustedRequestOrigin, sanitizeProfile } from "./security.js";
 
 test("origin comparison rejects prefix lookalikes and accepts exact origin", () => {
   const req = {
@@ -40,4 +40,15 @@ test("login failure tracker stays bounded", () => {
   tracker.recordFailure("b");
   tracker.recordFailure("c");
   assert.equal(tracker.size(), 2);
+});
+
+test("sanitizeProfile removes recoverable password fields", () => {
+  assert.deepEqual(
+    sanitizeProfile({
+      initialPassword: "Student123!",
+      goal: "finish course",
+      mustChangePassword: true,
+    }),
+    { goal: "finish course", mustChangePassword: true },
+  );
 });
