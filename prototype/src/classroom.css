@@ -656,6 +656,8 @@
 .chapter-body ul, .chapter-body ol { padding-left: 20px; font-size: 0.9rem; color: var(--ink); }
 .chapter-body li { margin-bottom: 4px; }
 .linked-challenges { display: flex; gap: 8px; flex-wrap: wrap; }
+.section-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.section-chip { background: rgba(40, 109, 232, 0.06); color: var(--navy); padding: 3px 10px; border-radius: 6px; font-size: 0.82rem; }
 .courseware-footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
 .courseware-footer h3 { font-size: 1rem; margin-bottom: 8px; }
 

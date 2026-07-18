@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, CaretRight, ArrowSquareOut, Lightbulb, Flask } from "@phosphor-icons/react";
+import { BookOpen, CaretRight, ArrowSquareOut, Lightbulb, Flask, Presentation, Star } from "@phosphor-icons/react";
 import { COURSEWARE } from "../courseware.js";
 
 export function CoursewareView({ navigateToChallenge }) {
@@ -21,12 +21,24 @@ export function CoursewareView({ navigateToChallenge }) {
             <button className="chapter-header" onClick={() => setExpanded(expanded === ch.id ? null : ch.id)}>
               <CaretRight size={16} className={`chevron ${expanded === ch.id ? "rotated" : ""}`} />
               <div>
-                <strong>第{ch.id.slice(2)}章 {ch.title}</strong>
-                <span>{ch.teachingMethod}</span>
+                <strong>{ch.title}</strong>
+                <span><Presentation size={12} /> {ch.slides} 页PPT · {ch.sections?.length ?? 0} 个小节</span>
               </div>
             </button>
             {expanded === ch.id && (
               <div className="chapter-body">
+                <section>
+                  <strong><Star size={14} /> 小节内容</strong>
+                  <div className="section-grid">
+                    {ch.sections?.map((s, i) => (
+                      <div className="section-chip" key={i}>{s}</div>
+                    ))}
+                  </div>
+                </section>
+                <section>
+                  <strong><Lightbulb size={14} /> 核心知识点</strong>
+                  <ul>{ch.keyPoints?.map((kp, i) => <li key={i}>{kp}</li>)}</ul>
+                </section>
                 <section>
                   <strong><Lightbulb size={14} /> 教学目标</strong>
                   <ul>{ch.objectives.map((o, i) => <li key={i}>{o}</li>)}</ul>
