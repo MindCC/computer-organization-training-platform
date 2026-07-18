@@ -635,6 +635,30 @@
 .tf-options { display: flex; gap: 24px; }
 .assignment-actions { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; }
 
+/* ---- Courseware ---- */
+
+.courseware-view { padding: 24px 32px; max-width: 900px; }
+.courseware-header { display: flex; align-items: center; gap: 16px; margin-bottom: 28px; }
+.courseware-header h1 { margin: 0; font-size: 1.5rem; }
+.courseware-header p { color: var(--muted); font-size: 0.9rem; }
+.courseware-chapters { display: flex; flex-direction: column; gap: 8px; }
+.courseware-chapter { background: var(--surface); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+.courseware-chapter.expanded { border-color: var(--blue); }
+.chapter-header { display: flex; align-items: center; gap: 10px; padding: 14px 18px; cursor: pointer; border: none; background: none; font: inherit; text-align: left; width: 100%; }
+.chapter-header:hover { background: rgba(0,0,0,0.01); }
+.chapter-header .chevron { transition: transform 0.2s; }
+.chapter-header .chevron.rotated { transform: rotate(90deg); }
+.chapter-header div { display: flex; flex-direction: column; }
+.chapter-header strong { font-size: 1rem; }
+.chapter-header span { font-size: 0.75rem; color: var(--muted); }
+.chapter-body { padding: 0 18px 18px 40px; display: flex; flex-direction: column; gap: 16px; }
+.chapter-body section strong { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 0.9rem; color: var(--navy); }
+.chapter-body ul, .chapter-body ol { padding-left: 20px; font-size: 0.9rem; color: var(--ink); }
+.chapter-body li { margin-bottom: 4px; }
+.linked-challenges { display: flex; gap: 8px; flex-wrap: wrap; }
+.courseware-footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
+.courseware-footer h3 { font-size: 1rem; margin-bottom: 8px; }
+
 /* ---- Responsive ---- */
 
 @media (max-width: 1180px) {

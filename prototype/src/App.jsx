@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bell,
+  BookOpen,
   CaretDown,
   ChartPieSlice,
   CheckCircle,
@@ -79,6 +80,7 @@ import { useLabState } from "./hooks/useLabState.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
 import { StudentAssignments } from "./components/StudentAssignments.jsx";
+import { CoursewareView } from "./components/CoursewareView.jsx";
 import avatarImage from "./assets/alex-chen-avatar.webp";
 import labIllustration from "./assets/lab-circuit-illustration.webp";
 
@@ -94,6 +96,7 @@ const navItems = [
   { id: "records", label: "学习记录", icon: ChartPieSlice },
   { id: "notes", label: "学习笔记", icon: Notebook },
   { id: "assignments", label: "课后作业", icon: Notebook },
+  { id: "courseware", label: "课程课件", icon: BookOpen },
   { id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" },
 ];
 function FeatureLoading({ label }) {
@@ -996,6 +999,7 @@ export function App() {
             />
           ) : null}
           {activeView === "assignments" ? <StudentAssignments /> : null}
+          {activeView === "courseware" ? <CoursewareView navigateToChallenge={navigateToChallenge} /> : null}
           {activeView === "teacher" ? (
             <TeacherStudioDashboard
               teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId}
