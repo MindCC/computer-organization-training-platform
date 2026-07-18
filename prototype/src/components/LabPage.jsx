@@ -33,6 +33,17 @@ export function LabPage({
   const cur = l.currentChallenge;
   const cl = classroomLabViewModel;
 
+  // Keyboard shortcuts: Ctrl+Z undo, Ctrl+Y redo
+  useEffect(() => {
+    const handler = (e) => {
+      if (cl?.paused || cl?.ended) return;
+      if (e.ctrlKey && e.key === "z" && !e.shiftKey) { e.preventDefault(); l.undoLab?.(); }
+      if (e.ctrlKey && e.key === "y") { e.preventDefault(); l.redoLab?.(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [l, cl?.paused, cl?.ended]);
+
   // Classroom settlement: replace entire lab with settlement view
   if (cl?.ended) {
     return (
@@ -43,18 +54,6 @@ export function LabPage({
       />
     );
   }
-
-  const disabled = cl?.paused === true;
-
-  // Keyboard shortcuts: Ctrl+Z undo, Ctrl+Y redo
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.ctrlKey && e.key === "z" && !e.shiftKey) { e.preventDefault(); l.undoLab?.(); }
-      if (e.ctrlKey && e.key === "y") { e.preventDefault(); l.redoLab?.(); }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [l]);
 
   // Wrap content with HUD and pause overlay for active classroom session
   function wrapClassroom(children) {

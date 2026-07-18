@@ -5,6 +5,8 @@ import {
   readPendingSubmission,
   writePendingSubmission,
   clearPendingSubmission,
+  buildClassroomViewModel,
+  mergeClassroomSubmission,
 } from "../classroomSessionState.js";
 
 const POLL_MS = 15_000;
@@ -21,7 +23,7 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
       const data = await apiClient.currentClassroom();
       if (data) {
         const { session, studentState, mission, remainingSeconds } = data;
-        const vm = buildLocalViewModel({ session, studentState, mission, remainingSeconds });
+        const vm = buildClassroomViewModel({ session, studentState, mission, remainingSeconds });
         setViewModel(vm);
         setError(null);
       }
@@ -47,7 +49,7 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
     setError(null);
     try {
       const data = await apiClient.enterClassroom(sessionId);
-      const vm = buildLocalViewModel(data);
+      const vm = buildClassroomViewModel(data);
       setViewModel(vm);
       return data;
     } catch (err) {
@@ -73,13 +75,7 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
       const result = await apiClient.submitAttempt(submission);
       clearPendingSubmission(storage, key);
       if (result.classroomSession) {
-        setViewModel((prev) => ({
-          ...prev,
-          studentStatus: result.classroomSession.status,
-          xp: result.classroomSession.xp,
-          stars: result.classroomSession.stars,
-          streak: result.classroomSession.streak,
-        }));
+        setViewModel((prev) => mergeClassroomSubmission(prev, result.classroomSession));
       }
       return result;
     } catch (err) {
@@ -105,12 +101,7 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
         const result = await apiClient.submitAttempt(pending.payload);
         clearPendingSubmission(storage, key);
         if (result.classroomSession) {
-          setViewModel((prev) => ({
-            ...prev,
-            studentStatus: result.classroomSession.status,
-            xp: result.classroomSession.xp,
-            stars: result.classroomSession.stars,
-          }));
+          setViewModel((prev) => mergeClassroomSubmission(prev, result.classroomSession));
         }
         setError(null);
       } catch (err) {
@@ -124,26 +115,4 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
   }, [enabled, userId, viewModel.sessionId, viewModel.currentStage, apiClient, storage]);
 
   return { viewModel, loading, error, enter, submit, refresh: poll };
-}
-
-function buildLocalViewModel({ session, studentState, mission, remainingSeconds }) {
-  if (!session) return { active: false };
-  const stageIndex = studentState?.current_stage_index ?? 0;
-  const currentStage = mission?.stages?.[stageIndex] ?? null;
-  return {
-    active: true,
-    sessionId: session.id,
-    title: session.title ?? mission?.title,
-    status: session.status,
-    paused: session.status === "paused",
-    ended: session.status === "ended",
-    stageIndex,
-    currentStage,
-    remainingSeconds: Math.max(0, remainingSeconds ?? 0),
-    xp: studentState?.xp ?? 0,
-    stars: studentState?.stars ?? 0,
-    streak: studentState?.streak ?? 0,
-    studentStatus: studentState?.status ?? "not_started",
-    mission,
-  };
 }

@@ -777,11 +777,26 @@ export function App() {
     await persistStudentAttempt(selectedCase.id, result);
   }
 
+  async function enterClassroomMission(sessionId) {
+    try {
+      const entered = await classroomSession.enter(sessionId);
+      const stageIndex = entered.studentState?.current_stage_index ?? 0;
+      const challengeId = entered.mission?.stages?.[stageIndex]?.challengeId ?? "computer-components";
+      navigateToChallenge(challengeId);
+    } catch (error) {
+      setStatusMessage("\u8fdb\u5165\u8bfe\u5802\u4efb\u52a1\u5931\u8d25\uff1a" + error.message);
+    }
+  }
+
   async function persistStudentAttempt(challengeId, result) {
     if (auth.user?.role !== "student") return;
     try {
-      const saved = await api.submitAttempt({ challengeId, result });
-      setProgress({ ...buildInitialLearningProgress(), ...saved.progress });
+      const saved = classroomSession.viewModel.active && !classroomSession.viewModel.ended
+        ? await classroomSession.submit({ challengeId, result })
+        : await api.submitAttempt({ challengeId, result });
+      if (saved.progress) {
+        setProgress({ ...buildInitialLearningProgress(), ...saved.progress });
+      }
     } catch (error) {
       setStatusMessage("\u63d0\u4ea4\u5df2\u5728\u672c\u9875\u8bb0\u5f55\uff0c\u4f46\u540c\u6b65\u670d\u52a1\u5668\u5931\u8d25\uff1a" + error.message);
     }
@@ -866,7 +881,7 @@ export function App() {
               setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue}
               memoryAccessState={memoryAccessState} setShowSettings={setShowSettings}
               student={student} statusMessage={statusMessage} changeView={changeView}
-              classroomLabViewModel={classroomSession.viewModel} />
+              classroomLabViewModel={{ ...classroomSession.viewModel, submitAttempt: classroomSession.submit }} />
           </Suspense>
         </ErrorBoundary>
       </div>
@@ -967,7 +982,7 @@ export function App() {
             <span>{statusMessage}</span>
           </div>
 
-          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} classroomViewModel={classroomSession.viewModel} onClassroomEnter={(sessionId) => { classroomSession.enter(sessionId).then(() => navigateToChallenge("computer-components")); }} /> : null}
+          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} /> : null}
           {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
           {activeView === "hardware-game" ? (
             <ErrorBoundary>

@@ -7,6 +7,7 @@ import {
   clearPendingSubmission,
   buildClassroomViewModel,
   buildTeacherSessionViewModel,
+  mergeClassroomSubmission,
 } from "./classroomSessionState.js";
 
 test("pendingSubmissionKey isolates by user, session, and stage", () => {
@@ -105,4 +106,37 @@ test("buildTeacherSessionViewModel detects needs-help students", () => {
     ],
   });
   assert.equal(vm.needsHelp.length, 1);
+});
+
+test("submission response advances the current classroom stage immediately", () => {
+  const mission = { stages: [{ id: "one" }, { id: "two" }] };
+  const current = {
+    active: true,
+    stageIndex: 0,
+    currentStage: mission.stages[0],
+    mission,
+  };
+  const next = mergeClassroomSubmission(current, {
+    status: "in_progress",
+    current_stage_index: 1,
+    xp: 120,
+    stars: 2,
+    streak: 1,
+  });
+  assert.equal(next.stageIndex, 1);
+  assert.equal(next.currentStage.id, "two");
+  assert.equal(next.xp, 120);
+});
+
+test("completed submission clears the current stage", () => {
+  const mission = { stages: [{ id: "one" }] };
+  const next = mergeClassroomSubmission({ active: true, mission }, {
+    status: "completed",
+    current_stage_index: 1,
+    xp: 100,
+    stars: 1,
+    streak: 1,
+  });
+  assert.equal(next.studentStatus, "completed");
+  assert.equal(next.currentStage, null);
 });

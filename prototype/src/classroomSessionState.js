@@ -42,7 +42,21 @@ export function buildClassroomViewModel({ session, studentState, mission, remain
     stars: studentState?.stars ?? 0,
     streak: studentState?.streak ?? 0,
     studentStatus: studentState?.status ?? "not_started",
+    mission,
     result: studentState?.result,
+  };
+}
+
+export function mergeClassroomSubmission(viewModel, studentState) {
+  const stageIndex = studentState?.current_stage_index ?? viewModel.stageIndex ?? 0;
+  return {
+    ...viewModel,
+    stageIndex,
+    currentStage: viewModel.mission?.stages?.[stageIndex] ?? null,
+    studentStatus: studentState?.status ?? viewModel.studentStatus,
+    xp: studentState?.xp ?? viewModel.xp,
+    stars: studentState?.stars ?? viewModel.stars,
+    streak: studentState?.streak ?? viewModel.streak,
   };
 }
 
