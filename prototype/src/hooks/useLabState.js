@@ -14,6 +14,13 @@ import { buildRealtimeDiagnostics } from "../realtimeDiagnostics.js";
 import { simulateChallenge } from "../platformLogic.js";
 import { createHistory } from "../labHistory.js";
 
+export function buildOverviewCompletionResult(estimatedMinutes) {
+  return {
+    passed: true, completed: true, errors: [], score: 100, missing: [],
+    elapsedMinutes: estimatedMinutes,
+  };
+}
+
 function clampPlacement(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -153,10 +160,7 @@ export function useLabState({
   }
 
   async function completeOverviewChallenge() {
-    const result = {
-      passed: true, errors: [], score: 100, missing: [],
-      elapsedMinutes: currentChallenge.estimatedMinutes,
-    };
+    const result = buildOverviewCompletionResult(currentChallenge.estimatedMinutes);
     setFeedback(result);
     setProgress((cur) => recordAttempt(cur, selectedChallengeId, result));
     setActivityLog((cur) => [`${currentChallenge.title}\u63a2\u7d22\u5b8c\u6210\uff0c\u5f97\u5206 100\u3002`, ...cur.slice(0, 5)]);

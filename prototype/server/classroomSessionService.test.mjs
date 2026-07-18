@@ -175,6 +175,27 @@ test("report throws before freeze and returns report after end", () => {
   ctx.db.close();
 });
 
+test("ended session remains discoverable with parsed settlement result", () => {
+  const ctx = makeContext();
+  const teacher = createUser(ctx.db, { username: "settlement-teacher", displayName: "Teacher", role: "teacher", passwordHash: "pw" });
+  const student = createUser(ctx.db, { username: "settlement-student", displayName: "Student", role: "student", passwordHash: "pw" });
+  const classRow = createClass(ctx.db, teacher.id, "Settlement class");
+  addStudentToClass(ctx.db, classRow.id, student.id);
+  const session = ctx.service.createDraft({ teacherId: teacher.id, classId: classRow.id, config: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80 } });
+  ctx.service.start({ teacherId: teacher.id, sessionId: session.id });
+  ctx.service.enterStudent({ studentId: student.id, sessionId: session.id });
+  ctx.service.submitAttempt({
+    studentId: student.id,
+    payload: { clientSubmissionId: "settlement-stage-one", challengeId: "computer-components", result: { completed: true } },
+  });
+  ctx.service.end({ teacherId: teacher.id, sessionId: session.id });
+
+  const current = ctx.service.getStudentCurrent({ studentId: student.id });
+  assert.equal(current.session.status, "ended");
+  assert.ok(current.studentState.result.passedStageIds.includes("components"));
+  ctx.db.close();
+});
+
 test("automatic expiry ends the session after duration exceeded", () => {
   const ctx = makeContext();
   const teacher = createUser(ctx.db, { username: "t9", displayName: "T9", role: "teacher", passwordHash: "pw" });
@@ -186,7 +207,8 @@ test("automatic expiry ends the session after duration exceeded", () => {
   // Advance past the 10-minute duration
   ctx.advanceMs(11 * 60 * 1000);
   const current = ctx.service.getStudentCurrent({ studentId: student.id });
-  assert.equal(current.session, null, "expired session is no longer current");
+  assert.equal(current.session.status, "ended", "expired session exposes settlement state");
+  assert.ok(JSON.parse(current.session.report_json).frozenAt, "automatic expiry freezes the report");
   const overview = ctx.service.getTeacherOverview({ teacherId: teacher.id, sessionId: session.id });
   assert.equal(overview.session.status, "ended");
   ctx.db.close();

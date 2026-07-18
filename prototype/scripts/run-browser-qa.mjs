@@ -102,6 +102,7 @@ try {
       DATABASE_PATH: databasePath,
       PORT: String(apiPort),
       DEEPSEEK_API_KEY: "",
+      PUBLIC_BASE_URL: appUrl,
     },
   });
   processes.push(apiProcess);
@@ -124,7 +125,7 @@ try {
       PROTOTYPE_URL: appUrl,
       PROTOTYPE_APP_URL: appUrl,
       PROTOTYPE_API_URL: apiUrl,
-      QA_ARTIFACT_DIR: path.join(tempDir, "artifacts"),
+      QA_ARTIFACT_DIR: path.join(root, "qa-artifacts"),
       TEACHER_USERNAME: teacherUsername,
       TEACHER_PASSWORD: teacherPassword,
       DEEPSEEK_API_KEY: "",

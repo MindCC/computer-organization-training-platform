@@ -61,10 +61,13 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
     if (activeSeconds >= maxSeconds) {
       const activeStartedMs = session.active_started_at ? Date.parse(session.active_started_at) : now();
       const elapsed = Math.max(0, Math.floor((now() - activeStartedMs) / 1000));
-      return repository.transition(session.id, "live", "ended", {
+      const ended = repository.transition(session.id, "live", "ended", {
         accumulatedActiveSeconds: session.accumulated_active_seconds + elapsed,
         endedAt: new Date(now()).toISOString(),
-      }) ?? session;
+      });
+      if (!ended) return session;
+      if (!ended.report_json) freezeSessionReport(ended);
+      return repository.getById(ended.id) ?? ended;
     }
     return session;
   }
@@ -193,10 +196,10 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       const session = repository.findCurrentForStudent(studentId);
       if (!session) return { session: null };
       const fresh = expireIfNeeded(session);
-      if (fresh.status === "ended") {
-        return { session: null };
-      }
-      const studentState = repository.getStudentState(fresh.id, studentId) ?? null;
+      const storedState = repository.getStudentState(fresh.id, studentId) ?? null;
+      const studentState = storedState
+        ? { ...storedState, result: safeJson(storedState.result_json) }
+        : null;
       const mission = getClassroomMission(fresh.template_key, fresh.template_version);
       const remainingSeconds = fresh.status === "live"
         ? Math.max(0, fresh.duration_minutes * 60 - computeActiveSeconds(fresh, now()))

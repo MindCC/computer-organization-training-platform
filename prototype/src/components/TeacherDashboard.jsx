@@ -311,7 +311,6 @@ function ClassroomCommandCenter({ teacherSession }) {
 
   const hasSession = viewModel?.active;
   const sessionId = viewModel?.sessionId;
-  const isDraft = viewModel?.status === "draft";
 
   return (
     <div className="classroom-command-center">
@@ -319,7 +318,7 @@ function ClassroomCommandCenter({ teacherSession }) {
         <SessionSetupPanel
           onCreateSession={async (config) => {
             const session = await createSession(config);
-            viewModel ? null : teacherSession?.setViewModel?.({ active: true, sessionId: session.id, status: "draft", title: session.title });
+            teacherSession?.setViewModel?.({ active: true, sessionId: session.id, status: "draft", title: session.title });
           }}
         />
       ) : (

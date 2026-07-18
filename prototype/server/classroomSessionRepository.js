@@ -50,8 +50,9 @@ export function createClassroomSessionRepository(db) {
       SELECT cs.*
       FROM classroom_sessions cs
       JOIN class_members cm ON cm.class_id = cs.class_id
-      WHERE cm.student_id = ? AND cs.status IN ('live', 'paused')
-      ORDER BY cs.id DESC LIMIT 1
+      WHERE cm.student_id = ? AND cs.status IN ('live', 'paused', 'ended')
+      ORDER BY CASE WHEN cs.status IN ('live', 'paused') THEN 0 ELSE 1 END, cs.id DESC
+      LIMIT 1
     `).get(studentId) ?? null;
   }
 

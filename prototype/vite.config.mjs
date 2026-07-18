@@ -1,4 +1,6 @@
-import { defineConfig } from "vite";
+import { realpathSync } from "node:fs";
+import path from "node:path";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 
 const apiProxyTarget =
@@ -9,6 +11,9 @@ export default defineConfig({
     include: ["react", "react-dom/client"],
   },
   server: {
+    fs: {
+      allow: [searchForWorkspaceRoot(process.cwd()), realpathSync(path.resolve("node_modules"))],
+    },
     proxy: {
       "/api": apiProxyTarget,
     },

@@ -27,7 +27,7 @@
 ## Global Constraints
 
 - Student and teacher experiences have equal product priority.
-- Target Windows 10/11 classroom PCs: four-core x86-64 CPU, 8 GB memory, integrated graphics, 1366×768, supported stable Edge.
+- Target Windows 10/11 classroom PCs: four-core x86-64 CPU, 8 GB memory, integrated graphics, 1366x768, supported stable Edge.
 - Keep SQLite, Express, React, and the existing grading logic; add no WebSocket, SSE, queue, or new runtime dependency.
 - Images, 3D, animation, hints, canvas drafts, and live simulation stay client-side; the server stores only mission metadata, bounded grading rules, session state, evidence, rewards, and frozen reports.
 - Teacher and student session polling interval is 15 seconds and runs only while the relevant page is visible.
@@ -1067,7 +1067,7 @@ TeacherDashboard keeps class selection, import, student detail, and AI assistant
 
 - [ ] **Step 5: Add dense but readable teacher layout**
 
-At 1366×768 use one 248-pixel alert rail and a flexible main region. Reuse the same surface, border, radius, focus, and state tokens as the student UI. Polling updates only changed content; do not replace the entire panel with skeletons after first load.
+At 1366x768 use one 248-pixel alert rail and a flexible main region. Reuse the same surface, border, radius, focus, and state tokens as the student UI. Polling updates only changed content; do not replace the entire panel with skeletons after first load.
 
 - [ ] **Step 6: Run tests, build, and teacher smoke**
 
@@ -1118,7 +1118,7 @@ Launch one headless Edge/Chromium process. Create teacher and student browser co
 
 - [ ] **Step 3: Capture fixed visual evidence**
 
-Use viewport 1366×768 and save these exact files under <strong>`prototype/qa-artifacts/`</strong>（已在 `.gitignore` 中，不进入版本控制）：
+Use viewport 1366x768 and save these exact files under <strong>`prototype/qa-artifacts/`</strong>（已在 `.gitignore` 中，不进入版本控制）：
 
 - classroom-student-route.png
 - classroom-student-workbench.png
@@ -1165,7 +1165,7 @@ git commit -m "test: add classroom mission release gates"
 
 - [ ] **Step 1: Add failing layout and keyboard assertions**
 
-In verify-ui.mjs set 1366×768 before student and teacher classroom captures. Assert no horizontal page overflow, no intersection between left/manual, canvas, and diagnostic bounding boxes, visible focus after keyboard navigation, and textual state labels for locked/active/completed/help states.
+In verify-ui.mjs set 1366x768 before student and teacher classroom captures. Assert no horizontal page overflow, no intersection between left/manual, canvas, and diagnostic bounding boxes, visible focus after keyboard navigation, and textual state labels for locked/active/completed/help states.
 
 Run: <code>cd prototype; npm run qa:ui</code>
 
@@ -1226,7 +1226,7 @@ Document the fixed mission package, 15-second polling, 150-student gate, tempora
 
 - [ ] **Step 2: Record durable prototype rules**
 
-Keep standalone Playwright, one Chromium/one worker, 1366×768 low-end target, equal student/teacher priority, approved game-reference matrix, no copyrighted game assets, and latest-spec-wins rules in AGENTS.md.
+Keep standalone Playwright, one Chromium/one worker, 1366x768 low-end target, equal student/teacher priority, approved game-reference matrix, no copyrighted game assets, and latest-spec-wins rules in AGENTS.md.
 
 - [ ] **Step 3: Run the final release matrix from a clean process**
 
@@ -1266,3 +1266,27 @@ Run: <code>git status --short</code>
 
 Expected: no output.
 
+---
+
+## Remediation Verification - 2026-07-18
+
+The review-remediation pass replaced the API-driven classroom smoke with one Chromium process and two isolated browser contexts. API calls are now limited to deterministic class/student setup and read-only assertions; draft creation, start, student entry, stage-one completion, pause, resume, end confirmation, teacher report rendering, and student settlement are all driven through visible UI controls.
+
+Evidence recorded from the final branch:
+
+- `npm test`: 214 passed, 0 failed.
+- `npm run build`: passed; Vite production build completed.
+- `npm run qa:assets`: passed.
+- `npm run qa:classroom-load`: 150/150 succeeded, zero 5xx, zero `SQLITE_BUSY`, P95 42 ms.
+- `npm run qa:ui`: passed.
+- `npm run qa:3d`: 25/25 passed, including the no-WebGL fallback.
+- `npm run qa:performance`: 10/10 lifecycles passed; measured 27.69 FPS, P95 frame time 50 ms, and 2,340,152-byte heap delta.
+- `npm run qa:classroom`: passed twice consecutively with independent temporary SQLite databases and dynamic ports.
+- Both final browser runs reported zero unhandled `pageerror` events.
+- Student stage-one UI submission returned 201 and `/api/student/classroom/current` reported `current_stage_index = 1`.
+- Teacher pause/resume propagated to the mounted student workbench through the configured 15-second polling loop.
+- Manual end generated a frozen teacher report and an ended student view model with parsed settlement result.
+- Automatic expiry now follows the same frozen-report contract.
+- Route, workbench, command-center, and settlement states asserted zero horizontal overflow at 1366x768; the workbench canvas asserted at least 720 pixels width.
+- Persistent visual evidence was written to `prototype/qa-artifacts/classroom-student-route.png`, `classroom-student-workbench.png`, `classroom-teacher-command-center.png`, and `classroom-student-settlement.png` (ignored by Git).
+- Browser QA now passes the dynamic Vite origin to `PUBLIC_BASE_URL`, persists artifacts under `prototype/qa-artifacts/`, and allows the real dependency path used by an isolated worktree.
