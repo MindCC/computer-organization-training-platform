@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>计算机组成原理 — 交互课件</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a1628;color:#e8f0f8;overflow:hidden;user-select:none}
+.slide-container{width:100vw;height:100vh;position:relative}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 80px;opacity:0;transform:translateX(60px);transition:all .45s cubic-bezier(.4,0,.2,1);pointer-events:none}
+.slide.active{opacity:1;transform:translateX(0);pointer-events:all}
+.slide.prev{opacity:0;transform:translateX(-60px)}
+
+/* Circuit decoration */
+.circuit-bg{position:fixed;inset:0;pointer-events:none;z-index:0}
+.circuit-line{position:absolute;background:rgba(43,169,142,.08)}
+.circuit-dot{position:absolute;width:4px;height:4px;border-radius:50%;background:rgba(43,169,142,.2)}
+.nav{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:100}
+.nav button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#e8f0f8;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;transition:all .2s}
+.nav button:hover{background:rgba(43,169,142,.2);border-color:rgba(43,169,142,.4)}
+.nav .chapter-dots{display:flex;align-items:center;gap:6px}
+.nav .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:all .3s}
+.nav .dot.active{background:#2ba98e;box-shadow:0 0 8px rgba(43,169,142,.5)}
+.progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#2ba98e,#286de8);z-index:101;transition:width .4s}
+
+/* Title slide */
+.title-slide h1{font-size:3.2rem;font-weight:800;background:linear-gradient(135deg,#2ba98e,#5b9cf5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
+.title-slide .subtitle{font-size:1.3rem;color:#8899b4;margin-bottom:40px}
+.title-slide .meta{display:flex;gap:32px;color:#667a9a;font-size:.9rem}
+
+/* Chapter slides */
+.chapter-num{font-size:6rem;font-weight:900;color:rgba(43,169,142,.1);position:absolute;top:20px;left:40px;line-height:1}
+.chapter-title{font-size:2rem;font-weight:700;margin-bottom:8px;color:#e8f0f8}
+.chapter-subtitle{font-size:1rem;color:#8899b4;margin-bottom:30px}
+.content-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;width:100%;max-width:1000px}
+.content-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px 24px;transition:all .3s}
+.content-card:hover{background:rgba(43,169,142,.06);border-color:rgba(43,169,142,.2)}
+.content-card h3{font-size:1rem;color:#2ba98e;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.content-card ul{list-style:none;font-size:.88rem;color:#bcc8da;line-height:1.8}
+.content-card ul li::before{content:'▸';color:#2ba98e;margin-right:8px}
+.badge{display:inline-block;background:rgba(214,143,47,.15);color:#d68f2f;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600;margin-left:8px}
+
+/* Key points highlight */
+.keypoint{background:linear-gradient(135deg,rgba(43,169,142,.08),rgba(40,109,232,.06));border-left:3px solid #2ba98e;padding:16px 20px;border-radius:0 12px 12px 0;margin-top:16px;font-size:.9rem;color:#c8d6e5}
+.keypoint strong{color:#e8f0f8}
+
+/* Animations */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.float-icon{animation:float 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:.6}}
+.pulse-dot{animation:pulse 2s ease-in-out infinite}
+
+/* Responsive */
+@media(max-width:768px){
+.slide{padding:30px 20px}
+.chapter-num{font-size:3rem;top:10px;left:10px}
+.chapter-title{font-size:1.4rem}
+.content-grid{grid-template-columns:1fr}
+.title-slide h1{font-size:2rem}
+}
+</style>
+</head>
+<body>
+<div class="circuit-bg" id="circuitBg"></div>
+<div class="progress-bar" id="progress"></div>
+
+<div class="slide-container" id="slides"></div>
+
+<nav class="nav">
+  <button onclick="prevSlide()">◀ 上一章</button>
+  <div class="chapter-dots" id="dots"></div>
+  <button onclick="nextSlide()">下一章 ▶</button>
+</nav>
+
+<script>
+// ---- Chapter Data ----
+const chapters = [
+  {
+    num:"01",title:"计算机系统概论",sub:"冯·诺依曼结构 · 五大部件 · 层次结构",
+    cards:[
+      {icon:"🧠",title:"计算机发展简史",items:["电子管→晶体管→集成电路→大规模IC","ENIAC(1946)→个人电脑→移动计算→AI时代","微处理器：Intel 4004→Core i9→Apple M系列"]},
+      {icon:"🏗️",title:"冯·诺依曼结构",items:["程序和数据以二进制存于存储器","按地址顺序取指令执行","五大部件：输入→存储→控制→运算→输出"]},
+    ],
+    points:"💡 核心：计算机 = 输入设备 + 存储器 + 控制器 + 运算器 + 输出设备，通过总线连接协同工作。指令和数据都是二进制，CPU通过指令周期中的不同阶段区分。",
+    experiments:["computer-components","data-flow"],
+  },
+  {
+    num:"02",title:"计算机中数的表示",sub:"进制转换 · 补码 · 浮点数 · ASCII",
+    cards:[
+      {icon:"🔢",title:"进制与转换",items:["R进制→十进制：按权展开求和","十进制→R进制：整数除R取余,小数乘R取整","二进制↔八进制(3位一组)↔十六进制(4位一组)"]},
+      {icon:"➕➖",title:"有符号数表示",items:["原码：符号位0正1负 + 数值位","补码：正数同原码，负数=反码+1","补码优点：减法→加法，0唯一表示"]},
+      {icon:"📐",title:"浮点数(IEEE754)",items:["32位：1位符号+8位阶码+23位尾数","阶码用移码(加127偏置)","规格化：尾数最高位隐含1"]},
+    ],
+    points:"💡 补码的核心思想：模运算。8位补码范围-128~127。浮点对阶：小阶向大阶看齐。",
+    experiments:["machine-number"],
+  },
+  {
+    num:"03",title:"运算单元设计",sub:"逻辑门 · 加法器 · ALU · 乘除法",
+    cards:[
+      {icon:"🚪",title:"基本逻辑门",items:["与门(AND)：全1出1","或门(OR)：有1出1","非门(NOT)：取反","异或(XOR)：不同出1","逻辑门是CPU的最小构成单元"]},
+      {icon:"➕",title:"加法器设计",items:["半加器：A+B→S(和)+C(进位)","全加器：A+B+Cin→S+Cout","行波进位：串联n个全加器","超前进位：并行计算进位,更快"]},
+      {icon:"⚙️",title:"ALU结构",items:["算术逻辑单元=加法器+逻辑运算+移位","控制位选择运算类型","结果+标志位(零/进位/溢出/符号)"]},
+    ],
+    points:"💡 乘法=多次加+移位。布斯算法：根据相邻位差决定+被乘数/−被乘数/+0。除法=多次减+移位(恢复余数法)。",
+    experiments:["and-gate","or-gate","not-gate","xor-gate","half-adder","full-adder","multi-adder","alu"],
+  },
+  {
+    num:"04",title:"存储器系统",sub:"层次结构 · Cache · 主存 · 虚拟内存",
+    cards:[
+      {icon:"🗄️",title:"存储器层次结构",items:["寄存器(CPU内,最快,最小)","Cache(SRAM,几MB)","主存(DRAM,几GB)","辅存(SSD/HDD,几TB)","速度↓容量↑,金字塔结构"]},
+      {icon:"⚡",title:"Cache缓存",items:["局部性原理：时间局部性+空间局部性","地址映像：直接/全相联/组相联","替换算法：LRU/FIFO/随机","写策略：写直达/写回"]},
+      {icon:"💾",title:"主存储器",items:["DRAM：电容存储,需刷新(2ms内)","SRAM：触发器存储,快但贵","地址译码：行地址+列地址","刷新方式：集中/分散/异步"]},
+    ],
+    points:"💡 Cache命中率决定性能。组相联=直接映像+全相联的折中。虚拟内存=(页表)虚拟地址→物理地址。",
+    experiments:["memory-address"],
+  },
+  {
+    num:"05",title:"指令系统",sub:"指令格式 · 寻址方式 · RISC vs CISC",
+    cards:[
+      {icon:"📋",title:"指令格式",items:["操作码(OP)：做什么","地址码(A)：操作数在哪","零地址(栈操作)/一地址(累加器)/二地址/三地址","指令字长：定长(RISC) vs 变长(CISC)"]},
+      {icon:"🗺️",title:"寻址方式",items:["立即寻址：操作数在指令中","直接寻址：指令给出内存地址","寄存器寻址：操作数在寄存器","间接寻址：寄存器存地址指针","变址/基址/相对：地址=基值+偏移"]},
+    ],
+    points:"💡 RISC(精简指令集)：指令少且定长,Load/Store架构,多寄存器,流水线友好。CISC(复杂指令集)：指令多且变长,一条指令完成复杂操作。",
+    experiments:["instruction-data","program-flow"],
+  },
+  {
+    num:"06",title:"CPU的结构与设计",sub:"数据通路 · 控制器 · 指令周期 · 流水线",
+    cards:[
+      {icon:"🏭",title:"CPU组成",items:["运算器(ALU)：执行算术逻辑运算","控制器(CU)：取指译码,发控制信号","寄存器组：PC/IR/MAR/MDR/ACC/PSW","时序部件：产生时钟节拍"]},
+      {icon:"⏱️",title:"指令周期",items:["取指周期：PC→MAR→MEM→MDR→IR","间址周期(如有)","执行周期：ALU运算→结果写回","中断周期：保存现场→转中断服务"]},
+      {icon:"🏎️",title:"流水线技术",items:["五级流水：取指→译码→执行→访存→写回","流水线冲突：数据/控制/结构冲突","超标量：多条流水线并行","动态调度：乱序执行+顺序提交"]},
+    ],
+    points:"💡 指令周期>机器周期>时钟周期。流水线加速比≈流水级数(理想情况)。现代CPU：分支预测+乱序执行+多核。",
+  },
+  {
+    num:"07",title:"系统总线",sub:"总线结构 · 判优控制 · 通信方式",
+    cards:[
+      {icon:"🔗",title:"总线分类",items:["数据总线(DB)：双向,传输数据","地址总线(AB)：单向,指定地址","控制总线(CB)：传输控制信号","片内总线/系统总线/通信总线"]},
+      {icon:"🎯",title:"总线判优",items:["链式查询：结构简单,优先级固定","计数器定时：灵活但需要更多线","独立请求：最快响应,线数最多"]},
+      {icon:"📡",title:"通信方式",items:["同步通信：统一时钟,速度快","异步通信：握手应答,灵活","半同步：同步+等待信号","分离式：释放总线等应答"]},
+    ],
+    points:"💡 总线带宽=总线宽度×工作频率。PCIe采用串行点对点,取代并行PCI。多总线结构：CPU总线+PCI总线+ISA总线。",
+  },
+  {
+    num:"08",title:"输入输出系统",sub:"I/O接口 · 中断 · DMA · 外设",
+    cards:[
+      {icon:"🖥️",title:"I/O接口",items:["功能：数据缓冲、信号转换、设备选择","I/O端口编址：独立编址 vs 统一编址","接口结构：数据寄存器+控制寄存器+状态寄存器"]},
+      {icon:"⚡",title:"数据传送方式",items:["无条件传送(简单设备：LED)","程序查询(CPU轮询,效率低)","中断方式(设备通知CPU,效率中)","DMA(直接存储器访问,效率最高)"]},
+      {icon:"🔄",title:"中断系统",items:["中断处理：关中断→保存现场→识别源→服务→恢复→开中断","中断优先级：硬件排队/软件查询","向量中断：直接跳转到服务程序"]},
+    ],
+    points:"💡 DMA三阶段：预处理(CPU设置)→数据传送(DMA控制)→后处理(中断通知)。DMA vs 中断：DMA适合高速块传送,中断适合低速字符。",
+  },
+];
+
+// ---- Build slides ----
+let currentSlide = 0;
+const container = document.getElementById('slides');
+const dotsContainer = document.getElementById('dots');
+const progress = document.getElementById('progress');
+
+// Generate circuit background
+const circuitBg = document.getElementById('circuitBg');
+for(let i=0;i<15;i++){
+  const line=document.createElement('div');line.className='circuit-line';
+  line.style.cssText=`top:${Math.random()*100}%;left:0;width:${40+Math.random()*60}%;height:1px`;
+  circuitBg.appendChild(line);
+}
+for(let i=0;i<20;i++){
+  const dot=document.createElement('div');dot.className='circuit-dot pulse-dot';
+  dot.style.cssText=`top:${Math.random()*100}%;left:${Math.random()*100}%`;
+  circuitBg.appendChild(dot);
+}
+
+// Title slide
+const titleSlide=document.createElement('div');titleSlide.className='slide title-slide active';
+titleSlide.innerHTML=`
+  <h1>🖥️ 计算机组成原理</h1>
+  <p class="subtitle">Computer Compose Principle — 从晶体管到CPU的完整旅程</p>
+  <div class="meta"><span>📖 杨泽雪《计算机组成原理》</span><span>🎓 8章 · 634页PPT</span><span>🧪 15个实验关卡</span></div>
+  <div style="margin-top:50px;color:#667a9a;font-size:.85rem">按 ← → 键或点击下方按钮翻页 · 展开章节查看知识点和关联实验</div>
+`;
+container.appendChild(titleSlide);
+
+// Chapter slides
+chapters.forEach((ch,i)=>{
+  const slide=document.createElement('div');slide.className='slide';
+  slide.innerHTML=`
+    <div class="chapter-num">${ch.num}</div>
+    <div class="chapter-title"><span class="float-icon" style="display:inline-block">${i<3?'🔌':i<5?'⚡':'🔧'}</span> ${ch.title}</div>
+    <div class="chapter-subtitle">${ch.sub}</div>
+    <div class="content-grid">
+      ${ch.cards.map(c=>`
+        <div class="content-card">
+          <h3>${c.icon} ${c.title}</h3>
+          <ul>${c.items.map(it=>`<li>${it}</li>`).join('')}</ul>
+        </div>
+      `).join('')}
+    </div>
+    <div class="keypoint">${ch.points}</div>
+  `;
+  container.appendChild(slide);
+
+  // Dot
+  const dot=document.createElement('div');dot.className=i===0?'dot active':'dot';
+  dot.onclick=()=>goToSlide(i);
+  dotsContainer.appendChild(dot);
+});
+
+const slides=document.querySelectorAll('.slide');
+
+function updateSlide(){
+  slides.forEach((s,i)=>{
+    s.classList.remove('active','prev');
+    if(i===currentSlide)s.classList.add('active');
+    else if(i<currentSlide)s.classList.add('prev');
+  });
+  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===currentSlide));
+  progress.style.width=((currentSlide+1)/(slides.length)*100)+'%';
+}
+
+function goToSlide(n){
+  currentSlide=Math.max(0,Math.min(slides.length-1,n));
+  updateSlide();
+}
+function nextSlide(){goToSlide(currentSlide+1)}
+function prevSlide(){goToSlide(currentSlide-1)}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown')nextSlide();
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp')prevSlide();
+});
+
+// Touch support
+let touchX=0;
+document.addEventListener('touchstart',e=>touchX=e.touches[0].clientX);
+document.addEventListener('touchend',e=>{
+  const diff=touchX-e.changedTouches[0].clientX;
+  if(Math.abs(diff)>50)diff>0?nextSlide():prevSlide();
+});
+</script>
+</body>
+</html>

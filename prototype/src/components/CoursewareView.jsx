@@ -13,6 +13,9 @@ export function CoursewareView({ navigateToChallenge }) {
           <h1>{COURSEWARE.title}</h1>
           <p>教材：{COURSEWARE.textbook}</p>
         </div>
+        <a href="/courseware.html" target="_blank" className="primary-button" style={{marginLeft:'auto',textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
+          <Presentation size={16} /> 全屏演示
+        </a>
       </header>
 
       <div className="courseware-chapters">
