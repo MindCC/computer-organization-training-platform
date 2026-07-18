@@ -3,241 +3,273 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>计算机组成原理 — 交互课件</title>
+<title>计算机组成原理 — 交互课件 v2</title>
 <style>
+:root{--bg:#0a1628;--surface:#111d32;--teal:#2ba98e;--blue:#3b7ddd;--gold:#d68f2f;--red:#d85d4d;--ink:#e8f0f8;--muted:#6b7d95}
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#0a1628;color:#e8f0f8;overflow:hidden;user-select:none}
-.slide-container{width:100vw;height:100vh;position:relative}
-.slide{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 80px;opacity:0;transform:translateX(60px);transition:all .45s cubic-bezier(.4,0,.2,1);pointer-events:none}
-.slide.active{opacity:1;transform:translateX(0);pointer-events:all}
-.slide.prev{opacity:0;transform:translateX(-60px)}
-
-/* Circuit decoration */
-.circuit-bg{position:fixed;inset:0;pointer-events:none;z-index:0}
-.circuit-line{position:absolute;background:rgba(43,169,142,.08)}
-.circuit-dot{position:absolute;width:4px;height:4px;border-radius:50%;background:rgba(43,169,142,.2)}
-.nav{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:100}
-.nav button{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#e8f0f8;padding:8px 18px;border-radius:8px;cursor:pointer;font-size:14px;transition:all .2s}
-.nav button:hover{background:rgba(43,169,142,.2);border-color:rgba(43,169,142,.4)}
-.nav .chapter-dots{display:flex;align-items:center;gap:6px}
-.nav .dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2);cursor:pointer;transition:all .3s}
-.nav .dot.active{background:#2ba98e;box-shadow:0 0 8px rgba(43,169,142,.5)}
-.progress-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#2ba98e,#286de8);z-index:101;transition:width .4s}
-
-/* Title slide */
-.title-slide h1{font-size:3.2rem;font-weight:800;background:linear-gradient(135deg,#2ba98e,#5b9cf5);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
-.title-slide .subtitle{font-size:1.3rem;color:#8899b4;margin-bottom:40px}
-.title-slide .meta{display:flex;gap:32px;color:#667a9a;font-size:.9rem}
-
-/* Chapter slides */
-.chapter-num{font-size:6rem;font-weight:900;color:rgba(43,169,142,.1);position:absolute;top:20px;left:40px;line-height:1}
-.chapter-title{font-size:2rem;font-weight:700;margin-bottom:8px;color:#e8f0f8}
-.chapter-subtitle{font-size:1rem;color:#8899b4;margin-bottom:30px}
-.content-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;width:100%;max-width:1000px}
-.content-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px 24px;transition:all .3s}
-.content-card:hover{background:rgba(43,169,142,.06);border-color:rgba(43,169,142,.2)}
-.content-card h3{font-size:1rem;color:#2ba98e;margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.content-card ul{list-style:none;font-size:.88rem;color:#bcc8da;line-height:1.8}
-.content-card ul li::before{content:'▸';color:#2ba98e;margin-right:8px}
-.badge{display:inline-block;background:rgba(214,143,47,.15);color:#d68f2f;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:600;margin-left:8px}
-
-/* Key points highlight */
-.keypoint{background:linear-gradient(135deg,rgba(43,169,142,.08),rgba(40,109,232,.06));border-left:3px solid #2ba98e;padding:16px 20px;border-radius:0 12px 12px 0;margin-top:16px;font-size:.9rem;color:#c8d6e5}
-.keypoint strong{color:#e8f0f8}
-
-/* Animations */
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-.float-icon{animation:float 3s ease-in-out infinite}
-@keyframes pulse{0%,100%{opacity:.3}50%{opacity:.6}}
-.pulse-dot{animation:pulse 2s ease-in-out infinite}
-
+body{font-family:'Segoe UI','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--ink);overflow:hidden}
+#app{display:flex;height:100vh}
+/* Sidebar */
+#sidebar{width:240px;background:var(--surface);border-right:1px solid rgba(255,255,255,.06);padding:20px 0;overflow-y:auto;flex-shrink:0;display:flex;flex-direction:column}
+.sidebar-title{padding:0 20px 16px;font-size:.8rem;text-transform:uppercase;letter-spacing:.1em;color:var(--teal);border-bottom:1px solid rgba(255,255,255,.06)}
+.sidebar-chapter{padding:10px 20px;cursor:pointer;font-size:.85rem;color:var(--muted);transition:all .2s;border-left:3px solid transparent;display:flex;align-items:center;gap:8px}
+.sidebar-chapter:hover{color:var(--ink);background:rgba(255,255,255,.03)}
+.sidebar-chapter.active{color:var(--teal);background:rgba(43,169,142,.08);border-left-color:var(--teal)}
+.sidebar-chapter .num{font-size:.7rem;background:rgba(255,255,255,.1);width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:50%;flex-shrink:0}
+.sidebar-chapter.active .num{background:var(--teal);color:#fff}
+/* Main */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#slideArea{flex:1;position:relative;overflow:hidden}
+.slide{position:absolute;inset:0;padding:48px 64px;opacity:0;transform:scale(.96) translateY(20px);transition:all .5s cubic-bezier(.4,0,.2,1);pointer-events:none;overflow-y:auto}
+.slide.active{opacity:1;transform:scale(1) translateY(0);pointer-events:all}
+.slide-title{font-size:2.2rem;font-weight:800;margin-bottom:8px}
+.slide-subtitle{color:var(--teal);font-size:1rem;margin-bottom:32px}
+/* Reveal items */
+.reveal{opacity:0;transform:translateY(16px);transition:all .4s ease-out}
+.reveal.show{opacity:1;transform:translateY(0)}
+.reveal:nth-child(1){transition-delay:0s}.reveal:nth-child(2){transition-delay:.1s}
+.reveal:nth-child(3){transition-delay:.2s}.reveal:nth-child(4){transition-delay:.3s}
+.reveal:nth-child(5){transition-delay:.4s}.reveal:nth-child(6){transition-delay:.5s}
+.reveal:nth-child(7){transition-delay:.6s}.reveal:nth-child(8){transition-delay:.7s}
+/* Grid cards */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.card{background:var(--surface);border-radius:16px;padding:24px;border:1px solid rgba(255,255,255,.06)}
+.card h3{color:var(--teal);font-size:1rem;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card ul{list-style:none;font-size:.88rem;color:#b8c4d4;line-height:2}
+.card ul li{opacity:0;transform:translateX(-8px);animation:fadeInRight .4s forwards}
+.card ul li:nth-child(1){animation-delay:0s}.card ul li:nth-child(2){animation-delay:.08s}
+.card ul li:nth-child(3){animation-delay:.16s}.card ul li:nth-child(4){animation-delay:.24s}
+.card ul li:nth-child(5){animation-delay:.32s}.card ul li:nth-child(6){animation-delay:.4s}
+@keyframes fadeInRight{to{opacity:1;transform:translateX(0)}}
+.keypoint{background:linear-gradient(135deg,rgba(43,169,142,.1),rgba(59,125,221,.06));border-left:3px solid var(--teal);padding:16px 20px;border-radius:0 12px 12px 0;font-size:.9rem;margin-top:12px}
+.keypoint strong{color:var(--ink)}
+/* Title Slide */
+.title-center{text-align:center;margin-top:15vh}
+.title-center h1{font-size:3.5rem;font-weight:900;background:linear-gradient(135deg,var(--teal),#5b9cf5,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:16px;animation:titleGlow 3s ease-in-out infinite}
+@keyframes titleGlow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.2)}}
+.title-center .deck{font-size:1.2rem;color:var(--muted);margin-bottom:40px}
+.stat-row{display:flex;gap:32px;justify-content:center;margin-top:40px}
+.stat{text-align:center}.stat .val{font-size:2rem;font-weight:800;color:var(--teal)}
+.stat .lbl{font-size:.8rem;color:var(--muted)}
+/* Nav */
+#navBar{display:flex;align-items:center;justify-content:center;gap:16px;padding:12px 24px;background:var(--surface);border-top:1px solid rgba(255,255,255,.06)}
+#navBar button{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--ink);padding:8px 18px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s}
+#navBar button:hover{background:rgba(43,169,142,.15)}
+.page-indicator{font-size:.8rem;color:var(--muted)}
+/* Demo: Binary Converter */
+.demo-box{background:var(--surface);border-radius:16px;padding:24px;margin:16px 0;border:1px solid rgba(255,255,255,.06)}
+.demo-box h4{color:var(--gold);font-size:.9rem;margin-bottom:12px}
+.demo-row{display:flex;gap:12px;align-items:center;margin-bottom:8px;font-family:'Consolas',monospace}
+.demo-row input{padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:var(--ink);font-family:monospace;width:120px}
+.demo-row button{padding:6px 14px;background:var(--teal);border:none;border-radius:6px;color:#fff;cursor:pointer;font-size:.8rem}
+.demo-output{background:rgba(0,0,0,.2);padding:8px 12px;border-radius:6px;font-family:monospace;font-size:.85rem;margin-top:8px;min-height:24px}
+/* Gate demo */
+.gate-demo{display:flex;gap:24px;flex-wrap:wrap}
+.gate-card{background:var(--surface);border-radius:12px;padding:16px;text-align:center;min-width:100px}
+.gate-card strong{display:block;color:var(--teal);margin-bottom:8px;font-size:.85rem}
+.gate-card .truth-table{font-family:monospace;font-size:.75rem;color:var(--muted);line-height:1.8}
+.gate-card button{padding:4px 8px;margin:2px;background:rgba(255,255,255,.1);border:none;border-radius:4px;color:var(--ink);cursor:pointer;font-family:monospace}
+.gate-card button.on{background:var(--teal)}
+.gate-card .result{font-size:1.2rem;font-weight:800;color:var(--gold);margin-top:4px}
+/* Chip grid */
+.chip-grid{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:rgba(43,169,142,.08);border:1px solid rgba(43,169,142,.2);padding:6px 14px;border-radius:20px;font-size:.8rem;color:var(--teal)}
+/* Particles */
+#particles{position:fixed;inset:0;pointer-events:none;z-index:0}
+.particle{position:absolute;width:2px;height:2px;border-radius:50%;background:var(--teal);animation:floatUp 8s linear infinite}
+@keyframes floatUp{0%{transform:translateY(100vh) scale(0);opacity:0}10%{opacity:.6}90%{opacity:.2}100%{transform:translateY(-10vh) scale(1);opacity:0}}
 /* Responsive */
-@media(max-width:768px){
-.slide{padding:30px 20px}
-.chapter-num{font-size:3rem;top:10px;left:10px}
-.chapter-title{font-size:1.4rem}
-.content-grid{grid-template-columns:1fr}
-.title-slide h1{font-size:2rem}
-}
+@media(max-width:900px){#sidebar{display:none}.slide{padding:24px 20px}.grid2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div class="circuit-bg" id="circuitBg"></div>
-<div class="progress-bar" id="progress"></div>
-
-<div class="slide-container" id="slides"></div>
-
-<nav class="nav">
-  <button onclick="prevSlide()">◀ 上一章</button>
-  <div class="chapter-dots" id="dots"></div>
-  <button onclick="nextSlide()">下一章 ▶</button>
-</nav>
+<div id="particles"></div>
+<div id="app">
+<div id="sidebar">
+  <div class="sidebar-title">📖 计算机组成原理</div>
+  <div id="chapterList"></div>
+</div>
+<div id="main">
+  <div id="slideArea"></div>
+  <div id="navBar">
+    <button onclick="prev()">◀</button>
+    <span class="page-indicator" id="pageNum">1 / 9</span>
+    <button onclick="next()">▶</button>
+  </div>
+</div>
+</div>
 
 <script>
-// ---- Chapter Data ----
-const chapters = [
-  {
-    num:"01",title:"计算机系统概论",sub:"冯·诺依曼结构 · 五大部件 · 层次结构",
-    cards:[
-      {icon:"🧠",title:"计算机发展简史",items:["电子管→晶体管→集成电路→大规模IC","ENIAC(1946)→个人电脑→移动计算→AI时代","微处理器：Intel 4004→Core i9→Apple M系列"]},
-      {icon:"🏗️",title:"冯·诺依曼结构",items:["程序和数据以二进制存于存储器","按地址顺序取指令执行","五大部件：输入→存储→控制→运算→输出"]},
-    ],
-    points:"💡 核心：计算机 = 输入设备 + 存储器 + 控制器 + 运算器 + 输出设备，通过总线连接协同工作。指令和数据都是二进制，CPU通过指令周期中的不同阶段区分。",
-    experiments:["computer-components","data-flow"],
-  },
-  {
-    num:"02",title:"计算机中数的表示",sub:"进制转换 · 补码 · 浮点数 · ASCII",
-    cards:[
-      {icon:"🔢",title:"进制与转换",items:["R进制→十进制：按权展开求和","十进制→R进制：整数除R取余,小数乘R取整","二进制↔八进制(3位一组)↔十六进制(4位一组)"]},
-      {icon:"➕➖",title:"有符号数表示",items:["原码：符号位0正1负 + 数值位","补码：正数同原码，负数=反码+1","补码优点：减法→加法，0唯一表示"]},
-      {icon:"📐",title:"浮点数(IEEE754)",items:["32位：1位符号+8位阶码+23位尾数","阶码用移码(加127偏置)","规格化：尾数最高位隐含1"]},
-    ],
-    points:"💡 补码的核心思想：模运算。8位补码范围-128~127。浮点对阶：小阶向大阶看齐。",
-    experiments:["machine-number"],
-  },
-  {
-    num:"03",title:"运算单元设计",sub:"逻辑门 · 加法器 · ALU · 乘除法",
-    cards:[
-      {icon:"🚪",title:"基本逻辑门",items:["与门(AND)：全1出1","或门(OR)：有1出1","非门(NOT)：取反","异或(XOR)：不同出1","逻辑门是CPU的最小构成单元"]},
-      {icon:"➕",title:"加法器设计",items:["半加器：A+B→S(和)+C(进位)","全加器：A+B+Cin→S+Cout","行波进位：串联n个全加器","超前进位：并行计算进位,更快"]},
-      {icon:"⚙️",title:"ALU结构",items:["算术逻辑单元=加法器+逻辑运算+移位","控制位选择运算类型","结果+标志位(零/进位/溢出/符号)"]},
-    ],
-    points:"💡 乘法=多次加+移位。布斯算法：根据相邻位差决定+被乘数/−被乘数/+0。除法=多次减+移位(恢复余数法)。",
-    experiments:["and-gate","or-gate","not-gate","xor-gate","half-adder","full-adder","multi-adder","alu"],
-  },
-  {
-    num:"04",title:"存储器系统",sub:"层次结构 · Cache · 主存 · 虚拟内存",
-    cards:[
-      {icon:"🗄️",title:"存储器层次结构",items:["寄存器(CPU内,最快,最小)","Cache(SRAM,几MB)","主存(DRAM,几GB)","辅存(SSD/HDD,几TB)","速度↓容量↑,金字塔结构"]},
-      {icon:"⚡",title:"Cache缓存",items:["局部性原理：时间局部性+空间局部性","地址映像：直接/全相联/组相联","替换算法：LRU/FIFO/随机","写策略：写直达/写回"]},
-      {icon:"💾",title:"主存储器",items:["DRAM：电容存储,需刷新(2ms内)","SRAM：触发器存储,快但贵","地址译码：行地址+列地址","刷新方式：集中/分散/异步"]},
-    ],
-    points:"💡 Cache命中率决定性能。组相联=直接映像+全相联的折中。虚拟内存=(页表)虚拟地址→物理地址。",
-    experiments:["memory-address"],
-  },
-  {
-    num:"05",title:"指令系统",sub:"指令格式 · 寻址方式 · RISC vs CISC",
-    cards:[
-      {icon:"📋",title:"指令格式",items:["操作码(OP)：做什么","地址码(A)：操作数在哪","零地址(栈操作)/一地址(累加器)/二地址/三地址","指令字长：定长(RISC) vs 变长(CISC)"]},
-      {icon:"🗺️",title:"寻址方式",items:["立即寻址：操作数在指令中","直接寻址：指令给出内存地址","寄存器寻址：操作数在寄存器","间接寻址：寄存器存地址指针","变址/基址/相对：地址=基值+偏移"]},
-    ],
-    points:"💡 RISC(精简指令集)：指令少且定长,Load/Store架构,多寄存器,流水线友好。CISC(复杂指令集)：指令多且变长,一条指令完成复杂操作。",
-    experiments:["instruction-data","program-flow"],
-  },
-  {
-    num:"06",title:"CPU的结构与设计",sub:"数据通路 · 控制器 · 指令周期 · 流水线",
-    cards:[
-      {icon:"🏭",title:"CPU组成",items:["运算器(ALU)：执行算术逻辑运算","控制器(CU)：取指译码,发控制信号","寄存器组：PC/IR/MAR/MDR/ACC/PSW","时序部件：产生时钟节拍"]},
-      {icon:"⏱️",title:"指令周期",items:["取指周期：PC→MAR→MEM→MDR→IR","间址周期(如有)","执行周期：ALU运算→结果写回","中断周期：保存现场→转中断服务"]},
-      {icon:"🏎️",title:"流水线技术",items:["五级流水：取指→译码→执行→访存→写回","流水线冲突：数据/控制/结构冲突","超标量：多条流水线并行","动态调度：乱序执行+顺序提交"]},
-    ],
-    points:"💡 指令周期>机器周期>时钟周期。流水线加速比≈流水级数(理想情况)。现代CPU：分支预测+乱序执行+多核。",
-  },
-  {
-    num:"07",title:"系统总线",sub:"总线结构 · 判优控制 · 通信方式",
-    cards:[
-      {icon:"🔗",title:"总线分类",items:["数据总线(DB)：双向,传输数据","地址总线(AB)：单向,指定地址","控制总线(CB)：传输控制信号","片内总线/系统总线/通信总线"]},
-      {icon:"🎯",title:"总线判优",items:["链式查询：结构简单,优先级固定","计数器定时：灵活但需要更多线","独立请求：最快响应,线数最多"]},
-      {icon:"📡",title:"通信方式",items:["同步通信：统一时钟,速度快","异步通信：握手应答,灵活","半同步：同步+等待信号","分离式：释放总线等应答"]},
-    ],
-    points:"💡 总线带宽=总线宽度×工作频率。PCIe采用串行点对点,取代并行PCI。多总线结构：CPU总线+PCI总线+ISA总线。",
-  },
-  {
-    num:"08",title:"输入输出系统",sub:"I/O接口 · 中断 · DMA · 外设",
-    cards:[
-      {icon:"🖥️",title:"I/O接口",items:["功能：数据缓冲、信号转换、设备选择","I/O端口编址：独立编址 vs 统一编址","接口结构：数据寄存器+控制寄存器+状态寄存器"]},
-      {icon:"⚡",title:"数据传送方式",items:["无条件传送(简单设备：LED)","程序查询(CPU轮询,效率低)","中断方式(设备通知CPU,效率中)","DMA(直接存储器访问,效率最高)"]},
-      {icon:"🔄",title:"中断系统",items:["中断处理：关中断→保存现场→识别源→服务→恢复→开中断","中断优先级：硬件排队/软件查询","向量中断：直接跳转到服务程序"]},
-    ],
-    points:"💡 DMA三阶段：预处理(CPU设置)→数据传送(DMA控制)→后处理(中断通知)。DMA vs 中断：DMA适合高速块传送,中断适合低速字符。",
-  },
+// ---- Data ----
+const chapters=[
+{id:"title",title:"封面",type:"title"},
+{id:"ch1",title:"计算机系统概论",sub:"冯·诺依曼结构 & 五大部件",type:"dual",cards:[
+  {h:"🧠 发展简史",items:["电子管→晶体管→集成电路→VLSI","ENIAC(1946)→PC→移动计算→AI","微处理器：4004→Core i9→M系列"]},
+  {h:"🏗️ 冯·诺依曼结构",items:["程序和数据以二进制存于存储器","按地址顺序取指令→执行","五大部件：输入→存储→控制→运算→输出"]}],
+  kp:"💡 指令和数据都是二进制，CPU通过指令周期的取指/译码/执行阶段区分。层次结构：微程序级→机器语言级→操作系统级→汇编级→高级语言级。",
+  demo:"converter"},
+{id:"ch2",title:"计算机中数的表示",sub:"进制转换 · 补码 · 浮点数 · ASCII",type:"dual",cards:[
+  {h:"🔢 进制转换",items:["R进制→十进制：按权展开求和","十进制→R进制：整数除R取余，小数乘R取整","二↔八(3位一组)↔十六(4位一组)"},
+  {h:"➕➖ 有符号数",items:["原码：符号位0正1负","补码：正数同原码，负数=反码+1","补码优点：减法→加法，0唯一"}]],
+  kp:"💡 8位补码范围-128~127。IEEE754浮点：1位符号+8位阶码(移码)+23位尾数(规格化)。",
+  demo:"converter"},
+{id:"ch3",title:"运算单元设计",sub:"逻辑门 · 加法器 · ALU · 乘除法",type:"dual",cards:[
+  {h:"🚪 基本逻辑门",items:["与门(AND)：全1出1","或门(OR)：有1出1","非门(NOT)：取反","异或(XOR)：不同出1"]},
+  {h:"➕ 加法器→ALU",items:["半加器：A+B→S(和)+C(进位)","全加器：A+B+Cin→S+Cout","ALU=加法器+逻辑运算+移位+标志位"]}],
+  kp:"💡 乘法=多次加+移位。布斯算法加速。除法=多次减+移位。超前进位：并行算进位更快。",
+  demo:"gates"},
+{id:"ch4",title:"存储器系统",sub:"层次结构 · Cache · 主存 · 虚拟内存",type:"dual",cards:[
+  {h:"🗄️ 层次结构",items:["寄存器(CPU内,最快,KB级)","Cache(SRAM,MB级)","主存(DRAM,GB级)","辅存(SSD/HDD,TB级)","速度↓ 容量↑ 价格↓"]},
+  {h:"⚡ Cache与主存",items:["局部性原理：时间+空间局部性","地址映像：直接/全相联/组相联","替换：LRU/FIFO/随机","写策略：写直达/写回"]}],
+  kp:"💡 DRAM需刷新(2ms)，Cache命中率决定性能。虚拟内存=页表实现虚拟→物理地址转换。"},
+{id:"ch5",title:"指令系统",sub:"指令格式 · 寻址方式 · RISC vs CISC",type:"dual",cards:[
+  {h:"📋 指令格式",items:["操作码(OP)+地址码(A)","零地址(栈)/一地址(累加器)/二/三地址","RISC：定长指令，Load/Store架构","CISC：变长指令，一条指令完成复杂操作"]},
+  {h:"🗺️ 寻址方式",items:["立即：操作数在指令中","直接：指令给出内存地址","寄存器：操作数在寄存器","间接/变址/基址/相对"]}],
+  kp:"💡 RISC五级流水：取指→译码→执行→访存→写回。流水线冲突：数据/控制/结构。"},
+{id:"ch6",title:"CPU的结构与设计",sub:"数据通路 · 控制器 · 指令周期 · 流水线",type:"dual",cards:[
+  {h:"🏭 CPU内部结构",items:["运算器(ALU)：执行算术逻辑","控制器(CU)：取指译码发控制信号","寄存器组：PC/IR/MAR/MDR/ACC","时序部件+中断系统"]},
+  {h:"⏱️ 指令周期",items:["取指→间址(如有)→执行→中断","指令周期 > 机器周期 > 时钟周期","五级流水：F→D→E→M→W","超标量/乱序执行/分支预测"]}],
+  kp:"💡 现代CPU：多核+多线程+SIMD。流水线加速比≈流水级数，实际受冲突影响。"},
+{id:"ch7",title:"系统总线",sub:"总线结构 · 判优控制 · 通信方式",type:"dual",cards:[
+  {h:"🔗 总线分类与结构",items:["数据总线(DB)：双向","地址总线(AB)：单向","控制总线(CB)：控制信号","单总线/多总线/PCIe串行"]},
+  {h:"🎯 判优与通信",items:["链式查询：简单,优先级固定","计数器定时：灵活,线数多","独立请求：最快,线数最多","同步/异步/半同步/分离式"]}],
+  kp:"💡 总线带宽=总线宽度×工作频率。PCIe采用点对点串行取代并行PCI。多级总线提升整体带宽。"},
+{id:"ch8",title:"输入输出系统",sub:"I/O接口 · 中断 · DMA · 外设",type:"dual",cards:[
+  {h:"🖥️ I/O接口",items:["数据缓冲、信号转换、设备选择","独立编址 vs 统一编址","数据寄存器+控制寄存器+状态寄存器"]},
+  {h:"⚡ 传送方式",items:["无条件(简单设备：LED)","程序查询(CPU轮询,效率低)","中断(设备通知CPU)","DMA(直接存储器访问,最快)"]}],
+  kp:"💡 DMA三阶段：预处理→数据传送→后处理(中断通知)。中断处理流程：关中断→保存现场→识别源→服务→恢复→开中断。"}],
 ];
 
-// ---- Build slides ----
-let currentSlide = 0;
-const container = document.getElementById('slides');
-const dotsContainer = document.getElementById('dots');
-const progress = document.getElementById('progress');
+// ---- Build UI ----
+const chapterList=document.getElementById('chapterList');
+const slideArea=document.getElementById('slideArea');
+const pageNum=document.getElementById('pageNum');
+let current=0;
 
-// Generate circuit background
-const circuitBg = document.getElementById('circuitBg');
-for(let i=0;i<15;i++){
-  const line=document.createElement('div');line.className='circuit-line';
-  line.style.cssText=`top:${Math.random()*100}%;left:0;width:${40+Math.random()*60}%;height:1px`;
-  circuitBg.appendChild(line);
-}
-for(let i=0;i<20;i++){
-  const dot=document.createElement('div');dot.className='circuit-dot pulse-dot';
-  dot.style.cssText=`top:${Math.random()*100}%;left:${Math.random()*100}%`;
-  circuitBg.appendChild(dot);
+// Generate particles
+for(let i=0;i<30;i++){
+  const p=document.createElement('div');p.className='particle';
+  p.style.cssText=`left:${Math.random()*100}%;animation-delay:${Math.random()*8}s;animation-duration:${6+Math.random()*8}s`;
+  document.getElementById('particles').appendChild(p);
 }
 
-// Title slide
-const titleSlide=document.createElement('div');titleSlide.className='slide title-slide active';
-titleSlide.innerHTML=`
-  <h1>🖥️ 计算机组成原理</h1>
-  <p class="subtitle">Computer Compose Principle — 从晶体管到CPU的完整旅程</p>
-  <div class="meta"><span>📖 杨泽雪《计算机组成原理》</span><span>🎓 8章 · 634页PPT</span><span>🧪 15个实验关卡</span></div>
-  <div style="margin-top:50px;color:#667a9a;font-size:.85rem">按 ← → 键或点击下方按钮翻页 · 展开章节查看知识点和关联实验</div>
-`;
-container.appendChild(titleSlide);
-
-// Chapter slides
+// Build sidebar + slides
 chapters.forEach((ch,i)=>{
-  const slide=document.createElement('div');slide.className='slide';
-  slide.innerHTML=`
-    <div class="chapter-num">${ch.num}</div>
-    <div class="chapter-title"><span class="float-icon" style="display:inline-block">${i<3?'🔌':i<5?'⚡':'🔧'}</span> ${ch.title}</div>
-    <div class="chapter-subtitle">${ch.sub}</div>
-    <div class="content-grid">
-      ${ch.cards.map(c=>`
-        <div class="content-card">
-          <h3>${c.icon} ${c.title}</h3>
-          <ul>${c.items.map(it=>`<li>${it}</li>`).join('')}</ul>
-        </div>
-      `).join('')}
-    </div>
-    <div class="keypoint">${ch.points}</div>
-  `;
-  container.appendChild(slide);
+  const btn=document.createElement('div');
+  btn.className='sidebar-chapter'+(i===0?' active':'');
+  btn.innerHTML=`<span class="num">${i===0?'🏠':String(i).padStart(2,'0')}</span>${ch.title}`;
+  btn.onclick=()=>goTo(i);
+  chapterList.appendChild(btn);
+});
 
-  // Dot
-  const dot=document.createElement('div');dot.className=i===0?'dot active':'dot';
-  dot.onclick=()=>goToSlide(i);
-  dotsContainer.appendChild(dot);
+chapters.forEach((ch,i)=>{
+  const slide=document.createElement('div');
+  slide.className='slide'+(i===0?' active':'');
+
+  if(ch.type==='title'){
+    slide.innerHTML=`
+      <div class="title-center">
+        <h1>🖥️ 计算机组成原理</h1>
+        <p class="deck">从晶体管到CPU的完整旅程 — 8章交互式课件</p>
+        <div class="stat-row">
+          <div class="stat"><div class="val">634</div><div class="lbl">页PPT</div></div>
+          <div class="stat"><div class="val">8</div><div class="lbl">章</div></div>
+          <div class="stat"><div class="val">15</div><div class="lbl">实验关卡</div></div>
+          <div class="stat"><div class="val">208</div><div class="lbl">自动化测试</div></div>
+        </div>
+        <p style="margin-top:48px;color:var(--muted);font-size:.85rem">📖 杨泽雪《计算机组成原理》机械工业出版社 · ← → 键翻页</p>
+      </div>`;
+  }else{
+    slide.innerHTML=`
+      <div class="slide-title reveal">${ch.title}</div>
+      <div class="slide-subtitle reveal">${ch.sub}</div>
+      <div class="grid2">
+        ${ch.cards.map(c=>`<div class="card reveal"><h3>${c.h}</h3><ul>${c.items.map(t=>`<li>${t}</li>`).join('')}</ul></div>`).join('')}
+      </div>
+      ${ch.kp?`<div class="keypoint reveal">${ch.kp}</div>`:''}
+      ${ch.demo==='converter'?`<div class="demo-box reveal"><h4>🔄 进制转换演示</h4><div class="demo-row"><input id="decInput" placeholder="输入十进制数" value="42"><button onclick="convert()">转换</button></div><div class="demo-output" id="convOut"></div></div>`:''}
+      ${ch.demo==='gates'?`<div class="demo-box reveal"><h4>🚪 逻辑门演示（点击切换输入）</h4><div class="gate-demo" id="gateDemo"></div></div>`:''}`;
+  }
+  slideArea.appendChild(slide);
 });
 
 const slides=document.querySelectorAll('.slide');
 
-function updateSlide(){
-  slides.forEach((s,i)=>{
-    s.classList.remove('active','prev');
-    if(i===currentSlide)s.classList.add('active');
-    else if(i<currentSlide)s.classList.add('prev');
-  });
-  document.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===currentSlide));
-  progress.style.width=((currentSlide+1)/(slides.length)*100)+'%';
+function goTo(n){
+  if(n<0||n>=slides.length)return;
+  current=n;
+  slides.forEach((s,i)=>s.classList.toggle('active',i===current));
+  document.querySelectorAll('.sidebar-chapter').forEach((b,i)=>b.classList.toggle('active',i===current));
+  pageNum.textContent=`${current+1} / ${slides.length}`;
+  // Animate reveal elements
+  setTimeout(()=>{
+    slides[current].querySelectorAll('.reveal').forEach(el=>el.classList.add('show'));
+    // Re-trigger card list animations
+    slides[current].querySelectorAll('.card ul li').forEach(li=>{li.style.animation='none';li.offsetHeight;li.style.animation=''});
+  },300);
 }
+function next(){goTo(current+1)}
+function prev(){goTo(current-1)}
+goTo(0);
 
-function goToSlide(n){
-  currentSlide=Math.max(0,Math.min(slides.length-1,n));
-  updateSlide();
-}
-function nextSlide(){goToSlide(currentSlide+1)}
-function prevSlide(){goToSlide(currentSlide-1)}
-
+// Keyboard
 document.addEventListener('keydown',e=>{
-  if(e.key==='ArrowRight'||e.key==='ArrowDown')nextSlide();
-  if(e.key==='ArrowLeft'||e.key==='ArrowUp')prevSlide();
+  if(e.key==='ArrowRight'||e.key==='ArrowDown')next();
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp')prev();
 });
 
-// Touch support
-let touchX=0;
-document.addEventListener('touchstart',e=>touchX=e.touches[0].clientX);
-document.addEventListener('touchend',e=>{
-  const diff=touchX-e.changedTouches[0].clientX;
-  if(Math.abs(diff)>50)diff>0?nextSlide():prevSlide();
-});
+// Touch
+let tx=0;
+document.addEventListener('touchstart',e=>tx=e.touches[0].clientX);
+document.addEventListener('touchend',e=>{const d=tx-e.changedTouches[0].clientX;if(Math.abs(d)>50)d>0?next():prev()});
+
+// ---- Demos ----
+// Binary converter
+window.convert=function(){
+  const v=parseInt(document.getElementById('decInput')?.value);
+  if(isNaN(v)){document.getElementById('convOut').textContent='请输入有效数字';return}
+  document.getElementById('convOut').innerHTML=`
+    十进制：<b>${v}</b><br>
+    二进制：<b style="color:var(--teal)">${(v>>>0).toString(2)}</b><br>
+    八进制：<b>${v.toString(8)}</b><br>
+    十六进制：<b style="color:var(--gold)">${v.toString(16).toUpperCase()}</b><br>
+    补码(8位)：<b>${((v&0xFF)>>>0).toString(2).padStart(8,'0')}</b>`;
+};
+
+// Gate demo: build after a slight delay
+setTimeout(()=>{
+  const gd=document.getElementById('gateDemo');
+  if(!gd)return;
+  const gates=[
+    {name:'AND', fn:(a,b)=>a&b, truth:[[0,0,0],[0,1,0],[1,0,0],[1,1,1]]},
+    {name:'OR', fn:(a,b)=>a|b, truth:[[0,0,0],[0,1,1],[1,0,1],[1,1,1]]},
+    {name:'XOR', fn:(a,b)=>a^b, truth:[[0,0,0],[0,1,1],[1,0,1],[1,1,0]]},
+    {name:'NOT', fn:(a)=>a^1, truth:[[0,null,1],[1,null,0]]},
+  ];
+  gates.forEach(g=>{
+    const card=document.createElement('div');card.className='gate-card';
+    card.innerHTML=`<strong>${g.name}</strong><div class="truth-table">${g.truth.map(t=>`${t[0]} ${g.name==='NOT'?'':' '+t[1]} → ${t[2]}`).join('<br>')}</div>
+    <div style="margin-top:8px">A: <button class="on" onclick="gateToggle(this)">1</button> ${g.name!=='NOT'?`B: <button class="on" onclick="gateToggle(this)">1</button>`:''}</div>
+    <div class="result" id="res-${g.name}">${g.name==='NOT'?g.fn(1):g.fn(1,1)}</div>`;
+    gd.appendChild(card);
+  });
+},1000);
+
+window.gateToggle=function(btn){
+  btn.classList.toggle('on');
+  btn.textContent=btn.classList.contains('on')?'1':'0';
+  // Update all results
+  document.querySelectorAll('.gate-card').forEach(card=>{
+    const name=card.querySelector('strong').textContent;
+    const btns=card.querySelectorAll('button.on');
+    const a=btns[0]?1:0, b=btns[1]?1:0;
+    const res=card.querySelector('.result');
+    if(name==='NOT')res.textContent=a^1;
+    else if(name==='AND')res.textContent=a&b;
+    else if(name==='OR')res.textContent=a|b;
+    else if(name==='XOR')res.textContent=a^b;
+  });
+};
 </script>
 </body>
 </html>
