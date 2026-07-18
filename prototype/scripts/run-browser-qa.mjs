@@ -10,7 +10,7 @@ const allowedVerifiers = new Set([
   "scripts/verify-3d.mjs",
   "scripts/verify-performance.mjs",
   "scripts/verify-classroom.mjs",
-];
+]);
 const verifier = String(process.argv[2] ?? "").replaceAll("\\", "/");
 if (!allowedVerifiers.has(verifier)) {
   throw new Error("Unsupported verifier: " + verifier);
