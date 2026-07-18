@@ -38,6 +38,44 @@ async function request(baseUrl, path, options = {}, jar = {}) {
   return { response, body };
 }
 
+test("cross-origin classroom POST is rejected before route handling", async () => {
+  const { db, server, baseUrl } = await makeServer({ publicBaseUrl: "http://127.0.0.1" });
+  const teacherJar = {};
+  try {
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "CSRF regression" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 201);
+
+    result = await request(baseUrl, `/api/teacher/classes/${result.body.class.id}/sessions`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: "https://attacker.example",
+      },
+      body: JSON.stringify({
+        templateKey: "computer-data-flow",
+        durationMinutes: 45,
+        passScore: 80,
+        allowMakeup: false,
+      }),
+    }, teacherJar);
+    assert.equal(result.response.status, 403);
+    assert.equal(result.body.error, "跨站请求被拒绝");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});
 test("password hashing verifies correct password and rejects wrong password", async () => {
   const hashed = await hashPassword("Secret123!");
   assert.equal(await verifyPassword("Secret123!", hashed), true);
