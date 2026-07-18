@@ -1001,6 +1001,7 @@ export function App() {
           {activeView === "assignments" ? <StudentAssignments /> : null}
           {activeView === "courseware" ? <CoursewareView navigateToChallenge={navigateToChallenge} /> : null}
           {activeView === "teacher" ? (
+            <ErrorBoundary>
             <TeacherStudioDashboard
               teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId}
               setSelectedTeacherClassId={setSelectedTeacherClassId} selectedTeacherClassIdRef={selectedTeacherClassIdRef}
@@ -1014,6 +1015,7 @@ export function App() {
               buildTeacherAssistantInsights={buildTeacherAssistantInsights}
               teacherSession={teacherSession}
             />
+            </ErrorBoundary>
           ) : null}
         </main>
       </div>

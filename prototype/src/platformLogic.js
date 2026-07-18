@@ -626,6 +626,16 @@ export function summarizeLearning(challenges, progress) {
   }, {});
   const weakSpot = Object.entries(errorCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "暂无高频错误";
 
+  const remainingChallenges = challenges.filter((c) => {
+    const r = progress[c.id];
+    return !r || r.status !== "completed";
+  });
+  const estimatedRemainingMinutes = remainingChallenges.reduce((sum, c) => sum + (c.estimatedMinutes ?? 10), 0);
+  const nextChallenge = challenges.find((c) => {
+    const r = progress[c.id];
+    return r && r.status === "in-progress";
+  }) ?? remainingChallenges[0] ?? null;
+
   return {
     totalChallenges: challenges.length,
     completed,
@@ -634,6 +644,9 @@ export function summarizeLearning(challenges, progress) {
     totalStudyMinutes,
     weakSpot,
     averageScore: Math.round(records.reduce((sum, record) => sum + record.bestScore, 0) / records.length),
+    remainingChallenges: remainingChallenges.length,
+    estimatedRemainingMinutes,
+    nextRecommendedChallenge: nextChallenge,
   };
 }
 

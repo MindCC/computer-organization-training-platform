@@ -187,7 +187,11 @@ export function createApp(options = {}) {
   app.post("/api/auth/change-password", requireAuth, async (req, res, next) => {
     try {
       const { currentPassword, nextPassword } = req.body ?? {};
-      if (!nextPassword || String(nextPassword).length < 6) return res.status(400).json({ error: "新密码至少 6 位" });
+      const pw = String(nextPassword ?? "");
+      if (!pw) return res.status(400).json({ error: "新密码不能为空" });
+      if (pw.length < 8) return res.status(400).json({ error: "新密码至少 8 位" });
+      if (!/[A-Z]/.test(pw) && !/[a-z]/.test(pw)) return res.status(400).json({ error: "密码需包含字母" });
+      if (!/[0-9!@#$%^&*]/.test(pw)) return res.status(400).json({ error: "密码需包含数字或特殊字符" });
       const user = getUserById(db, req.user.id);
       if (!(await verifyPassword(currentPassword ?? "", user.password_hash))) return res.status(400).json({ error: "当前密码不正确" });
       updateUserPassword(db, req.user.id, await hashPassword(nextPassword));
