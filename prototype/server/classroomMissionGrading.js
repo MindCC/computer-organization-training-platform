@@ -28,7 +28,7 @@ export function gradeClassroomEvidence({ mission, stageIndex, payload, progress 
     { challengeId: stage.challengeId, result: { ...payload.result, circuitEdges: payload.result.edges } },
     LEARNING_ITEMS,
     progress,
-    true,
+    false,
   );
   if (normalized.ok === false) {
     throw classroomError("INVALID_STAGE_EVIDENCE", normalized.error, normalized.status, false);

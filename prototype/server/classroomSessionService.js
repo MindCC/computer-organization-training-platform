@@ -1,5 +1,5 @@
 import { validateClassroomSessionConfig, getClassroomMission } from "../src/shared/classroomMissionDefinitions.js";
-import { recordStudentAttempt, teacherOwnsClass } from "./db.js";
+import { recordStudentAttempt, teacherOwnsClass, getStudentProgress } from "./db.js";
 import { gradeClassroomEvidence, classroomError } from "./classroomMissionGrading.js";
 
 export const ALLOWED_TRANSITIONS = Object.freeze({
@@ -247,14 +247,15 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
         };
       }
       const studentState = repository.getStudentState(fresh.id, studentId);
+      if (!studentState) throw classroomError("NOT_CLASS_MEMBER", "你不在该课堂中", 403, false);
       const stageIndex = studentState?.current_stage_index ?? 0;
       const mission = getClassroomMission(fresh.template_key, fresh.template_version);
       const expectedChallengeId = mission.stages[stageIndex]?.challengeId;
       if (!expectedChallengeId || payload.challengeId !== expectedChallengeId) {
         throw classroomError("STAGE_MISMATCH", "提交的关卡与当前课堂阶段不匹配", 409, false);
       }
-      const currentProgress = {}; // classroom grading doesn't need full progress
-      const graded = gradeClassroomEvidence({ mission, stageIndex, payload, progress: currentProgress });
+      const realProgress = getStudentProgress(db, studentId);
+      const graded = gradeClassroomEvidence({ mission, stageIndex, payload, progress: realProgress });
       if (!graded.ok && graded.ok !== undefined) {
         throw classroomError("INVALID_STAGE_EVIDENCE", graded.error, graded.status, false);
       }
