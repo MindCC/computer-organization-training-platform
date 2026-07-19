@@ -157,6 +157,7 @@ export function useLabState({
     setActivityLog((cur) => [`${currentChallenge.title}提交${result.passed ? "通过" : "未通过"}，得分 ${result.score}。`, ...cur.slice(0, 5)]);
     setStatusMessage(result.passed ? `恭喜，${currentChallenge.title}已通过。` : "系统已定位当前结构中的问题。");
     await persistStudentAttempt(selectedChallengeId, result);
+    return result;
   }
 
   async function completeOverviewChallenge() {
@@ -166,6 +167,7 @@ export function useLabState({
     setActivityLog((cur) => [`${currentChallenge.title}\u63a2\u7d22\u5b8c\u6210\uff0c\u5f97\u5206 100\u3002`, ...cur.slice(0, 5)]);
     setStatusMessage(`\u606d\u559c\uff0c${currentChallenge.title}\u63a2\u7d22\u5df2\u5b8c\u6210\u3002`);
     await persistStudentAttempt(selectedChallengeId, result);
+    return result;
   }
 
   async function handleCircuitFlowResult(result) {
@@ -178,6 +180,7 @@ export function useLabState({
     setActivityLog((cur) => [`${currentChallenge.title} React Flow 工作台提交${result.passed ? "通过" : "未通过"}，得分 ${result.score}。`, ...cur.slice(0, 5)]);
     setStatusMessage(result.passed ? `恭喜，${currentChallenge.title}已通过。` : "React Flow 工作台已定位当前结构中的问题。");
     await persistStudentAttempt(selectedChallengeId, normalized);
+    return normalized;
   }
 
   function resetChallenge() {

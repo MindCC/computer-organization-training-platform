@@ -332,6 +332,15 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   await report.waitFor({ state: "visible", timeout: 10_000 });
   const reportText = await report.innerText();
   assert.match(reportText, /本关通过/, `${challenge.id} report: ${reportText}`);
+  // Verify quest settlement appears on the first passing challenge
+  if (challenge.id === "data-flow") {
+    await targetPage.locator(".quest-settlement").waitFor({ state: "visible", timeout: 10_000 });
+    assert.equal(await targetPage.locator(".quest-settlement-card").count(), 1, "settlement card present after pass");
+    await assertVisible(targetPage, "评测结算");
+    await assertVisible(targetPage, "继续下一关");
+    await targetPage.getByRole("button", { name: "复盘本关" }).click();
+    await targetPage.locator(".quest-settlement").waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+  }
 }
 
 async function waitForReactFlowNodeCount(targetPage, challenge) {

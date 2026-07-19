@@ -77,6 +77,8 @@ import { SettingsModal } from "./components/TeacherSettingsPanel.jsx";
 import { TeacherStudioDashboard } from "./components/TeacherDashboard.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { LoginPortal } from "./components/auth/LoginPortal.jsx";
+import { QuestSettlement } from "./components/quest/QuestSettlement.jsx";
+import { buildQuestSettlement } from "./questExperience.js";
 import { useLabState } from "./hooks/useLabState.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
@@ -495,6 +497,8 @@ export function App() {
   const [memoryOperation, setMemoryOperation] = useState("read");
   const [memoryWriteValue, setMemoryWriteValue] = useState("10101100");
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+  const [questSettlement, setQuestSettlement] = useState(null);
+  const prevFeedbackRef = useRef(null);
   const lab = useLabState({
     progress, setProgress, activityLog, setActivityLog,
     setStatusMessage, persistStudentAttempt, isMobile,
@@ -533,6 +537,16 @@ export function App() {
   }, [focusChallenge]);
   const routeGroups = useMemo(() => buildCourseRouteGroups(LEARNING_ITEMS, progress), [progress]);
   const nextRecommendedChallenge = useMemo(() => findNextRecommendedChallenge(LEARNING_ITEMS, progress), [progress]);
+
+  // Trigger quest settlement when a lab submission passes
+  useEffect(() => {
+    const feedback = lab.feedback;
+    if (!feedback || !feedback.passed) return;
+    if (prevFeedbackRef.current === feedback) return;
+    prevFeedbackRef.current = feedback;
+    const settlement = buildQuestSettlement(lab.selectedChallengeId, feedback, routeGroups);
+    if (settlement) setQuestSettlement(settlement);
+  }, [lab.feedback, lab.selectedChallengeId, routeGroups]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1040,6 +1054,22 @@ export function App() {
       </div>
 
       {showSettings ? <SettingsModal setShowSettings={setShowSettings} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} student={student} updateStudent={updateStudent} saveStudentSettings={saveStudentSettings} /> : null}
+
+      {questSettlement ? (
+        <QuestSettlement
+          settlement={questSettlement}
+          onReview={() => setQuestSettlement(null)}
+          onContinue={() => {
+            const nextId = questSettlement.nextId;
+            setQuestSettlement(null);
+            if (nextId) {
+              navigateToChallenge(nextId);
+            } else {
+              setActiveView("home");
+            }
+          }}
+        />
+      ) : null}
     </div>
     </ErrorBoundary>
   );

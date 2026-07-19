@@ -7547,3 +7547,81 @@ body {
     transition: none;
   }
 }
+
+/* ─── Quest Settlement ─── */
+
+.quest-settlement {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+}
+
+.quest-settlement-card {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  justify-items: center;
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+  padding: 36px 28px 28px;
+  border: 1px solid var(--teal);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, #e5f7f1 0%, #d6f0ea 100%);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+}
+
+.quest-settlement-seal {
+  color: var(--teal);
+}
+
+.quest-settlement-card h2 {
+  margin: 0;
+  font-family: "Manrope", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.quest-settlement-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.quest-settlement-score {
+  font-family: "Manrope", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--gold);
+}
+
+.quest-settlement-next {
+  padding: 6px 14px;
+  border-radius: 8px;
+  background: rgba(43, 169, 142, 0.12);
+  color: var(--teal);
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.quest-settlement-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.quest-settlement-actions button {
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quest-settlement {
+    backdrop-filter: none;
+  }
+}
