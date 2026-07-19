@@ -76,6 +76,7 @@ import { StudentRecords } from "./components/StudentRecords.jsx";
 import { SettingsModal } from "./components/TeacherSettingsPanel.jsx";
 import { TeacherStudioDashboard } from "./components/TeacherDashboard.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
+import { LoginPortal } from "./components/auth/LoginPortal.jsx";
 import { useLabState } from "./hooks/useLabState.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
@@ -1045,23 +1046,12 @@ export function App() {
 
   function renderLogin() {
     return (
-      <div className="login-screen">
-        <form className="login-card" onSubmit={handleLogin}>
-          <span className="eyebrow">{"\u8bfe\u5802\u96c6\u4e2d\u7248"}</span>
-          <h1>{"\u7ec4\u6210\u539f\u7406\u5b9e\u8bad\u5e73\u53f0"}</h1>
-          <p>{"\u8bf7\u4f7f\u7528\u6559\u5e08\u6216\u5b66\u751f\u8d26\u53f7\u767b\u5f55\uff0c\u5b9e\u9a8c\u8fdb\u5ea6\u5c06\u4fdd\u5b58\u5230\u8bfe\u5802\u670d\u52a1\u5668\u3002"}</p>
-          <label className="form-row">
-            <span>{"\u8d26\u53f7"}</span>
-            <input value={loginForm.username} onChange={(event) => setLoginForm((current) => ({ ...current, username: event.target.value }))} />
-          </label>
-          <label className="form-row">
-            <span>{"\u5bc6\u7801"}</span>
-            <input type="password" value={loginForm.password} onChange={(event) => setLoginForm((current) => ({ ...current, password: event.target.value }))} />
-          </label>
-          {loginError ? <p className="form-error">{loginError}</p> : null}
-          <button className="primary-button" type="submit">{"\u767b\u5f55"}</button>
-        </form>
-      </div>
+      <LoginPortal
+        loginForm={loginForm}
+        setLoginForm={setLoginForm}
+        loginError={loginError}
+        onSubmit={handleLogin}
+      />
     );
   }
 
