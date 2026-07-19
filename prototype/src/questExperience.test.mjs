@@ -43,3 +43,49 @@ test("settlement names the verified stage and next unlock", () => {
   assert.equal(settlement.nextTitle, "全加器");
   assert.equal(settlement.score, 92);
 });
+
+test("student quest falls back from an unknown recommendation to the first eligible stage", () => {
+  const progress = { "half-adder": { attempts: 3, status: "in-progress" } };
+  const model = buildStudentQuestModel(groups, { id: "missing-stage" }, progress);
+
+  assert.equal(model.current.id, "half-adder");
+  assert.strictEqual(model.current, model.stages.find((stage) => stage.id === "half-adder"));
+  assert.equal(model.current.isCurrent, true);
+  assert.deepEqual(model.current.record, progress["half-adder"]);
+});
+
+test("student quest rejects locked and completed recommendations", () => {
+  for (const id of ["and-gate", "full-adder"]) {
+    const model = buildStudentQuestModel(groups, { id }, {});
+
+    assert.equal(model.current.id, "half-adder");
+    assert.equal(model.stages.filter((stage) => stage.isCurrent).length, 1);
+  }
+});
+
+test("student quest has no current stage for an empty route", () => {
+  const model = buildStudentQuestModel([], { id: "half-adder" }, {});
+
+  assert.equal(model.current, null);
+  assert.deepEqual(model.stages, []);
+});
+
+test("student quest has no current stage when the route is fully completed", () => {
+  const completedGroups = groups.map((group) => ({
+    ...group,
+    items: group.items.map((item) => ({ ...item, status: "completed" })),
+  }));
+  const model = buildStudentQuestModel(completedGroups, { id: "half-adder" }, {});
+
+  assert.equal(model.current, null);
+  assert.equal(model.stages.filter((stage) => stage.isCurrent).length, 0);
+});
+
+test("settlement falls back from a non-finite score", () => {
+  for (const score of [Number.NaN, Number.POSITIVE_INFINITY, "not-a-score"]) {
+    const settlement = buildQuestSettlement("half-adder", { passed: true, score }, groups);
+
+    assert.equal(settlement.score, 100);
+    assert.equal(Number.isFinite(settlement.score), true);
+  }
+});

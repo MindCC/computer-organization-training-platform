@@ -20,24 +20,27 @@ export function buildStudentQuestModel(routeGroups = [], recommended, progress =
     groupId: group.id,
     groupTitle: group.title,
   })));
-  const currentId = recommended?.id
-    ?? stages.find((stage) => stage.status !== "completed" && stage.status !== "locked")?.id
-    ?? stages.at(-1)?.id;
+  const isEligible = (stage) => stage.status !== "completed" && stage.status !== "locked";
+  const recommendedStage = stages.find((stage) => stage.id === recommended?.id);
+  const currentId = recommendedStage && isEligible(recommendedStage)
+    ? recommendedStage.id
+    : stages.find(isEligible)?.id;
+  const decoratedStages = stages.map((stage, index) => {
+    const previous = stages[index - 1];
+    return {
+      ...stage,
+      isCurrent: stage.id === currentId,
+      unlockRequirement: stage.status === "locked" && previous
+        ? `完成「${previous.title}」后解锁`
+        : "",
+      record: progress[stage.id] ?? {},
+    };
+  });
 
   return {
     chapters: routeGroups,
-    stages: stages.map((stage, index) => {
-      const previous = stages[index - 1];
-      return {
-        ...stage,
-        isCurrent: stage.id === currentId,
-        unlockRequirement: stage.status === "locked" && previous
-          ? `完成「${previous.title}」后解锁`
-          : "",
-        record: progress[stage.id] ?? {},
-      };
-    }),
-    current: stages.find((stage) => stage.id === currentId) ?? null,
+    stages: decoratedStages,
+    current: decoratedStages.find((stage) => stage.isCurrent) ?? null,
   };
 }
 
@@ -61,11 +64,12 @@ export function buildQuestSettlement(challengeId, result = {}, routeGroups = [])
 
   if (!result.passed || !stage) return null;
 
+  const score = Number(result.score ?? 100);
   return {
     challengeId,
     title: `${stage.title}已通过`,
     verified: "评测条件已全部满足",
-    score: Number(result.score ?? 100),
+    score: Number.isFinite(score) ? score : 100,
     nextId: next?.id ?? null,
     nextTitle: next?.title ?? "课程路线",
     errors: result.errors ?? [],
