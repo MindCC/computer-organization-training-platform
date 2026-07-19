@@ -1,6 +1,10 @@
 import { Play } from "@phosphor-icons/react";
 import { formatEstimatedMinutes } from "../courseRoute.js";
+import { buildStudentQuestModel, buildFirstUseSteps } from "../questExperience.js";
 import { CurrentMissionCard } from "./classroom/student/CurrentMissionCard.jsx";
+import { CurrentQuestPanel } from "./quest/CurrentQuestPanel.jsx";
+import { QuestMap } from "./quest/QuestMap.jsx";
+import { FirstUseGuide } from "./quest/FirstUseGuide.jsx";
 
 function NextStepCard({ challenge, progress, onEnter }) {
   return (
@@ -19,6 +23,8 @@ function NextStepCard({ challenge, progress, onEnter }) {
 }
 
 export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter }) {
+  const questModel = buildStudentQuestModel(routeGroups, nextRecommendedChallenge, progress);
+  const firstUseSteps = buildFirstUseSteps(progress);
   const recommended = nextRecommendedChallenge;
   const sortedGroups = routeGroups.map((group) => ({
     ...group,
@@ -97,81 +103,45 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
   }
 
   return (
-    <div className="route-map">
-      <header className="route-map-header">
-        <span className="eyebrow">{"\u4eca\u65e5\u4efb\u52a1"}</span>
-        <h1>课程路线地图</h1>
-        <p>从信号流动到逻辑门，再到加法器和 ALU——顺着运算器的装配线一步步走完电路路线。</p>
-      </header>
+    <main className="quest-student-home">
+      <FirstUseGuide
+        steps={firstUseSteps}
+        storageKey={`zcyl:quest-guide-dismissed:${typeof window !== "undefined" ? window.__USER_ID__ ?? "" : ""}`}
+      />
 
-      <div className="route-map-body">
-        <div className="route-map-overview">
-          <div className="route-map-stat-card metric-card">
+      <section className="quest-hero" aria-label="当前任务和操作">
+        <CurrentQuestPanel
+          stage={questModel.current}
+          record={questModel.current ? progress[questModel.current.id] : null}
+          onEnter={() => questModel.current && navigateToChallenge(questModel.current.id)}
+        />
+        <div className="quest-hero-stats">
+          <div className="quest-stat-card metric-card">
             <strong>{summary.completionRate}%</strong>
             <span>完成率</span>
           </div>
-          <div className="route-map-stat-card metric-card">
+          <div className="quest-stat-card metric-card">
             <strong>{summary.averageScore}</strong>
             <span>平均分</span>
           </div>
-          <div className="route-map-stat-card metric-card">
+          <div className="quest-stat-card metric-card">
             <strong>{summary.totalStudyMinutes} 分钟</strong>
             <span>累计耗时</span>
           </div>
-          <div className="route-map-stat-card metric-card">
+          <div className="quest-stat-card metric-card">
             <strong>{formatEstimatedMinutes(recommended?.estimatedMinutes)}</strong>
             <span>下一关预估</span>
           </div>
         </div>
-        <div className="route-map-main">
-          {recommended ? (
-            <NextStepCard
-              challenge={recommended}
-              progress={progress[recommended.id]}
-              onEnter={() => navigateToChallenge(recommended.id)}
-            />
-          ) : null}
+      </section>
 
-          {sortedGroups.map((group) => (
-            <section className="route-map-group" key={group.id}>
-              <div className="route-map-group-header">
-                <div>
-                  <h2>{group.title}</h2>
-                  <p>{group.description}</p>
-                </div>
-                <span className="route-map-group-progress">
-                  {group.completedCount} / {group.items.length}
-                </span>
-              </div>
-              <div className="route-map-cards">
-                {group.items.map((item) => (
-                  <button
-                    className={`route-card ${item.status}`}
-                    key={item.id}
-                    disabled={item.status === "locked"}
-                    onClick={() => navigateToChallenge(item.id)}
-                    type="button"
-                  >
-                    <div className="route-card-top">
-                      <span className={`route-card-status ${item.status}`}>
-                        {item.status === "completed" ? "已完成" : item.status === "in-progress" ? "进行中" : "未开始"}
-                      </span>
-                      <small>{formatEstimatedMinutes(item.estimatedMinutes)}</small>
-                    </div>
-                    <strong>{item.title}</strong>
-                    <p>{item.description}</p>
-                    <div className="route-card-footer">
-                      <span>得分 {item.bestScore}</span>
-                      <small>{item.attempts} 次尝试</small>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+      <QuestMap
+        model={questModel}
+        onSelect={(id) => navigateToChallenge(id)}
+      />
 
-        <aside className="route-map-sidebar">
+      <div className="quest-student-supplement">
+        <aside className="quest-student-sidebar">
           <div className="route-map-sidebar-card">
             <strong>学习状态</strong>
             <div className="route-map-stat">
@@ -210,6 +180,6 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
           </div>
         </aside>
       </div>
-    </div>
+    </main>
   );
 }

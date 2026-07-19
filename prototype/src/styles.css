@@ -7157,3 +7157,393 @@ body {
     padding: 10px;
   }
 }
+
+/* ═══════════════════════════════════════════
+   QUEST LEARNING MAP
+   ═══════════════════════════════════════════ */
+
+/* ─── Quest Student Home ─── */
+
+.quest-student-home {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 0 0 32px;
+  max-width: 100%;
+}
+
+/* ─── Quest Hero ─── */
+
+.quest-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) 0.8fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.quest-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.quest-stat-card.metric-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-strong);
+}
+
+.quest-stat-card.metric-card strong {
+  display: block;
+  font-family: "Manrope", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.quest-stat-card.metric-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+/* ─── Current Quest Panel ─── */
+
+.current-quest-panel {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgba(20, 58, 99, 0.14);
+  border-radius: var(--radius-xl);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-soft);
+}
+
+.current-quest-info h1 {
+  margin: 6px 0 10px;
+  font-family: "Manrope", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.current-quest-info p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.quest-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.quest-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.quest-fact svg {
+  color: var(--teal);
+}
+
+.quest-fact-score {
+  color: var(--gold);
+}
+
+.quest-primary-action {
+  justify-self: start;
+  min-width: 180px;
+}
+
+/* ─── Quest Map ─── */
+
+.quest-map {
+  padding: 8px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.quest-track {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  min-width: min-content;
+  padding: 4px 8px;
+}
+
+.quest-segment {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.quest-stage {
+  display: grid;
+  grid-template-areas:
+    "index body"
+    "lock lock";
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px 12px;
+  min-width: 148px;
+  max-width: 220px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+}
+
+.quest-stage:hover:not(:disabled) {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.quest-stage:focus-visible {
+  outline: 3px solid var(--teal);
+  outline-offset: 3px;
+}
+
+.quest-stage.completed {
+  border-color: var(--teal);
+  background: linear-gradient(135deg, #e5f7f1 0%, #d2f0e6 100%);
+}
+
+.quest-stage.current {
+  border-color: var(--gold);
+  background: linear-gradient(135deg, #fff9ed 0%, #fef3d5 100%);
+  box-shadow: 0 0 0 3px rgba(214, 143, 47, 0.2);
+}
+
+.quest-stage.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--soft);
+}
+
+.quest-stage-index {
+  grid-area: index;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--soft);
+  font-family: "Manrope", "Microsoft YaHei", "PingFang SC", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: var(--muted);
+}
+
+.quest-stage.completed .quest-stage-index {
+  background: var(--teal);
+  color: #fff;
+}
+
+.quest-stage.current .quest-stage-index {
+  background: var(--gold);
+  color: #fff;
+}
+
+.quest-stage-body {
+  grid-area: body;
+  display: flex;
+  flex-direction: column;
+}
+
+.quest-stage-body strong {
+  font-size: 0.88rem;
+  line-height: 1.25;
+}
+
+.quest-stage-body small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  margin-top: 2px;
+}
+
+.quest-stage-caret {
+  grid-area: body;
+  justify-self: end;
+  color: var(--gold);
+}
+
+.quest-lock-reason {
+  grid-area: lock;
+  grid-column: 1 / -1;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+
+.quest-connector {
+  display: block;
+  width: 36px;
+  height: 2px;
+  margin: 0 2px;
+  background: var(--line);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+.quest-stage.completed + .quest-connector {
+  background: var(--teal);
+}
+
+/* ─── Quest Student Supplement ─── */
+
+.quest-student-supplement {
+  margin-top: 8px;
+}
+
+.quest-student-sidebar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+/* ─── First-Use Guide ─── */
+
+.first-use-guide {
+  position: relative;
+  border: 1px solid var(--teal);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(135deg, #e5f7f1 0%, #d6f0ea 100%);
+  padding: 20px;
+  margin-bottom: 4px;
+}
+
+.first-use-guide-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.first-use-guide-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.first-use-guide-title svg {
+  color: var(--teal);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.first-use-guide-title strong {
+  display: block;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.first-use-guide-title span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 2px;
+}
+
+.first-use-dismiss {
+  flex-shrink: 0;
+  gap: 5px;
+  font-size: 0.8rem;
+  min-height: 34px;
+}
+
+.first-use-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.first-use-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(43, 169, 142, 0.18);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.first-use-step.completed {
+  color: var(--teal);
+  border-color: var(--teal);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.first-use-step-icon {
+  flex-shrink: 0;
+}
+
+.first-use-step.completed .first-use-step-icon {
+  color: var(--teal);
+}
+
+/* ─── Quest Mobile ─── */
+
+@media (max-width: 780px) {
+  .quest-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .quest-hero-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .quest-student-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .first-use-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .quest-track {
+    gap: 0;
+  }
+
+  .quest-stage {
+    min-width: 138px;
+    max-width: 180px;
+    padding: 10px;
+  }
+
+  .quest-connector {
+    width: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quest-stage,
+  .quest-primary-action {
+    transition: none;
+  }
+}

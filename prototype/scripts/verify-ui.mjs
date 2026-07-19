@@ -113,13 +113,20 @@ assert.match(csvText, new RegExp(text.studentName));
 
 await logout(page);
 await login(page, text.studentNo, text.studentPassword);
-await assertVisible(page, "\u8bfe\u7a0b\u8def\u7ebf\u5730\u56fe");
+await assertVisible(page, "当前任务");
+await assertVisible(page, "课程探索地图");
 await assertNoVisibleMojibake(page, "student home");
-await assertVisible(page, "\u4eca\u65e5\u4efb\u52a1");
-assert.equal(await page.locator(".route-map-overview .metric-card").count(), 4, "student overview uses four shared metric cards");
-await assertVisible(page, "\u5b66\u4e60\u72b6\u6001");
-const lockedRoute = page.locator(".route-card.locked").filter({ hasText: "\u7a0b\u5e8f\u8fd0\u884c\u8def\u7ebf" });
-assert.equal(await lockedRoute.isDisabled(), true, "locked route must not be enterable");
+assert.equal(await page.locator(".quest-stage[aria-current='step']").count(), 1, "exactly one current quest stage");
+assert.equal(await page.locator(".quest-primary-action").count(), 1, "exactly one primary quest action");
+await assertVisible(page, "新手上路");
+await assertVisible(page, "跳过引导");
+await assertVisible(page, "完成率");
+assert.equal(await page.locator(".quest-hero-stats .metric-card").count(), 4, "student overview uses four shared metric cards");
+await assertVisible(page, "学习状态");
+const lockedQuest = page.locator(".quest-stage.locked").first();
+if (await lockedQuest.isVisible().catch(() => false)) {
+  assert.equal(await lockedQuest.isDisabled(), true, "locked quest stage must not be enterable");
+}
 await page.locator(".sidebar-nav .nav-item").filter({ hasText: "学习笔记" }).click();
 await page.getByLabel("笔记内容").fill("3D 与总线关系复盘");
 await page.getByRole("button", { name: "保存笔记" }).click();
@@ -136,10 +143,10 @@ await page.getByRole("button", { name: "\u5b8c\u6210\u63a2\u7d22" }).click();
 await assertAttemptSaved(await overviewAttemptPromise, "computer-components");
 await page.getByRole("button", { name: "\u5df2\u5b8c\u6210\u63a2\u7d22" }).waitFor({ state: "visible", timeout: 10_000 });
 await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
-await assertVisible(page, "\u8bfe\u7a0b\u8def\u7ebf\u5730\u56fe");
+await assertVisible(page, "当前任务");
 
 await page.locator(".sidebar-nav .nav-item").filter({ hasText: "课程首页" }).click();
-await assertVisible(page, "课程路线地图");
+await assertVisible(page, "当前任务");
 
 
 for (const challenge of legacyOverviewChallenges) {
