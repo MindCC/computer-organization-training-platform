@@ -50,7 +50,9 @@ export function buildCourseRouteGroups(challenges = [], progress = {}) {
     id: group.id,
     title: group.title,
     description: group.description,
-    items: group.challengeIds.map((id) => buildRouteItem(id, challengeMap.get(id), progress[id], group.description)),
+    items: group.challengeIds.map((id, sequence) => (
+      buildRouteItem(id, challengeMap.get(id), progress[id], group.description, sequence)
+    )),
   }));
 }
 
@@ -78,18 +80,33 @@ export function findNextRecommendedChallenge(challenges = [], progress = {}) {
   return null;
 }
 
-function buildRouteItem(id, challenge, record = {}, fallbackDescription) {
+function buildRouteItem(id, challenge, record = {}, fallbackDescription, sequence) {
   const fallback = LEARNING_ITEM_MAP.get(id) ?? {};
+  const status = record.status ?? "not-started";
+  const estimatedMinutes = challenge?.estimatedMinutes ?? fallback.estimatedMinutes ?? 8;
 
   return {
     id,
     title: challenge?.title ?? fallback.title ?? id,
     description: challenge?.objective ?? fallbackDescription ?? fallback.shortTitle ?? "",
-    status: record.status ?? "not-started",
+    status,
+    statusLabel: routeStatusLabel(status),
     bestScore: record.bestScore ?? 0,
     attempts: record.attempts ?? 0,
-    estimatedMinutes: challenge?.estimatedMinutes ?? fallback.estimatedMinutes ?? 8,
+    estimatedMinutes,
+    estimatedLabel: formatEstimatedMinutes(estimatedMinutes),
+    sequence,
   };
+}
+
+function routeStatusLabel(status) {
+  return {
+    completed: "已完成",
+    "in-progress": "进行中",
+    locked: "未解锁",
+    "not-started": "未开始",
+    unlocked: "未开始",
+  }[status] ?? "未开始";
 }
 
 function buildRecommendation(id, challenge = {}) {

@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { CHALLENGES, LEARNING_ITEMS, buildInitialLearningProgress } from "./platformLogic.js";
 import { buildCourseRouteGroups, findNextRecommendedChallenge, formatEstimatedMinutes } from "./courseRoute.js";
@@ -68,4 +68,31 @@ test("estimated time never renders a negative or placeholder minute count", () =
   assert.equal(formatEstimatedMinutes(-1), "待评估");
   assert.equal(formatEstimatedMinutes(0), "待评估");
   assert.equal(formatEstimatedMinutes(8), "8 分钟");
+});
+
+test("course route items expose normalized status labels and stable display metadata", () => {
+  const progress = buildInitialLearningProgress();
+  progress["computer-components"].status = "completed";
+  progress["program-flow"].status = "in-progress";
+  const groups = buildCourseRouteGroups(CHALLENGES, progress);
+  const overview = groups.find((group) => group.id === "overview");
+
+  assert.deepEqual(overview.items.map((item) => item.sequence), [0, 1, 2]);
+  assert.equal(overview.items[0].status, "completed");
+  assert.equal(overview.items[0].statusLabel, "已完成");
+  assert.equal(overview.items[0].estimatedLabel, "8 分钟");
+  assert.equal(overview.items[1].status, "in-progress");
+  assert.equal(overview.items[1].statusLabel, "进行中");
+  assert.equal(overview.items[2].status, "locked");
+  assert.equal(overview.items[2].statusLabel, "未解锁");
+});
+
+test("course route items normalize missing progress to not-started", () => {
+  const groups = buildCourseRouteGroups(CHALLENGES, {});
+  const first = groups[0].items[0];
+
+  assert.equal(first.status, "not-started");
+  assert.equal(first.statusLabel, "未开始");
+  assert.equal(first.sequence, 0);
+  assert.equal(first.estimatedLabel, "8 分钟");
 });
