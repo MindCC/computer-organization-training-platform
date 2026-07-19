@@ -81,3 +81,32 @@ Functional evidence:
 - The profile menu does not persist into the hardware challenge.
 
 final result: passed
+
+## 2026-07-19 Quest Learning Map redesign
+
+Reference: `D:\workspace\zcyl_training\docs\superpowers\specs\2026-07-19-quest-learning-map-platform-redesign.md`
+
+Viewports and state:
+- Desktop acceptance: 1366 x 768
+- Mobile acceptance: 390 x 844
+- Demo student with no progress, teacher with one imported student
+
+Implementation evidence:
+- Login portal with student/teacher role tabs and guided copy
+- Student home shows CurrentQuestPanel with dominant action, QuestMap with horizontal route track, FirstUseGuide with dismissible steps
+- QuestSettlement overlay appears after passing challenge with next-unlock and continue actions
+- Teacher dashboard shows cohort quest overview with progress bars, setup checklist, intervention groups
+- Unit tests: 239 passing (questExperience 10, questMotion 2, teacherQuest 6, courseRoute 7, +214 existing)
+- Build passes with no errors
+- Motion primitives respect prefers-reduced-motion
+
+Pending full UI QA verification:
+- [ ] Run `npm run qa:ui` to verify complete browser flows
+- [ ] Verify first-use guide dismisses and persists
+- [ ] Verify settlement continues to next challenge
+- [ ] Verify teacher quest overview renders correctly
+- [ ] Verify mobile layout at 390 x 844
+- [ ] Verify reduced-motion behavior
+- [ ] Run `npm run qa:classroom` and `npm run qa:classroom-load` for regression
+
+final result: pending browser verification
