@@ -36,7 +36,7 @@ function ConnectionLine({ from, to, color, thickness = 0.006 }) {
 
 function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
   const meshRef = useRef(null);
-  const progress = useRef(Math.random()); // Random start position for each line
+  const progress = useRef(Math.random());
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     progress.current = (progress.current + delta * speed) % 1;
@@ -55,14 +55,9 @@ function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
   );
 }
 
-function AnimatedPart({
-  part,
-  autoAnimating,
-  explodeDistance,
-  isHighlighted,
-  onSelect,
-}) {
+function AnimatedPart({ part, autoAnimating, explodeDistance, isHighlighted, onSelect }) {
   const meshRef = useRef(null);
+  const localOffset = part.localOffset ?? [0, 0, 0];
 
   useFrame(({ clock }) => {
     if (!meshRef.current) return;
@@ -70,19 +65,22 @@ function AnimatedPart({
       ? 1 - Math.cos(clock.elapsedTime * 0.75)
       : explodeDistance;
     meshRef.current.position.set(
-      part.basePos[0] + part.explodeDir[0] * distance,
-      part.basePos[1] + part.explodeDir[1] * distance,
-      part.basePos[2] + part.explodeDir[2] * distance,
+      part.basePos[0] + part.explodeDir[0] * distance + localOffset[0],
+      part.basePos[1] + part.explodeDir[1] * distance + localOffset[1],
+      part.basePos[2] + part.explodeDir[2] * distance + localOffset[2],
     );
   });
 
   const scale = isHighlighted ? [1.2, 1.2, 1.2] : [1, 1, 1];
+  const rotation = part.rotation ?? [0, 0, 0];
+
   return (
     <mesh
       ref={meshRef}
       geometry={part.geo}
       material={part.mat}
-      position={part.position}
+      position={localOffset}
+      rotation={rotation}
       scale={scale}
       onClick={onSelect}
       castShadow
@@ -90,11 +88,11 @@ function AnimatedPart({
     >
       {isHighlighted && (
         <meshStandardMaterial
-          color={part.mat.color}
+          color={part.mat?.color}
           emissive="#ffa726"
           emissiveIntensity={0.5}
-          metalness={part.mat.metalness}
-          roughness={part.mat.roughness}
+          metalness={part.mat?.metalness ?? 0}
+          roughness={part.mat?.roughness ?? 0.5}
         />
       )}
     </mesh>
@@ -105,18 +103,16 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
   const prefersReducedMotion = typeof window !== "undefined"
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const shouldAutoPlay = autoPlay && !prefersReducedMotion;
-  const [mode, setMode] = useState(shouldAutoPlay ? "auto" : "step"); // "auto" | "step"
+  const [mode, setMode] = useState(shouldAutoPlay ? "auto" : "step");
   const [autoAnimating, setAutoAnimating] = useState(shouldAutoPlay);
   const [explodeDistance, setExplodeDistance] = useState(0);
-  const [currentStep, setCurrentStep] = useState(shouldAutoPlay ? 0 : 1); // 0 = all parts exploded, 1-8 = assembly steps
+  const [currentStep, setCurrentStep] = useState(shouldAutoPlay ? 0 : 1);
   const [selectedPart, setSelectedPart] = useState(null);
   const [showHint, setShowHint] = useState(true);
   const allParts = usePartPositions(explodeDistance);
 
-  // Auto-hide hint after 5s
   useEffect(() => { const t = setTimeout(() => setShowHint(false), 5000); return () => clearTimeout(t); }, []);
 
-  // Keyboard shortcuts
   useEffect(() => {
     function onKey(e) {
       if (mode !== "step") return;
@@ -128,13 +124,25 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
     return () => window.removeEventListener("keydown", onKey);
   }, [mode, currentStep]);
 
-  // Filter parts by current step
+  // Filter parts by current step (match by parentId or id)
   const visibleParts = useMemo(() => {
     if (mode === "auto" || currentStep === 0) return allParts;
     const stepData = ASSEMBLY_STEPS[currentStep - 1];
     if (!stepData) return allParts;
-    return allParts.filter((p) => stepData.partIds.includes(p.id));
+    const stepPartIds = stepData.partIds;
+    return allParts.filter((p) => stepPartIds.includes(p.parentId ?? p.id));
   }, [mode, currentStep, allParts]);
+
+  // Unique parent parts for the part list (dedupe by parentId)
+  const uniqueParts = useMemo(() => {
+    const seen = new Set();
+    return visibleParts.filter((p) => {
+      const key = p.parentId ?? p.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [visibleParts]);
 
   const stepData = currentStep > 0 ? ASSEMBLY_STEPS[currentStep - 1] : null;
   const showConnections = stepData?.showConnections ?? false;
@@ -152,7 +160,8 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
         )}
       >
         {visibleParts.map((part) => {
-          const isHighlighted = stepData?.highlight === part.id;
+          const parentId = part.parentId ?? part.id;
+          const isHighlighted = stepData?.highlight === parentId;
           return (
             <AnimatedPart
               key={part.id}
@@ -174,7 +183,7 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
             ))}
           </>
         )}
-        {visibleParts.some((p) => p.id === "motherboard") && MOBO_DETAILS.map((d, i) => (
+        {uniqueParts.some((p) => (p.parentId ?? p.id) === "motherboard") && MOBO_DETAILS.map((d, i) => (
           <mesh key={`mobo-${i}`} geometry={d.geo} material={d.mat} position={d.pos} />
         ))}
       </ComputerExplodedView>
@@ -193,23 +202,24 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
       </div>
 
       <div className="exploded-part-list" aria-label="部件列表">
-        {visibleParts.map((part) => (
-          <button
-            aria-label={`查看 ${part.label} 部件`}
-            aria-pressed={selectedPart?.id === part.id}
-            key={part.id}
-            onClick={() => setSelectedPart(
-              selectedPart?.id === part.id ? null : part,
-            )}
-            type="button"
-          >
-            <span>{part.label}</span>
-            <small>{part.fiveElement}</small>
-          </button>
-        ))}
+        {uniqueParts.map((part) => {
+          const parentId = part.parentId ?? part.id;
+          return (
+            <button
+              aria-label={`查看 ${part.label} 部件`}
+              aria-pressed={selectedPart?.parentId === parentId || selectedPart?.id === parentId}
+              key={parentId}
+              onClick={() => setSelectedPart(selectedPart?.parentId === parentId || selectedPart?.id === parentId ? null : part)}
+              type="button"
+            >
+              <span>{part.label}</span>
+              <small>{part.fiveElement}</small>
+            </button>
+          );
+        })}
       </div>
 
-      {/* Bottom bar: step controls (step mode only) */}
+      {/* Bottom bar: step controls */}
       {mode === "step" && (
         <div className="exploded-stepbar">
           <button onClick={() => setCurrentStep(Math.max(1, currentStep - 1))} disabled={currentStep <= 1} type="button">◀ 上一步</button>
@@ -288,7 +298,7 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
       {/* Operation hint */}
       {showHint && (
         <div className="exploded-hint-bar">
-          🖱 拖拽旋转 &nbsp;·&nbsp; 滚轮缩放 &nbsp;·&nbsp; 右键平移 &nbsp;·&nbsp; 点击部件查看详情
+          🖱 拖拽旋转 · 滚轮缩放 · 右键平移 · 点击部件查看详情
         </div>
       )}
     </div>
