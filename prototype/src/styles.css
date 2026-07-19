@@ -7625,3 +7625,271 @@ body {
     backdrop-filter: none;
   }
 }
+
+/* ═══════════════════════════════════════════
+   TEACHER QUEST
+   ═══════════════════════════════════════════ */
+
+/* ─── Teacher Quest Overview ─── */
+
+.teacher-quest-overview {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface-strong);
+  margin-bottom: 14px;
+}
+
+.teacher-quest-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.teacher-quest-header svg {
+  color: var(--navy);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.teacher-quest-header h2 {
+  margin: 2px 0 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.teacher-quest-total {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.teacher-quest-track {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.teacher-quest-stage {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink);
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.teacher-quest-stage:hover {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.teacher-quest-stage.completed {
+  border-color: var(--teal);
+  background: linear-gradient(135deg, #e5f7f1 0%, #d6f0ea 100%);
+}
+
+.teacher-quest-stage-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.teacher-quest-stage-top strong {
+  font-size: 0.88rem;
+}
+
+.teacher-quest-bar-shell {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.teacher-quest-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--teal);
+  transition: width 300ms ease;
+  min-width: 2px;
+}
+
+.teacher-quest-stage-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.teacher-quest-stage-meta span {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.teacher-quest-blocker {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.68rem;
+  color: var(--danger);
+  line-height: 1.3;
+}
+
+/* ─── Teacher Setup Checklist ─── */
+
+.teacher-setup-checklist {
+  padding: 16px;
+  border: 1px solid var(--gold);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, #fff9ed 0%, #fef3d5 100%);
+  margin-bottom: 14px;
+}
+
+.teacher-setup-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.teacher-setup-header svg {
+  color: var(--gold);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.teacher-setup-header h2 {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.teacher-setup-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.teacher-setup-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(214, 143, 47, 0.2);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.teacher-setup-step.completed {
+  color: var(--teal);
+  border-color: var(--teal);
+}
+
+.teacher-setup-step.completed svg {
+  color: var(--teal);
+}
+
+/* ─── Intervention Groups ─── */
+
+.intervention-groups {
+  margin-bottom: 14px;
+}
+
+.intervention-groups-header {
+  margin-bottom: 10px;
+}
+
+.intervention-groups-header h2 {
+  margin: 2px 0 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.intervention-group-list {
+  display: grid;
+  gap: 8px;
+}
+
+.intervention-group {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-strong);
+}
+
+.intervention-group.intervention-danger {
+  border-left: 4px solid var(--danger);
+  background: var(--danger-soft);
+}
+
+.intervention-group.intervention-warn {
+  border-left: 4px solid var(--gold);
+}
+
+.intervention-group.intervention-success {
+  border-left: 4px solid var(--teal);
+}
+
+.intervention-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.intervention-group-header svg {
+  flex-shrink: 0;
+}
+
+.intervention-danger .intervention-group-header svg {
+  color: var(--danger);
+}
+
+.intervention-group-header strong {
+  flex: 1;
+  font-size: 0.92rem;
+}
+
+.intervention-action {
+  flex-shrink: 0;
+}
+
+.intervention-student-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.intervention-student-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+@media (max-width: 780px) {
+  .teacher-quest-track {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .teacher-setup-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

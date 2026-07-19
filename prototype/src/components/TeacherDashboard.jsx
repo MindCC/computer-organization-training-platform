@@ -9,6 +9,11 @@ import { SessionStudentGrid } from "./classroom/teacher/SessionStudentGrid.jsx";
 import { SessionReportPanel } from "./classroom/teacher/SessionReportPanel.jsx";
 import { SessionHeatmap } from "./classroom/teacher/SessionHeatmap.jsx";
 import { TeacherAssignments } from "./TeacherAssignments.jsx";
+import { TeacherQuestOverview } from "./teacher/TeacherQuestOverview.jsx";
+import { TeacherSetupChecklist } from "./teacher/TeacherSetupChecklist.jsx";
+import { InterventionGroups } from "./teacher/InterventionGroups.jsx";
+import { buildTeacherQuestModel, buildTeacherSetupSteps, buildInterventionGroups } from "../teacherQuest.js";
+import { buildCourseRouteGroups } from "../courseRoute.js";
 
 function statusText(status) {
   return { completed: "已完成", "in-progress": "进行中", unlocked: "未开始", locked: "未解锁" }[status] ?? status;
@@ -136,6 +141,27 @@ export function TeacherStudioDashboard({
         <section className="teacher-studio-main">
           {/* Classroom Command Center */}
           <ClassroomCommandCenter teacherSession={teacherSession} />
+
+          {/* Teacher Quest Overview */}
+          {(() => {
+            if (!selectedTeacherClassId) return null;
+            const routeGroups = buildCourseRouteGroups(LEARNING_ITEMS, classOverview?.summary ?? {});
+            const questModel = buildTeacherQuestModel(routeGroups, students);
+            const setupSteps = buildTeacherSetupSteps({
+              hasClass: Boolean(selectedClass),
+              studentCount: students.length,
+              hasMission: Boolean(teacherSession?.viewModel?.active),
+              hasStartedSession: teacherSession?.viewModel?.status === "live",
+            });
+            const interventionGroups = buildInterventionGroups(students);
+            return (
+              <>
+                <TeacherSetupChecklist steps={setupSteps} />
+                <TeacherQuestOverview model={questModel} onSelectStage={(stageId) => {}} />
+                <InterventionGroups groups={interventionGroups} onAction={(groupId, students) => {}} />
+              </>
+            );
+          })()}
 
           {selectedTeacherClassId && <TeacherAssignments classId={selectedTeacherClassId} />}
 
