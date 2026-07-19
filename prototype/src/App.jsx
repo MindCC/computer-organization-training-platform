@@ -645,6 +645,7 @@ export function App() {
 
   async function handleLogout() {
     await api.logout();
+    setShowUserPanel(false);
     setAuth({ status: "anonymous", user: null });
     setProgress(buildInitialLearningProgress());
     setNotes([]);
@@ -652,11 +653,13 @@ export function App() {
   }
 
   function changeView(view) {
+    setShowUserPanel(false);
     setActiveView(view);
     setStatusMessage(`已切换到${navItems.find((item) => item.id === view)?.label ?? "当前页面"}。`);
   }
 
   function navigateToChallenge(challengeId) {
+    setShowUserPanel(false);
     if (challengeId && challengeId.startsWith("game-")) {
       setSelectedHardwareCaseId(challengeId);
       setActiveView("hardware-game");

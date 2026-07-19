@@ -50,3 +50,34 @@ patches made since the previous QA pass:
 - Adjusted the mobile breakpoint so the route map becomes a vertical learning flow instead of causing horizontal overflow.
 
 final result: passed
+
+## 2026-07-19 Precision Workshop redesign
+
+Reference: `C:\Users\shaolijiang\.codex\generated_images\019f7516-3c10-7020-a8cf-9e38f0d43a5c\exec-7045b40c-41f5-459f-a366-cccb44d39cac.png`
+
+Implementation captures:
+- `qa-artifacts/product-design-desktop.png`
+- `qa-artifacts/product-design-mobile.png`
+- `qa-artifacts/precision-workshop-desktop.png`
+
+Viewports and state:
+- Reference comparison: 1488 x 1058
+- Desktop acceptance: 1366 x 768
+- Mobile acceptance: 390 x 844
+- Demo student, office PC challenge, memory catalog open, 16GB memory selected
+
+Comparison findings:
+- [P1 fixed] The profile menu stayed open across navigation and obscured the parts catalog. It now closes on navigation, challenge entry, and logout.
+- [P2 fixed] The student overview did not use the shared metric-card contract and retained its old eyebrow label. It now exposes four shared metric cards and the localized task label.
+- [P2 fixed] The mobile bottom navigation exposed a native horizontal scrollbar. Touch scrolling remains available while the native scrollbar is hidden.
+- [Pass] The final full and focused views have no cropped hardware, overlapping panels, placeholder boxes, broken spacing, or blocking interaction defects.
+
+Functional evidence:
+- Four numbered hotspots select CPU, memory, storage, and GPU catalogs.
+- Catalog choices update selection state, budget use, score, quote, and profit.
+- The workbench uses a real raster assembly asset and contains no placeholder canvas boxes.
+- Desktop and mobile layouts have no document-level horizontal overflow.
+- The mobile navigation remains fixed and reachable.
+- The profile menu does not persist into the hardware challenge.
+
+final result: passed

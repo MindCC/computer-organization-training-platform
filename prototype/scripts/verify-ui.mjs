@@ -110,6 +110,8 @@ await logout(page);
 await login(page, text.studentNo, text.studentPassword);
 await assertVisible(page, "\u8bfe\u7a0b\u8def\u7ebf\u5730\u56fe");
 await assertNoVisibleMojibake(page, "student home");
+await assertVisible(page, "\u4eca\u65e5\u4efb\u52a1");
+assert.equal(await page.locator(".route-map-overview .metric-card").count(), 4, "student overview uses four shared metric cards");
 await assertVisible(page, "\u5b66\u4e60\u72b6\u6001");
 const lockedRoute = page.locator(".route-card.locked").filter({ hasText: "\u7a0b\u5e8f\u8fd0\u884c\u8def\u7ebf" });
 assert.equal(await lockedRoute.isDisabled(), true, "locked route must not be enterable");
@@ -152,6 +154,17 @@ for (const challenge of CIRCUIT_CHALLENGES.filter((item) => item.id !== "compute
 }
 
 await openHardwareGame(page);
+await page.locator(".hardware-workbench-image").waitFor({ state: "visible", timeout: 10_000 });
+assert.equal(await page.locator(".hardware-workbench-hotspot").count(), 4, "workbench exposes four selectable hardware hotspots");
+assert.equal(await page.locator(".hardware-workbench canvas").count(), 0, "hardware challenge does not fall back to primitive WebGL boxes");
+assert.equal(await page.locator(".hardware-workbench-image").evaluate((image) => image.naturalWidth >= 1200), true, "assembly asset is sharp enough for the classroom workbench");
+assert.equal(await page.locator(".profile-menu").count(), 0, "profile menu closes before entering the hardware workbench");
+await page.getByRole("button", { name: "\u9009\u62e9\u5185\u5b58" }).click();
+await page.getByRole("button", { name: /16GB \u5185\u5b58/ }).click();
+await assertVisible(page, "\u5df2\u9009 4 / 4");
+assert.equal(await page.getByRole("button", { name: /16GB \u5185\u5b58/ }).getAttribute("aria-pressed"), "true");
+await page.screenshot({ path: artifactPath("precision-workshop-desktop.png"), fullPage: true });
+
 await assertVisible(page, text.hardwareGame);
 await assertVisible(page, "\u7535\u8111\u88c5\u673a\u5e97\u7ecf\u8425\u6311\u6218");
 await assertVisible(page, "\u5ba2\u6237\u6ee1\u610f\u5ea6");
@@ -192,6 +205,9 @@ await page.setViewportSize({ width: 390, height: 900 });
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 await assertVisible(page, text.teacherHeading);
 await page.screenshot({ path: artifactPath("mobile-teacher.png"), fullPage: true });
+assert.equal(await page.locator(".sidebar-nav").evaluate((node) => getComputedStyle(node).position), "fixed", "mobile navigation stays reachable at the bottom");
+assert.equal(await page.locator(".sidebar-nav").evaluate((node) => getComputedStyle(node).scrollbarWidth), "none", "mobile navigation hides its horizontal scrollbar");
+assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, "mobile layout must not overflow horizontally");
 
 assert.deepEqual(pageErrors, [], "UI smoke must not emit page errors");
 console.log("UI smoke check passed");

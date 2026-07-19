@@ -99,26 +99,26 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
   return (
     <div className="route-map">
       <header className="route-map-header">
-        <span className="eyebrow">今日学习</span>
+        <span className="eyebrow">{"\u4eca\u65e5\u4efb\u52a1"}</span>
         <h1>课程路线地图</h1>
         <p>从信号流动到逻辑门，再到加法器和 ALU——顺着运算器的装配线一步步走完电路路线。</p>
       </header>
 
       <div className="route-map-body">
         <div className="route-map-overview">
-          <div className="route-map-stat-card">
+          <div className="route-map-stat-card metric-card">
             <strong>{summary.completionRate}%</strong>
             <span>完成率</span>
           </div>
-          <div className="route-map-stat-card">
+          <div className="route-map-stat-card metric-card">
             <strong>{summary.averageScore}</strong>
             <span>平均分</span>
           </div>
-          <div className="route-map-stat-card">
+          <div className="route-map-stat-card metric-card">
             <strong>{summary.totalStudyMinutes} 分钟</strong>
             <span>累计耗时</span>
           </div>
-          <div className="route-map-stat-card">
+          <div className="route-map-stat-card metric-card">
             <strong>{formatEstimatedMinutes(recommended?.estimatedMinutes)}</strong>
             <span>下一关预估</span>
           </div>
