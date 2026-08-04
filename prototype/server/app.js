@@ -19,6 +19,7 @@ import {
   deleteExpiredSessions,
   deleteNote,
   deleteSession,
+  deleteUserSession,
   disableStudent,
   enableStudent,
   getClassOverview,
@@ -30,6 +31,7 @@ import {
   listAuditLogs,
   listNotes,
   listTeacherClasses,
+  listUserSessions,
   migrate,
   openDatabase,
   recordStudentAttempt,
@@ -192,7 +194,10 @@ export function createApp(options = {}) {
       deleteExpiredSessions(db);
       const token = createToken();
       const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-      createSession(db, user.id, hashToken(token), expiresAt);
+      createSession(db, user.id, hashToken(token), expiresAt, {
+        ipAddress: req.ip ?? null,
+        userAgent: String(req.headers["user-agent"] ?? "").slice(0, 300) || null,
+      });
       try {
         writeAuditLog(db, {
           actorUserId: user.id,
@@ -369,6 +374,21 @@ export function createApp(options = {}) {
   app.get("/api/teacher/audit-logs", requireRole("teacher"), (req, res) => {
     const { action, from, to, page, pageSize } = req.query;
     res.json(listAuditLogs(db, { action, from, to, page, pageSize }));
+  });
+
+  app.get("/api/teacher/sessions", requireAuth, (req, res) => {
+    res.json({ sessions: listUserSessions(db, req.user.id) });
+  });
+
+  app.delete("/api/teacher/sessions/:id", requireAuth, (req, res) => {
+    const sessionId = Number(req.params.id);
+    if (req.sessionId === sessionId) {
+      return res.status(400).json({ error: "不能下线当前登录的会话，请使用退出登录" });
+    }
+    const deleted = deleteUserSession(db, req.user.id, sessionId);
+    if (!deleted) return res.status(404).json({ error: "会话不存在" });
+    audit(req, "disable_student", { targetType: "session", targetId: sessionId, metadata: { logout: true } });
+    res.json({ ok: true });
   });
 
   app.put("/api/teacher/classes/:id/skip-locked", requireRole("teacher"), (req, res) => {
@@ -653,6 +673,7 @@ function loadSession(db) {
       if (user) {
         req.user = user;
         req.sessionTokenHash = tokenHash;
+        req.sessionId = db.prepare("SELECT id FROM sessions WHERE token_hash = ?").get(tokenHash)?.id ?? null;
       }
     }
     next();

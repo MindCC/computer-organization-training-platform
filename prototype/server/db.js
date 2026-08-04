@@ -93,6 +93,9 @@ export function migrate(db) {
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       token_hash TEXT NOT NULL UNIQUE,
       expires_at TEXT NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      last_active_at TEXT,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
@@ -219,6 +222,9 @@ export function migrate(db) {
   ensureColumn(db, "classes", "allow_skip_locked", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "challenge_attempts", "session_id", "INTEGER REFERENCES classroom_sessions(id)");
   ensureColumn(db, "challenge_attempts", "client_submission_id", "TEXT");
+  ensureColumn(db, "sessions", "ip_address", "TEXT");
+  ensureColumn(db, "sessions", "user_agent", "TEXT");
+  ensureColumn(db, "sessions", "last_active_at", "TEXT");
   db.exec(`
     CREATE UNIQUE INDEX IF NOT EXISTS idx_active_session_per_class
     ON classroom_sessions(class_id)
@@ -546,8 +552,9 @@ export function getTeacherStudentDetail(db, teacherId, studentId, classId = null
   };
 }
 
-export function createSession(db, userId, tokenHash, expiresAt) {
-  db.prepare("INSERT INTO sessions (user_id, token_hash, expires_at) VALUES (?, ?, ?)").run(userId, tokenHash, expiresAt.toISOString());
+export function createSession(db, userId, tokenHash, expiresAt, metadata = {}) {
+  db.prepare("INSERT INTO sessions (user_id, token_hash, expires_at, ip_address, user_agent, last_active_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)")
+    .run(userId, tokenHash, expiresAt.toISOString(), metadata.ipAddress ?? null, metadata.userAgent ?? null);
 }
 
 export function getSessionUser(db, tokenHash) {
@@ -555,7 +562,27 @@ export function getSessionUser(db, tokenHash) {
     SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP AND u.status = 'active'
   `).get(tokenHash);
+  if (row) {
+    db.prepare("UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE token_hash = ?").run(tokenHash);
+  }
   return row ?? null;
+}
+
+/** 列出用户的活跃 session（不含 token_hash，避免泄露凭据）。 */
+export function listUserSessions(db, userId) {
+  return db.prepare(`
+    SELECT id, ip_address AS ipAddress, user_agent AS userAgent,
+           last_active_at AS lastActiveAt, created_at AS createdAt, expires_at AS expiresAt
+    FROM sessions
+    WHERE user_id = ? AND expires_at > CURRENT_TIMESTAMP
+    ORDER BY last_active_at DESC
+  `).all(userId);
+}
+
+/** 删除指定用户的一条 session（用于一键下线）。 */
+export function deleteUserSession(db, userId, sessionId) {
+  const result = db.prepare("DELETE FROM sessions WHERE id = ? AND user_id = ?").run(sessionId, userId);
+  return result.changes > 0;
 }
 
 export function deleteSession(db, tokenHash) {

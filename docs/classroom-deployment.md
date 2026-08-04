@@ -75,6 +75,21 @@ npm run qa:performance
 npm run qa:classroom
 ```
 
+## Cookie 配置（安全）
+
+会话 cookie 由后端 `serializeCookie` 统一生成：
+
+- `HttpOnly`：脚本不可读，防 XSS 窃取会话。
+- `SameSite=Lax`：阻止跨站请求携带 cookie，缓解 CSRF（服务端另有 Origin 校验）。
+- `Secure`：设置环境变量 `COOKIE_SECURE=1` 后在 HTTPS 下启用；HTTP 部署不启用。
+- 会话有效期 7 天，`/api/auth/logout` 清除。
+
+启用 Secure 的示例（Nginx 反代 + HTTPS）：
+
+```bash
+COOKIE_SECURE=1 node server/server.js
+```
+
 ## Rollback
 
 To roll back: restore the backed-up SQLite file. The migration is additive and backward-compatible — old clients submit without `clientSubmissionId` and continue working as ordinary practice.

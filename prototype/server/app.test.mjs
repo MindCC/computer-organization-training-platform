@@ -988,3 +988,86 @@ test("skip-locked toggle allows students to submit locked challenges when enable
     db.close();
   }
 });
+
+test("teacher can list and revoke own sessions; student password change enforces strength hints", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  const studentJar = {};
+  try {
+    // 教师登录两次（两个 session）
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    const secondJar = {};
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, secondJar);
+    assert.equal(result.response.status, 200);
+
+    // 列出 session（≥2 个）
+    result = await request(baseUrl, "/api/teacher/sessions", {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.ok(result.body.sessions.length >= 2, "two logins create two sessions");
+    const serialized = JSON.stringify(result.body);
+    assert.equal(serialized.includes("token"), false, "session list never exposes tokens");
+
+    // 当前 session（sessions[0]，刚被 GET touch 过 last_active_at）不能下线
+    const currentId = result.body.sessions[0].id;
+    result = await request(baseUrl, `/api/teacher/sessions/${currentId}`, { method: "DELETE" }, teacherJar);
+    assert.equal(result.response.status, 400, "cannot revoke the session currently in use");
+    result = await request(baseUrl, "/api/teacher/sessions", {}, teacherJar);
+    assert.ok(result.body.sessions.length >= 2, "current session not revoked");
+
+    // 下线一个非当前 session
+    const other = result.body.sessions.find((s) => s.id !== currentId);
+    result = await request(baseUrl, `/api/teacher/sessions/${other.id}`, { method: "DELETE" }, teacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/teacher/sessions", {}, teacherJar);
+    assert.ok(result.body.sessions.every((s) => s.id !== other.id), "revoked session disappears");
+
+    // 学生：先建班级导入学生
+    result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "密码测试班" }),
+    }, teacherJar);
+    const classId = result.body.class?.id ?? result.body.id;
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: "p001,密码学生,Student123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "p001", password: "Student123!" }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+
+    // 弱密码被拒
+    result = await request(baseUrl, "/api/auth/change-password", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ currentPassword: "Student123!", nextPassword: "short" }),
+    }, studentJar);
+    assert.equal(result.response.status, 400, "short password rejected");
+
+    // 强密码成功
+    result = await request(baseUrl, "/api/auth/change-password", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ currentPassword: "Student123!", nextPassword: "StrongNewPass456!" }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});

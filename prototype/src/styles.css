@@ -8195,3 +8195,103 @@ body {
   accent-color: var(--teal);
   cursor: pointer;
 }
+
+/* P2-E: 修改密码 + 强度条 */
+.settings-divider {
+  margin: 18px 0;
+  border: none;
+  border-top: 1px solid var(--line);
+}
+
+.change-password-form {
+  display: grid;
+  gap: 10px;
+}
+
+.change-password-form .eyebrow {
+  color: var(--teal);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.password-strength-bar {
+  display: block;
+  width: 90px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--line);
+  position: relative;
+  overflow: hidden;
+}
+
+.password-strength-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 33%;
+  border-radius: 3px;
+  background: var(--danger, #ef5350);
+}
+
+.password-strength-medium .password-strength-bar::after {
+  width: 66%;
+  background: #fbbf24;
+}
+
+.password-strength-strong .password-strength-bar::after {
+  width: 100%;
+  background: #34d399;
+}
+
+.note-success {
+  color: #34d399;
+  font-size: 0.82rem;
+}
+
+.note-error {
+  color: var(--danger, #ef5350);
+  font-size: 0.82rem;
+}
+
+/* P2-E: 活跃会话 */
+.teacher-session-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.teacher-session-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.teacher-session-info {
+  display: grid;
+  gap: 2px;
+}
+
+.teacher-session-info strong {
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.teacher-session-info small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../apiClient.js";
+import { passwordStrength } from "../passwordStrength.js";
 
 const AUDIT_ACTION_LABELS = {
   login_success: "登录成功",
@@ -33,6 +34,8 @@ export function SettingsModal({
   const [auditLogs, setAuditLogs] = useState(null);
   const [auditError, setAuditError] = useState("");
   const [auditAction, setAuditAction] = useState("");
+  const [sessions, setSessions] = useState(null);
+  const [sessionError, setSessionError] = useState("");
 
   useEffect(() => {
     if (!isTeacher) return;
@@ -52,6 +55,24 @@ export function SettingsModal({
       .catch((error) => { if (!cancelled) setAuditError(error.message); });
     return () => { cancelled = true; };
   }, [isTeacher, auditAction]);
+
+  useEffect(() => {
+    if (!isTeacher) return;
+    let cancelled = false;
+    api.sessions()
+      .then((data) => { if (!cancelled) setSessions(data.sessions ?? []); })
+      .catch((error) => { if (!cancelled) setSessionError(error.message); });
+    return () => { cancelled = true; };
+  }, [isTeacher]);
+
+  async function revokeSession(sessionId) {
+    try {
+      await api.revokeSession(sessionId);
+      setSessions((current) => current.filter((s) => s.id !== sessionId));
+    } catch (error) {
+      setSessionError(error.message ?? "下线会话失败");
+    }
+  }
 
   return (
     <div className="settings-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
@@ -212,9 +233,39 @@ export function SettingsModal({
               ) : (
                 <p className="empty-state">正在加载审计日志...</p>
               )}
-            </section>
-          </>
-        ) : (
+              </section>
+
+              <section className="settings-block teacher-session-settings">
+              <div>
+              <span className="eyebrow">活跃会话</span>
+              <h3>登录设备管理</h3>
+              <p>查看当前账号的活跃登录，可一键下线可疑设备。下线后该设备需重新登录。</p>
+              </div>
+              {sessionError ? <p className="teacher-ai-warning">{sessionError}</p> : null}
+              {sessions ? (
+              sessions.length > 0 ? (
+                <div className="teacher-session-list">
+                  {sessions.map((entry) => (
+                    <div className="teacher-session-row" key={entry.id}>
+                      <div className="teacher-session-info">
+                        <strong>{describeUserAgent(entry.userAgent)}</strong>
+                        <small>{entry.ipAddress ?? "未知 IP"} · {formatAuditTime(entry.lastActiveAt ?? entry.createdAt)}</small>
+                      </div>
+                      <button className="ghost-button danger" onClick={() => revokeSession(entry.id)} type="button">
+                        下线
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-state">当前没有活跃会话。</p>
+              )
+              ) : (
+              <p className="empty-state">正在加载会话...</p>
+              )}
+              </section>
+              </>
+              ) : (
           <section className="settings-block">
             <label className="form-row">
               <span>姓名</span>
@@ -235,6 +286,9 @@ export function SettingsModal({
             <button className="primary-button" onClick={saveStudentSettings} type="button">
               保存设置
             </button>
+
+            <hr className="settings-divider" />
+            <ChangePasswordBlock />
           </section>
         )}
       </div>
@@ -247,4 +301,81 @@ function formatAuditTime(value) {
   const date = new Date(value.includes("T") ? value : value.replace(" ", "T") + "Z");
   if (Number.isNaN(date.getTime())) return String(value);
   return date.toLocaleString("zh-CN", { hour12: false });
+}
+
+function describeUserAgent(userAgent) {
+  if (!userAgent) return "未知设备";
+  if (/Chrome/.test(userAgent) && !/Edg/.test(userAgent)) return "Chrome 浏览器";
+  if (/Edg/.test(userAgent)) return "Edge 浏览器";
+  if (/Firefox/.test(userAgent)) return "Firefox 浏览器";
+  if (/Safari/.test(userAgent)) return "Safari 浏览器";
+  if (/node/i.test(userAgent)) return "API 客户端";
+  return String(userAgent).slice(0, 40);
+}
+
+function ChangePasswordBlock() {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [nextPassword, setNextPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState(""); // success | error
+  const [busy, setBusy] = useState(false);
+  const strength = passwordStrength(nextPassword);
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setMessage("");
+    if (nextPassword !== confirmPassword) {
+      setMessageType("error");
+      setMessage("两次输入的新密码不一致");
+      return;
+    }
+    if (strength.score === "weak") {
+      setMessageType("error");
+      setMessage("密码强度太弱：至少 8 位并包含字母和数字或特殊字符");
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.changePassword({ currentPassword, nextPassword });
+      setMessageType("success");
+      setMessage("密码修改成功");
+      setCurrentPassword("");
+      setNextPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      setMessageType("error");
+      setMessage(error.message ?? "密码修改失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="change-password-form" onSubmit={handleSubmit}>
+      <span className="eyebrow">修改密码</span>
+      <label className="form-row">
+        <span>当前密码</span>
+        <input autoComplete="current-password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+      </label>
+      <label className="form-row">
+        <span>新密码</span>
+        <input autoComplete="new-password" type="password" value={nextPassword} onChange={(e) => setNextPassword(e.target.value)} />
+      </label>
+      {nextPassword ? (
+        <div className={`password-strength password-strength-${strength.score}`} aria-label={`密码强度：${strength.label}`}>
+          <span className="password-strength-bar" />
+          <small>密码强度：{strength.label}</small>
+        </div>
+      ) : null}
+      <label className="form-row">
+        <span>确认新密码</span>
+        <input autoComplete="new-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+      </label>
+      {message ? <p className={messageType === "error" ? "note-error" : "note-success"}>{message}</p> : null}
+      <button className="primary-button" disabled={busy} type="submit">
+        {busy ? "提交中..." : "修改密码"}
+      </button>
+    </form>
+  );
 }

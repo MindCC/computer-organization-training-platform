@@ -92,4 +92,6 @@ export const api = {
     return apiRequest(`/api/teacher/audit-logs${query ? `?${query}` : ""}`);
   },
   setSkipLocked: (classId, allow) => apiRequest(`/api/teacher/classes/${classId}/skip-locked`, { method: "PUT", body: JSON.stringify({ allow }) }),
+  sessions: () => apiRequest("/api/teacher/sessions"),
+  revokeSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}`, { method: "DELETE" }),
 };
