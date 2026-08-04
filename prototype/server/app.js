@@ -48,6 +48,7 @@ import { createAssignmentRepository } from "./assignmentRepository.js";
 import { createAssignmentService } from "./assignmentService.js";
 import { createAssignmentRouter } from "./assignmentRoutes.js";
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
+import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_NAME = "zcyl_session";
@@ -301,6 +302,28 @@ export function createApp(options = {}) {
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename=class-${classId}-scores.csv`);
     res.send(renderScoresCsv(overview.students));
+  });
+
+  app.get("/api/teacher/classes/:id/archive.zip", requireRole("teacher"), (req, res, next) => {
+    try {
+      const classId = Number(req.params.id);
+      if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
+      const overview = getClassOverview(db, classId);
+      const klass = db.prepare("SELECT id, name FROM classes WHERE id = ?").get(classId);
+      const zip = buildClassArchive({
+        db,
+        classId,
+        className: klass?.name ?? `class-${classId}`,
+        students: overview.students,
+        summary: overview.summary,
+      });
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename=${encodeURIComponent(archiveFileName(klass?.name, classId))}`);
+      res.setHeader("Content-Length", zip.length);
+      res.send(zip);
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post("/api/teacher/students/:studentId/reset-password", requireRole("teacher"), async (req, res, next) => {

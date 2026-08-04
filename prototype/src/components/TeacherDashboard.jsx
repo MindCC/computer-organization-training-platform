@@ -216,6 +216,7 @@ export function TeacherStudioDashboard({
               </div>
               <div className="teacher-action-row">
                 {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/export.csv"}>导出 CSV</a> : null}
+                {selectedTeacherClassId ? <a className="ghost-button" href={"/api/teacher/classes/" + selectedTeacherClassId + "/archive.zip"}>导出成绩包</a> : null}
               </div>
             </div>
             <div className="record-table teacher-student-table">

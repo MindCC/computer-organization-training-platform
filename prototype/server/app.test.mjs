@@ -683,3 +683,78 @@ test("student import and backup never expose recoverable initial passwords", asy
     fs.rmSync(tempDirectory, { recursive: true, force: true });
   }
 });
+
+test("teacher can download class archive.zip with 5 files, no secrets, fast enough for 150 students", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  const studentJar = {};
+  try {
+    // 登录教师
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    // 创建班级并导入 150 名学生
+    result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "150人班" }),
+    }, teacherJar);
+    assert.ok([200, 201].includes(result.response.status), "create class should succeed");
+    const classId = result.body.class?.id ?? result.body.id;
+
+    const csvLines = [];
+    for (let i = 1; i <= 150; i++) {
+      const username = `load${String(i).padStart(3, "0")}`;
+      csvLines.push(`${username},学生${i},Student123!`);
+    }
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: csvLines.join("\n") }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    // 一个学生登录并提交一次
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "load001", password: "Student123!" }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ challengeId: "computer-components", result: { passed: true, score: 92, errors: [], elapsedMinutes: 5 } }),
+    }, studentJar);
+    assert.ok([200, 201].includes(result.response.status), "student attempt should succeed");
+
+    // 下载 archive.zip 并计时
+    const startedAt = Date.now();
+    const archiveResponse = await fetch(`${baseUrl}/api/teacher/classes/${classId}/archive.zip`, {
+      headers: { cookie: teacherJar.cookie },
+    });
+    const elapsedMs = Date.now() - startedAt;
+    assert.equal(archiveResponse.status, 200);
+    assert.match(archiveResponse.headers.get("content-type") ?? "", /application\/zip/);
+
+    const zipBytes = Buffer.from(await archiveResponse.arrayBuffer());
+    assert.ok(elapsedMs < 10_000, `archive export took ${elapsedMs}ms, must be under 10s`);
+    assert.ok(zipBytes.length > 200);
+
+    // ZIP 签名与中央目录
+    assert.equal(zipBytes.readUInt32LE(0), 0x04034b50);
+    const eocd = zipBytes.length - 22;
+    assert.equal(zipBytes.readUInt32LE(eocd), 0x06054b50);
+    assert.equal(zipBytes.readUInt16LE(eocd + 10), 5, "exactly 5 files in archive");
+
+    // 不含明文密码
+    assert.equal(zipBytes.includes(Buffer.from("Student123!", "utf8")), false, "no plaintext passwords in archive");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});
