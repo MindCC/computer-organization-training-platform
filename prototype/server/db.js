@@ -106,6 +106,20 @@ export function migrate(db) {
       applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      actor_user_id INTEGER,
+      actor_role TEXT,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      metadata_json TEXT,
+      ip_address TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_user_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
+
     CREATE TABLE IF NOT EXISTS classroom_sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
@@ -543,6 +557,59 @@ export function deleteSession(db, tokenHash) {
 
 export function deleteExpiredSessions(db) {
   db.prepare("DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP").run();
+}
+
+/**
+ * 写入一条审计日志（P2-A）。metadata 自动序列化为 JSON。
+ */
+export function writeAuditLog(db, { actorUserId = null, actorRole = null, action, targetType = null, targetId = null, metadata = {}, ipAddress = null }) {
+  const insert = db.prepare(`
+    INSERT INTO audit_logs (actor_user_id, actor_role, action, target_type, target_id, metadata_json, ip_address)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  insert.run(
+    actorUserId,
+    actorRole,
+    action,
+    targetType,
+    targetId != null ? String(targetId) : null,
+    JSON.stringify(metadata ?? {}),
+    ipAddress,
+  );
+}
+
+/**
+ * 查询审计日志（P2-A），支持按 action 和时间过滤 + 分页。
+ * 仅返回非敏感字段（无密码、session、cookie）。
+ */
+export function listAuditLogs(db, { action = null, from = null, to = null, page = 1, pageSize = 20 } = {}) {
+  const where = [];
+  const params = [];
+  if (action) { where.push("action = ?"); params.push(String(action)); }
+  if (from) { where.push("created_at >= ?"); params.push(String(from)); }
+  if (to) { where.push("created_at <= ?"); params.push(String(to)); }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const limit = Math.min(Math.max(Number(pageSize) || 20, 1), 100);
+  const offset = (Math.max(Number(page) || 1, 1) - 1) * limit;
+  const rows = db.prepare(`
+    SELECT id, actor_user_id AS actorUserId, actor_role AS actorRole, action,
+           target_type AS targetType, target_id AS targetId, metadata_json AS metadataJson,
+           ip_address AS ipAddress, created_at AS createdAt
+    FROM audit_logs
+    ${whereSql}
+    ORDER BY id DESC
+    LIMIT ? OFFSET ?
+  `).all(...params, limit, offset);
+  const total = db.prepare(`SELECT COUNT(*) AS count FROM audit_logs ${whereSql}`).get(...params).count;
+  return {
+    items: rows.map((row) => ({
+      ...row,
+      metadata: safeJson(row.metadataJson, {}),
+    })),
+    total,
+    page: Math.max(Number(page) || 1, 1),
+    pageSize: limit,
+  };
 }
 
 export function summarizeClass(students) {

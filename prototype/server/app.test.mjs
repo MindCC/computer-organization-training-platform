@@ -820,3 +820,84 @@ test("student mistake book aggregates failed attempts with error types after a f
     db.close();
   }
 });
+
+test("audit logs record 8 operation types and are queryable without secrets", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  const studentJar = {};
+  try {
+    // 登录成功/失败
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "WrongPass123" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 401);
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    // 创建班级 + 导入学生
+    result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "审计测试班" }),
+    }, teacherJar);
+    const classId = result.body.class?.id ?? result.body.id;
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: "a001,审计学生,Student123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    // 导出 CSV + archive.zip + AI 报告 + 备份
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/export.csv`, {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/archive.zip`, {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/assistant-report`, { method: "POST" }, teacherJar);
+    assert.ok([200, 201].includes(result.response.status));
+    result = await request(baseUrl, "/api/admin/backup", {}, teacherJar);
+    assert.equal(result.response.status, 400); // 内存库不支持备份，但应已尝试（不落库）
+
+    // 重置密码 + 停用/启用 + 归档
+    const studentId = db.prepare("SELECT id FROM users WHERE username = 'a001'").get().id;
+    result = await request(baseUrl, `/api/teacher/students/${studentId}/reset-password`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: "NewSecret456!" }) }, teacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, `/api/teacher/students/${studentId}/disable`, { method: "POST" }, teacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, `/api/teacher/students/${studentId}/enable`, { method: "POST" }, teacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/archive`, { method: "POST" }, teacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/unarchive`, { method: "POST" }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    // 查询审计日志：分页 + 过滤
+    result = await request(baseUrl, "/api/teacher/audit-logs", {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.ok(result.body.total >= 8, `expected >=8 audit entries, got ${result.body.total}`);
+    const actions = new Set(result.body.items.map((entry) => entry.action));
+    for (const expected of ["login_success", "login_failure", "import_students", "export_csv", "export_archive", "ai_report", "reset_password", "disable_student", "archive_class"]) {
+      assert.ok(actions.has(expected), `audit action ${expected} should be recorded`);
+    }
+
+    // 按 action 过滤
+    result = await request(baseUrl, "/api/teacher/audit-logs?action=export_csv", {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.ok(result.body.items.length >= 1);
+    assert.ok(result.body.items.every((entry) => entry.action === "export_csv"));
+
+    // 不包含敏感数据
+    const serialized = JSON.stringify(result.body) + JSON.stringify(await request(baseUrl, "/api/teacher/audit-logs", {}, teacherJar).then((r) => r.body));
+    assert.equal(serialized.includes("Student123!"), false, "no plaintext passwords in audit logs");
+    assert.equal(serialized.includes("NewSecret456!"), false, "no reset passwords in audit logs");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});

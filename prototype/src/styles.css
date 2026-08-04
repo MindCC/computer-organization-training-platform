@@ -8123,3 +8123,59 @@ body {
 .mistake-retry {
   justify-self: start;
 }
+
+/* P2-A: 审计日志 */
+.teacher-audit-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+}
+
+.teacher-audit-toolbar select {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.teacher-audit-toolbar small {
+  color: var(--muted);
+}
+
+.teacher-audit-list {
+  display: grid;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.teacher-audit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+
+.teacher-audit-action {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.teacher-audit-meta {
+  flex: 1;
+  color: var(--muted);
+}
+
+.teacher-audit-time {
+  color: var(--muted);
+  font-family: var(--mono, "JetBrains Mono", monospace);
+  font-size: 0.75rem;
+}

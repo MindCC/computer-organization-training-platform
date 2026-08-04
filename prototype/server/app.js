@@ -27,6 +27,7 @@ import {
   getTeacherStudentDetail,
   getUserById,
   getUserByUsername,
+  listAuditLogs,
   listNotes,
   listTeacherClasses,
   migrate,
@@ -38,6 +39,7 @@ import {
   unarchiveClass,
   updateNote,
   updateUserPassword,
+  writeAuditLog,
   updateUserProfile,
 } from "./db.js";
 import { CHALLENGES, LEARNING_ITEMS, summarizeLearning } from "../src/platformLogic.js";
@@ -64,6 +66,24 @@ export function createApp(options = {}) {
   const app = express();
   app.locals.db = db;
   app.locals.dbPath = db.name;  // better-sqlite3 .name is the actual path or ":memory:"
+
+  // 审计日志 helper：统一写日志，自动带上 actor 与 IP
+  function audit(req, action, { targetType = null, targetId = null, metadata = {} } = {}) {
+    try {
+      writeAuditLog(db, {
+        actorUserId: req.user?.id ?? null,
+        actorRole: req.user?.role ?? null,
+        action,
+        targetType,
+        targetId,
+        metadata,
+        ipAddress: req.ip ?? null,
+      });
+    } catch (error) {
+      // 审计失败不应阻断业务操作
+      console.warn(`[AUDIT] write failed for ${action}: ${error.message}`);
+    }
+  }
 
   app.use(express.json({ limit: "1mb" }));
   app.use(express.text({ type: ["text/csv", "text/plain"], limit: "1mb" }));
@@ -158,6 +178,7 @@ export function createApp(options = {}) {
       const user = getUserByUsername(db, username ?? "");
       if (!user || user.status !== "active" || !(await verifyPassword(password ?? "", user.password_hash))) {
         const { remaining } = loginFailures.recordFailure(key);
+        audit(req, "login_failure", { targetType: "user", targetId: key, metadata: { reason: "bad_credentials" } });
         return res.status(401).json({
           error: remaining > 0
             ? `用户名或密码错误（还剩 ${remaining} 次尝试）`
@@ -171,6 +192,19 @@ export function createApp(options = {}) {
       const token = createToken();
       const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
       createSession(db, user.id, hashToken(token), expiresAt);
+      try {
+        writeAuditLog(db, {
+          actorUserId: user.id,
+          actorRole: user.role,
+          action: "login_success",
+          targetType: "user",
+          targetId: user.id,
+          metadata: { username: user.username },
+          ipAddress: req.ip ?? null,
+        });
+      } catch (error) {
+        console.warn(`[AUDIT] write failed for login_success: ${error.message}`);
+      }
       res.setHeader("Set-Cookie", serializeCookie(COOKIE_NAME, token, { expires: expiresAt }));
       res.json({ user: sanitizeUser(user) });
     } catch (error) { next(error); }
@@ -259,6 +293,7 @@ export function createApp(options = {}) {
         }
       });
       importTx();
+      audit(req, "import_students", { targetType: "class", targetId: classId, metadata: { imported: report.imported, updated: report.updated, skipped: report.skipped } });
       res.json(report);
     } catch (error) { next(error); }
   });
@@ -281,6 +316,7 @@ export function createApp(options = {}) {
         classId,
         assistantOptions,
       );
+      audit(req, "ai_report", { targetType: "class", targetId: classId, metadata: { source: report?.source ?? "unknown" } });
       res.json(report);
     } catch (error) {
       if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
@@ -300,6 +336,7 @@ export function createApp(options = {}) {
     const classId = Number(req.params.id);
     if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
     const overview = getClassOverview(db, classId);
+    audit(req, "export_csv", { targetType: "class", targetId: classId });
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename=class-${classId}-scores.csv`);
     res.send(renderScoresCsv(overview.students));
@@ -318,6 +355,7 @@ export function createApp(options = {}) {
         students: overview.students,
         summary: overview.summary,
       });
+      audit(req, "export_archive", { targetType: "class", targetId: classId, metadata: { bytes: zip.length } });
       res.setHeader("Content-Type", "application/zip");
       res.setHeader("Content-Disposition", `attachment; filename=${encodeURIComponent(archiveFileName(klass?.name, classId))}`);
       res.setHeader("Content-Length", zip.length);
@@ -327,12 +365,18 @@ export function createApp(options = {}) {
     }
   });
 
+  app.get("/api/teacher/audit-logs", requireRole("teacher"), (req, res) => {
+    const { action, from, to, page, pageSize } = req.query;
+    res.json(listAuditLogs(db, { action, from, to, page, pageSize }));
+  });
+
   app.post("/api/teacher/students/:studentId/reset-password", requireRole("teacher"), async (req, res, next) => {
     try {
       const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId));
       if (!detail) return res.status(404).json({ error: "学生不存在" });
       const nextPassword = String(req.body?.password ?? "ChangeMe123!");
       updateUserPassword(db, Number(req.params.studentId), await hashPassword(nextPassword));
+      audit(req, "reset_password", { targetType: "user", targetId: req.params.studentId });
       res.json({ ok: true, password: nextPassword });
     } catch (error) { next(error); }
   });
@@ -341,6 +385,7 @@ export function createApp(options = {}) {
     const classId = Number(req.params.id);
     if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
     archiveClass(db, classId);
+    audit(req, "archive_class", { targetType: "class", targetId: classId, metadata: { archived: true } });
     res.json({ ok: true });
   });
 
@@ -348,6 +393,7 @@ export function createApp(options = {}) {
     const classId = Number(req.params.id);
     if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
     unarchiveClass(db, classId);
+    audit(req, "archive_class", { targetType: "class", targetId: classId, metadata: { archived: false } });
     res.json({ ok: true });
   });
 
@@ -356,6 +402,7 @@ export function createApp(options = {}) {
       const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId));
       if (!detail) return res.status(404).json({ error: "学生不存在" });
       disableStudent(db, Number(req.params.studentId));
+      audit(req, "disable_student", { targetType: "user", targetId: req.params.studentId, metadata: { disabled: true } });
       res.json({ ok: true });
     } catch (error) { next(error); }
   });
@@ -365,6 +412,7 @@ export function createApp(options = {}) {
       const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId));
       if (!detail) return res.status(404).json({ error: "学生不存在" });
       enableStudent(db, Number(req.params.studentId));
+      audit(req, "disable_student", { targetType: "user", targetId: req.params.studentId, metadata: { disabled: false } });
       res.json({ ok: true });
     } catch (error) { next(error); }
   });
@@ -378,6 +426,7 @@ export function createApp(options = {}) {
         return res.status(404).json({ error: "班级不存在" });
       }
       transferStudent(db, Number(req.params.studentId), fromId, toId);
+      audit(req, "disable_student", { targetType: "user", targetId: req.params.studentId, metadata: { transfer: { from: fromId, to: toId } } });
       res.json({ ok: true });
     } catch (error) { next(error); }
   });
@@ -514,6 +563,7 @@ export function createApp(options = {}) {
 
       const stat = fs.statSync(snapshotPath);
       const filename = `classroom-backup-${new Date().toISOString().slice(0, 10)}.sqlite`;
+      audit(req, "backup_download", { metadata: { bytes: stat.size, filename } });
       res.setHeader("Content-Type", "application/octet-stream");
       res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
       res.setHeader("Content-Length", stat.size);

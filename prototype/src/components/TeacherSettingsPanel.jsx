@@ -1,4 +1,18 @@
 import { useEffect, useState } from "react";
+import { api } from "../apiClient.js";
+
+const AUDIT_ACTION_LABELS = {
+  login_success: "登录成功",
+  login_failure: "登录失败",
+  import_students: "导入学生",
+  reset_password: "重置密码",
+  export_csv: "导出 CSV",
+  export_archive: "导出成绩包",
+  ai_report: "生成 AI 报告",
+  backup_download: "下载备份",
+  archive_class: "归档/恢复班级",
+  disable_student: "停用/启用/转班",
+};
 
 export function SettingsModal({
   setShowSettings,
@@ -16,6 +30,9 @@ export function SettingsModal({
   const isTeacher = auth.user?.role === "teacher";
   const [dbInfo, setDbInfo] = useState(null);
   const [dbInfoError, setDbInfoError] = useState("");
+  const [auditLogs, setAuditLogs] = useState(null);
+  const [auditError, setAuditError] = useState("");
+  const [auditAction, setAuditAction] = useState("");
 
   useEffect(() => {
     if (!isTeacher) return;
@@ -26,6 +43,15 @@ export function SettingsModal({
       .catch((error) => { if (!cancelled) setDbInfoError(error.message); });
     return () => { cancelled = true; };
   }, [isTeacher]);
+
+  useEffect(() => {
+    if (!isTeacher) return;
+    let cancelled = false;
+    api.auditLogs({ action: auditAction, page: 1, pageSize: 20 })
+      .then((data) => { if (!cancelled) setAuditLogs(data); })
+      .catch((error) => { if (!cancelled) setAuditError(error.message); });
+    return () => { cancelled = true; };
+  }, [isTeacher, auditAction]);
 
   return (
     <div className="settings-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
@@ -117,6 +143,50 @@ export function SettingsModal({
                 </ol>
               </details>
             </section>
+
+            <section className="settings-block teacher-audit-settings">
+              <div>
+                <span className="eyebrow">审计日志</span>
+                <h3>关键操作记录</h3>
+                <p>登录、导入、导出、备份等关键操作会记录在这里，用于追溯「谁在什么时候做了什么」。</p>
+              </div>
+              <div className="teacher-audit-toolbar">
+                <select
+                  aria-label="按操作类型筛选"
+                  value={auditAction}
+                  onChange={(e) => setAuditAction(e.target.value)}
+                >
+                  <option value="">全部操作</option>
+                  {Object.entries(AUDIT_ACTION_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+                <small>共 {auditLogs?.total ?? 0} 条</small>
+              </div>
+              {auditError ? <p className="teacher-ai-warning">{auditError}</p> : null}
+              {auditLogs ? (
+                auditLogs.items.length > 0 ? (
+                  <div className="teacher-audit-list">
+                    {auditLogs.items.map((entry) => (
+                      <div className="teacher-audit-row" key={entry.id}>
+                        <span className="teacher-audit-action">
+                          {AUDIT_ACTION_LABELS[entry.action] ?? entry.action}
+                        </span>
+                        <span className="teacher-audit-meta">
+                          {entry.actorRole === "teacher" ? "教师" : "学生"}
+                          {entry.targetType ? ` · ${entry.targetType}${entry.targetId ? `#${entry.targetId}` : ""}` : ""}
+                        </span>
+                        <small className="teacher-audit-time">{formatAuditTime(entry.createdAt)}</small>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">暂无审计记录，执行操作后会显示在这里。</p>
+                )
+              ) : (
+                <p className="empty-state">正在加载审计日志...</p>
+              )}
+            </section>
           </>
         ) : (
           <section className="settings-block">
@@ -144,4 +214,11 @@ export function SettingsModal({
       </div>
     </div>
   );
+}
+
+function formatAuditTime(value) {
+  if (!value) return "";
+  const date = new Date(value.includes("T") ? value : value.replace(" ", "T") + "Z");
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString("zh-CN", { hour12: false });
 }

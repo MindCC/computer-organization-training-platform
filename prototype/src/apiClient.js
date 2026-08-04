@@ -87,4 +87,8 @@ export const api = {
   submitAssignment: (assignmentId, answers) => apiRequest(`/api/student/assignments/${assignmentId}/submit`, { method: "POST", body: JSON.stringify({ answers }) }),
   studentSubmissions: () => apiRequest("/api/student/submissions"),
   mistakes: () => apiRequest("/api/student/mistakes"),
+  auditLogs: (params = {}) => {
+    const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== "")).toString();
+    return apiRequest(`/api/teacher/audit-logs${query ? `?${query}` : ""}`);
+  },
 };
