@@ -318,6 +318,41 @@ PRD 第 13 节第三阶段列出"错题本"，当前 `styles.css` 有 `.mistake-
 - 学生修改密码时看到强度提示。
 - cookie 配置符合预期（文档化）。
 
+---
+
+### P1-E. 3D 拆解视图视觉优化（2026-08-04 新增）
+
+**背景**
+
+3D 拆解视图已用 three.js（react-three-fiber）渲染，部件建模精细（`computerParts.js`：PCB 金属度/粗糙度、金手指、风扇叶片、线缆等复合几何体），但整体观感差。实测诊断出三个明确问题：
+
+1. **无环境贴图（最关键）**：`MeshStandardMaterial` 金属度 0.8~0.95，但场景没有 `Environment`/`scene.environment`。PBR 金属材质没有可反射的环境 → 金属件渲染成近黑色、无质感。
+2. **渲染质量被压低**：`ComputerExplodedView.jsx` 的 `<Canvas dpr={1} gl={{ antialias: false, powerPreference: "low-power" }}>` → 边缘锯齿严重、分辨率低，观感廉价。
+3. **未开阴影**：部件 mesh 已标 `castShadow`/`receiveShadow`，但 Canvas 未开 `shadows`，方向光未配 shadow 相机 → 光照扁平、部件"悬浮"。
+
+> 根因推断：上述设置是为 AGENTS.md 的课堂电脑性能目标（150 学生、4 核集显、1366×768）刻意压低，但压低过头，叠加无环境贴图导致观感崩塌。
+
+**需求**
+
+1. **离线环境贴图（最大提升）**：
+   - 使用 three 自带 `RoomEnvironment`（`three/examples/jsm/environments/RoomEnvironment.js`）+ `PMREMGenerator` 生成 `scene.environment`，**不依赖网络 CDN**（离线课堂可用）。
+   - 备选：drei `<Environment>` + `<Lightformer>` 程序化生成。
+   - 需在组件卸载时 `dispose()` 纹理与 PMREM，避免泄漏。
+2. **渲染质量**：`dpr` 提到 `[1, 1.5]`，`antialias: true`；保留 `powerPreference: "low-power"`。低端机降级路径：WebGL 不可用时仍走 `ThreeSceneFallback`。
+3. **阴影与光照**：
+   - Canvas 开 `shadows`；主方向光 `castShadow`、`shadow-mapSize` 取 1024（可调 512 保性能）。
+   - 补一盏暖色辅助光（提升立体感）+ 一盏 rim/背光（勾勒边缘）。
+   - 评估是否需要 shadow-receiving 地面（Grid 是否接收阴影）。
+4. **观感验证**：用 Playwright 截图对比优化前后（可复用 `scripts/verify-3d.mjs` 的登录与导航流程），确认金属反光、边缘、立体感均有改善，且页面无 `pageerror`。
+
+**验收标准**
+
+- 金属部件（CPU 顶盖、金手指、硬盘外壳、PSU 外壳）有明显反光质感，不再是黑色一团。
+- 边缘锯齿明显减少（对比截图）。
+- 部件在旋转/缩放时有立体感（阴影或亮度层次），不"悬浮"。
+- 离线环境下（无外网）3D 视图正常渲染，不请求外部 HDR 资源。
+- `npm run build` 通过；`npm test` 不回归；150 学生课堂 PC 上帧率可接受（保留降级路径）。
+
 ## 4. 数据模型变更汇总
 
 | 表 | 变更 | 关联需求 |
@@ -372,17 +407,18 @@ npm run build
 
 5. P0-C 3D X-ray 模式（装配态连接线可见）。
 6. P1-D 3D 总线辨识度提升（标签牌+粒子尾迹）。
+7. P1-E 3D 拆解视图视觉优化（离线环境贴图+渲染质量+阴影）。
 
 **第四阶段：学生复盘闭环**
 
-7. P2-B 错题本（后端聚合+前端页面+教师详情复用）。
-8. P2-D 课程总体完成概览收尾（x/y 计数+剩余课时）。
+8. P2-B 错题本（后端聚合+前端页面+教师详情复用）。
+9. P2-D 课程总体完成概览收尾（x/y 计数+剩余课时）。
 
 **第五阶段：长期运维与安全**
 
-9. P2-A audit_logs 建表 + 8 类操作落库 + 查询 API。
-10. P2-C 跳关开关。
-11. P2-E session 管理 + 密码强度 + cookie 配置。
+10. P2-A audit_logs 建表 + 8 类操作落库 + 查询 API。
+11. P2-C 跳关开关。
+12. P2-E session 管理 + 密码强度 + cookie 配置。
 
 ## 8. 接手者注意事项
 
