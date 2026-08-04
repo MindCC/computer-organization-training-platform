@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 export function SettingsModal({
   setShowSettings,
   auth,
@@ -11,6 +13,19 @@ export function SettingsModal({
   saveStudentSettings,
 }) {
   const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
+  const isTeacher = auth.user?.role === "teacher";
+  const [dbInfo, setDbInfo] = useState(null);
+  const [dbInfoError, setDbInfoError] = useState("");
+
+  useEffect(() => {
+    if (!isTeacher) return;
+    let cancelled = false;
+    fetch("/api/admin/db-info", { credentials: "include" })
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error("数据库信息获取失败"))))
+      .then((data) => { if (!cancelled) setDbInfo(data); })
+      .catch((error) => { if (!cancelled) setDbInfoError(error.message); });
+    return () => { cancelled = true; };
+  }, [isTeacher]);
 
   return (
     <div className="settings-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
@@ -61,6 +76,46 @@ export function SettingsModal({
               <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">
                 导入学生
               </button>
+            </section>
+
+            <section className="settings-block teacher-backup-settings">
+              <div>
+                <span className="eyebrow">数据与备份</span>
+                <h3>数据库位置与备份</h3>
+                <p>建议每次课后或导入学生前备份一次，防止数据意外丢失。</p>
+              </div>
+              <div className="teacher-backup-detail">
+                {dbInfo ? (
+                  <>
+                    <div className="teacher-backup-row">
+                      <span>数据库路径</span>
+                      <code>{dbInfo.path}</code>
+                    </div>
+                    <div className="teacher-backup-row">
+                      <span>数据库大小</span>
+                      <code>{dbInfo.sizeMB} MB</code>
+                    </div>
+                  </>
+                ) : dbInfoError ? (
+                  <p className="teacher-ai-warning">{dbInfoError}</p>
+                ) : (
+                  <p className="empty-state">正在读取数据库信息...</p>
+                )}
+              </div>
+              <div className="teacher-action-row">
+                <a className="ghost-button" href="/api/admin/backup">
+                  下载备份
+                </a>
+              </div>
+              <details className="teacher-backup-help">
+                <summary>恢复备份怎么做？</summary>
+                <ol>
+                  <li>停止后端服务（Ctrl+C 或 pm2 stop）。</li>
+                  <li>用下载的 <code>.sqlite</code> 文件替换服务器上的数据库文件。</li>
+                  <li>重新启动后端服务，登录验证数据完整。</li>
+                  <li>完整步骤见部署文档 <code>docs/classroom-deployment.md</code>。</li>
+                </ol>
+              </details>
             </section>
           </>
         ) : (

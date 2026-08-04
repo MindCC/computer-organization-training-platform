@@ -7973,3 +7973,58 @@ body {
 .quest-empty-action {
   flex-shrink: 0;
 }
+
+/* P1-C: 教师设置页 数据与备份 */
+.teacher-backup-detail {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.teacher-backup-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.teacher-backup-row span {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-weight: 600;
+  min-width: 76px;
+}
+
+.teacher-backup-row code {
+  word-break: break-all;
+  font-family: var(--mono, "JetBrains Mono", monospace);
+  font-size: 0.8rem;
+  color: var(--ink);
+}
+
+.teacher-backup-help {
+  margin-top: 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.teacher-backup-help summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--teal);
+}
+
+.teacher-backup-help ol {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  line-height: 1.7;
+}
+
+.teacher-backup-help code {
+  font-family: var(--mono, "JetBrains Mono", monospace);
+  font-size: 0.78rem;
+}
