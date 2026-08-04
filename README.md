@@ -102,7 +102,7 @@ prototype/
 | `PUBLIC_BASE_URL` | 否 | 前端外部地址，用于 CSRF Origin 校验 |
 | `TEACHER_USERNAME` / `TEACHER_PASSWORD` / `TEACHER_NAME` | 否 | 首次 `npm run seed:teacher` 的教师账号 |
 
-> 项目未内置 dotenv，需在启动前 `export` 或由进程管理器（pm2 / systemd）注入。
+> 项目不加载 `.env` 文件（未内置 dotenv），需在启动前 `export` 或由进程管理器（pm2 / systemd）注入；`.env` 已加入 `.gitignore` 防止误提交密钥。
 
 ## 环境要求
 

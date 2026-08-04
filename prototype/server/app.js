@@ -388,7 +388,7 @@ export function createApp(options = {}) {
     }
     const deleted = deleteUserSession(db, req.user.id, sessionId);
     if (!deleted) return res.status(404).json({ error: "会话不存在" });
-    audit(req, "disable_student", { targetType: "session", targetId: sessionId, metadata: { logout: true } });
+    audit(req, "revoke_session", { targetType: "session", targetId: sessionId, metadata: { logout: true } });
     res.json({ ok: true });
   });
 
@@ -397,7 +397,7 @@ export function createApp(options = {}) {
     if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
     const allow = req.body?.allow === true || req.body?.allow === 1;
     const updated = setClassAllowSkipLocked(db, classId, allow);
-    audit(req, "disable_student", { targetType: "class", targetId: classId, metadata: { allowSkipLocked: allow } });
+    audit(req, "update_skip_locked", { targetType: "class", targetId: classId, metadata: { allowSkipLocked: allow } });
     res.json({ classId, allowSkipLocked: updated?.allowSkipLocked === 1 });
   });
 
@@ -443,7 +443,7 @@ export function createApp(options = {}) {
       const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId));
       if (!detail) return res.status(404).json({ error: "学生不存在" });
       enableStudent(db, Number(req.params.studentId));
-      audit(req, "disable_student", { targetType: "user", targetId: req.params.studentId, metadata: { disabled: false } });
+      audit(req, "enable_student", { targetType: "user", targetId: req.params.studentId, metadata: { disabled: false } });
       res.json({ ok: true });
     } catch (error) { next(error); }
   });
@@ -457,7 +457,7 @@ export function createApp(options = {}) {
         return res.status(404).json({ error: "班级不存在" });
       }
       transferStudent(db, Number(req.params.studentId), fromId, toId);
-      audit(req, "disable_student", { targetType: "user", targetId: req.params.studentId, metadata: { transfer: { from: fromId, to: toId } } });
+      audit(req, "transfer_student", { targetType: "user", targetId: req.params.studentId, metadata: { transfer: { from: fromId, to: toId } } });
       res.json({ ok: true });
     } catch (error) { next(error); }
   });
@@ -694,15 +694,69 @@ function requireRole(role) {
   };
 }
 
-function parseStudentCsv(text) {
-  return String(text ?? "")
-    .split(/\r?\n/)
-    .map((line, index) => ({ line: index + 1, raw: line.trim() }))
-    .filter((row) => row.raw && !/^username\s*,/i.test(row.raw) && !/^学号\s*,/.test(row.raw))
-    .map((row) => {
-      const [username, displayName, password] = row.raw.split(",").map((value) => value?.trim() ?? "");
-      return { line: row.line, username, displayName, password };
-    });
+const MAX_IMPORT_ROWS = 1000;
+const MAX_FIELD_LENGTH = 64;
+
+/** 解析一行 CSV（支持带引号字段与引号内转义）。返回字段数组。 */
+function parseCsvLine(line) {
+  const fields = [];
+  let current = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (line[i + 1] === '"') {
+          current += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+    } else if (char === '"') {
+      inQuotes = true;
+    } else if (char === ",") {
+      fields.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  fields.push(current);
+  return fields.map((field) => field.trim());
+}
+
+function csvImportError(message) {
+  const error = new Error(message);
+  error.status = 400;
+  return error;
+}
+
+export function parseStudentCsv(text) {
+  const source = String(text ?? "").replace(/^\uFEFF/, ""); // 剥 BOM
+  const rawLines = source.split(/\r?\n/);
+  const rows = [];
+  for (let index = 0; index < rawLines.length; index += 1) {
+    const raw = rawLines[index].trim();
+    if (!raw) continue;
+    if (/^username\s*,/i.test(raw) || /^学号\s*,/.test(raw)) continue;
+    const [username, displayName, password] = parseCsvLine(raw);
+    if (!username) {
+      // 空学号行：跳过（事务内计入 skipped 与 report.errors）
+      rows.push({ line: index + 1, username: "", displayName, password });
+      continue;
+    }
+    if (username.length > MAX_FIELD_LENGTH || (displayName ?? "").length > MAX_FIELD_LENGTH || (password ?? "").length > MAX_FIELD_LENGTH) {
+      throw csvImportError(`第 ${index + 1} 行字段超过 ${MAX_FIELD_LENGTH} 字符上限`);
+    }
+    rows.push({ line: index + 1, username, displayName, password });
+    if (rows.length > MAX_IMPORT_ROWS) {
+      throw csvImportError(`导入行数超过上限（${MAX_IMPORT_ROWS} 行）`);
+    }
+  }
+  return rows;
 }
 
 function renderScoresCsv(students) {

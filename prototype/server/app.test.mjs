@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { hashPassword, verifyPassword } from "./auth.js";
-import { createApp } from "./app.js";
+import { createApp, parseStudentCsv } from "./app.js";
 import { createUser, migrate, openDatabase } from "./db.js";
 
 async function makeServer(options = {}) {
@@ -1070,4 +1070,36 @@ test("teacher can list and revoke own sessions; student password change enforces
     await new Promise((resolve) => server.close(resolve));
     db.close();
   }
+});
+
+test("parseStudentCsv strips BOM, handles quoted fields, enforces limits", () => {
+  // BOM + 表头 + 引号字段（姓名含逗号）+ CRLF
+  const rows = parseStudentCsv("\uFEFFusername,displayName,password\r\n2026001,\"李,同学\",Student123!\r\n");
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].username, "2026001");
+  assert.equal(rows[0].displayName, "李,同学");
+  assert.equal(rows[0].password, "Student123!");
+
+  // 引号内转义（双引号）
+  const quoted = parseStudentCsv('u,n,p\nx,"He said ""hi""",p1\n');
+  // 表头 u,n,p 不被过滤，故第二行才是数据行
+  assert.equal(quoted[1].displayName, 'He said "hi"');
+
+  // 空学号行：跳过不抛错
+  const emptyRows = parseStudentCsv("u,n,p\n2026001,A,p1\n,缺学号,\n");
+  assert.equal(emptyRows.length, 3);
+  assert.equal(emptyRows[2].username, "");
+
+  // 超长字段抛 400 语义错误（带 status）
+  assert.throws(
+    () => parseStudentCsv("u,n,p\n" + "x".repeat(65) + ",B,p1\n"),
+    (error) => error.status === 400 && /第 2 行/.test(error.message),
+  );
+
+  // 行数上限
+  const many = Array.from({ length: 1001 }, (_, i) => `u${i},N${i},p`).join("\n");
+  assert.throws(
+    () => parseStudentCsv(many),
+    (error) => error.status === 400 && /上限/.test(error.message),
+  );
 });

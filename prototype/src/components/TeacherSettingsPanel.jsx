@@ -12,7 +12,11 @@ const AUDIT_ACTION_LABELS = {
   ai_report: "生成 AI 报告",
   backup_download: "下载备份",
   archive_class: "归档/恢复班级",
-  disable_student: "停用/启用/转班",
+  disable_student: "停用学生",
+  enable_student: "启用学生",
+  transfer_student: "转班",
+  update_skip_locked: "跳关设置",
+  revoke_session: "下线会话",
 };
 
 export function SettingsModal({

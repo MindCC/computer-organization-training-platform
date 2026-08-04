@@ -8,30 +8,70 @@
   }
 }
 
-export async function apiRequest(path, options = {}) {
-  const response = await fetch(path, {
-    credentials: "include",
-    ...options,
-    headers: {
-      ...(options.body && !(options.body instanceof FormData) ? { "content-type": "application/json" } : {}),
-      ...(options.headers ?? {}),
-    },
-  });
-  const contentType = response.headers.get("content-type") ?? "";
-  const body = contentType.includes("application/json") ? await response.json() : await response.text();
-  if (!response.ok) {
-    if (body && typeof body === "object" && body.error && typeof body.error === "object") {
-      throw new ApiError({
-        status: response.status,
-        code: body.error.code ?? "UNKNOWN",
-        message: body.error.message ?? "请求失败",
-        retryable: body.error.retryable === true,
-      });
-    }
-    const message = typeof body === "object" ? body.error : body;
-    throw new Error(message || `请求失败：${response.status}`);
+const REQUEST_TIMEOUT_MS = 15_000;
+const MAX_RETRIES = 2;
+const RETRY_BASE_DELAY_MS = 400;
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(path, options) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(path, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
   }
-  return body;
+}
+
+export async function apiRequest(path, options = {}) {
+  let lastError;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+    if (attempt > 0) {
+      await delay(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+    }
+    let response;
+    try {
+      response = await fetchWithTimeout(path, {
+        credentials: "include",
+        ...options,
+        headers: {
+          ...(options.body && !(options.body instanceof FormData) ? { "content-type": "application/json" } : {}),
+          ...(options.headers ?? {}),
+        },
+      });
+    } catch (error) {
+      // 网络层失败（断网、超时、TLS）：可重试
+      lastError = error;
+      continue;
+    }
+    const contentType = response.headers.get("content-type") ?? "";
+    const body = contentType.includes("application/json") ? await response.json() : await response.text();
+    if (!response.ok) {
+      if (body && typeof body === "object" && body.error && typeof body.error === "object") {
+        const apiError = new ApiError({
+          status: response.status,
+          code: body.error.code ?? "UNKNOWN",
+          message: body.error.message ?? "请求失败",
+          retryable: body.error.retryable === true,
+        });
+        // 服务端明确标记可重试的错误才重试；其余直接抛
+        if (apiError.retryable && attempt < MAX_RETRIES) {
+          lastError = apiError;
+          continue;
+        }
+        throw apiError;
+      }
+      const message = typeof body === "object" ? body.error : body;
+      throw new Error(message || `请求失败：${response.status}`);
+    }
+    return body;
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("请求失败，请检查网络连接");
 }
 
 export const api = {

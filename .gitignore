@@ -20,3 +20,7 @@ prototype/server.err.log
 prototype/server.out.log
 .workbuddy/
 prototype/.codex-run/
+# 本地环境变量（密钥）——永远不要提交
+.env
+.env.*
+!.env.example
