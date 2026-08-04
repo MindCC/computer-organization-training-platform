@@ -7934,3 +7934,42 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* P1-A: 首次学习引导横幅（学生首页空状态） */
+.quest-empty-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(45, 212, 191, 0.14), rgba(99, 102, 241, 0.10));
+  border: 1px solid rgba(45, 212, 191, 0.35);
+}
+
+.quest-empty-banner .eyebrow {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--teal);
+  margin-bottom: 4px;
+}
+
+.quest-empty-banner h2 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  color: var(--ink);
+}
+
+.quest-empty-banner p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.quest-empty-action {
+  flex-shrink: 0;
+}

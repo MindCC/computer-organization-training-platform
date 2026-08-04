@@ -13,6 +13,7 @@ import { TeacherQuestOverview } from "./teacher/TeacherQuestOverview.jsx";
 import { TeacherSetupChecklist } from "./teacher/TeacherSetupChecklist.jsx";
 import { InterventionGroups } from "./teacher/InterventionGroups.jsx";
 import { buildTeacherQuestModel, buildTeacherSetupSteps, buildInterventionGroups } from "../teacherQuest.js";
+import { buildTeacherEmptyState } from "../emptyStates.js";
 import { buildCourseRouteGroups } from "../courseRoute.js";
 
 function statusText(status) {
@@ -235,7 +236,16 @@ export function TeacherStudioDashboard({
                   <p>请先在左侧边栏"创建班级"后导入学生 CSV。"</p>
                   <small>模板格式：学号,姓名,初始密码</small>
                 </div>
-              ) : null}
+              ) : (() => {
+                const emptyState = buildTeacherEmptyState(students);
+                return emptyState ? (
+                  <div className="empty-state">
+                    <strong>{emptyState.title}</strong>
+                    <p>{emptyState.description}</p>
+                    <a className="ghost-button settings-template-link" download="student-import-template.csv" href={emptyState.actionHref}>{emptyState.actionLabel}</a>
+                  </div>
+                ) : null;
+              })()}
             </div>
           </section>
 

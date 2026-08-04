@@ -1,6 +1,7 @@
 import { Play } from "@phosphor-icons/react";
 import { formatEstimatedMinutes } from "../courseRoute.js";
 import { buildStudentQuestModel, buildFirstUseSteps } from "../questExperience.js";
+import { buildStudentHomeEmptyState } from "../emptyStates.js";
 import { CurrentMissionCard } from "./classroom/student/CurrentMissionCard.jsx";
 import { CurrentQuestPanel } from "./quest/CurrentQuestPanel.jsx";
 import { QuestMap } from "./quest/QuestMap.jsx";
@@ -26,6 +27,7 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
   const questModel = buildStudentQuestModel(routeGroups, nextRecommendedChallenge, progress);
   const firstUseSteps = buildFirstUseSteps(progress);
   const recommended = nextRecommendedChallenge;
+  const homeEmptyState = buildStudentHomeEmptyState(summary, routeGroups);
   const sortedGroups = routeGroups.map((group) => ({
     ...group,
     completedCount: group.items.filter((item) => item.status === "completed").length,
@@ -108,6 +110,21 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
         steps={firstUseSteps}
         storageKey={`zcyl:quest-guide-dismissed:${typeof window !== "undefined" ? window.__USER_ID__ ?? "" : ""}`}
       />
+
+      {homeEmptyState ? (
+        <section className="quest-empty-banner" aria-label="首次学习引导">
+          <div>
+            <span className="eyebrow">从这里开始</span>
+            <h2>{homeEmptyState.title}</h2>
+            <p>{homeEmptyState.description}</p>
+          </div>
+          {homeEmptyState.targetId ? (
+            <button className="primary-button quest-empty-action" onClick={() => navigateToChallenge(homeEmptyState.targetId)} type="button">
+              <Play size={16} /> {homeEmptyState.ctaLabel}
+            </button>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="quest-hero" aria-label="当前任务和操作">
         <CurrentQuestPanel
