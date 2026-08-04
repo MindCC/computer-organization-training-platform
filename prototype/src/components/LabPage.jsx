@@ -78,7 +78,7 @@ export function LabPage({
           <div className="lab-studio-brand"><button aria-label="返回课程首页" className="lab-studio-icon-button" onClick={() => changeView("home")} type="button"><ArrowLeft size={19} /></button><span className="lab-studio-mark"><Cpu size={24} /></span><div><strong>计算机组成探索</strong><small>3D 爆炸视图</small></div></div>
           <div className="lab-studio-current"><span>第一章计算机概述</span><strong>{cur.title}</strong><em>探索模式</em></div>
           <div className="lab-studio-score"><span>视角</span><strong>3D</strong><small>自由旋转</small></div>
-          <div className="lab-studio-user"><span>{student.name}</span><button aria-label="\u6253\u5f00\u4e2a\u4eba\u8bbe\u7f6e" className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button"><GearSix size={19} /></button></div>
+          <div className="lab-studio-user"><span>{student.name}</span><button aria-label="打开个人设置" className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button"><GearSix size={19} /></button></div>
         </header>
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           <OverviewExplodedView

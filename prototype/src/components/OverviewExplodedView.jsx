@@ -3,7 +3,7 @@ import { Quaternion, Vector3 } from "three";
 import { useFrame } from "@react-three/fiber";
 import { ComputerExplodedView } from "./ComputerExplodedView.jsx";
 import { ThreeSceneFallback } from "./ThreeSceneFallback.jsx";
-import { CONNECTIONS, MOBO_DETAILS, usePartPositions } from "./computerParts.js";
+import { CONNECTIONS, MOBO_DETAILS, usePartPositions, getConnectionEndpoint } from "./computerParts.js";
 
 // Assembly steps: which part appears at which step
 const ASSEMBLY_STEPS = [
@@ -17,7 +17,11 @@ const ASSEMBLY_STEPS = [
   { step: 8, label: "整机完成", partIds: ["case", "psu", "motherboard", "cpu", "ram-0", "ram-1", "gpu", "storage"], desc: "组装完成！各部件通过数据总线、地址总线和控制总线相互通信，电源为所有部件供电。试试旋转和缩放查看整机结构。", showConnections: true },
 ];
 
-function ConnectionLine({ from, to, color, thickness = 0.006 }) {
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function ConnectionLine({ from, to, color, thickness = 0.02 }) {
   const { position, quaternion, length } = useMemo(() => {
     const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
     const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -28,8 +32,8 @@ function ConnectionLine({ from, to, color, thickness = 0.006 }) {
   }, [from, to]);
   return (
     <mesh position={position} quaternion={quaternion}>
-      <cylinderGeometry args={[thickness, thickness, length, 6]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.4} />
+      <cylinderGeometry args={[thickness, thickness, length, 8]} />
+      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.7} />
     </mesh>
   );
 }
@@ -49,7 +53,7 @@ function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
   });
   return (
     <mesh ref={meshRef}>
-      <sphereGeometry args={[0.02, 8, 8]} />
+      <sphereGeometry args={[0.028, 8, 8]} />
       <meshBasicMaterial color={color} />
     </mesh>
   );
@@ -58,12 +62,18 @@ function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
 function AnimatedPart({ part, autoAnimating, explodeDistance, isHighlighted, onSelect }) {
   const meshRef = useRef(null);
   const localOffset = part.localOffset ?? [0, 0, 0];
+  const animProgress = useRef(0);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, delta) => {
     if (!meshRef.current) return;
-    const distance = autoAnimating
-      ? 1 - Math.cos(clock.elapsedTime * 0.75)
-      : explodeDistance;
+    let distance;
+    if (autoAnimating) {
+      // Single-play explosion: animate to target distance then settle
+      animProgress.current = Math.min(1, animProgress.current + (delta || 0) * 0.6);
+      distance = easeOutCubic(animProgress.current) * 1.3;
+    } else {
+      distance = explodeDistance;
+    }
     meshRef.current.position.set(
       part.basePos[0] + part.explodeDir[0] * distance + localOffset[0],
       part.basePos[1] + part.explodeDir[1] * distance + localOffset[1],
@@ -109,7 +119,12 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
   const [currentStep, setCurrentStep] = useState(shouldAutoPlay ? 0 : 1);
   const [selectedPart, setSelectedPart] = useState(null);
   const [showHint, setShowHint] = useState(true);
-  const allParts = usePartPositions(explodeDistance);
+
+  // The effective distance for connection line positioning:
+  // - auto mode: target settle distance (1.3) after animation completes
+  // - manual mode: explodeDistance
+  const effectiveDistance = autoAnimating ? 1.3 : explodeDistance;
+  const allParts = usePartPositions(effectiveDistance);
 
   useEffect(() => { const t = setTimeout(() => setShowHint(false), 5000); return () => clearTimeout(t); }, []);
 
@@ -147,6 +162,16 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
   const stepData = currentStep > 0 ? ASSEMBLY_STEPS[currentStep - 1] : null;
   const showConnections = stepData?.showConnections ?? false;
 
+  // Compute connection endpoints dynamically based on effectiveDistance
+  const connectionLines = useMemo(() => {
+    return CONNECTIONS.map((conn) => ({
+      from: getConnectionEndpoint(conn.fromPart, conn.fromOffset, effectiveDistance),
+      to: getConnectionEndpoint(conn.toPart, conn.toOffset, effectiveDistance),
+      color: conn.color,
+      thickness: conn.thickness,
+    }));
+  }, [effectiveDistance]);
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <ComputerExplodedView
@@ -173,16 +198,20 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
             />
           );
         })}
-        {(showConnections || mode === "auto") && (
-          <>
-            {CONNECTIONS.map((conn, i) => (
-              <ConnectionLine key={`conn-${i}`} from={conn.from} to={conn.to} color={conn.color} thickness={conn.thickness} />
-            ))}
-            {!prefersReducedMotion && CONNECTIONS.map((conn, i) => (
-              <DataFlowParticle key={`flow-${i}`} from={conn.from} to={conn.to} color={conn.color} />
-            ))}
-          </>
-        )}
+        {/* Show connections in assembled state, step 8, or auto mode */}
+        {(showConnections || mode === "auto") && connectionLines.map((line, i) => (
+          <ConnectionLine
+            key={`conn-${i}`}
+            from={line.from}
+            to={line.to}
+            color={line.color}
+            thickness={line.thickness}
+          />
+        ))}
+        {/* Data flow particles only when not reduced motion and connections visible */}
+        {(showConnections || mode === "auto") && !prefersReducedMotion && connectionLines.map((line, i) => (
+          <DataFlowParticle key={`flow-${i}`} from={line.from} to={line.to} color={line.color} />
+        ))}
         {uniqueParts.some((p) => (p.parentId ?? p.id) === "motherboard") && MOBO_DETAILS.map((d, i) => (
           <mesh key={`mobo-${i}`} geometry={d.geo} material={d.mat} position={d.pos} />
         ))}
@@ -254,7 +283,7 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
           <strong>{selectedPart.label}</strong>
           <small>{selectedPart.category} · 五大部件：{selectedPart.fiveElement}</small>
           <p className="exploded-info-desc">{selectedPart.description}</p>
-          <button aria-label="\u5173\u95ed\u90e8\u4ef6\u8be6\u60c5" onClick={() => setSelectedPart(null)} type="button">✕</button>
+          <button aria-label="关闭部件详情" onClick={() => setSelectedPart(null)} type="button">✕</button>
         </div>
       )}
 
