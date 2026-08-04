@@ -65,6 +65,7 @@ export function createApp(options = {}) {
   const assistantReportGenerator =
     options.generateTeacherAssistantReport ?? generateTeacherAssistantReport;
   const assistantOptions = options.assistantOptions ?? {};
+  const sessionSecret = options.sessionSecret || process.env.SESSION_SECRET || "development-session-secret";
   migrate(db);
   const app = express();
   app.locals.db = db;
@@ -90,7 +91,7 @@ export function createApp(options = {}) {
 
   app.use(express.json({ limit: "1mb" }));
   app.use(express.text({ type: ["text/csv", "text/plain"], limit: "1mb" }));
-  app.use(loadSession(db));
+  app.use(loadSession(db, sessionSecret));
 
   // Classroom and assignment services
   const sessionRepository = createClassroomSessionRepository(db);
@@ -194,7 +195,7 @@ export function createApp(options = {}) {
       deleteExpiredSessions(db);
       const token = createToken();
       const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-      createSession(db, user.id, hashToken(token), expiresAt, {
+      createSession(db, user.id, hashToken(token, sessionSecret), expiresAt, {
         ipAddress: req.ip ?? null,
         userAgent: String(req.headers["user-agent"] ?? "").slice(0, 300) || null,
       });
@@ -663,12 +664,12 @@ export function createApp(options = {}) {
   return app;
 }
 
-function loadSession(db) {
+function loadSession(db, sessionSecret = process.env.SESSION_SECRET || "development-session-secret") {
   return (req, _res, next) => {
     const cookies = parseCookies(req.headers.cookie ?? "");
     const token = cookies[COOKIE_NAME];
     if (token) {
-      const tokenHash = hashToken(token);
+      const tokenHash = hashToken(token, sessionSecret);
       const user = getSessionUser(db, tokenHash);
       if (user) {
         req.user = user;

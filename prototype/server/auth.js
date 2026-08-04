@@ -23,7 +23,6 @@ export function createToken() {
   return crypto.randomBytes(32).toString("base64url");
 }
 
-export function hashToken(token) {
-  const secret = process.env.SESSION_SECRET || "development-session-secret";
+export function hashToken(token, secret = process.env.SESSION_SECRET || "development-session-secret") {
   return crypto.createHmac("sha256", secret).update(token).digest("hex");
 }

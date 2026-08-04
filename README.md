@@ -88,6 +88,22 @@ prototype/
 - 长期规划：`docs/classroom-long-term-prd.md`
 - Cookie 安全：`HttpOnly + SameSite=Lax`，HTTPS 下设置 `COOKIE_SECURE=1` 启用 `Secure`
 
+### 环境变量
+
+`prototype/.env.example` 中有完整示例（含注释）。核心变量：
+
+| 变量 | 必填 | 说明 |
+|------|------|------|
+| `SESSION_SECRET` | 生产必填 | 会话签名密钥；生产模式缺失默认值时拒绝启动 |
+| `DEEPSEEK_API_KEY` | 否 | 智能助教密钥；缺失时自动降级为本地规则建议 |
+| `DATABASE_PATH` | 否 | SQLite 路径（默认 `data/classroom.sqlite`） |
+| `PORT` | 否 | 服务端口（默认 8787） |
+| `COOKIE_SECURE` | 否 | HTTPS 部署置 `1`，为 cookie 加 Secure 标记 |
+| `PUBLIC_BASE_URL` | 否 | 前端外部地址，用于 CSRF Origin 校验 |
+| `TEACHER_USERNAME` / `TEACHER_PASSWORD` / `TEACHER_NAME` | 否 | 首次 `npm run seed:teacher` 的教师账号 |
+
+> 项目未内置 dotenv，需在启动前 `export` 或由进程管理器（pm2 / systemd）注入。
+
 ## 环境要求
 
 - Node.js ≥ 22（better-sqlite3 原生模块需与运行时 Node 版本匹配，CI 与部署须统一版本）
