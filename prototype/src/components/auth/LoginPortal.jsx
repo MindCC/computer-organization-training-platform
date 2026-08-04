@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Cpu,
@@ -6,6 +6,7 @@ import {
   PresentationChart,
   Signpost,
 } from "@phosphor-icons/react";
+import { gsap } from "gsap";
 import { buildRoleEntryCopy } from "../../questExperience.js";
 import { questEntrance } from "../../motion/questMotion.js";
 import { useQuestMotion } from "../../motion/useQuestMotion.js";
@@ -33,8 +34,18 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit }) {
         y: 0,
         duration: reducedMotion ? 0.01 : 0.5,
         stagger: reducedMotion ? 0 : 0.08,
+        clearProps: "autoAlpha",
       },
     );
+  }, []);
+
+  // 安全网:React StrictMode 在 dev 下重挂载会偶发中断 GSAP 入口动画,
+  // 导致登录表单停在 autoAlpha:0 而不可见。若动画未完成,此处强制恢复可见。
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      gsap.set("[data-login-reveal]", { clearProps: "autoAlpha" });
+    }, 700);
+    return () => window.clearTimeout(timer);
   }, []);
 
   function selectRole(nextRole) {

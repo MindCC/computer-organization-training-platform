@@ -254,6 +254,7 @@ function TeacherStudentDetail({ student, setSelectedTeacherStudent }) {
         <div><span className="eyebrow">学生详情</span><h2>{student.displayName}</h2><p>{student.username} · {student.className}</p></div>
         <button className="ghost-button" onClick={() => setSelectedTeacherStudent(null)} type="button">关闭</button>
       </div>
+      {student.learningOverview ? <LearningOverviewPanel overview={student.learningOverview} /> : null}
       <div className="teacher-detail-grid">
         <div>
           <h3>逐关最佳成绩</h3>
@@ -277,20 +278,73 @@ function TeacherStudentDetail({ student, setSelectedTeacherStudent }) {
             {student.attempts?.length ? null : <p className="empty-state">暂无提交记录</p>}
           </div>
         </div>
-        <div>
-          <h3>学生笔记</h3>
-          <div className="teacher-note-list">
-            {(student.notes ?? []).slice(0, 5).map((n) => (
-              <article className="teacher-note" key={n.id}><strong>{n.title}</strong><p>{n.content}</p></article>
-            ))}
-            {student.notes?.length ? null : <p className="empty-state">暂无笔记</p>}
-          </div>
-        </div>
+        <ErrorProfilePanel data={student.errorProfile ?? []} />
+        <NoteLinksPanel data={student.noteLinks ?? []} />
         {student.timeDistribution?.length > 0 ? <TimeDistPanel data={student.timeDistribution} /> : null}
         {student.scoreTrends?.length > 0 ? <ScoreTrendsPanel data={student.scoreTrends} /> : null}
         {student.hardwareSummary ? <HardwarePanel data={student.hardwareSummary} /> : null}
       </div>
     </section>
+  );
+}
+
+function LearningOverviewPanel({ overview }) {
+  const cards = [
+    { label: "完成率", value: `${overview.completionRate}%`, note: `已完成 ${overview.completedCount}/${overview.totalCount} 关` },
+    { label: "平均分", value: `${overview.averageScore}`, note: "已完成关卡均分" },
+    { label: "累计耗时", value: `${overview.totalTimeMinutes}`, note: "分钟" },
+    { label: "总尝试", value: `${overview.totalAttempts}`, note: "次提交" },
+  ];
+  return (
+    <div className="metric-grid teacher-overview-grid">
+      {cards.map((card) => (
+        <article className="metric-card" key={card.label}>
+          <span>{card.label}</span>
+          <strong>{card.value}</strong>
+          <small>{card.note}</small>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ErrorProfilePanel({ data }) {
+  return (
+    <div>
+      <h3>高频错误</h3>
+      {data.length ? (
+        <div className="teacher-progress-list">
+          {data.map((e) => (
+            <div className="teacher-progress-row" key={e.errorType}>
+              <strong>{e.errorType}{e.repeated ? <span className="teacher-error-badge">连续重复</span> : null}</strong>
+              <span>{e.count} 次 · {e.relatedChallengeIds.map((id) => LEARNING_ITEMS.find((c) => c.id === id)?.title ?? id).join(" / ")}</span>
+            </div>
+          ))}
+        </div>
+      ) : <p className="empty-state">暂无高频错误</p>}
+    </div>
+  );
+}
+
+function NoteLinksPanel({ data }) {
+  return (
+    <div>
+      <h3>笔记与反思</h3>
+      {data.length ? (
+        <div className="teacher-note-groups">
+          {data.map((group) => (
+            <section className="teacher-note-group" key={group.challengeId ?? "__unlinked__"}>
+              <strong className="teacher-note-group-title">{group.challengeTitle}</strong>
+              <div className="teacher-note-list">
+                {group.notes.map((n) => (
+                  <article className="teacher-note" key={n.id}><strong>{n.title}</strong><p>{n.content}</p>{n.tag ? <small>{n.tag}</small> : null}</article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      ) : <p className="empty-state">暂无笔记</p>}
+    </div>
   );
 }
 

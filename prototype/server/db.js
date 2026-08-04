@@ -506,17 +506,22 @@ export function getTeacherStudentDetail(db, teacherId, studentId, classId = null
   `).get(studentId, teacherId, classId, classId);
   if (!membership) return null;
   const progress = getStudentProgress(db, studentId);
+  const attempts = db.prepare(`
+    SELECT id, challenge_id AS challengeId, score, passed, errors_json AS errorsJson, result_json AS resultJson, created_at AS createdAt
+    FROM challenge_attempts WHERE student_id = ? ORDER BY id DESC LIMIT 100
+  `).all(studentId).map((row) => ({ ...row, passed: Boolean(row.passed), errors: safeJson(row.errorsJson, []), result: safeJson(row.resultJson, {}) }));
+  const notes = listNotes(db, studentId);
   return {
     ...membership,
     progress,
-    notes: listNotes(db, studentId),
-    attempts: db.prepare(`
-      SELECT id, challenge_id AS challengeId, score, passed, errors_json AS errorsJson, result_json AS resultJson, created_at AS createdAt
-      FROM challenge_attempts WHERE student_id = ? ORDER BY id DESC LIMIT 100
-    `).all(studentId).map((row) => ({ ...row, passed: Boolean(row.passed), errors: safeJson(row.errorsJson, []), result: safeJson(row.resultJson, {}) })),
+    notes,
+    attempts,
     timeDistribution: buildTimeDistribution(progress),
     scoreTrends: buildScoreTrends(db, studentId),
     hardwareSummary: buildStudentHardwareSummary(db, studentId),
+    errorProfile: buildErrorProfile(db, studentId),
+    noteLinks: buildNoteLinks(notes),
+    learningOverview: buildLearningOverview(progress),
   };
 }
 
@@ -618,6 +623,97 @@ function buildStudentHardwareSummary(db, studentId) {
     bestCaseId,
     completedCases: rows.length,
   };
+}
+
+const CHALLENGE_TITLES = new Map(LEARNING_ITEMS.map((item) => [item.id, item.title]));
+
+/** 学习概览聚合卡:完成率、平均分、累计耗时、总尝试、完成 x/y。 */
+export function buildLearningOverview(progress) {
+  const records = LEARNING_ITEMS.map((item) => progress[item.id]).filter(Boolean);
+  const completedCount = records.filter((record) => record.status === "completed").length;
+  const totalCount = LEARNING_ITEMS.length;
+  const scored = records.filter((record) => (record.bestScore ?? 0) > 0);
+  return {
+    completedCount,
+    totalCount,
+    completionRate: Math.round((completedCount / totalCount) * 100),
+    averageScore: scored.length
+      ? Math.round(scored.reduce((sum, record) => sum + (record.bestScore ?? 0), 0) / scored.length)
+      : 0,
+    totalAttempts: records.reduce((sum, record) => sum + (record.attempts ?? 0), 0),
+    totalTimeMinutes: records.reduce((sum, record) => sum + (record.timeSpentMinutes ?? 0), 0),
+  };
+}
+
+/** 笔记按关卡分组:输出 { challengeId, challengeTitle, notes }。未关联关卡的笔记归入"未关联关卡"。 */
+export function buildNoteLinks(notes) {
+  const groups = new Map();
+  for (const note of notes) {
+    const key = note.challengeId ?? "__unlinked__";
+    if (!groups.has(key)) {
+      groups.set(key, {
+        challengeId: note.challengeId ?? null,
+        challengeTitle: note.challengeId ? (CHALLENGE_TITLES.get(note.challengeId) ?? "未知关卡") : "未关联关卡",
+        notes: [],
+      });
+    }
+    groups.get(key).notes.push({
+      id: note.id,
+      title: note.title,
+      content: note.content,
+      tag: note.tag,
+      createdAt: note.createdAt,
+      updatedAt: note.updatedAt,
+    });
+  }
+  return [...groups.values()].sort((a, b) => {
+    if (a.challengeId === null) return 1;
+    if (b.challengeId === null) return -1;
+    return String(a.challengeId).localeCompare(String(b.challengeId), "zh");
+  });
+}
+
+/** 高频错误画像:按 errors_json 聚合错误类型频次,识别"连续重复错误"(最新提交起连续 ≥2 次出现)。 */
+export function buildErrorProfile(db, studentId) {
+  const rows = db.prepare(`
+    SELECT challenge_id AS challengeId, errors_json AS errorsJson, created_at AS createdAt
+    FROM challenge_attempts WHERE student_id = ? ORDER BY id DESC LIMIT 100
+  `).all(studentId);
+
+  const entries = new Map();
+  for (const row of rows) {
+    const errors = safeJson(row.errorsJson, []);
+    for (const raw of errors) {
+      const errorType = String(raw);
+      if (!entries.has(errorType)) {
+        entries.set(errorType, { errorType, count: 0, lastSeen: null, relatedChallengeIds: new Set() });
+      }
+      const entry = entries.get(errorType);
+      entry.count += 1;
+      entry.relatedChallengeIds.add(row.challengeId);
+      if (entry.lastSeen === null || row.createdAt > entry.lastSeen) entry.lastSeen = row.createdAt;
+    }
+  }
+
+  const streaks = new Map();
+  for (const row of rows) {
+    const errorSet = new Set(safeJson(row.errorsJson, []).map(String));
+    for (const [errorType, entry] of entries) {
+      const streak = errorSet.has(errorType) ? (streaks.get(errorType) ?? 0) + 1 : 0;
+      streaks.set(errorType, streak);
+      if (streak >= 2) entry.repeated = true;
+    }
+  }
+
+  return [...entries.values()]
+    .map((entry) => ({
+      errorType: entry.errorType,
+      count: entry.count,
+      lastSeen: entry.lastSeen,
+      relatedChallengeIds: [...entry.relatedChallengeIds],
+      repeated: entry.repeated === true,
+    }))
+    .sort((a, b) => b.count - a.count || String(a.errorType).localeCompare(String(b.errorType), "zh"));
 }
 
 export function archiveClass(db, classId) {

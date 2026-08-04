@@ -305,6 +305,14 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     assert.ok(result.body.student.scoreTrends.some((item) => item.challengeId === "computer-components" && item.best === 100));
     assert.equal(result.body.student.hardwareSummary.completedCases, 1);
     assert.equal(result.body.student.hardwareSummary.bestCaseId, "game-office-pc");
+    assert.equal(result.body.student.learningOverview.completedCount, 2);
+    assert.equal(result.body.student.learningOverview.totalAttempts, 2);
+    assert.ok(result.body.student.learningOverview.totalCount > 0);
+    assert.deepEqual(result.body.student.errorProfile, []);
+    assert.equal(result.body.student.noteLinks.length, 1);
+    assert.equal(result.body.student.noteLinks[0].challengeId, "data-flow");
+    assert.equal(result.body.student.noteLinks[0].challengeTitle, "认识数据流");
+    assert.equal(result.body.student.noteLinks[0].notes[0].content, "我理解了 CPU 到内存的数据流动。");
 
     result = await request(baseUrl, "/api/classes", {
       method: "POST",

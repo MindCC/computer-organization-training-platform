@@ -118,7 +118,7 @@ assert.match(csvText, new RegExp(text.studentName));
 await logout(page);
 await login(page, text.studentNo, text.studentPassword);
 await assertVisible(page, "当前任务");
-await assertVisible(page, "课程探索地图");
+await page.getByRole("region", { name: "课程探索地图" }).first().waitFor({ state: "visible", timeout: 10_000 });
 await assertNoVisibleMojibake(page, "student home");
 assert.equal(await page.locator(".quest-stage[aria-current='step']").count(), 1, "exactly one current quest stage");
 assert.equal(await page.locator(".quest-primary-action").count(), 1, "exactly one primary quest action");
@@ -145,10 +145,13 @@ for (let step = 1; step < 8; step += 1) {
 const overviewAttemptPromise = waitForAttemptResponse(page);
 await page.getByRole("button", { name: "\u5b8c\u6210\u63a2\u7d22" }).click();
 await assertAttemptSaved(await overviewAttemptPromise, "computer-components");
+await dismissQuestSettlementIfPresent(page);
 await page.getByRole("button", { name: "\u5df2\u5b8c\u6210\u63a2\u7d22" }).waitFor({ state: "visible", timeout: 10_000 });
+await dismissQuestSettlementNow(page);
 await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
 await assertVisible(page, "当前任务");
 
+await dismissQuestSettlementNow(page);
 await page.locator(".sidebar-nav .nav-item").filter({ hasText: "课程首页" }).click();
 await assertVisible(page, "当前任务");
 
@@ -157,6 +160,7 @@ for (const challenge of legacyOverviewChallenges) {
   await openChallenge(page, challenge.title);
   await verifyLegacyChallenge(page, challenge);
   await page.screenshot({ path: artifactPath(`student-lab-${challenge.id}.png`), fullPage: true });
+  await dismissQuestSettlementNow(page);
   await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
 }
 
@@ -166,6 +170,7 @@ for (const challenge of CIRCUIT_CHALLENGES.filter((item) => item.id !== "compute
   await verifyReactFlowChallenge(page, challenge);
   await assertNoVisibleMojibake(page, `react-flow lab ${challenge.id}`);
   await page.screenshot({ path: artifactPath(`student-lab-${challenge.id}.png`), fullPage: true });
+  await dismissQuestSettlementNow(page);
   await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
 }
 
@@ -188,9 +193,11 @@ await assertVisible(page, "\u7ecf\u8425\u5229\u6da6");
 const hardwareAttemptPromise = waitForAttemptResponse(page);
 await page.getByRole("button", { name: text.submitPlan }).click();
 await assertAttemptSaved(await hardwareAttemptPromise, "game-office-pc");
+await dismissQuestSettlementIfPresent(page);
 await assertVisible(page, text.goalReached);
 await page.screenshot({ path: artifactPath("student-hardware-game.png"), fullPage: true });
 
+await dismissQuestSettlementNow(page);
 await openRecords(page);
 await assertVisible(page, text.recordsTitle);
 await page.locator(".record-table .record-row").filter({ hasText: "\u7a0b\u5e8f\u8fd0\u884c\u8def\u7ebf" }).click();
@@ -291,6 +298,37 @@ async function verifyLegacyChallenge(targetPage, challenge) {
   await targetPage.getByRole("button", { name: text.viewReference }).first().click();
   await targetPage.getByRole("button", { name: text.submit }).first().click();
   await assertVisible(targetPage, text.passed);
+  await dismissQuestSettlementIfPresent(targetPage);
+}
+
+// Quest 评测结算层会在每次通过的提交后异步出现,延迟可达数秒(常在导航时渲染);
+// 等待其出现后关闭,避免全屏拦截后续点击。
+async function dismissQuestSettlementIfPresent(targetPage) {
+  const settlement = targetPage.locator(".quest-settlement");
+  try {
+    await settlement.waitFor({ state: "visible", timeout: 12_000 });
+  } catch {
+    return; // 未出现结算层
+  }
+  await clickQuestSettlementDismiss(targetPage);
+  await settlement.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+}
+
+// 快速清理:结算层已存在时立刻关闭(不等待),用于导航点击前的安全网。
+async function dismissQuestSettlementNow(targetPage) {
+  const settlement = targetPage.locator(".quest-settlement");
+  if (!(await settlement.isVisible().catch(() => false))) return;
+  await clickQuestSettlementDismiss(targetPage);
+  await settlement.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+}
+
+// 用 DOM 直接点击"复盘本关",绕过 GSAP 卡片动画可能导致的 actionability 等待。
+async function clickQuestSettlementDismiss(targetPage) {
+  await targetPage.evaluate(() => {
+    const button = [...document.querySelectorAll(".quest-settlement button")]
+      .find((node) => node.textContent.includes("复盘本关"));
+    button?.click();
+  });
 }
 
 async function verifyReactFlowChallenge(targetPage, challenge) {
@@ -342,9 +380,8 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
     assert.equal(await targetPage.locator(".quest-settlement-card").count(), 1, "settlement card present after pass");
     await assertVisible(targetPage, "评测结算");
     await assertVisible(targetPage, "继续下一关");
-    await targetPage.getByRole("button", { name: "复盘本关" }).click();
-    await targetPage.locator(".quest-settlement").waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
+  await dismissQuestSettlementIfPresent(targetPage);
 }
 
 async function waitForReactFlowNodeCount(targetPage, challenge) {

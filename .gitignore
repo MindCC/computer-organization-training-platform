@@ -16,3 +16,7 @@ prototype/*.sqlite-shm
 prototype/*.sqlite-wal
 prototype/vite.err.log
 prototype/vite.out.log
+prototype/server.err.log
+prototype/server.out.log
+.workbuddy/
+prototype/.codex-run/

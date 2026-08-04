@@ -4620,6 +4620,47 @@ textarea:focus-visible {
   border-color: rgba(186, 82, 70, 0.24);
 }
 
+/* 学生详情画像面板(P0-B):学习概览、高频错误、笔记与反思 */
+.teacher-overview-grid {
+  margin-bottom: 16px;
+}
+
+.teacher-overview-grid .metric-card {
+  min-height: 96px;
+  padding: 16px 18px;
+}
+
+.teacher-overview-grid .metric-card strong {
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+}
+
+.teacher-overview-grid .metric-card small {
+  color: var(--muted-text);
+  font-size: 0.75rem;
+}
+
+.teacher-error-badge {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(186, 82, 70, 0.12);
+  color: #ba5246;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.teacher-note-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.teacher-note-group-title {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--muted-text);
+}
+
 @media (max-width: 760px) {
   .teacher-studio-header,
   .teacher-studio-actions {
@@ -5983,7 +6024,7 @@ textarea:focus-visible {
 .builder-warning-item span { font-size: 0.7rem; flex-shrink: 0; }
 
 .von-neumann-overview {
-  position: absolute; top: 12px; left: 12px; z-index: 9;
+  position: absolute; bottom: 16px; right: 12px; z-index: 9;
   padding: 10px 14px; border-radius: 8px;
   background: rgba(15, 16, 17, 0.85); border: 1px solid rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(12px);
