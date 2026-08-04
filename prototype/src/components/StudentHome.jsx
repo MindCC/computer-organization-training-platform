@@ -2,6 +2,7 @@ import { Play } from "@phosphor-icons/react";
 import { formatEstimatedMinutes } from "../courseRoute.js";
 import { buildStudentQuestModel, buildFirstUseSteps } from "../questExperience.js";
 import { buildStudentHomeEmptyState } from "../emptyStates.js";
+import { buildCompletionOverview } from "../completionOverview.js";
 import { CurrentMissionCard } from "./classroom/student/CurrentMissionCard.jsx";
 import { CurrentQuestPanel } from "./quest/CurrentQuestPanel.jsx";
 import { QuestMap } from "./quest/QuestMap.jsx";
@@ -26,8 +27,8 @@ function NextStepCard({ challenge, progress, onEnter }) {
 export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter }) {
   const questModel = buildStudentQuestModel(routeGroups, nextRecommendedChallenge, progress);
   const firstUseSteps = buildFirstUseSteps(progress);
-  const recommended = nextRecommendedChallenge;
   const homeEmptyState = buildStudentHomeEmptyState(summary, routeGroups);
+  const completion = buildCompletionOverview(summary);
   const sortedGroups = routeGroups.map((group) => ({
     ...group,
     completedCount: group.items.filter((item) => item.status === "completed").length,
@@ -142,12 +143,12 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
             <span>平均分</span>
           </div>
           <div className="quest-stat-card metric-card">
-            <strong>{summary.totalStudyMinutes} 分钟</strong>
-            <span>累计耗时</span>
+            <strong>{completion.completedLabel}</strong>
+            <span>已完成</span>
           </div>
           <div className="quest-stat-card metric-card">
-            <strong>{formatEstimatedMinutes(recommended?.estimatedMinutes)}</strong>
-            <span>下一关预估</span>
+            <strong>{completion.remainingLabel}</strong>
+            <span>预计剩余课时</span>
           </div>
         </div>
       </section>
