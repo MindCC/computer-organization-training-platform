@@ -8179,3 +8179,19 @@ body {
   font-family: var(--mono, "JetBrains Mono", monospace);
   font-size: 0.75rem;
 }
+
+/* P2-C: 跳关开关 */
+.teacher-rule-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.teacher-rule-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--teal);
+  cursor: pointer;
+}

@@ -91,4 +91,5 @@ export const api = {
     const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== "")).toString();
     return apiRequest(`/api/teacher/audit-logs${query ? `?${query}` : ""}`);
   },
+  setSkipLocked: (classId, allow) => apiRequest(`/api/teacher/classes/${classId}/skip-locked`, { method: "PUT", body: JSON.stringify({ allow }) }),
 };

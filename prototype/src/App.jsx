@@ -460,6 +460,7 @@ export function App() {
   const [loginError, setLoginError] = useState("");
   const [activeView, setActiveView] = useState("home");
   const [progress, setProgress] = useState(() => buildInitialLearningProgress());
+  const [allowSkipLocked, setAllowSkipLocked] = useState(false);
   const [activityLog, setActivityLog] = useState([
     "完成半加器实验，得分 100。",
     "数据流基础测验得分 85。",
@@ -567,11 +568,22 @@ export function App() {
     return () => { cancelled = true; };
   }, []);
 
+  // 设置页变更（如跳关开关）后刷新班级列表
+  useEffect(() => {
+    function handleClassSettingsChanged() {
+      if (auth.user?.role === "teacher") refreshTeacherClasses();
+    }
+    window.addEventListener("zcyl:class-settings-changed", handleClassSettingsChanged);
+    return () => window.removeEventListener("zcyl:class-settings-changed", handleClassSettingsChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auth.user?.role]);
+
   async function loadRoleData(user = auth.user) {
     if (!user) return;
     if (user.role === "student") {
-      const [{ progress: nextProgress }, { notes: nextNotes }] = await Promise.all([api.studentProgress(), api.listNotes()]);
+      const [{ progress: nextProgress, allowSkipLocked }, { notes: nextNotes }] = await Promise.all([api.studentProgress(), api.listNotes()]);
       setProgress({ ...buildInitialLearningProgress(), ...nextProgress });
+      setAllowSkipLocked(Boolean(allowSkipLocked));
       setNotes(nextNotes);
       setStudent({
         name: user.displayName,
@@ -1002,7 +1014,7 @@ export function App() {
             <span>{statusMessage}</span>
           </div>
 
-          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} /> : null}
+          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} /> : null}
           {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
           {activeView === "mistakes" ? <MistakeBookPage navigateToChallenge={navigateToChallenge} changeView={changeView} /> : null}
           {activeView === "hardware-game" ? (

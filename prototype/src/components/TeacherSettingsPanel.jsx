@@ -104,6 +104,32 @@ export function SettingsModal({
               </button>
             </section>
 
+            <section className="settings-block teacher-rule-settings">
+              <div>
+                <span className="eyebrow">教学规则</span>
+                <h3>跳关开关</h3>
+                <p>默认不允许跳关：未完成前置关卡时不能提交后续关卡。开启后学生可浏览并提交任意关卡。</p>
+              </div>
+              <label className="form-row teacher-rule-row">
+                <span>允许学生跳关</span>
+                <input
+                  aria-label="允许学生跳关"
+                  checked={selectedClass?.allowSkipLocked === 1}
+                  onChange={async (event) => {
+                    if (!selectedTeacherClassId) return;
+                    try {
+                      await api.setSkipLocked(selectedTeacherClassId, event.target.checked);
+                      // 通知父组件刷新班级列表以更新开关状态
+                      window.dispatchEvent(new CustomEvent("zcyl:class-settings-changed"));
+                    } catch (error) {
+                      setDbInfoError(`跳关开关设置失败：${error.message}`);
+                    }
+                  }}
+                  type="checkbox"
+                />
+              </label>
+            </section>
+
             <section className="settings-block teacher-backup-settings">
               <div>
                 <span className="eyebrow">数据与备份</span>

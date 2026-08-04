@@ -24,7 +24,7 @@ function NextStepCard({ challenge, progress, onEnter }) {
   );
 }
 
-export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter }) {
+export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter, allowSkipLocked = false }) {
   const questModel = buildStudentQuestModel(routeGroups, nextRecommendedChallenge, progress);
   const firstUseSteps = buildFirstUseSteps(progress);
   const homeEmptyState = buildStudentHomeEmptyState(summary, routeGroups);
@@ -66,7 +66,7 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
                     <button
                       className={`route-card ${item.status}`}
                       key={item.id}
-                      disabled={item.status === "locked"}
+                      disabled={item.status === "locked" && !allowSkipLocked}
                       onClick={() => navigateToChallenge(item.id)}
                       type="button"
                     >
@@ -156,6 +156,7 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
       <QuestMap
         model={questModel}
         onSelect={(id) => navigateToChallenge(id)}
+        allowSkipLocked={allowSkipLocked}
       />
 
       <div className="quest-student-supplement">

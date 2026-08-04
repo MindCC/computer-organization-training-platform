@@ -34,6 +34,7 @@ import {
   openDatabase,
   recordStudentAttempt,
   sanitizeUser,
+  setClassAllowSkipLocked,
   teacherOwnsClass,
   transferStudent,
   unarchiveClass,
@@ -370,6 +371,15 @@ export function createApp(options = {}) {
     res.json(listAuditLogs(db, { action, from, to, page, pageSize }));
   });
 
+  app.put("/api/teacher/classes/:id/skip-locked", requireRole("teacher"), (req, res) => {
+    const classId = Number(req.params.id);
+    if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
+    const allow = req.body?.allow === true || req.body?.allow === 1;
+    const updated = setClassAllowSkipLocked(db, classId, allow);
+    audit(req, "disable_student", { targetType: "class", targetId: classId, metadata: { allowSkipLocked: allow } });
+    res.json({ classId, allowSkipLocked: updated?.allowSkipLocked === 1 });
+  });
+
   app.post("/api/teacher/students/:studentId/reset-password", requireRole("teacher"), async (req, res, next) => {
     try {
       const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId));
@@ -433,7 +443,14 @@ export function createApp(options = {}) {
 
   app.get("/api/student/progress", requireRole("student"), (req, res) => {
     const progress = getStudentProgress(db, req.user.id);
-    res.json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress), user: sanitizeUser(req.user) });
+    const allowSkip = db.prepare(`
+      SELECT c.allow_skip_locked AS allowSkip
+      FROM class_members cm
+      JOIN classes c ON c.id = cm.class_id
+      WHERE cm.student_id = ? AND c.status = 'active' AND c.allow_skip_locked = 1
+      LIMIT 1
+    `).get(req.user.id)?.allowSkip === 1;
+    res.json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress), user: sanitizeUser(req.user), allowSkipLocked: allowSkip });
   });
 
   app.post("/api/student/attempts", requireRole("student"), (req, res, next) => {
@@ -451,7 +468,15 @@ export function createApp(options = {}) {
       }
       // Ordinary practice
       const currentProgress = getStudentProgress(db, req.user.id);
-      const normalized = normalizeStudentAttemptPayload(req.body ?? {}, LEARNING_ITEMS, currentProgress);
+      // 跳关开关：学生所属任一班级开启则允许提交任意关卡
+      const allowSkip = db.prepare(`
+        SELECT c.allow_skip_locked AS allowSkip
+        FROM class_members cm
+        JOIN classes c ON c.id = cm.class_id
+        WHERE cm.student_id = ? AND c.status = 'active' AND c.allow_skip_locked = 1
+        LIMIT 1
+      `).get(req.user.id)?.allowSkip === 1;
+      const normalized = normalizeStudentAttemptPayload(req.body ?? {}, LEARNING_ITEMS, currentProgress, Boolean(allowSkip));
       if (!normalized.ok) return res.status(normalized.status).json({ error: normalized.error });
       const progress = recordStudentAttempt(db, req.user.id, normalized.challengeId, normalized.result);
       res.status(201).json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress) });

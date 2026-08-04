@@ -216,6 +216,7 @@ export function migrate(db) {
   ensureColumn(db, "notes", "updated_at", "TEXT");
   ensureColumn(db, "classes", "status", "TEXT NOT NULL DEFAULT 'active'");
   ensureColumn(db, "classes", "archived_at", "TEXT");
+  ensureColumn(db, "classes", "allow_skip_locked", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn(db, "challenge_attempts", "session_id", "INTEGER REFERENCES classroom_sessions(id)");
   ensureColumn(db, "challenge_attempts", "client_submission_id", "TEXT");
   db.exec(`
@@ -296,6 +297,11 @@ export function createClass(db, teacherId, name) {
   return db.prepare("SELECT * FROM classes WHERE id = ?").get(result.lastInsertRowid);
 }
 
+export function setClassAllowSkipLocked(db, classId, allow) {
+  db.prepare("UPDATE classes SET allow_skip_locked = ? WHERE id = ?").run(allow ? 1 : 0, classId);
+  return db.prepare("SELECT allow_skip_locked AS allowSkipLocked FROM classes WHERE id = ?").get(classId);
+}
+
 export function teacherOwnsClass(db, teacherId, classId) {
   const row = db.prepare("SELECT id FROM classes WHERE id = ? AND teacher_id = ?").get(classId, teacherId);
   return Boolean(row);
@@ -304,7 +310,8 @@ export function teacherOwnsClass(db, teacherId, classId) {
 export function listTeacherClasses(db, teacherId, includeArchived = false) {
   const statusFilter = includeArchived ? "" : "AND c.status = 'active'";
   return db.prepare(`
-    SELECT c.id, c.name, c.status, c.archived_at AS archivedAt, c.created_at AS createdAt, COUNT(cm.student_id) AS studentCount
+    SELECT c.id, c.name, c.status, c.archived_at AS archivedAt, c.created_at AS createdAt,
+           c.allow_skip_locked AS allowSkipLocked, COUNT(cm.student_id) AS studentCount
     FROM classes c
     LEFT JOIN class_members cm ON cm.class_id = c.id
     WHERE c.teacher_id = ? ${statusFilter}

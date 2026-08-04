@@ -1,6 +1,6 @@
 import { CaretRight } from "@phosphor-icons/react";
 
-export function QuestMap({ model, onSelect }) {
+export function QuestMap({ model, onSelect, allowSkipLocked = false }) {
   return (
     <section aria-label="课程探索地图" className="quest-map">
       <div className="quest-track">
@@ -9,7 +9,7 @@ export function QuestMap({ model, onSelect }) {
             <button
               aria-current={stage.isCurrent ? "step" : undefined}
               className={`quest-stage ${stage.status} ${stage.isCurrent ? "current" : ""}`}
-              disabled={stage.status === "locked"}
+              disabled={stage.status === "locked" && !allowSkipLocked}
               onClick={() => onSelect(stage.id)}
               type="button"
             >

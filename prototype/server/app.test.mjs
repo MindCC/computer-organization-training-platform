@@ -901,3 +901,90 @@ test("audit logs record 8 operation types and are queryable without secrets", as
     db.close();
   }
 });
+
+test("skip-locked toggle allows students to submit locked challenges when enabled", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  const studentJar = {};
+  try {
+    // 教师登录，创建班级导入学生
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "跳关测试班" }),
+    }, teacherJar);
+    const classId = result.body.class?.id ?? result.body.id;
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: "s001,跳关学生,Student123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    // 学生登录，尝试提交 locked 关卡（默认拒绝）
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "s001", password: "Student123!" }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    const circuitEdges = [
+      { from: { nodeId: "input-a", portId: "out" }, to: { nodeId: "xor-1", portId: "a" } },
+      { from: { nodeId: "input-b", portId: "out" }, to: { nodeId: "xor-1", portId: "b" } },
+    ];
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ challengeId: "half-adder", result: { passed: false, score: 30, errors: [{ type: "连接错误" }], elapsedMinutes: 2, circuitEdges } }),
+    }, studentJar);
+    assert.equal(result.response.status, 403, "locked challenge rejected by default");
+
+    // 教师开启跳关
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/skip-locked`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ allow: true }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.allowSkipLocked, true);
+
+    // 学生 progress 接口返回开关
+    result = await request(baseUrl, "/api/student/progress", {}, studentJar);
+    assert.equal(result.body.allowSkipLocked, true);
+
+    // 现在可提交 locked 关卡
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ challengeId: "half-adder", result: { passed: false, score: 30, errors: [{ type: "连接错误" }], elapsedMinutes: 2, circuitEdges } }),
+    }, studentJar);
+    assert.ok([200, 201].includes(result.response.status), "locked challenge allowed after toggle");
+
+    // 关闭跳关后重新拒绝
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/skip-locked`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ allow: false }),
+    }, teacherJar);
+    assert.equal(result.body.allowSkipLocked, false);
+    const fullAdderEdges = [
+      { from: { nodeId: "input-a", portId: "out" }, to: { nodeId: "xor-1", portId: "a" } },
+      { from: { nodeId: "input-b", portId: "out" }, to: { nodeId: "xor-1", portId: "b" } },
+    ];
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ challengeId: "full-adder", result: { passed: false, score: 30, errors: [{ type: "连接错误" }], elapsedMinutes: 2, circuitEdges: fullAdderEdges } }),
+    }, studentJar);
+    assert.equal(result.response.status, 403, "locked challenge rejected again after toggle off");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});
