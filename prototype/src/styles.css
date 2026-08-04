@@ -8028,3 +8028,26 @@ body {
   font-family: var(--mono, "JetBrains Mono", monospace);
   font-size: 0.78rem;
 }
+
+/* P1-D: 3D 总线标签牌 */
+.bus-label {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid;
+  background: rgba(8, 9, 10, 0.82);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  user-select: none;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.bus-label-hovered {
+  transform: translateY(-2px) scale(1.12);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 14px currentColor;
+}

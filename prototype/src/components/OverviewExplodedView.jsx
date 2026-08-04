@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Quaternion, Vector3 } from "three";
 import { useFrame } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import { ComputerExplodedView } from "./ComputerExplodedView.jsx";
 import { ThreeSceneFallback } from "./ThreeSceneFallback.jsx";
 import { CONNECTIONS, MOBO_DETAILS, usePartPositions, getConnectionEndpoint } from "./computerParts.js";
@@ -21,51 +22,95 @@ function easeOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-function ConnectionLine({ from, to, color, thickness = 0.02, xray = false }) {
-  const { position, quaternion, length } = useMemo(() => {
+function ConnectionLine({ from, to, color, thickness = 0.02, xray = false, label = "", showLabel = false }) {
+  const { position, quaternion, length, mid } = useMemo(() => {
     const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
     const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
     const mid = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2];
     const dir = new Vector3(dx, dy, dz).normalize();
     const quat = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir);
-    return { position: mid, quaternion: quat, length: len };
+    return { position: mid, quaternion: quat, length: len, mid };
   }, [from, to]);
+  const [hovered, setHovered] = useState(false);
   return (
-    <mesh position={position} quaternion={quaternion}>
-      <cylinderGeometry args={[thickness, thickness, length, 8]} />
-      {xray ? (
-        <meshBasicMaterial
-          color={color}
-          transparent
-          opacity={0.95}
-          depthTest={false}
-          depthWrite={false}
-        />
-      ) : (
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.7} />
+    <group>
+      <mesh
+        position={position}
+        quaternion={quaternion}
+        onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
+        onPointerOut={() => setHovered(false)}
+      >
+        <cylinderGeometry args={[thickness, thickness, length, 8]} />
+        {xray ? (
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={hovered ? 1 : 0.95}
+            depthTest={false}
+            depthWrite={false}
+          />
+        ) : (
+          <meshStandardMaterial
+            color={color}
+            emissive={color}
+            emissiveIntensity={hovered ? 1.6 : 0.7}
+            transparent={hovered}
+            opacity={hovered ? 0.92 : 1}
+          />
+        )}
+      </mesh>
+      {showLabel && label && (
+        <Html position={[mid[0], mid[1] + 0.06, mid[2]]} center distanceFactor={7} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
+          <span
+            className={hovered ? "bus-label bus-label-hovered" : "bus-label"}
+            style={{ borderColor: color, color }}
+          >
+            {label}
+          </span>
+        </Html>
       )}
-    </mesh>
+    </group>
   );
 }
 
 function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
   const meshRef = useRef(null);
+  const trailRefs = [useRef(null), useRef(null), useRef(null)];
   const progress = useRef(Math.random());
+  const previous = useRef([0, 0, 0]);
   useFrame((_, delta) => {
     if (!meshRef.current) return;
     progress.current = (progress.current + delta * speed) % 1;
     const t = progress.current;
-    meshRef.current.position.set(
-      from[0] + (to[0] - from[0]) * t,
-      from[1] + (to[1] - from[1]) * t,
-      from[2] + (to[2] - from[2]) * t,
-    );
+    const x = from[0] + (to[0] - from[0]) * t;
+    const y = from[1] + (to[1] - from[1]) * t;
+    const z = from[2] + (to[2] - from[2]) * t;
+    meshRef.current.position.set(x, y, z);
+    // 尾迹：沿运动方向向后放置渐隐小球
+    const dx = x - previous.current[0], dy = y - previous.current[1], dz = z - previous.current[2];
+    const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 0.001;
+    const dir = [dx / len, dy / len, dz / len];
+    for (let i = 0; i < trailRefs.length; i++) {
+      const trail = trailRefs[i].current;
+      if (!trail) continue;
+      const back = (i + 1) * 0.045;
+      trail.position.set(x - dir[0] * back, y - dir[1] * back, z - dir[2] * back);
+    }
+    previous.current = [x, y, z];
   });
   return (
-    <mesh ref={meshRef}>
-      <sphereGeometry args={[0.028, 8, 8]} />
-      <meshBasicMaterial color={color} />
-    </mesh>
+    <group>
+      <mesh ref={meshRef}>
+        <sphereGeometry args={[0.035, 8, 8]} />
+        <meshBasicMaterial color={color} />
+      </mesh>
+      {trailRefs.map((ref, i) => (
+        <mesh key={`trail-${i}`} ref={ref}>
+          <sphereGeometry args={[0.024 - i * 0.005, 6, 6]} />
+          <meshBasicMaterial color={color} transparent opacity={0.45 - i * 0.13} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -197,6 +242,7 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
       to: getConnectionEndpoint(conn.toPart, conn.toOffset, effectiveDistance),
       color: conn.color,
       thickness: conn.thickness,
+      label: conn.label,
     }));
   }, [effectiveDistance]);
 
@@ -235,6 +281,8 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
             to={line.to}
             color={line.color}
             thickness={line.thickness}
+            label={line.label}
+            showLabel={xray}
             xray={xray}
           />
         ))}

@@ -78,6 +78,21 @@ assert.equal(await xrayButton.getAttribute("aria-pressed"), "false", "X-ray togg
 await page.screenshot({ path: "test-artifacts/xray-off.png", fullPage: false });
 console.log("X-ray toggles off, screenshots saved");
 
+// 7. P1-D: X-ray 开启时显示总线标签牌（数据总线/地址总线/控制总线）
+await xrayButton.click();
+await page.waitForTimeout(800);
+const busLabels = page.locator(".bus-label");
+const labelCount = await busLabels.count();
+console.log("bus label count:", labelCount);
+assert.ok(labelCount >= 3, `expected >=3 bus labels, got ${labelCount}`);
+const labelTexts = await busLabels.allInnerTexts();
+const joined = labelTexts.join("|");
+assert.ok(/数据总线/.test(joined), `data bus label missing: ${joined}`);
+assert.ok(/地址总线/.test(joined), `address bus label missing: ${joined}`);
+assert.ok(/控制总线/.test(joined), `control bus label missing: ${joined}`);
+await page.screenshot({ path: "test-artifacts/xray-labels.png", fullPage: false });
+console.log("P1-D PASS: bus labels visible in X-ray mode:", joined.slice(0, 120));
+
 assert.equal(pageErrors.length, 0, `page errors: ${pageErrors.join(" | ")}`);
 console.log("P0-C X-RAY PASS: no page errors, toggle works");
 await browser.close();

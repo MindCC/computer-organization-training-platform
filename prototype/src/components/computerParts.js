@@ -346,17 +346,17 @@ export const PARTS_MAP = Object.fromEntries(COMPUTER_PARTS.map((p) => [p.id, p])
 // ── Connection lines: reference parts with local offsets so they follow explosions ──
 // Each connection stores fromPart/toPart (part ID) and fromOffset/toOffset (local offset from that part's basePos)
 export const CONNECTIONS = [
-  { fromPart: "cpu", fromOffset: [0, 0, 0], toPart: "ram-0", toOffset: [0, 0, 0], color: "#4fc3f7", label: "数据总线", thickness: 0.022 },
-  { fromPart: "cpu", fromOffset: [0, 0, 0], toPart: "ram-1", toOffset: [0, 0, 0], color: "#4fc3f7", label: "数据总线", thickness: 0.022 },
-  { fromPart: "cpu", fromOffset: [0, 0, 0], toPart: "gpu", toOffset: [0, 0, 0], color: "#4fc3f7", label: "PCIe 总线", thickness: 0.024 },
-  { fromPart: "cpu", fromOffset: [0, 0, 0], toPart: "storage", toOffset: [0, 0, 0], color: "#ff9800", label: "SATA 总线", thickness: 0.02 },
-  { fromPart: "cpu", fromOffset: [0.02, 0.01, 0.07], toPart: "ram-0", toOffset: [0.02, 0.01, 0.01], color: "#81c784", label: "地址总线", thickness: 0.018 },
-  { fromPart: "cpu", fromOffset: [0.02, 0.01, 0.07], toPart: "ram-1", toOffset: [0.02, 0.01, 0.01], color: "#81c784", label: "地址总线", thickness: 0.018 },
-  { fromPart: "cpu", fromOffset: [-0.02, -0.01, 0], toPart: "ram-0", toOffset: [0, -0.01, -0.01], color: "#ffeb3b", label: "控制总线", thickness: 0.016 },
-  { fromPart: "cpu", fromOffset: [-0.02, -0.01, 0], toPart: "gpu", toOffset: [0, -0.01, -0.01], color: "#ffeb3b", label: "控制总线", thickness: 0.016 },
-  { fromPart: "psu", fromOffset: [0, 0, 0], toPart: "motherboard", toOffset: [-0.05, -0.02, 0.3], color: "#ef5350", label: "主板供电", thickness: 0.024 },
-  { fromPart: "psu", fromOffset: [0, 0, 0], toPart: "cpu", toOffset: [0, -0.02, 0], color: "#ef5350", label: "CPU 供电", thickness: 0.02 },
-  { fromPart: "psu", fromOffset: [0, 0, 0], toPart: "gpu", toOffset: [0, -0.02, 0], color: "#ef5350", label: "GPU 供电", thickness: 0.018 },
+  { fromPart: "cpu", fromOffset: [0, 0, 0], toPart: "ram-0", toOffset: [0, 0, 0], color: "#4fc3f7", label: "数据总线", thickness: 0.028 },
+  { fromPart: "cpu", fromOffset: [0, 0, 0], toPart: "ram-1", toOffset: [0, 0, 0], color: "#4fc3f7", label: "数据总线", thickness: 0.028 },
+  { fromPart: "cpu", fromOffset: [0, 0, 0], toPart: "gpu", toOffset: [0, 0, 0], color: "#4fc3f7", label: "PCIe 总线", thickness: 0.028 },
+  { fromPart: "cpu", fromOffset: [0, 0, 0], toPart: "storage", toOffset: [0, 0, 0], color: "#ff9800", label: "SATA 总线", thickness: 0.026 },
+  { fromPart: "cpu", fromOffset: [0.02, 0.01, 0.07], toPart: "ram-0", toOffset: [0.02, 0.01, 0.01], color: "#81c784", label: "地址总线", thickness: 0.026 },
+  { fromPart: "cpu", fromOffset: [0.02, 0.01, 0.07], toPart: "ram-1", toOffset: [0.02, 0.01, 0.01], color: "#81c784", label: "地址总线", thickness: 0.026 },
+  { fromPart: "cpu", fromOffset: [-0.02, -0.01, 0], toPart: "ram-0", toOffset: [0, -0.01, -0.01], color: "#ffeb3b", label: "控制总线", thickness: 0.024 },
+  { fromPart: "cpu", fromOffset: [-0.02, -0.01, 0], toPart: "gpu", toOffset: [0, -0.01, -0.01], color: "#ffeb3b", label: "控制总线", thickness: 0.024 },
+  { fromPart: "psu", fromOffset: [0, 0, 0], toPart: "motherboard", toOffset: [-0.05, -0.02, 0.3], color: "#ef5350", label: "主板供电", thickness: 0.028 },
+  { fromPart: "psu", fromOffset: [0, 0, 0], toPart: "cpu", toOffset: [0, -0.02, 0], color: "#ef5350", label: "CPU 供电", thickness: 0.026 },
+  { fromPart: "psu", fromOffset: [0, 0, 0], toPart: "gpu", toOffset: [0, -0.02, 0], color: "#ef5350", label: "GPU 供电", thickness: 0.024 },
 ];
 
 // Compute a connection endpoint position given part ID, local offset, and explode distance
