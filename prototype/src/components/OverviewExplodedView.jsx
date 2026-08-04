@@ -21,7 +21,7 @@ function easeOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-function ConnectionLine({ from, to, color, thickness = 0.02 }) {
+function ConnectionLine({ from, to, color, thickness = 0.02, xray = false }) {
   const { position, quaternion, length } = useMemo(() => {
     const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
     const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
@@ -33,7 +33,17 @@ function ConnectionLine({ from, to, color, thickness = 0.02 }) {
   return (
     <mesh position={position} quaternion={quaternion}>
       <cylinderGeometry args={[thickness, thickness, length, 8]} />
-      <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.7} />
+      {xray ? (
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={0.95}
+          depthTest={false}
+          depthWrite={false}
+        />
+      ) : (
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.7} />
+      )}
     </mesh>
   );
 }
@@ -59,7 +69,7 @@ function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
   );
 }
 
-function AnimatedPart({ part, autoAnimating, explodeDistance, isHighlighted, onSelect }) {
+function AnimatedPart({ part, autoAnimating, explodeDistance, isHighlighted, xray = false, onSelect }) {
   const meshRef = useRef(null);
   const localOffset = part.localOffset ?? [0, 0, 0];
   const animProgress = useRef(0);
@@ -84,6 +94,15 @@ function AnimatedPart({ part, autoAnimating, explodeDistance, isHighlighted, onS
   const scale = isHighlighted ? [1.2, 1.2, 1.2] : [1, 1, 1];
   const rotation = part.rotation ?? [0, 0, 0];
 
+  // X-ray: render part semi-transparent so connection lines show through
+  const materialProps = part.mat
+    ? {
+      color: part.mat.color,
+      metalness: part.mat.metalness ?? 0,
+      roughness: part.mat.roughness ?? 0.5,
+    }
+    : {};
+
   return (
     <mesh
       ref={meshRef}
@@ -96,7 +115,15 @@ function AnimatedPart({ part, autoAnimating, explodeDistance, isHighlighted, onS
       castShadow
       receiveShadow
     >
-      {isHighlighted && (
+      {xray && (
+        <meshStandardMaterial
+          {...materialProps}
+          transparent
+          opacity={0.22}
+          depthWrite={false}
+        />
+      )}
+      {!xray && isHighlighted && (
         <meshStandardMaterial
           color={part.mat?.color}
           emissive="#ffa726"
@@ -119,6 +146,7 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
   const [currentStep, setCurrentStep] = useState(shouldAutoPlay ? 0 : 1);
   const [selectedPart, setSelectedPart] = useState(null);
   const [showHint, setShowHint] = useState(true);
+  const [xray, setXray] = useState(false);
 
   // The effective distance for connection line positioning:
   // - auto mode: target settle distance (1.3) after animation completes
@@ -194,22 +222,24 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
               autoAnimating={mode === "auto" && autoAnimating}
               explodeDistance={explodeDistance}
               isHighlighted={isHighlighted}
+              xray={xray}
               onSelect={() => setSelectedPart(selectedPart?.id === part.id ? null : part)}
             />
           );
         })}
-        {/* Show connections in assembled state, step 8, or auto mode */}
-        {(showConnections || mode === "auto") && connectionLines.map((line, i) => (
+        {/* Show connections in assembled state, step 8, auto mode, or X-ray */}
+        {(showConnections || mode === "auto" || xray) && connectionLines.map((line, i) => (
           <ConnectionLine
             key={`conn-${i}`}
             from={line.from}
             to={line.to}
             color={line.color}
             thickness={line.thickness}
+            xray={xray}
           />
         ))}
         {/* Data flow particles only when not reduced motion and connections visible */}
-        {(showConnections || mode === "auto") && !prefersReducedMotion && connectionLines.map((line, i) => (
+        {(showConnections || mode === "auto" || xray) && !prefersReducedMotion && connectionLines.map((line, i) => (
           <DataFlowParticle key={`flow-${i}`} from={line.from} to={line.to} color={line.color} />
         ))}
         {uniqueParts.some((p) => (p.parentId ?? p.id) === "motherboard") && MOBO_DETAILS.map((d, i) => (
@@ -221,6 +251,15 @@ export function OverviewExplodedView({ autoPlay = true, completed = false, onCom
       <div className="exploded-topbar">
         <button className={mode === "auto" ? "active" : ""} onClick={() => { setMode("auto"); setCurrentStep(0); setAutoAnimating(true); }} type="button">自动爆炸</button>
         <button className={mode === "step" ? "active" : ""} onClick={() => { setMode("step"); setCurrentStep(1); setAutoAnimating(false); }} type="button">分步组装</button>
+        <button
+          aria-pressed={xray}
+          className={xray ? "active xray-toggle" : "xray-toggle"}
+          onClick={() => setXray((value) => !value)}
+          title="X-ray 模式：连接线穿透部件显示"
+          type="button"
+        >
+          {xray ? "X-ray 开" : "X-ray"}
+        </button>
         {mode === "auto" && (
           <div className="exploded-controls-inline">
             <button onClick={() => { setAutoAnimating(false); setExplodeDistance(0); }} type="button">装配</button>
