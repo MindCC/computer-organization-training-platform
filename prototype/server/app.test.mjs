@@ -758,3 +758,65 @@ test("teacher can download class archive.zip with 5 files, no secrets, fast enou
     db.close();
   }
 });
+
+test("student mistake book aggregates failed attempts with error types after a failed submission", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  const studentJar = {};
+  try {
+    // 登录教师并创建班级导入学生
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/classes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "错题本测试班" }),
+    }, teacherJar);
+    const classId = result.body.class?.id ?? result.body.id;
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: "m001,错题学生,Student123!" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+
+    // 学生登录并提交一次失败 + 一次成功
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "m001", password: "Student123!" }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ challengeId: "computer-components", result: { passed: false, score: 30, errors: [{ type: "连接错误", message: "输入设备未接入存储器" }], elapsedMinutes: 4 } }),
+    }, studentJar);
+    assert.ok([200, 201].includes(result.response.status));
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ challengeId: "computer-components", result: { passed: false, score: 45, errors: [{ type: "连接错误", message: "存储器输出未接" }], elapsedMinutes: 3 } }),
+    }, studentJar);
+    assert.ok([200, 201].includes(result.response.status));
+
+    // 查询错题本
+    result = await request(baseUrl, "/api/student/mistakes", {}, studentJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.overview.totalMistakes, 2, "two failed attempts are mistakes");
+    assert.ok(result.body.items.length >= 1);
+    const item = result.body.items[0];
+    assert.equal(item.challengeId, "computer-components");
+    assert.ok(item.count >= 2, "same error type merged with count");
+    assert.equal(item.snapshots.length, 2);
+    assert.equal(item.snapshots[0].score, 45, "newest snapshot first");
+    assert.equal(item.errorType, "连接错误");
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});

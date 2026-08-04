@@ -86,4 +86,5 @@ export const api = {
   saveAssignmentDraft: (assignmentId, answers) => apiRequest(`/api/student/assignments/${assignmentId}/draft`, { method: "POST", body: JSON.stringify({ answers }) }),
   submitAssignment: (assignmentId, answers) => apiRequest(`/api/student/assignments/${assignmentId}/submit`, { method: "POST", body: JSON.stringify({ answers }) }),
   studentSubmissions: () => apiRequest("/api/student/submissions"),
+  mistakes: () => apiRequest("/api/student/mistakes"),
 };

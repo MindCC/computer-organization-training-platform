@@ -73,6 +73,7 @@ import { statusText, statusTone, formatMinutes, formatEndpointLabel } from "./co
 import { NotesPage } from "./components/NotesPage.jsx";
 import { StudentHome } from "./components/StudentHome.jsx";
 import { StudentRecords } from "./components/StudentRecords.jsx";
+import { MistakeBookPage } from "./components/MistakeBookPage.jsx";
 import { SettingsModal } from "./components/TeacherSettingsPanel.jsx";
 import { TeacherStudioDashboard } from "./components/TeacherDashboard.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
@@ -97,6 +98,7 @@ const navItems = [
   { id: "lab", label: "关卡实验", icon: Flask },
   { id: "hardware-game", label: "\u786c\u4ef6\u914d\u7f6e\u6311\u6218", icon: Cpu },
   { id: "records", label: "学习记录", icon: ChartPieSlice },
+  { id: "mistakes", label: "错题本", icon: BookOpen },
   { id: "notes", label: "学习笔记", icon: Notebook },
   { id: "assignments", label: "课后作业", icon: Notebook },
   { id: "courseware", label: "课程课件", icon: BookOpen },
@@ -1002,6 +1004,7 @@ export function App() {
 
           {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} /> : null}
           {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
+          {activeView === "mistakes" ? <MistakeBookPage navigateToChallenge={navigateToChallenge} changeView={changeView} /> : null}
           {activeView === "hardware-game" ? (
             <ErrorBoundary>
               <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u786c\u4ef6\u914d\u7f6e\u6311\u6218..." />}>

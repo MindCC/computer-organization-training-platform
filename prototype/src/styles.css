@@ -8051,3 +8051,75 @@ body {
   background: rgba(255, 255, 255, 0.12);
   box-shadow: 0 0 14px currentColor;
 }
+
+/* P2-B: 错题本 */
+.mistakes-layout {
+  display: grid;
+  gap: 18px;
+}
+
+.mistake-group-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.mistake-group {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--danger, #ef5350);
+}
+
+.mistake-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mistake-group-header strong {
+  font-size: 0.95rem;
+  color: var(--ink);
+}
+
+.mistake-type {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: rgba(239, 83, 80, 0.12);
+  color: var(--danger, #ef5350);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.mistake-group-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.mistake-snapshot-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mistake-snapshot {
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.mistake-retry {
+  justify-self: start;
+}

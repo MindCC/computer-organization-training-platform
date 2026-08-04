@@ -49,6 +49,7 @@ import { createAssignmentService } from "./assignmentService.js";
 import { createAssignmentRouter } from "./assignmentRoutes.js";
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
+import { buildMistakeBook } from "../src/mistakeBook.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_NAME = "zcyl_session";
@@ -416,6 +417,30 @@ export function createApp(options = {}) {
         challengeId: req.query.challengeId,
       }),
     });
+  });
+
+  app.get("/api/student/mistakes", requireRole("student"), (req, res) => {
+    const rows = db.prepare(`
+      SELECT challenge_id AS challengeId, score, passed, errors_json AS errorsJson, created_at AS createdAt
+      FROM challenge_attempts
+      WHERE student_id = ?
+      ORDER BY created_at ASC
+    `).all(req.user.id);
+    const titleMap = {};
+    for (const item of LEARNING_ITEMS) titleMap[item.id] = item.title;
+    const attempts = rows.map((row) => {
+      let errors = [];
+      try { errors = row.errorsJson ? JSON.parse(row.errorsJson) : []; } catch { errors = []; }
+      return {
+        challengeId: row.challengeId,
+        score: row.score,
+        passed: Boolean(row.passed),
+        errors: Array.isArray(errors) ? errors : [],
+        createdAt: row.createdAt,
+      };
+    });
+    const book = buildMistakeBook(attempts, titleMap);
+    res.json(book);
   });
 
   app.get("/api/student/report.md", requireRole("student"), (req, res) => {
