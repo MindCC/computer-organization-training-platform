@@ -6,7 +6,7 @@ import {
   Memory,
   WarningCircle,
 } from "@phosphor-icons/react";
-import assemblyImage from "../assets/hardware-assembly-workbench.png";
+import assemblyImage from "../assets/hardware-assembly-workbench.webp";
 import { buildHardwareWorkbenchModel } from "../hardwareWorkbench.js";
 
 const CATEGORY_ICONS = {

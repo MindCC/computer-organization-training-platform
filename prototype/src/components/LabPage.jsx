@@ -7,13 +7,13 @@ import { MobileLabFallback } from "./MobileLabFallback.jsx";
 import { MachineNumberPanel } from "./MachineNumberPanel.jsx";
 import { MemorySystemPanel } from "./MemorySystemPanel.jsx";
 import { ChallengeCanvas } from "./ChallengeCanvas.jsx";
-import { OverviewExplodedView } from "./OverviewExplodedView.jsx";
 import { statusText, statusTone, formatEndpointLabel } from "./labUtils.js";
 import { MissionHud } from "./classroom/student/MissionHud.jsx";
 import { MissionPauseOverlay } from "./classroom/student/MissionPauseOverlay.jsx";
 import { MissionSettlement } from "./classroom/student/MissionSettlement.jsx";
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
+const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").then((m) => ({ default: m.OverviewExplodedView })));
 
 function formatOutputs(outputs) {
   return Object.entries(outputs).map(([k, v]) => `${outputLabel(k)}=${v}`).join(" · ");
@@ -81,11 +81,13 @@ export function LabPage({
           <div className="lab-studio-user"><span>{student.name}</span><button aria-label="打开个人设置" className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button"><GearSix size={19} /></button></div>
         </header>
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          <OverviewExplodedView
-            autoPlay={true}
-            completed={l.currentRecord?.status === "completed"}
-            onComplete={l.completeOverviewChallenge}
-          />
+          <Suspense fallback={<div className="flow-loading">\u6b63\u5728\u52a0\u8f7d 3D \u6982\u89c8...</div>}>
+            <OverviewExplodedView
+              autoPlay={true}
+              completed={l.currentRecord?.status === "completed"}
+              onComplete={l.completeOverviewChallenge}
+            />
+          </Suspense>
         </div>
       </div>
     );

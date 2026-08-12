@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const budgets = [
   ["src/assets/alex-chen-avatar.webp", 40 * 1024],
+  ["src/assets/hardware-assembly-workbench.webp", 150 * 1024],
   ["src/assets/lab-circuit-illustration.webp", 220 * 1024],
   ["src/assets/study-tip-carry-diagram.webp", 220 * 1024],
 ];

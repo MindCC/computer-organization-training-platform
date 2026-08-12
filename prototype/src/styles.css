@@ -7933,6 +7933,16 @@ body {
   .teacher-setup-steps {
     grid-template-columns: minmax(0, 1fr);
   }
+
+  .intervention-group-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .intervention-action {
+    width: 100%;
+    white-space: normal;
+  }
 }
 
 /* P1-A: 首次学习引导横幅（学生首页空状态） */

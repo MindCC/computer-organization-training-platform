@@ -70,12 +70,6 @@ import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { buildMemoryAccessState } from "./memorySystem.js";
 import { api } from "./apiClient.js";
 import { statusText, statusTone, formatMinutes, formatEndpointLabel } from "./components/labUtils.js";
-import { NotesPage } from "./components/NotesPage.jsx";
-import { StudentHome } from "./components/StudentHome.jsx";
-import { StudentRecords } from "./components/StudentRecords.jsx";
-import { MistakeBookPage } from "./components/MistakeBookPage.jsx";
-import { SettingsModal } from "./components/TeacherSettingsPanel.jsx";
-import { TeacherStudioDashboard } from "./components/TeacherDashboard.jsx";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { LoginPortal } from "./components/auth/LoginPortal.jsx";
 import { QuestSettlement } from "./components/quest/QuestSettlement.jsx";
@@ -83,11 +77,25 @@ import { buildQuestSettlement } from "./questExperience.js";
 import { useLabState } from "./hooks/useLabState.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
-import { StudentAssignments } from "./components/StudentAssignments.jsx";
-import { CoursewareView } from "./components/CoursewareView.jsx";
 import avatarImage from "./assets/alex-chen-avatar.webp";
 import labIllustration from "./assets/lab-circuit-illustration.webp";
 
+const NotesPage = lazy(() => import("./components/NotesPage.jsx")
+  .then((module) => ({ default: module.NotesPage })));
+const StudentHome = lazy(() => import("./components/StudentHome.jsx")
+  .then((module) => ({ default: module.StudentHome })));
+const StudentRecords = lazy(() => import("./components/StudentRecords.jsx")
+  .then((module) => ({ default: module.StudentRecords })));
+const MistakeBookPage = lazy(() => import("./components/MistakeBookPage.jsx")
+  .then((module) => ({ default: module.MistakeBookPage })));
+const SettingsModal = lazy(() => import("./components/TeacherSettingsPanel.jsx")
+  .then((module) => ({ default: module.SettingsModal })));
+const TeacherStudioDashboard = lazy(() => import("./components/TeacherDashboard.jsx")
+  .then((module) => ({ default: module.TeacherStudioDashboard })));
+const StudentAssignments = lazy(() => import("./components/StudentAssignments.jsx")
+  .then((module) => ({ default: module.StudentAssignments })));
+const CoursewareView = lazy(() => import("./components/CoursewareView.jsx")
+  .then((module) => ({ default: module.CoursewareView })));
 const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
   .then((module) => ({ default: module.HardwareGamePage })));
 const LabPage = lazy(() => import("./components/LabPage.jsx")
@@ -916,6 +924,8 @@ export function App() {
               classroomLabViewModel={{ ...classroomSession.viewModel, submitAttempt: classroomSession.submit }} />
           </Suspense>
         </ErrorBoundary>
+        {renderSettingsModal()}
+        {renderQuestSettlement()}
       </div>
     );
   }
@@ -1009,6 +1019,8 @@ export function App() {
         </aside>
 
         <main className="dashboard">
+          <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u5f53\u524d\u529f\u80fd..." />}>
+          <ErrorBoundary key={activeView}>
           <div className="status-banner">
             <Sparkle size={18} />
             <span>{statusMessage}</span>
@@ -1065,26 +1077,14 @@ export function App() {
             />
             </ErrorBoundary>
           ) : null}
+          </ErrorBoundary>
+          </Suspense>
         </main>
       </div>
 
-      {showSettings ? <SettingsModal setShowSettings={setShowSettings} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} student={student} updateStudent={updateStudent} saveStudentSettings={saveStudentSettings} /> : null}
+      {renderSettingsModal()}
 
-      {questSettlement ? (
-        <QuestSettlement
-          settlement={questSettlement}
-          onReview={() => setQuestSettlement(null)}
-          onContinue={() => {
-            const nextId = questSettlement.nextId;
-            setQuestSettlement(null);
-            if (nextId) {
-              navigateToChallenge(nextId);
-            } else {
-              setActiveView("home");
-            }
-          }}
-        />
-      ) : null}
+      {renderQuestSettlement()}
     </div>
     </ErrorBoundary>
   );
@@ -1096,6 +1096,36 @@ export function App() {
         setLoginForm={setLoginForm}
         loginError={loginError}
         onSubmit={handleLogin}
+      />
+    );
+  }
+
+  function renderSettingsModal() {
+    if (!showSettings) return null;
+    return (
+      <ErrorBoundary key="settings-modal">
+        <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u8bbe\u7f6e..." />}>
+          <SettingsModal setShowSettings={setShowSettings} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} student={student} updateStudent={updateStudent} saveStudentSettings={saveStudentSettings} />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
+  function renderQuestSettlement() {
+    if (!questSettlement) return null;
+    return (
+      <QuestSettlement
+        settlement={questSettlement}
+        onReview={() => setQuestSettlement(null)}
+        onContinue={() => {
+          const nextId = questSettlement.nextId;
+          setQuestSettlement(null);
+          if (nextId) {
+            navigateToChallenge(nextId);
+          } else {
+            setActiveView("home");
+          }
+        }}
       />
     );
   }

@@ -15,6 +15,8 @@
     "seed:demo": "node server/seedDemoClassroom.js",
     "qa:3d": "node scripts/run-browser-qa.mjs scripts/verify-3d.mjs",
     "qa:assets": "node scripts/verify-asset-budget.mjs",
+    "preqa:build-budget": "npm run build -- --manifest",
+    "qa:build-budget": "node scripts/verify-build-budget.mjs",
     "qa:performance": "node scripts/run-browser-qa.mjs scripts/verify-performance.mjs",
     "qa:ui": "node scripts/run-browser-qa.mjs scripts/verify-ui.mjs",
     "qa:classroom": "node scripts/run-browser-qa.mjs scripts/verify-classroom.mjs",

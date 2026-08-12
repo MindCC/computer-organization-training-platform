@@ -131,12 +131,21 @@ const lockedQuest = page.locator(".quest-stage.locked").first();
 if (await lockedQuest.isVisible().catch(() => false)) {
   assert.equal(await lockedQuest.isDisabled(), true, "locked quest stage must not be enterable");
 }
+await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u9519\u9898\u672c" }).click();
+await page.locator(".mistakes-layout").waitFor({ state: "visible", timeout: 10_000 });
+await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u8bfe\u540e\u4f5c\u4e1a" }).click();
+await page.locator(".student-assignments").waitFor({ state: "visible", timeout: 10_000 });
+await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u8bfe\u7a0b\u8bfe\u4ef6" }).click();
+await page.locator(".courseware-view").waitFor({ state: "visible", timeout: 10_000 });
 await page.locator(".sidebar-nav .nav-item").filter({ hasText: "学习笔记" }).click();
 await page.getByLabel("笔记内容").fill("3D 与总线关系复盘");
 await page.getByRole("button", { name: "保存笔记" }).click();
 await assertVisible(page, "3D 与总线关系复盘");
 await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u8bfe\u7a0b\u9996\u9875" }).click();
 await openChallenge(page, "\u8ba4\u8bc6\u8ba1\u7b97\u673a\u4e94\u5927\u90e8\u4ef6");
+await page.getByRole("button", { name: "\u6253\u5f00\u4e2a\u4eba\u8bbe\u7f6e" }).click();
+await page.locator(".settings-overlay").waitFor({ state: "visible", timeout: 10_000 });
+await page.getByRole("button", { name: "\u5173\u95ed" }).click();
 await assertVisible(page, "\u5206\u6b65\u7ec4\u88c5");
 await page.getByRole("button", { name: "\u5206\u6b65\u7ec4\u88c5" }).click();
 for (let step = 1; step < 8; step += 1) {
@@ -145,6 +154,10 @@ for (let step = 1; step < 8; step += 1) {
 const overviewAttemptPromise = waitForAttemptResponse(page);
 await page.getByRole("button", { name: "\u5b8c\u6210\u63a2\u7d22" }).click();
 await assertAttemptSaved(await overviewAttemptPromise, "computer-components");
+await page.locator(".quest-settlement").waitFor({ state: "visible", timeout: 10_000 });
+assert.equal(await page.locator(".quest-settlement-card").count(), 1, "settlement card present after first pass");
+await assertVisible(page, "评测结算");
+await assertVisible(page, "继续下一关");
 await dismissQuestSettlementIfPresent(page);
 await page.getByRole("button", { name: "\u5df2\u5b8c\u6210\u63a2\u7d22" }).waitFor({ state: "visible", timeout: 10_000 });
 await dismissQuestSettlementNow(page);
@@ -230,7 +243,19 @@ await assertVisible(page, text.teacherHeading);
 await page.screenshot({ path: artifactPath("mobile-teacher.png"), fullPage: true });
 assert.equal(await page.locator(".sidebar-nav").evaluate((node) => getComputedStyle(node).position), "fixed", "mobile navigation stays reachable at the bottom");
 assert.equal(await page.locator(".sidebar-nav").evaluate((node) => getComputedStyle(node).scrollbarWidth), "none", "mobile navigation hides its horizontal scrollbar");
-assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), true, "mobile layout must not overflow horizontally");
+const mobileOverflow = await page.evaluate(() => ({
+  clientWidth: document.documentElement.clientWidth,
+  scrollWidth: document.documentElement.scrollWidth,
+  elements: [...document.querySelectorAll("body *")]
+    .map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { selector: `${element.tagName.toLowerCase()}.${element.className || ""}`, left: rect.left, right: rect.right, width: rect.width };
+    })
+    .filter((item) => item.left < -1 || item.right > document.documentElement.clientWidth + 1)
+    .sort((left, right) => right.width - left.width)
+    .slice(0, 12),
+}));
+assert.equal(mobileOverflow.scrollWidth <= mobileOverflow.clientWidth, true, `mobile layout must not overflow horizontally: ${JSON.stringify(mobileOverflow)}`);
 
 assert.deepEqual(pageErrors, [], "UI smoke must not emit page errors");
 console.log("UI smoke check passed");
@@ -263,6 +288,7 @@ async function logout(targetPage) {
 }
 
 async function openChallenge(targetPage, title) {
+  await dismissQuestSettlementNow(targetPage);
   await targetPage.getByRole("button").filter({ hasText: title }).first().click();
   await assertVisible(targetPage, title);
 }
@@ -374,13 +400,6 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   await report.waitFor({ state: "visible", timeout: 10_000 });
   const reportText = await report.innerText();
   assert.match(reportText, /本关通过/, `${challenge.id} report: ${reportText}`);
-  // Verify quest settlement appears on the first passing challenge
-  if (challenge.id === "data-flow") {
-    await targetPage.locator(".quest-settlement").waitFor({ state: "visible", timeout: 10_000 });
-    assert.equal(await targetPage.locator(".quest-settlement-card").count(), 1, "settlement card present after pass");
-    await assertVisible(targetPage, "评测结算");
-    await assertVisible(targetPage, "继续下一关");
-  }
   await dismissQuestSettlementIfPresent(targetPage);
 }
 
@@ -448,8 +467,19 @@ async function assertVisible(targetPage, visibleText) {
   } catch (error) {
     const bodyText = await targetPage.locator("body").innerText().catch(() => "<body unavailable>");
     const runtimeErrors = pageErrors.length > 0 ? pageErrors.join(" | ") : "none";
+    const loginFormDiagnostic = await targetPage.locator(".login-form-panel").evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      return {
+        connected: element.isConnected,
+        inlineStyle: element.getAttribute("style"),
+        display: style.display,
+        opacity: style.opacity,
+        visibility: style.visibility,
+        transform: style.transform,
+      };
+    }).catch(() => null);
     throw new Error(
-      `Expected visible text ${JSON.stringify(visibleText)}. Runtime errors: ${runtimeErrors}. Body: ${bodyText.slice(0, 2000)}`,
+      `Expected visible text ${JSON.stringify(visibleText)}. Runtime errors: ${runtimeErrors}. Login form: ${JSON.stringify(loginFormDiagnostic)}. Body: ${bodyText.slice(0, 2000)}`,
       { cause: error },
     );
   }
