@@ -892,6 +892,25 @@ export function App() {
     return <div className="login-screen"><div className="login-card"><strong>{"\u6b63\u5728\u8fde\u63a5\u8bfe\u5802\u670d\u52a1\u5668..."}</strong></div></div>;
   }
 
+  // 结算浮层需要在两个布局分支中渲染:全屏实验台视图与主应用外壳。
+  // 之前只有主外壳渲染它,导致学生在实验台提交通过后看不到通关弹窗,
+  // 直到返回首页才错位弹出,并全屏遮挡首页操作。
+  const settlementOverlay = questSettlement ? (
+    <QuestSettlement
+      settlement={questSettlement}
+      onReview={() => setQuestSettlement(null)}
+      onContinue={() => {
+        const nextId = questSettlement.nextId;
+        setQuestSettlement(null);
+        if (nextId) {
+          navigateToChallenge(nextId);
+        } else {
+          setActiveView("home");
+        }
+      }}
+    />
+  ) : null;
+
   if (auth.status === "anonymous") {
     return renderLogin();
   }
@@ -916,6 +935,7 @@ export function App() {
               classroomLabViewModel={{ ...classroomSession.viewModel, submitAttempt: classroomSession.submit }} />
           </Suspense>
         </ErrorBoundary>
+        {settlementOverlay}
       </div>
     );
   }
@@ -1070,21 +1090,7 @@ export function App() {
 
       {showSettings ? <SettingsModal setShowSettings={setShowSettings} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} student={student} updateStudent={updateStudent} saveStudentSettings={saveStudentSettings} /> : null}
 
-      {questSettlement ? (
-        <QuestSettlement
-          settlement={questSettlement}
-          onReview={() => setQuestSettlement(null)}
-          onContinue={() => {
-            const nextId = questSettlement.nextId;
-            setQuestSettlement(null);
-            if (nextId) {
-              navigateToChallenge(nextId);
-            } else {
-              setActiveView("home");
-            }
-          }}
-        />
-      ) : null}
+      {settlementOverlay}
     </div>
     </ErrorBoundary>
   );

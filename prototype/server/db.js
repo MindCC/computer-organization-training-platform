@@ -17,7 +17,22 @@ export function openDatabase(databasePath = process.env.DATABASE_PATH) {
   if (resolvedPath && resolvedPath !== ":memory:") {
     fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
   }
-  const db = new Database(resolvedPath ?? DEFAULT_DATABASE_PATH);
+  let db;
+  try {
+    db = new Database(resolvedPath ?? DEFAULT_DATABASE_PATH);
+  } catch (error) {
+    if (error?.code === "ERR_DLOPEN_FAILED" || /NODE_MODULE_VERSION/.test(error?.message ?? "")) {
+      throw new Error(
+        "better-sqlite3 原生模块与当前 Node 版本不匹配（NODE_MODULE_VERSION 不一致）。\n" +
+          `当前运行时：Node ${process.version}（ABI ${process.versions.modules}）。\n` +
+          "修复方式：切换到安装依赖时所用的 Node 版本（见 .nvmrc），然后重新安装：\n" +
+          "  rm -rf node_modules/better-sqlite3/build && npm rebuild better-sqlite3\n" +
+          "若无编译工具链，请改用与 node_modules 内预编译产物一致的 Node 版本运行。\n" +
+          `原始错误：${error.message}`,
+      );
+    }
+    throw error;
+  }
   db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.pragma("busy_timeout = 5000");

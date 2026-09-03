@@ -259,7 +259,28 @@ async function logout(targetPage) {
     await targetPage.locator(".profile-button").click();
   }
   await logoutButton.click();
-  await assertVisible(targetPage, text.login);
+  try {
+    await assertVisible(targetPage, text.login);
+  } catch (error) {
+    console.error("LOGOUT DEBUG url:", targetPage.url());
+    const html = await targetPage.content().catch(() => "<unavailable>");
+    console.error("LOGOUT DEBUG html len:", html.length);
+    const bodyInfo = await targetPage.evaluate(() => {
+      const body = document.body;
+      const root = document.querySelector("#root");
+      return {
+        bodyDisplay: getComputedStyle(body).display,
+        bodyVisibility: getComputedStyle(body).visibility,
+        rootChildCount: root ? root.childElementCount : -1,
+        rootTextLen: root ? root.textContent.length : -1,
+        bodyClass: body.className,
+        readyState: document.readyState,
+      };
+    }).catch((e) => ({ error: String(e) }));
+    console.error("LOGOUT DEBUG bodyInfo:", JSON.stringify(bodyInfo));
+    await targetPage.screenshot({ path: artifactPath("logout-debug.png") }).catch(() => {});
+    throw error;
+  }
 }
 
 async function openChallenge(targetPage, title) {
