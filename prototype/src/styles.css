@@ -7905,6 +7905,20 @@ body {
 
 .intervention-action {
   flex-shrink: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* 移动端:干预操作按钮换行独占一行,避免撑破窄容器导致水平溢出 */
+@media (max-width: 780px) {
+  .intervention-group-header {
+    flex-wrap: wrap;
+  }
+  .intervention-action {
+    flex: 1 1 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
 }
 
 .intervention-student-list {
