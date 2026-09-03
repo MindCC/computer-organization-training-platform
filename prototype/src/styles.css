@@ -8309,3 +8309,93 @@ body {
   color: var(--muted);
   font-size: 0.75rem;
 }
+
+/* ── AI 实验助教面板 ── */
+.lab-assistant-panel {
+  border: 1px solid rgba(47, 111, 235, 0.25);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: rgba(47, 111, 235, 0.05);
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lab-assistant-head {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.lab-assistant-head strong {
+  color: var(--studio-blue);
+}
+
+.lab-assistant-button {
+  margin-left: auto;
+  align-items: center;
+  border: none;
+  border-radius: 8px;
+  background: var(--studio-blue);
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 12px;
+  gap: 6px;
+  padding: 6px 12px;
+}
+
+.lab-assistant-button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.lab-assistant-button .spin {
+  animation: lab-assistant-spin 0.8s linear infinite;
+}
+
+@keyframes lab-assistant-spin {
+  to { transform: rotate(360deg); }
+}
+
+.lab-assistant-idle,
+.lab-assistant-error,
+.lab-assistant-note {
+  color: var(--studio-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.lab-assistant-error { color: var(--studio-red); }
+
+.lab-assistant-concept {
+  color: var(--studio-ink);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.lab-assistant-block {
+  display: grid;
+  gap: 4px;
+}
+
+.lab-assistant-block > span {
+  color: var(--studio-blue);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lab-assistant-block ul,
+.lab-assistant-block ol {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.lab-assistant-block li {
+  color: var(--studio-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}

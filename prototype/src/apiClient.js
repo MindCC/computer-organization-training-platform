@@ -99,6 +99,7 @@ export const api = {
   importStudents: (classId, csv) => apiRequest(`/api/teacher/classes/${classId}/import-students`, { method: "POST", body: JSON.stringify({ csv }) }),
   classOverview: (classId) => apiRequest(`/api/teacher/classes/${classId}/overview`),
   assistantReport: (classId) => apiRequest(`/api/teacher/classes/${classId}/assistant-report`, { method: "POST" }),
+  labAssistantHint: (payload) => apiRequest("/api/student/lab-assistant", { method: "POST", body: JSON.stringify(payload) }),
   studentDetail: (classId, studentId) => apiRequest(`/api/teacher/classes/${classId}/students/${studentId}`),
   resetStudentPassword: (studentId, password) => apiRequest(`/api/teacher/students/${studentId}/reset-password`, { method: "POST", body: JSON.stringify({ password }) }),
   // Classroom APIs

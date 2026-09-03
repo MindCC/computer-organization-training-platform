@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
+import { generateLabAssistantHint } from "./labAssistant.js";
 import { normalizeStudentAttemptPayload } from "./submissionValidation.js";
 import { buildStudentMarkdownReport } from "./studentReport.js";
 import {
@@ -472,6 +473,26 @@ export function createApp(options = {}) {
       LIMIT 1
     `).get(req.user.id)?.allowSkip === 1;
     res.json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress), user: sanitizeUser(req.user), allowSkipLocked: allowSkip });
+  });
+
+  app.post("/api/student/lab-assistant", requireRole("student"), async (req, res, next) => {
+    try {
+      const { challengeId, connections, inputState, feedback, realtimeDiagnostics } = req.body ?? {};
+      if (typeof challengeId !== "string" || !challengeId.trim()) {
+        return res.status(400).json({ error: "缺少关卡标识" });
+      }
+      const report = await generateLabAssistantHint({
+        challengeId,
+        connections: Array.isArray(connections) ? connections : [],
+        inputState: typeof inputState === "object" && inputState ? inputState : {},
+        feedback: feedback && typeof feedback === "object" ? feedback : null,
+        realtimeDiagnostics: realtimeDiagnostics && typeof realtimeDiagnostics === "object" ? realtimeDiagnostics : null,
+      });
+      audit(req, "ai_lab_hint", { targetType: "challenge", targetId: challengeId, metadata: { source: report.source } });
+      res.json(report);
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post("/api/student/attempts", requireRole("student"), (req, res, next) => {
