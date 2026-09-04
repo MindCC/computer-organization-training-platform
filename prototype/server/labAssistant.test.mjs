@@ -71,7 +71,7 @@ test("buildFallbackLabHint 生成降级建议", () => {
 });
 
 test("generateLabAssistantHint 未配置 Key 时降级", async () => {
-  const report = await generateLabAssistantHint({ challengeId: "half-adder" });
+  const report = await generateLabAssistantHint({ challengeId: "half-adder" }, { env: {} });
   assert.equal(report.source, "fallback");
 });
 

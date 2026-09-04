@@ -188,7 +188,7 @@ test("teacher imports students, student submits progress, teacher exports csv", 
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         challengeId: "computer-components",
-        result: { passed: true, score: 100, errors: [], elapsedMinutes: 8 },
+        result: { passed: true, score: 100, errors: [], elapsedMinutes: 8, overviewCompletion: "guided-assembly" },
       }),
     }, studentJar);
     assert.equal(result.response.status, 201);
@@ -298,11 +298,11 @@ test("teacher imports students, student submits progress, teacher exports csv", 
     assert.equal(result.body.student.username, "2026001");
     assert.equal(result.body.student.attempts.length, 2);
     assert.equal(result.body.student.notes.length, 1);
-    assert.equal(result.body.student.progress["computer-components"].bestScore, 100);
+    assert.equal(result.body.student.progress["computer-components"].bestScore, 0);
     assert.equal(result.body.student.progress["game-office-pc"].bestScore, 100);
     assert.equal(result.body.student.timeDistribution[0].challengeId, "computer-components");
     assert.equal(result.body.student.timeDistribution[0].timeSpentMinutes, 8);
-    assert.ok(result.body.student.scoreTrends.some((item) => item.challengeId === "computer-components" && item.best === 100));
+    assert.ok(result.body.student.scoreTrends.some((item) => item.challengeId === "computer-components" && item.best === 0));
     assert.equal(result.body.student.hardwareSummary.completedCases, 1);
     assert.equal(result.body.student.hardwareSummary.bestCaseId, "game-office-pc");
     assert.equal(result.body.student.learningOverview.completedCount, 2);
@@ -728,7 +728,7 @@ test("teacher can download class archive.zip with 5 files, no secrets, fast enou
     result = await request(baseUrl, "/api/student/attempts", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ challengeId: "computer-components", result: { passed: true, score: 92, errors: [], elapsedMinutes: 5 } }),
+      body: JSON.stringify({ challengeId: "computer-components", result: { passed: true, score: 92, errors: [], elapsedMinutes: 5, overviewCompletion: "guided-assembly" } }),
     }, studentJar);
     assert.ok([200, 201].includes(result.response.status), "student attempt should succeed");
 
@@ -783,6 +783,12 @@ test("student mistake book aggregates failed attempts with error types after a f
       body: JSON.stringify({ csv: "m001,错题学生,Student123!" }),
     }, teacherJar);
     assert.equal(result.response.status, 200);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/skip-locked`, {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ allow: true }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
 
     // 学生登录并提交一次失败 + 一次成功
     result = await request(baseUrl, "/api/auth/login", {
@@ -794,13 +800,19 @@ test("student mistake book aggregates failed attempts with error types after a f
     result = await request(baseUrl, "/api/student/attempts", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ challengeId: "computer-components", result: { passed: false, score: 30, errors: [{ type: "连接错误", message: "输入设备未接入存储器" }], elapsedMinutes: 4 } }),
+      body: JSON.stringify({ challengeId: "computer-components", result: { passed: true, score: 100, errors: [], elapsedMinutes: 1, overviewCompletion: "guided-assembly" } }),
     }, studentJar);
     assert.ok([200, 201].includes(result.response.status));
     result = await request(baseUrl, "/api/student/attempts", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ challengeId: "computer-components", result: { passed: false, score: 45, errors: [{ type: "连接错误", message: "存储器输出未接" }], elapsedMinutes: 3 } }),
+      body: JSON.stringify({ challengeId: "program-flow", result: { passed: false, score: 30, errors: [], elapsedMinutes: 4, circuitEdges: [] } }),
+    }, studentJar);
+    assert.ok([200, 201].includes(result.response.status));
+    result = await request(baseUrl, "/api/student/attempts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ challengeId: "program-flow", result: { passed: false, score: 45, errors: [], elapsedMinutes: 3, circuitEdges: [] } }),
     }, studentJar);
     assert.ok([200, 201].includes(result.response.status));
 
@@ -810,11 +822,11 @@ test("student mistake book aggregates failed attempts with error types after a f
     assert.equal(result.body.overview.totalMistakes, 2, "two failed attempts are mistakes");
     assert.ok(result.body.items.length >= 1);
     const item = result.body.items[0];
-    assert.equal(item.challengeId, "computer-components");
+    assert.equal(item.challengeId, "program-flow");
     assert.ok(item.count >= 2, "same error type merged with count");
     assert.equal(item.snapshots.length, 2);
-    assert.equal(item.snapshots[0].score, 45, "newest snapshot first");
-    assert.equal(item.errorType, "连接错误");
+    assert.equal(item.snapshots[0].score, 0, "server regrades the incomplete circuit");
+    assert.match(item.errorType, /路径缺失/);
   } finally {
     await new Promise((resolve) => server.close(resolve));
     db.close();

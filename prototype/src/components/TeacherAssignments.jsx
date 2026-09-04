@@ -10,6 +10,7 @@ export function TeacherAssignments({ classId }) {
   const [showCreate, setShowCreate] = useState(false);
   const [selected, setSelected] = useState(null);
   const [submissions, setSubmissions] = useState([]);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => { if (classId) loadAll(); }, [classId]);
@@ -23,12 +24,21 @@ export function TeacherAssignments({ classId }) {
     } catch {} finally { setLoading(false); }
   }
 
+  async function loadSelectedAssignment(id) {
+    const [detail, result] = await Promise.all([api.assignmentDetail(id), api.assignmentSubmissions(id)]);
+    setSelectedAssignment(detail);
+    setSubmissions(result.submissions ?? []);
+  }
+
   async function selectAssignment(id) {
-    setSelected(id === selected ? null : id);
-    if (id !== selected) {
-      const r = await api.assignmentSubmissions(id);
-      setSubmissions(r.submissions ?? []);
+    if (id === selected) {
+      setSelected(null);
+      setSelectedAssignment(null);
+      setSubmissions([]);
+      return;
     }
+    setSelected(id);
+    await loadSelectedAssignment(id);
   }
 
   return (
@@ -63,8 +73,8 @@ export function TeacherAssignments({ classId }) {
             </button>
             {selected === a.id && (
               <div className="assignment-detail">
-                {a.status === "draft" && <DraftActions assignmentId={a.id} questions={a.questions} onRefresh={loadAll} />}
-                {a.status !== "draft" && <SubmissionList submissions={submissions} assignment={a} onRefresh={() => selectAssignment(a.id)} />}
+                {a.status === "draft" && <DraftActions assignmentId={a.id} questionCount={a.question_count} onRefresh={loadAll} />}
+                {a.status !== "draft" && <SubmissionList submissions={submissions} assignment={a} questions={selectedAssignment?.questions ?? []} onRefresh={() => loadSelectedAssignment(a.id)} />}
               </div>
             )}
           </div>
@@ -75,11 +85,11 @@ export function TeacherAssignments({ classId }) {
   );
 }
 
-function DraftActions({ assignmentId, questions, onRefresh }) {
+function DraftActions({ assignmentId, questionCount, onRefresh }) {
   return (
     <div className="draft-actions">
       <QuestionForm assignmentId={assignmentId} onDone={onRefresh} />
-      {questions?.length > 0 && (
+      {questionCount > 0 && (
         <button className="primary-button" onClick={async () => { await api.publishAssignment(assignmentId); onRefresh(); }}>发布作业</button>
       )}
     </div>
@@ -136,22 +146,53 @@ function AssignmentCreator({ classId, onDone }) {
   );
 }
 
-function SubmissionList({ submissions, assignment, onRefresh }) {
+function SubmissionList({ submissions, assignment, questions, onRefresh }) {
   if (submissions.length === 0) return <p className="empty-state">暂无提交。</p>;
   return (
     <div className="submission-list">
-      {submissions.map((s) => (
-        <div className="submission-row" key={s.id}>
-          <span>{s.display_name}</span>
-          <span>{s.status === "graded" ? `${s.total_score} / ${assignment.total_score}` : "待批改"}</span>
-          {s.status !== "graded" && (
-            <button className="ghost-button" onClick={async () => {
-              await api.gradeSubmission(s.id, { questionScores: [], feedback: "", totalScore: 0 });
-              onRefresh();
-            }}>标记批改</button>
-          )}
-        </div>
-      ))}
+      {submissions.map((submission) => <SubmissionRow key={submission.id} submission={submission} assignment={assignment} questions={questions} onRefresh={onRefresh} />)}
+    </div>
+  );
+}
+
+function SubmissionRow({ submission, assignment, questions, onRefresh }) {
+  const [scores, setScores] = useState(() => Object.fromEntries(questions.map((question) => {
+    const answer = submission.answers?.find((item) => item.questionId === question.id);
+    return [question.id, answer?.score ?? 0];
+  })));
+  const [feedback, setFeedback] = useState("");
+  const [error, setError] = useState("");
+  const pending = submission.status === "submitted";
+
+  async function grade() {
+    try {
+      const questionScores = questions.map((question) => ({
+        questionId: question.id,
+        score: Number(scores[question.id] ?? 0),
+        isCorrect: submission.answers?.find((answer) => answer.questionId === question.id)?.isCorrect,
+      }));
+      await api.gradeSubmission(submission.id, { questionScores, feedback });
+      onRefresh();
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }
+
+  return (
+    <div className="submission-row">
+      <span>{submission.display_name}</span>
+      <span>{submission.status === "graded" ? `${submission.total_score} / ${assignment.total_score}` : "待批改"}</span>
+      {pending ? <div className="submission-grading">
+        {questions.map((question) => {
+          const answer = submission.answers?.find((item) => item.questionId === question.id);
+          return <label key={question.id}>{question.stem}：<code>{String(answer?.value ?? "未作答")}</code>
+            <input aria-label={`${submission.display_name}-${question.stem} 得分`} type="number" min="0" max={question.score} value={scores[question.id] ?? 0} onChange={(event) => setScores((current) => ({ ...current, [question.id]: event.target.value }))} /> / {question.score}
+          </label>;
+        })}
+        <input aria-label={`${submission.display_name} 评语`} placeholder="评语（可选）" value={feedback} onChange={(event) => setFeedback(event.target.value)} />
+        <button className="ghost-button" onClick={grade} type="button">提交评分</button>
+        {error ? <small className="form-error">{error}</small> : null}
+      </div> : null}
     </div>
   );
 }

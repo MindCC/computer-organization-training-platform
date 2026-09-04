@@ -224,3 +224,88 @@ test("assignment resources enforce teacher ownership and student membership", as
     db.close();
   }
 });
+
+test("assignment routes ignore forged teacher identity and return a safe student question DTO", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const ownerJar = {};
+  const attackerJar = {};
+  const studentJar = {};
+  try {
+    const attacker = createUser(db, {
+      username: "assignment-attacker", displayName: "Attacker", role: "teacher",
+      passwordHash: await hashPassword("Attacker123!"),
+    });
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, ownerJar);
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "assignment-attacker", password: "Attacker123!" }),
+    }, attackerJar);
+    let result = await request(baseUrl, "/api/classes", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "DTO 班" }),
+    }, ownerJar);
+    const classId = result.body.class.id;
+    await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ csv: "dto-student,DTO Student,Student123!" }),
+    }, ownerJar);
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "dto-student", password: "Student123!" }),
+    }, studentJar);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/assignments`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "DTO 作业" }),
+    }, ownerJar);
+    const assignmentId = result.body.assignment.id;
+    const ownerId = db.prepare("SELECT id FROM users WHERE username = 'teacher'").get().id;
+    result = await request(baseUrl, `/api/teacher/assignments/${assignmentId}/questions`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ teacherId: ownerId, type: "choice", stem: "越权题", options: ["A", "B"], answer: "A", score: 10 }),
+    }, attackerJar);
+    assert.equal(result.response.status, 404);
+    assert.equal(attacker.id > 0, true);
+
+    result = await request(baseUrl, `/api/teacher/assignments/${assignmentId}/questions`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ type: "choice", stem: "安全题", options: ["A", "B"], answer: "A", explanation: "答案是 A", score: 10 }),
+    }, ownerJar);
+    assert.equal(result.response.status, 201);
+    await request(baseUrl, `/api/teacher/assignments/${assignmentId}/publish`, { method: "POST" }, ownerJar);
+    result = await request(baseUrl, `/api/student/assignments/${assignmentId}`, {}, studentJar);
+    assert.deepEqual(result.body.questions[0].options, ["A", "B"]);
+    assert.equal(Object.hasOwn(result.body.questions[0], "answer_json"), false);
+    assert.equal(Object.hasOwn(result.body.questions[0], "explanation"), false);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});
+
+test("assignment submission preserves draft answers and leaves manual work pending", async () => {
+  const { server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  const studentJar = {};
+  try {
+    await request(baseUrl, "/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "teacher", password: "Teacher123!" }) }, teacherJar);
+    let result = await request(baseUrl, "/api/classes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "状态班" }) }, teacherJar);
+    const classId = result.body.class.id;
+    await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ csv: "state-student,State Student,Student123!" }) }, teacherJar);
+    await request(baseUrl, "/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "state-student", password: "Student123!" }) }, studentJar);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/assignments`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ title: "状态作业" }) }, teacherJar);
+    const assignmentId = result.body.assignment.id;
+    const choice = await request(baseUrl, `/api/teacher/assignments/${assignmentId}/questions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "choice", stem: "选择", options: ["A", "B"], answer: "A", score: 10 }) }, teacherJar);
+    const short = await request(baseUrl, `/api/teacher/assignments/${assignmentId}/questions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "short_answer", stem: "说明", answer: "参考", score: 20 }) }, teacherJar);
+    await request(baseUrl, `/api/teacher/assignments/${assignmentId}/publish`, { method: "POST" }, teacherJar);
+    const answers = [{ questionId: choice.body.question.id, value: "A" }, { questionId: short.body.question.id, value: "我的说明" }];
+    await request(baseUrl, `/api/student/assignments/${assignmentId}/draft`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ answers }) }, studentJar);
+    result = await request(baseUrl, `/api/student/assignments/${assignmentId}`, {}, studentJar);
+    assert.deepEqual(result.body.submission.answers.map((answer) => answer.value), ["A", "我的说明"]);
+    result = await request(baseUrl, `/api/student/assignments/${assignmentId}/submit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ answers }) }, studentJar);
+    assert.equal(result.body.submission.status, "submitted");
+    assert.ok(result.body.submission.submitted_at);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});

@@ -27,8 +27,10 @@ async function fetchWithTimeout(path, options) {
 }
 
 export async function apiRequest(path, options = {}) {
+  const retryableMethod = ["GET", "HEAD"].includes(String(options.method ?? "GET").toUpperCase());
+  const maxAttempts = retryableMethod ? MAX_RETRIES : 0;
   let lastError;
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+  for (let attempt = 0; attempt <= maxAttempts; attempt += 1) {
     if (attempt > 0) {
       await delay(RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
     }
@@ -43,7 +45,7 @@ export async function apiRequest(path, options = {}) {
         },
       });
     } catch (error) {
-      // 网络层失败（断网、超时、TLS）：可重试
+      // 网络层失败（断网、超时、TLS）：只重试安全读取，避免重复写入。
       lastError = error;
       continue;
     }
@@ -58,7 +60,7 @@ export async function apiRequest(path, options = {}) {
           retryable: body.error.retryable === true,
         });
         // 服务端明确标记可重试的错误才重试；其余直接抛
-        if (apiError.retryable && attempt < MAX_RETRIES) {
+        if (retryableMethod && apiError.retryable && attempt < maxAttempts) {
           lastError = apiError;
           continue;
         }

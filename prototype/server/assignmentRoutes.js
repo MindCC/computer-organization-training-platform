@@ -6,7 +6,8 @@ export function createAssignmentRouter({ service, requireRole }) {
   // Teacher: create assignment
   router.post("/teacher/classes/:classId/assignments", requireRole("teacher"), (req, res, next) => {
     try {
-      const a = service.createAssignment({ teacherId: req.user.id, classId: Number(req.params.classId), ...req.body });
+      const { title, description, dueAt } = req.body ?? {};
+      const a = service.createAssignment({ teacherId: req.user.id, classId: Number(req.params.classId), title, description, dueAt });
       res.status(201).json({ assignment: a });
     } catch (e) { next(e); }
   });
@@ -14,7 +15,8 @@ export function createAssignmentRouter({ service, requireRole }) {
   // Teacher: add question to draft
   router.post("/teacher/assignments/:id/questions", requireRole("teacher"), (req, res, next) => {
     try {
-      const q = service.addQuestion({ teacherId: req.user.id, assignmentId: Number(req.params.id), ...req.body });
+      const { type, stem, options, answer, score, explanation, sortOrder } = req.body ?? {};
+      const q = service.addQuestion({ teacherId: req.user.id, assignmentId: Number(req.params.id), type, stem, options, answer, score, explanation, sortOrder });
       res.status(201).json({ question: q });
     } catch (e) { next(e); }
   });
@@ -54,7 +56,8 @@ export function createAssignmentRouter({ service, requireRole }) {
   // Teacher: grade a submission (manual override for short_answer)
   router.post("/teacher/submissions/:id/grade", requireRole("teacher"), (req, res, next) => {
     try {
-      res.json({ submission: service.gradeSubmission({ teacherId: req.user.id, submissionId: Number(req.params.id), ...req.body }) });
+      const { questionScores, feedback } = req.body ?? {};
+      res.json({ submission: service.gradeSubmission({ teacherId: req.user.id, submissionId: Number(req.params.id), questionScores, feedback }) });
     } catch (e) { next(e); }
   });
 

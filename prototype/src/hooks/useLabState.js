@@ -16,8 +16,9 @@ import { createHistory } from "../labHistory.js";
 
 export function buildOverviewCompletionResult(estimatedMinutes) {
   return {
-    passed: true, completed: true, errors: [], score: 100, missing: [],
+    passed: true, completed: true, errors: [], score: 0, missing: [],
     elapsedMinutes: estimatedMinutes,
+    overviewCompletion: "guided-assembly",
   };
 }
 
@@ -164,7 +165,7 @@ export function useLabState({
     const result = buildOverviewCompletionResult(currentChallenge.estimatedMinutes);
     setFeedback(result);
     setProgress((cur) => recordAttempt(cur, selectedChallengeId, result));
-    setActivityLog((cur) => [`${currentChallenge.title}\u63a2\u7d22\u5b8c\u6210\uff0c\u5f97\u5206 100\u3002`, ...cur.slice(0, 5)]);
+    setActivityLog((cur) => [`${currentChallenge.title}\u63a2\u7d22\u5b8c\u6210\u3002`, ...cur.slice(0, 5)]);
     setStatusMessage(`\u606d\u559c\uff0c${currentChallenge.title}\u63a2\u7d22\u5df2\u5b8c\u6210\u3002`);
     await persistStudentAttempt(selectedChallengeId, result);
     return result;

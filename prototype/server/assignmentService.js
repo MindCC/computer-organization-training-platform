@@ -93,7 +93,13 @@ export function createAssignmentService({ db, repository }) {
   function getStudentAssignmentDetail({ studentId, assignmentId }) {
     const assignment = getExistingAssignment(assignmentId);
     assertStudentCanAccess(assignment, studentId);
-    const questions = repository.getQuestions(assignmentId).map(({ answer_json: _answer, ...question }) => question);
+    const questions = repository.getQuestions(assignmentId).map((question) => ({
+      id: question.id,
+      type: question.type,
+      stem: question.stem,
+      options: safeJson(question.options_json) ?? [],
+      score: question.score,
+    }));
     const submission = repository.getSubmission(assignmentId, studentId);
     return { ...assignment, questions, submission };
   }
@@ -101,12 +107,16 @@ export function createAssignmentService({ db, repository }) {
   function saveDraft({ studentId, assignmentId, answers }) {
     const a = getExistingAssignment(assignmentId);
     assertStudentCanAccess(a, studentId);
+    const existing = repository.getSubmission(assignmentId, studentId);
+    if (existing && existing.status !== "draft") throw Object.assign(new Error("作业已提交，不能再修改草稿"), { status: 400 });
     return repository.upsertSubmission({ assignmentId, studentId, answers });
   }
 
   function submitStudentAnswers({ studentId, assignmentId, answers }) {
     const a = getExistingAssignment(assignmentId);
     assertStudentCanAccess(a, studentId);
+    const existing = repository.getSubmission(assignmentId, studentId);
+    if (existing && existing.status !== "draft") throw Object.assign(new Error("作业已提交，不能重复提交"), { status: 400 });
     const questions = repository.getQuestions(assignmentId);
     const qMap = new Map(questions.map((q) => [q.id, q]));
 
@@ -135,26 +145,43 @@ export function createAssignmentService({ db, repository }) {
       }
     }
 
-    // Save submission as submitted
+    // Save answers and persist objective-question scores before deciding whether teacher grading is required.
     const sub = repository.upsertSubmission({ assignmentId, studentId, answers });
-    repository.gradeSubmission(sub.id, {
+    const requiresManualGrade = questions.some((question) => question.type === "short_answer");
+    repository.markSubmitted(sub.id, {
       totalScore,
       questionScores: graded,
-      feedback: "",
     });
+    if (!requiresManualGrade) {
+      repository.gradeSubmission(sub.id, { totalScore, questionScores: graded, feedback: "" });
+    }
     return { submission: repository.getSubmission(assignmentId, studentId), autoScore: totalScore };
   }
 
   function gradeSubmission({ teacherId, submissionId, questionScores, feedback }) {
     const sub = db.prepare("SELECT * FROM student_submissions WHERE id = ?").get(submissionId);
     if (!sub) throw Object.assign(new Error("提交不存在"), { status: 404 });
+    if (sub.status !== "submitted") throw Object.assign(new Error("仅已提交作业可以批改"), { status: 400 });
     const a = repository.getById(sub.assignment_id);
     assertTeacherOwns(a, teacherId);
 
-    // Recalculate total from question scores
+    const questions = repository.getQuestions(a.id);
+    const validQuestionIds = new Set(questions.map((question) => question.id));
+    const receivedQuestionIds = new Set((questionScores ?? []).map((score) => Number(score?.questionId)));
+    if (
+      !Array.isArray(questionScores)
+      || receivedQuestionIds.size !== questions.length
+      || questionScores.some((score) => {
+        const question = questions.find((item) => item.id === Number(score?.questionId));
+        const value = Number(score?.score);
+        return !validQuestionIds.has(Number(score?.questionId)) || !Number.isFinite(value) || value < 0 || value > question.score;
+      })
+    ) {
+      throw Object.assign(new Error("评分包含无效题目或分数"), { status: 400 });
+    }
     let total = 0;
     for (const qs of (questionScores ?? [])) {
-      total += qs.score ?? 0;
+      total += Number(qs.score);
     }
     return repository.gradeSubmission(submissionId, { totalScore: total, feedback, questionScores });
   }

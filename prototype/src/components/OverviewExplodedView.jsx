@@ -181,7 +181,7 @@ function AnimatedPart({ part, autoAnimating, explodeDistance, isHighlighted, xra
   );
 }
 
-export function OverviewExplodedView({ autoPlay = true, completed = false, onComplete }) {
+export function OverviewExplodedView({ autoPlay = false, completed = false, onComplete }) {
   const prefersReducedMotion = typeof window !== "undefined"
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const shouldAutoPlay = autoPlay && !prefersReducedMotion;

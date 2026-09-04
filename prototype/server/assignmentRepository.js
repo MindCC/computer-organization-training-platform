@@ -2,7 +2,7 @@ export function createAssignmentRepository(db) {
   return {
     createAssignment, getById, listByClass, updateStatus,
     addQuestion, getQuestions,
-    upsertSubmission, getSubmission, listSubmissions, gradeSubmission,
+    upsertSubmission, getSubmission, listSubmissions, markSubmitted, gradeSubmission,
     getClassAnalytics,
   };
 
@@ -42,24 +42,29 @@ export function createAssignmentRepository(db) {
   }
 
   function upsertSubmission({ assignmentId, studentId, answers }) {
-    const existing = db.prepare("SELECT id FROM student_submissions WHERE assignment_id = ? AND student_id = ?").get(assignmentId, studentId);
-    let submissionId;
-    if (existing) {
-      submissionId = existing.id;
-      db.prepare("UPDATE student_submissions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(submissionId);
-      db.prepare("DELETE FROM submission_answers WHERE submission_id = ?").run(submissionId);
-    } else {
-      const result = db.prepare("INSERT INTO student_submissions (assignment_id, student_id, status) VALUES (?, ?, 'draft')").run(assignmentId, studentId);
-      submissionId = Number(result.lastInsertRowid);
-    }
-    for (const a of (answers ?? [])) {
-      db.prepare("INSERT INTO submission_answers (submission_id, question_id, answer_json) VALUES (?, ?, ?)").run(submissionId, a.questionId, JSON.stringify(a.value ?? ""));
-    }
-    return db.prepare("SELECT * FROM student_submissions WHERE id = ?").get(submissionId);
+    return db.transaction(() => {
+      assertAnswersBelongToAssignment(assignmentId, answers);
+      const existing = db.prepare("SELECT id FROM student_submissions WHERE assignment_id = ? AND student_id = ?").get(assignmentId, studentId);
+      let submissionId;
+      if (existing) {
+        submissionId = existing.id;
+        db.prepare("UPDATE student_submissions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(submissionId);
+        db.prepare("DELETE FROM submission_answers WHERE submission_id = ?").run(submissionId);
+      } else {
+        const result = db.prepare("INSERT INTO student_submissions (assignment_id, student_id, status) VALUES (?, ?, 'draft')").run(assignmentId, studentId);
+        submissionId = Number(result.lastInsertRowid);
+      }
+      for (const answer of answers ?? []) {
+        db.prepare("INSERT INTO submission_answers (submission_id, question_id, answer_json) VALUES (?, ?, ?)")
+          .run(submissionId, answer.questionId, JSON.stringify(answer.value ?? ""));
+      }
+      return db.prepare("SELECT * FROM student_submissions WHERE id = ?").get(submissionId);
+    })();
   }
 
   function getSubmission(assignmentId, studentId) {
-    return db.prepare("SELECT * FROM student_submissions WHERE assignment_id = ? AND student_id = ?").get(assignmentId, studentId) ?? null;
+    const submission = db.prepare("SELECT * FROM student_submissions WHERE assignment_id = ? AND student_id = ?").get(assignmentId, studentId) ?? null;
+    return submission ? withAnswers(submission) : null;
   }
 
   function listSubmissions(assignmentId) {
@@ -67,15 +72,21 @@ export function createAssignmentRepository(db) {
       SELECT ss.*, u.display_name, u.username
       FROM student_submissions ss JOIN users u ON u.id = ss.student_id
       WHERE ss.assignment_id = ? ORDER BY u.display_name
-    `).all(assignmentId);
+    `).all(assignmentId).map(withAnswers);
+  }
+
+  function markSubmitted(submissionId, { totalScore, questionScores }) {
+    return db.transaction(() => {
+      updateQuestionScores(submissionId, questionScores);
+      db.prepare("UPDATE student_submissions SET status = 'submitted', total_score = ?, submitted_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+        .run(totalScore, submissionId);
+      return db.prepare("SELECT * FROM student_submissions WHERE id = ?").get(submissionId);
+    })();
   }
 
   function gradeSubmission(submissionId, { totalScore, feedback, questionScores }) {
     return db.transaction(() => {
-      for (const qs of (questionScores ?? [])) {
-        db.prepare("UPDATE submission_answers SET score = ?, is_correct = ? WHERE submission_id = ? AND question_id = ?")
-          .run(qs.score, qs.isCorrect ? 1 : 0, submissionId, qs.questionId);
-      }
+      updateQuestionScores(submissionId, questionScores);
       db.prepare("UPDATE student_submissions SET status = 'graded', total_score = ?, feedback = ?, graded_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
         .run(totalScore, feedback ?? "", submissionId);
       return db.prepare("SELECT * FROM student_submissions WHERE id = ?").get(submissionId);
@@ -93,10 +104,56 @@ export function createAssignmentRepository(db) {
         assignmentId: a.id, title: a.title, totalScore: a.total_score,
         submittedCount: subs.filter((s) => s.status !== "draft").length,
         gradedCount: graded.length,
-        studentCount: subs.length,
+        studentCount: db.prepare("SELECT COUNT(*) AS count FROM class_members WHERE class_id = ?").get(classId).count,
         averageScore: scores.length ? Math.round(scores.reduce((x, y) => x + y, 0) / scores.length) : null,
       });
     }
     return results;
   }
+
+  function assertAnswersBelongToAssignment(assignmentId, answers) {
+    if (!Array.isArray(answers)) throw Object.assign(new Error("答案必须为数组"), { status: 400 });
+    const questionIds = new Set(getQuestions(assignmentId).map((question) => question.id));
+    const seen = new Set();
+    for (const answer of answers) {
+      const questionId = Number(answer?.questionId);
+      if (!Number.isInteger(questionId) || !questionIds.has(questionId) || seen.has(questionId)) {
+        throw Object.assign(new Error("答案包含无效或重复题目"), { status: 400 });
+      }
+      seen.add(questionId);
+    }
+  }
+
+  function updateQuestionScores(submissionId, questionScores = []) {
+    for (const score of questionScores) {
+      db.prepare(`
+        INSERT INTO submission_answers (submission_id, question_id, answer_json, score, is_correct)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(submission_id, question_id) DO UPDATE SET
+          score = excluded.score,
+          is_correct = excluded.is_correct
+      `).run(
+        submissionId,
+        score.questionId,
+        JSON.stringify(""),
+        score.score,
+        score.isCorrect == null ? null : score.isCorrect ? 1 : 0,
+      );
+    }
+  }
+
+  function withAnswers(submission) {
+    const answers = db.prepare(`
+      SELECT question_id, answer_json, score, is_correct
+      FROM submission_answers WHERE submission_id = ? ORDER BY question_id
+    `).all(submission.id).map((answer) => ({
+      questionId: answer.question_id,
+      value: parseJson(answer.answer_json),
+      score: answer.score,
+      isCorrect: answer.is_correct == null ? null : Boolean(answer.is_correct),
+    }));
+    return { ...submission, answers };
+  }
 }
+
+function parseJson(value) { try { return JSON.parse(value); } catch { return value; } }

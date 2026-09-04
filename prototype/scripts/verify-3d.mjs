@@ -108,6 +108,8 @@ try {
   check("Step mode button", await page.getByRole("button", { name: "分步组装" }).isVisible());
   check("Auto mode button", await page.getByRole("button", { name: "自动爆炸" }).isVisible());
 
+  check("Guided assembly is the default", await page.locator(".exploded-stepbar").isVisible());
+
   await page.getByRole("button", { name: "分步组装" }).click();
   await page.waitForSelector(".exploded-stepbar", { timeout: 10_000 });
   check("Step bar visible", await page.locator(".exploded-stepbar").isVisible());
@@ -121,6 +123,9 @@ try {
   check("Connections legend visible", await page.locator(".exploded-legend").isVisible());
 
   await page.getByRole("button", { name: "自动爆炸" }).click();
+  await page.getByRole("button", { name: "X-ray" }).click();
+  await page.locator(".bus-label").first().waitFor({ state: "visible", timeout: 10_000 });
+  check("X-ray shows bus labels", await page.locator(".bus-label").count() >= 4);
   await page.getByRole("button", { name: "查看 CPU 部件" }).click();
   check(
     "CPU info card shown",

@@ -117,9 +117,9 @@ export function parseLabHintJson(text) {
   };
 }
 
-export async function generateLabAssistantHint(labContext) {
+export async function generateLabAssistantHint(labContext, { env = process.env } = {}) {
   const payload = buildLabAssistantPayload(labContext ?? {});
-  const config = readDeepSeekConfig();
+  const config = readDeepSeekConfig(env);
 
   if (!config.enabled) {
     return buildFallbackLabHint(payload, "AI_DISABLED");

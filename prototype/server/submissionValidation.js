@@ -27,6 +27,24 @@ export function normalizeStudentAttemptPayload(payload = {}, learningItems = [],
     return { ok: false, status: 400, error: "result payload too large" };
   }
 
+  // The overview is a guided exploration, not a score-bearing exercise. Its
+  // completion signal comes from the completed step sequence, so never accept
+  // a score supplied by the browser for it.
+  if (challengeId === "computer-components") {
+    const elapsedMinutes = Number(result.elapsedMinutes ?? 0);
+    if (!Number.isFinite(elapsedMinutes) || elapsedMinutes < 0 || elapsedMinutes > MAX_ELAPSED_MINUTES) {
+      return { ok: false, status: 400, error: "elapsedMinutes must be between 0 and 240" };
+    }
+    if (result.overviewCompletion !== "guided-assembly") {
+      return { ok: false, status: 400, error: "该探索关卡需要完成分步装配流程" };
+    }
+    return {
+      ok: true,
+      challengeId,
+      result: { passed: true, score: 0, errors: [], elapsedMinutes, overviewCompletion: "guided-assembly" },
+    };
+  }
+
   const score = Number(result.score ?? 0);
   if (!Number.isInteger(score) || score < 0 || score > 100) {
     return { ok: false, status: 400, error: "score must be an integer from 0 to 100" };
@@ -57,7 +75,7 @@ export function normalizeStudentAttemptPayload(payload = {}, learningItems = [],
   }
 
   const circuitModel = getCircuitChallenge(challengeId);
-  if (circuitModel && challengeId !== "computer-components") {
+  if (circuitModel) {
     const circuitEdges = normalizeCircuitEdges(result.circuitEdges);
     if (!circuitEdges) {
       return { ok: false, status: 400, error: "circuit edge evidence is required" };

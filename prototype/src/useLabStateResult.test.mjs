@@ -7,8 +7,9 @@ test("overview completion includes authoritative participation evidence", () => 
     passed: true,
     completed: true,
     errors: [],
-    score: 100,
+    score: 0,
     missing: [],
     elapsedMinutes: 12,
+    overviewCompletion: "guided-assembly",
   });
 });

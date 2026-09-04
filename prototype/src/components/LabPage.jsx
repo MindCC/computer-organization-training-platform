@@ -84,7 +84,7 @@ export function LabPage({
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
           <Suspense fallback={<div className="flow-loading">\u6b63\u5728\u52a0\u8f7d 3D \u6982\u89c8...</div>}>
             <OverviewExplodedView
-              autoPlay={true}
+              autoPlay={false}
               completed={l.currentRecord?.status === "completed"}
               onComplete={l.completeOverviewChallenge}
             />

@@ -9,6 +9,7 @@ export function StudentAssignments() {
   const [detail, setDetail] = useState(null);
   const [answers, setAnswers] = useState({});
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => { load(); }, []);
 
@@ -22,29 +23,35 @@ export function StudentAssignments() {
     const r = await api.studentAssignmentDetail(id);
     setDetail(r);
     setActive(id);
-    setAnswers({});
-    // Pre-fill from existing submission if any
-    if (r.submission) {
-      const existing = {};
-      r.questions.forEach((q) => { existing[q.id] = ""; });
-      setAnswers(existing);
-    }
+    const existing = Object.fromEntries((r.submission?.answers ?? []).map((answer) => [answer.questionId, answer.value]));
+    setAnswers(existing);
+    setError("");
   }
 
   function setAnswer(qId, val) { setAnswers((a) => ({ ...a, [qId]: val })); }
 
   async function saveDraft() {
     const ans = Object.entries(answers).map(([qId, value]) => ({ questionId: Number(qId), value }));
-    await api.saveAssignmentDraft(active, ans);
+    try {
+      await api.saveAssignmentDraft(active, ans);
+      setError("");
+    } catch (requestError) {
+      setError("保存草稿失败：" + requestError.message);
+    }
   }
 
   async function submit() {
     setSubmitting(true);
     const ans = Object.entries(answers).map(([qId, value]) => ({ questionId: Number(qId), value }));
-    await api.submitAssignment(active, ans);
-    setActive(null); setDetail(null);
-    await load();
-    setSubmitting(false);
+    try {
+      await api.submitAssignment(active, ans);
+      setActive(null); setDetail(null);
+      await load();
+    } catch (requestError) {
+      setError("提交失败：" + requestError.message);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   const subMap = new Map(submissions.map((s) => [s.assignment_id, s]));
@@ -53,7 +60,7 @@ export function StudentAssignments() {
     <div className="student-assignments">
       <h2><Notebook size={20} /> 课后作业</h2>
       {active && detail ? (
-        <AssignmentView detail={detail} answers={answers} setAnswer={setAnswer} onSave={saveDraft} onSubmit={submit} submitting={submitting} onBack={() => { setActive(null); setDetail(null); }} />
+        <AssignmentView detail={detail} answers={answers} setAnswer={setAnswer} error={error} onSave={saveDraft} onSubmit={submit} submitting={submitting} onBack={() => { setActive(null); setDetail(null); }} />
       ) : (
         <div className="assignment-cards">
           {assignments.map((a) => {
@@ -83,7 +90,7 @@ export function StudentAssignments() {
   );
 }
 
-function AssignmentView({ detail, answers, setAnswer, onSave, onSubmit, submitting, onBack }) {
+function AssignmentView({ detail, answers, setAnswer, error, onSave, onSubmit, submitting, onBack }) {
   const { questions, submission } = detail;
   const isSubmitted = submission?.status === "submitted" || submission?.status === "graded";
 
@@ -104,7 +111,7 @@ function AssignmentView({ detail, answers, setAnswer, onSave, onSubmit, submitti
             </div>
             {q.type === "choice" && q.options?.map((opt, j) => (
               <label className="choice-option" key={j}>
-                <input type="radio" name={`q${q.id}`} checked={answers[q.id] === opt} onChange={() => setAnswer(q.id, opt)} disabled={isSubmitted} />
+                <input aria-label={`选择题选项：${opt}`} type="radio" name={`q${q.id}`} checked={answers[q.id] === opt} onChange={() => setAnswer(q.id, opt)} disabled={isSubmitted} />
                 {opt}
               </label>
             ))}
@@ -127,6 +134,7 @@ function AssignmentView({ detail, answers, setAnswer, onSave, onSubmit, submitti
           <button className="primary-button" onClick={onSubmit} disabled={submitting}>{submitting ? "提交中..." : "提交作业"}</button>
         </div>
       )}
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
     </div>
   );
 }

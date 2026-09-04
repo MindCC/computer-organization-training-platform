@@ -85,3 +85,21 @@ test("rejects circuit attempts that omit server-verifiable edge evidence", () =>
   assert.equal(normalized.status, 400);
   assert.match(normalized.error, /edge evidence/i);
 });
+
+test("does not award overview completion from a client-declared score", () => {
+  const normalized = normalizeStudentAttemptPayload({
+    challengeId: "computer-components",
+    result: { score: 100, passed: true, errors: [], elapsedMinutes: 0 },
+  }, LEARNING_ITEMS);
+
+  assert.equal(normalized.ok, false);
+  assert.equal(normalized.status, 400);
+
+  const completed = normalizeStudentAttemptPayload({
+    challengeId: "computer-components",
+    result: { score: 100, passed: true, elapsedMinutes: 8, overviewCompletion: "guided-assembly" },
+  }, LEARNING_ITEMS);
+  assert.equal(completed.ok, true);
+  assert.equal(completed.result.score, 0);
+  assert.equal(completed.result.passed, true);
+});
