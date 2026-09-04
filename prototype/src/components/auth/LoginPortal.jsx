@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Cpu,
@@ -7,7 +7,6 @@ import {
   Signpost,
 } from "@phosphor-icons/react";
 import { buildRoleEntryCopy } from "../../questExperience.js";
-import { useQuestMotion } from "../../motion/useQuestMotion.js";
 import "./LoginPortal.css";
 
 const roleOrder = ["student", "teacher"];
@@ -23,17 +22,16 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit }) {
   const rootRef = useRef(null);
   const copy = buildRoleEntryCopy(role);
 
-  useQuestMotion(rootRef, ({ gsap, reducedMotion }) => {
-    gsap.fromTo(
-      "[data-login-reveal]",
-      { y: reducedMotion ? 0 : 18 },
-      {
-        y: 0,
-        duration: reducedMotion ? 0.01 : 0.5,
-        stagger: reducedMotion ? 0 : 0.08,
-        clearProps: "transform",
-      },
-    );
+  // 使用纯 CSS keyframes 揭示动画,不依赖 GSAP / requestAnimationFrame。
+  // 选择 CSS 动画的原因:Playwright headless Chromium 在自动化环境下 rAF 节流严苛,
+  // GSAP from() 可能卡在 FROM 状态(opacity:0 + visibility:hidden)导致表单不可见;
+  // CSS @keyframes 由浏览器主线程驱动,语义对 a11y/自动化定位更稳定。
+  // prefers-reduced-motion 通过 CSS 媒体查询自动降级到 0.01s。
+  useLayoutEffect(() => {
+    const node = rootRef.current;
+    if (!node) return undefined;
+    node.classList.add("login-portal--animate-in");
+    return undefined;
   }, []);
 
   function selectRole(nextRole) {

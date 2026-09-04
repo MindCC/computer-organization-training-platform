@@ -6,6 +6,7 @@ prototype/dist/
 prototype/.npm-cache/
 prototype/.npmrc
 prototype/.playwright-cli/
+.playwright-mcp/
 prototype/qa-artifacts/
 prototype/qa-artifacts-current/
 prototype/test-artifacts/

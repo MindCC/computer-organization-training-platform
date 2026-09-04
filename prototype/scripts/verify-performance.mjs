@@ -56,16 +56,14 @@ async function login(page, student) {
   await page.getByLabel("账号").fill(student.username);
   await page.getByLabel("密码").fill(student.password);
   await page.getByRole("button", { name: "登录" }).click();
-  await page.getByText("课程路线地图", { exact: false }).waitFor({
+  await page.getByText("当前任务", { exact: true }).first().waitFor({
     state: "visible",
     timeout: 20_000,
   });
 }
 
 async function openOverview(page) {
-  await page.getByRole("button")
-    .filter({ hasText: "认识计算机五大部件" })
-    .last()
+  await page.locator(".quest-stage").filter({ has: page.getByText("认识计算机五大部件", { exact: true }) }).first()
     .click();
   await page.waitForSelector(".computer-exploded canvas", { timeout: 20_000 });
   assert.equal(
@@ -77,7 +75,7 @@ async function openOverview(page) {
 
 async function returnHome(page) {
   await page.getByRole("button", { name: /返回课程首页/ }).click();
-  await page.getByText("课程路线地图", { exact: false }).waitFor({
+  await page.getByText("当前任务", { exact: true }).first().waitFor({
     state: "visible",
     timeout: 20_000,
   });
@@ -127,10 +125,19 @@ async function sampleFrameRate(page, sampleDurationMs) {
 }
 
 const student = await setupStudent();
-const browser = await chromium.launch({
-  headless: true,
-  args: ["--js-flags=--expose-gc"],
-});
+let browser;
+try {
+  browser = await chromium.launch({
+    channel: "msedge",
+    headless: true,
+    args: ["--js-flags=--expose-gc"],
+  });
+} catch {
+  browser = await chromium.launch({
+    headless: true,
+    args: ["--js-flags=--expose-gc"],
+  });
+}
 const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
 const page = await context.newPage();
 const pageErrors = [];

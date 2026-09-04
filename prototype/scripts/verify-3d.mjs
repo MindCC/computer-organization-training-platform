@@ -30,6 +30,23 @@ page.on("pageerror", (error) => pageErrors.push(error.message));
 let passed = 0;
 let failed = 0;
 
+// 任务结算层会在通过提交后异步出现（带 GSAP 动画），全屏拦截后续点击；
+// 出现则直接用 DOM 点击关闭，避免 actionability 等待。
+async function dismissQuestSettlement(targetPage) {
+  const settlement = targetPage.locator(".quest-settlement");
+  try {
+    await settlement.waitFor({ state: "visible", timeout: 12_000 });
+  } catch {
+    return;
+  }
+  await targetPage.evaluate(() => {
+    const button = [...document.querySelectorAll(".quest-settlement button")]
+      .find((node) => node.textContent.includes("复盘本关"));
+    button?.click();
+  });
+  await settlement.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+}
+
 function check(name, condition) {
   if (condition) {
     passed += 1;
@@ -81,10 +98,10 @@ try {
   await page.getByLabel("账号").fill(studentUsername);
   await page.getByLabel("密码").fill(studentPassword);
   await page.getByRole("button", { name: "登录" }).click();
-  await page.getByText("课程路线地图", { exact: false }).waitFor({ state: "visible", timeout: 20_000 });
+  await page.getByRole("region", { name: "课程探索地图" }).first().waitFor({ state: "visible", timeout: 20_000 });
 
   console.log("3. Verify computer overview and assembly path");
-  await page.getByRole("button").filter({ hasText: "认识计算机五大部件" }).last().click();
+  await page.locator(".quest-stage").filter({ has: page.getByText("认识计算机五大部件", { exact: true }) }).first().click();
   await page.waitForSelector(".computer-exploded", { timeout: 20_000 });
   const canvas = page.locator(".computer-exploded canvas");
   check("Overview canvas exists", await canvas.count() > 0);
@@ -115,37 +132,51 @@ try {
   console.log("4. Verify hardware builder path");
   await page.getByRole("button", { name: /返回课程首页/ }).click();
   await page.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
-  await page.waitForSelector(".builder-panel", { timeout: 20_000 });
-  check("Builder 3D canvas", await page.locator(".computer-exploded canvas").count() > 0);
-  check("Builder panel", await page.locator(".builder-panel").isVisible());
+  await page.waitForSelector(".hardware-workbench", { timeout: 20_000 });
+  check("Builder workbench visible", await page.locator(".hardware-workbench").isVisible());
+  check("Builder assembly image", await page.locator(".hardware-workbench-image").isVisible());
+  check("Builder hotspots", await page.locator(".hardware-workbench-hotspot").count() >= 4);
+  check("Builder catalog panel", await page.locator(".hardware-catalog-panel").isVisible());
   check("Builder score", await page.locator(".builder-score").isVisible());
   await page.screenshot({ path: path.join(artifactDir, "3d-builder.png"), fullPage: true });
 
   console.log("5. Verify WebGL-disabled static teaching path");
-  fallbackBrowser = await chromium.launch({
-    headless: true,
-    args: ["--disable-webgl", "--disable-gpu"],
-  });
+  try {
+    fallbackBrowser = await chromium.launch({
+      channel: "msedge",
+      headless: true,
+      args: ["--disable-webgl", "--disable-gpu"],
+    });
+  } catch {
+    fallbackBrowser = await chromium.launch({
+      headless: true,
+      args: ["--disable-webgl", "--disable-gpu"],
+    });
+  }
   const fallbackPage = await fallbackBrowser.newPage({ viewport: { width: 1366, height: 768 } });
   fallbackPage.on("pageerror", (error) => fallbackPageErrors.push(error.message));
   await fallbackPage.goto(baseUrl, { waitUntil: "networkidle" });
   await fallbackPage.getByLabel("账号").fill(studentUsername);
   await fallbackPage.getByLabel("密码").fill(studentPassword);
   await fallbackPage.getByRole("button", { name: "登录" }).click();
-  await fallbackPage.getByText("课程路线地图", { exact: false }).waitFor({ state: "visible", timeout: 20_000 });
-  await fallbackPage.getByRole("button").filter({ hasText: "认识计算机五大部件" }).last().click();
+  await fallbackPage.getByRole("region", { name: "课程探索地图" }).first().waitFor({ state: "visible", timeout: 20_000 });
+  await fallbackPage.locator(".quest-stage").filter({ has: fallbackPage.getByText("认识计算机五大部件", { exact: true }) }).first().click();
   await fallbackPage.waitForSelector(".computer-exploded-fallback", { timeout: 20_000 });
   check("Static fallback visible", await fallbackPage.locator(".computer-exploded-fallback").isVisible());
   check("Fallback creates no canvas", await fallbackPage.locator(".computer-exploded canvas").count() === 0);
   check("Fallback keeps bus teaching content", await fallbackPage.getByText("数据总线传数据", { exact: false }).isVisible());
   await fallbackPage.getByRole("button", { name: "完成静态探索" }).click();
   check("Fallback can complete overview", await fallbackPage.getByRole("button", { name: "已完成静态探索" }).isDisabled());
+  await dismissQuestSettlement(fallbackPage);
 
   await fallbackPage.getByRole("button", { name: /返回课程首页/ }).click();
+  await fallbackPage.getByRole("region", { name: "课程探索地图" }).first().waitFor({ state: "visible", timeout: 20_000 });
+  // 结算层可能在导航回首页时才渲染，先关掉再继续点击导航。
+  await dismissQuestSettlement(fallbackPage);
   await fallbackPage.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
-  await fallbackPage.waitForSelector(".builder-panel", { timeout: 20_000 });
-  check("Builder fallback visible", await fallbackPage.locator(".computer-exploded-fallback").isVisible());
-  check("Builder controls remain usable", await fallbackPage.locator(".builder-panel").isVisible());
+  await fallbackPage.waitForSelector(".hardware-workbench", { timeout: 20_000 });
+  check("Builder works without WebGL", await fallbackPage.locator(".hardware-workbench").isVisible());
+  check("Builder controls remain usable", await fallbackPage.locator(".hardware-catalog-panel").isVisible());
 
   assert.deepEqual(pageErrors, [], "3D QA must not emit page errors");
   assert.deepEqual(fallbackPageErrors, [], "3D fallback QA must not emit page errors");

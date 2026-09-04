@@ -11,6 +11,7 @@ import { statusText, statusTone, formatEndpointLabel } from "./labUtils.js";
 import { MissionHud } from "./classroom/student/MissionHud.jsx";
 import { MissionPauseOverlay } from "./classroom/student/MissionPauseOverlay.jsx";
 import { MissionSettlement } from "./classroom/student/MissionSettlement.jsx";
+import { LabAssistantPanel } from "./LabAssistantPanel.jsx";
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
 const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").then((m) => ({ default: m.OverviewExplodedView })));
@@ -125,6 +126,7 @@ export function LabPage({
               <section><span className="eyebrow">元件属性</span><strong>{l.selectedComponent}</strong><p>{l.selectedComponentDetail?.description ?? "选择一个元件查看端口、职责和信号走向。"}</p></section>
               <section><span className="eyebrow">实时状态</span><strong>{statusMessage}</strong><p>必要连线 {reqEdges} 条 · 测试用例 {tc || cur.requiredConnections.length} 组 · 最近得分 {l.currentRecord?.bestScore ?? 0}</p></section>
               <section><span className="eyebrow">检测反馈</span>{l.feedback ? l.feedback.passed ? <p className="lab-studio-feedback passed"><SealCheck size={18} weight="fill" /> 本关通过，记录已保存。</p> : <p className="lab-studio-feedback failed"><WarningCircle size={18} weight="fill" /> 发现 {l.feedback.errors.length} 类问题，请按提示修正。</p> : <p className="lab-studio-feedback neutral"><Target size={18} /> 等待提交检测。</p>}</section>
+              <LabAssistantPanel challenge={cur} connections={l.connections} inputState={l.inputState} feedback={l.feedback} realtimeDiagnostics={l.realtimeDiagnostics} />
               <section className={`realtime-diagnostics ${l.realtimeDiagnostics.status}`}><strong>实时数据流检测</strong><p>{l.realtimeDiagnostics.summary}</p><div className="diagnostic-test-list">{l.realtimeDiagnostics.testRows.map((r) => <div className={r.passed ? "passed" : "needs-work"} key={r.label}><span>{r.label}</span><small>实际：{r.actual}</small></div>)}</div>{l.realtimeDiagnostics.issues.length ? <div className="diagnostic-issues">{l.realtimeDiagnostics.issues.slice(0, 3).map((i) => <span key={`${i.type}-${i.message}`}>{i.type}</span>)}</div> : null}</section>
             </div>
           </section>
