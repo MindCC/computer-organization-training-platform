@@ -5907,6 +5907,20 @@ textarea:focus-visible {
   height: 100%; color: #8a8f98; font-size: 0.85rem; font-weight: 400;
 }
 
+.computer-exploded {
+  background: #08090a;
+  height: 100%;
+  min-height: 480px;
+  position: relative;
+  width: 100%;
+}
+
+.computer-exploded canvas {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
 .computer-exploded-fallback {
   align-content: center;
   background: radial-gradient(circle at top, rgba(79, 195, 247, 0.12), transparent 52%);
@@ -5948,6 +5962,34 @@ textarea:focus-visible {
 }
 .computer-exploded-fallback .primary-button {
   justify-self: start;
+}
+.computer-exploded-fallback li.active { color: #f4f7ff; }
+.computer-exploded-fallback-actions { display: flex; gap: 0.5rem; }
+.computer-exploded-fallback-actions button:not(.primary-button) {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: #d0d6e0;
+  padding: 0.55rem 0.8rem;
+}
+.computer-exploded-fallback-actions button:disabled { cursor: default; opacity: 0.45; }
+
+.native-bus-label-layer {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 3;
+}
+
+.native-bus-label {
+  background: rgba(8, 9, 10, 0.86);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.45rem;
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
 }
 
 /* ── Hardware Builder Panel ── */

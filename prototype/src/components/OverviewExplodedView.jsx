@@ -1,10 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { Quaternion, Vector3 } from "three";
-import { useFrame } from "@react-three/fiber";
-import { Html } from "@react-three/drei";
-import { ComputerExplodedView } from "./ComputerExplodedView.jsx";
+import { useState, useEffect, useMemo } from "react";
+import { NativeComputerScene } from "./NativeComputerScene.jsx";
 import { ThreeSceneFallback } from "./ThreeSceneFallback.jsx";
-import { CONNECTIONS, MOBO_DETAILS, usePartPositions, getConnectionEndpoint } from "./computerParts.js";
+import { COMPUTER_PARTS, getPartInstances } from "./computerParts.js";
 
 // Assembly steps: which part appears at which step
 const ASSEMBLY_STEPS = [
@@ -17,169 +14,6 @@ const ASSEMBLY_STEPS = [
   { step: 7, label: "安装硬盘", partIds: ["case", "psu", "motherboard", "cpu", "ram-0", "ram-1", "gpu", "storage"], desc: "第七步：安装硬盘。硬盘长期保存操作系统、软件和文件。SSD 比机械硬盘快数十倍。", highlight: "storage" },
   { step: 8, label: "整机完成", partIds: ["case", "psu", "motherboard", "cpu", "ram-0", "ram-1", "gpu", "storage"], desc: "组装完成！各部件通过数据总线、地址总线和控制总线相互通信，电源为所有部件供电。试试旋转和缩放查看整机结构。", showConnections: true },
 ];
-
-function easeOutCubic(t) {
-  return 1 - Math.pow(1 - t, 3);
-}
-
-function ConnectionLine({ from, to, color, thickness = 0.02, xray = false, label = "", showLabel = false }) {
-  const { position, quaternion, length, mid } = useMemo(() => {
-    const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
-    const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-    const mid = [(from[0] + to[0]) / 2, (from[1] + to[1]) / 2, (from[2] + to[2]) / 2];
-    const dir = new Vector3(dx, dy, dz).normalize();
-    const quat = new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir);
-    return { position: mid, quaternion: quat, length: len, mid };
-  }, [from, to]);
-  const [hovered, setHovered] = useState(false);
-  return (
-    <group>
-      <mesh
-        position={position}
-        quaternion={quaternion}
-        onPointerOver={(e) => { e.stopPropagation(); setHovered(true); }}
-        onPointerOut={() => setHovered(false)}
-      >
-        <cylinderGeometry args={[thickness, thickness, length, 8]} />
-        {xray ? (
-          <meshBasicMaterial
-            color={color}
-            transparent
-            opacity={hovered ? 1 : 0.95}
-            depthTest={false}
-            depthWrite={false}
-          />
-        ) : (
-          <meshStandardMaterial
-            color={color}
-            emissive={color}
-            emissiveIntensity={hovered ? 1.6 : 0.7}
-            transparent={hovered}
-            opacity={hovered ? 0.92 : 1}
-          />
-        )}
-      </mesh>
-      {showLabel && label && (
-        <Html position={[mid[0], mid[1] + 0.06, mid[2]]} center distanceFactor={7} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
-          <span
-            className={hovered ? "bus-label bus-label-hovered" : "bus-label"}
-            style={{ borderColor: color, color }}
-          >
-            {label}
-          </span>
-        </Html>
-      )}
-    </group>
-  );
-}
-
-function DataFlowParticle({ from, to, color = "#4fc3f7", speed = 0.3 }) {
-  const meshRef = useRef(null);
-  const trailRefs = [useRef(null), useRef(null), useRef(null)];
-  const progress = useRef(Math.random());
-  const previous = useRef([0, 0, 0]);
-  useFrame((_, delta) => {
-    if (!meshRef.current) return;
-    progress.current = (progress.current + delta * speed) % 1;
-    const t = progress.current;
-    const x = from[0] + (to[0] - from[0]) * t;
-    const y = from[1] + (to[1] - from[1]) * t;
-    const z = from[2] + (to[2] - from[2]) * t;
-    meshRef.current.position.set(x, y, z);
-    // 尾迹：沿运动方向向后放置渐隐小球
-    const dx = x - previous.current[0], dy = y - previous.current[1], dz = z - previous.current[2];
-    const len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 0.001;
-    const dir = [dx / len, dy / len, dz / len];
-    for (let i = 0; i < trailRefs.length; i++) {
-      const trail = trailRefs[i].current;
-      if (!trail) continue;
-      const back = (i + 1) * 0.045;
-      trail.position.set(x - dir[0] * back, y - dir[1] * back, z - dir[2] * back);
-    }
-    previous.current = [x, y, z];
-  });
-  return (
-    <group>
-      <mesh ref={meshRef}>
-        <sphereGeometry args={[0.035, 8, 8]} />
-        <meshBasicMaterial color={color} />
-      </mesh>
-      {trailRefs.map((ref, i) => (
-        <mesh key={`trail-${i}`} ref={ref}>
-          <sphereGeometry args={[0.024 - i * 0.005, 6, 6]} />
-          <meshBasicMaterial color={color} transparent opacity={0.45 - i * 0.13} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function AnimatedPart({ part, autoAnimating, explodeDistance, isHighlighted, xray = false, onSelect }) {
-  const meshRef = useRef(null);
-  const localOffset = part.localOffset ?? [0, 0, 0];
-  const animProgress = useRef(0);
-
-  useFrame(({ clock }, delta) => {
-    if (!meshRef.current) return;
-    let distance;
-    if (autoAnimating) {
-      // Single-play explosion: animate to target distance then settle
-      animProgress.current = Math.min(1, animProgress.current + (delta || 0) * 0.6);
-      distance = easeOutCubic(animProgress.current) * 1.3;
-    } else {
-      distance = explodeDistance;
-    }
-    meshRef.current.position.set(
-      part.basePos[0] + part.explodeDir[0] * distance + localOffset[0],
-      part.basePos[1] + part.explodeDir[1] * distance + localOffset[1],
-      part.basePos[2] + part.explodeDir[2] * distance + localOffset[2],
-    );
-  });
-
-  const scale = isHighlighted ? [1.2, 1.2, 1.2] : [1, 1, 1];
-  const rotation = part.rotation ?? [0, 0, 0];
-
-  // X-ray: render part semi-transparent so connection lines show through
-  const materialProps = part.mat
-    ? {
-      color: part.mat.color,
-      metalness: part.mat.metalness ?? 0,
-      roughness: part.mat.roughness ?? 0.5,
-    }
-    : {};
-
-  return (
-    <mesh
-      ref={meshRef}
-      geometry={part.geo}
-      material={part.mat}
-      position={localOffset}
-      rotation={rotation}
-      scale={scale}
-      onClick={onSelect}
-      castShadow
-      receiveShadow
-    >
-      {xray && (
-        <meshStandardMaterial
-          {...materialProps}
-          transparent
-          opacity={0.22}
-          depthWrite={false}
-        />
-      )}
-      {!xray && isHighlighted && (
-        <meshStandardMaterial
-          color={part.mat?.color}
-          emissive="#ffa726"
-          emissiveIntensity={0.5}
-          metalness={part.mat?.metalness ?? 0}
-          roughness={part.mat?.roughness ?? 0.5}
-        />
-      )}
-    </mesh>
-  );
-}
 
 export function OverviewExplodedView({ autoPlay = false, completed = false, onComplete }) {
   const prefersReducedMotion = typeof window !== "undefined"
@@ -197,7 +31,7 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
   // - auto mode: target settle distance (1.3) after animation completes
   // - manual mode: explodeDistance
   const effectiveDistance = autoAnimating ? 1.3 : explodeDistance;
-  const allParts = usePartPositions(effectiveDistance);
+  const allParts = useMemo(() => getPartInstances(effectiveDistance), [effectiveDistance]);
 
   useEffect(() => { const t = setTimeout(() => setShowHint(false), 5000); return () => clearTimeout(t); }, []);
 
@@ -235,65 +69,26 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
   const stepData = currentStep > 0 ? ASSEMBLY_STEPS[currentStep - 1] : null;
   const showConnections = stepData?.showConnections ?? false;
 
-  // Compute connection endpoints dynamically based on effectiveDistance
-  const connectionLines = useMemo(() => {
-    return CONNECTIONS.map((conn) => ({
-      from: getConnectionEndpoint(conn.fromPart, conn.fromOffset, effectiveDistance),
-      to: getConnectionEndpoint(conn.toPart, conn.toOffset, effectiveDistance),
-      color: conn.color,
-      thickness: conn.thickness,
-      label: conn.label,
-    }));
-  }, [effectiveDistance]);
+  const sceneViewState = useMemo(() => ({
+    visiblePartIds: uniqueParts.map((part) => part.parentId ?? part.id),
+    explodeDistance,
+    autoAnimating: mode === "auto" && autoAnimating,
+    selectedPartId: selectedPart?.parentId ?? selectedPart?.id ?? null,
+    xray,
+    showConnections: showConnections || mode === "auto" || xray,
+    reducedMotion: prefersReducedMotion,
+  }), [uniqueParts, explodeDistance, mode, autoAnimating, selectedPart, xray, showConnections, prefersReducedMotion]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <ComputerExplodedView
-        cameraPosition={[1.2, 0.8, 2.0]}
-        fallback={(
-          <ThreeSceneFallback
-            completed={completed}
-            context="overview"
-            onComplete={onComplete}
-          />
-        )}
-      >
-        {visibleParts.map((part) => {
-          const parentId = part.parentId ?? part.id;
-          const isHighlighted = stepData?.highlight === parentId;
-          return (
-            <AnimatedPart
-              key={part.id}
-              part={part}
-              autoAnimating={mode === "auto" && autoAnimating}
-              explodeDistance={explodeDistance}
-              isHighlighted={isHighlighted}
-              xray={xray}
-              onSelect={() => setSelectedPart(selectedPart?.id === part.id ? null : part)}
-            />
-          );
-        })}
-        {/* Show connections in assembled state, step 8, auto mode, or X-ray */}
-        {(showConnections || mode === "auto" || xray) && connectionLines.map((line, i) => (
-          <ConnectionLine
-            key={`conn-${i}`}
-            from={line.from}
-            to={line.to}
-            color={line.color}
-            thickness={line.thickness}
-            label={line.label}
-            showLabel={xray}
-            xray={xray}
-          />
-        ))}
-        {/* Data flow particles only when not reduced motion and connections visible */}
-        {(showConnections || mode === "auto" || xray) && !prefersReducedMotion && connectionLines.map((line, i) => (
-          <DataFlowParticle key={`flow-${i}`} from={line.from} to={line.to} color={line.color} />
-        ))}
-        {uniqueParts.some((p) => (p.parentId ?? p.id) === "motherboard") && MOBO_DETAILS.map((d, i) => (
-          <mesh key={`mobo-${i}`} geometry={d.geo} material={d.mat} position={d.pos} />
-        ))}
-      </ComputerExplodedView>
+      <NativeComputerScene
+        fallback={<ThreeSceneFallback completed={completed} context="overview" onComplete={onComplete} />}
+        onPartSelect={(partId) => {
+          const part = COMPUTER_PARTS.find((item) => item.id === partId) ?? null;
+          setSelectedPart((current) => current?.id === partId ? null : part);
+        }}
+        viewState={sceneViewState}
+      />
 
       {/* Top bar: mode toggle */}
       <div className="exploded-topbar">

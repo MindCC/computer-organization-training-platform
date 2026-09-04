@@ -22,7 +22,7 @@
 
 当前剩余事项：
 
-1. **P3-A：3D 专项包继续瘦身。** `OverviewExplodedView` 已按需加载，但其生产包约 1.00 MiB（gzip 约 277 KiB），仍会触发 Vite 的 500 KiB 提示。后续可评估 Three.js/R3F 依赖拆分、模型简化或预加载策略；不得为了消除提示而单纯调高阈值。
+1. **P3-A：3D 专项包已完成。** `OverviewExplodedView` 已迁移到原生 Three.js，移除 R3F/Drei；其增量静态依赖为 151,463 B gzip，所有相关块均低于 500 KiB，并由 `npm run qa:3d-budget` 约束。
 2. **P3-B：守住首屏预算。** 当前入口距离 500 KiB 上限约有 57 KiB 余量；新增页面应继续使用导航级动态导入，CI/发布检查需执行 `npm run qa:build-budget`。
 3. **发布前专项验收。** 除 `npm test`、`npm run build`、`npm run qa:ui`、`npm run qa:assets` 外，涉及课堂或 3D 的发布应按改动范围执行对应课堂负载与 3D 浏览器脚本。
 

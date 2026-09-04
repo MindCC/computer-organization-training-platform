@@ -1,5 +1,12 @@
-import { BoxGeometry, CylinderGeometry, PlaneGeometry, RingGeometry, MeshStandardMaterial, SphereGeometry, ExtrudeGeometry, Shape, Group } from "three";
-import { useMemo } from "react";
+import { Group } from "three/src/objects/Group.js";
+import { BoxGeometry } from "three/src/geometries/BoxGeometry.js";
+import { CylinderGeometry } from "three/src/geometries/CylinderGeometry.js";
+import { ExtrudeGeometry } from "three/src/geometries/ExtrudeGeometry.js";
+import { PlaneGeometry } from "three/src/geometries/PlaneGeometry.js";
+import { RingGeometry } from "three/src/geometries/RingGeometry.js";
+import { SphereGeometry } from "three/src/geometries/SphereGeometry.js";
+import { MeshStandardMaterial } from "three/src/materials/MeshStandardMaterial.js";
+import { Shape } from "three/src/extras/core/Shape.js";
 
 // ── Materials ──
 const matCPU_IHS = new MeshStandardMaterial({ color: "#C0C0C0", metalness: 0.85, roughness: 0.15 });
@@ -405,15 +412,6 @@ export function flattenPart(part, explodeDistance = 0) {
   }));
 }
 
-export function usePartPositions(explodeDistance = 0) {
-  return useMemo(() => {
-    const result = [];
-    for (const part of COMPUTER_PARTS) {
-      const subParts = flattenPart(part, explodeDistance);
-      for (const sub of subParts) {
-        result.push(sub);
-      }
-    }
-    return result;
-  }, [explodeDistance]);
+export function getPartInstances(explodeDistance = 0) {
+  return COMPUTER_PARTS.flatMap((part) => flattenPart(part, explodeDistance));
 }

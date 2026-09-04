@@ -105,6 +105,11 @@ try {
   await page.waitForSelector(".computer-exploded", { timeout: 20_000 });
   const canvas = page.locator(".computer-exploded canvas");
   check("Overview canvas exists", await canvas.count() > 0);
+  check(
+    "Native Three.js renderer is active",
+    await page.locator('.computer-exploded[data-renderer="native-three"]').count() === 1,
+  );
+  check("Exactly one scene canvas exists", await canvas.count() === 1);
   check("Step mode button", await page.getByRole("button", { name: "分步组装" }).isVisible());
   check("Auto mode button", await page.getByRole("button", { name: "自动爆炸" }).isVisible());
 
@@ -124,8 +129,19 @@ try {
 
   await page.getByRole("button", { name: "自动爆炸" }).click();
   await page.getByRole("button", { name: "X-ray" }).click();
-  await page.locator(".bus-label").first().waitFor({ state: "visible", timeout: 10_000 });
-  check("X-ray shows bus labels", await page.locator(".bus-label").count() >= 4);
+  await page.locator(".native-bus-label").first().waitFor({ state: "visible", timeout: 10_000 });
+  check("X-ray toggles on", await page.getByRole("button", { name: /X-ray/ }).getAttribute("aria-pressed") === "true");
+  check("X-ray shows native bus labels", await page.locator(".native-bus-label").count() >= 4);
+  check("Canvas exposes native part picking", await canvas.getAttribute("data-part-picking") === "enabled");
+  const bounds = await canvas.boundingBox();
+  if (bounds) {
+    await page.mouse.move(bounds.x + bounds.width * 0.55, bounds.y + bounds.height * 0.45);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width * 0.65, bounds.y + bounds.height * 0.45, { steps: 8 });
+    await page.mouse.up();
+    await page.mouse.wheel(0, -240);
+  }
+  check("Orbit rotation and zoom update the camera", await canvas.getAttribute("data-camera-changed") === "true");
   await page.getByRole("button", { name: "查看 CPU 部件" }).click();
   check(
     "CPU info card shown",
@@ -133,6 +149,16 @@ try {
   );
   check("Von Neumann overview present", await page.locator(".von-neumann-overview").isVisible());
   await page.screenshot({ path: path.join(artifactDir, "3d-overview.png"), fullPage: true });
+
+  await page.getByRole("button", { name: /返回课程首页/ }).click();
+  await page.locator(".quest-stage").filter({ has: page.getByText("认识计算机五大部件", { exact: true }) }).first().click();
+  await page.waitForSelector('.computer-exploded[data-renderer="native-three"]', { timeout: 20_000 });
+  check("Re-entry creates one native canvas", await page.locator(".computer-exploded canvas").count() === 1);
+  await page.locator(".computer-exploded canvas").evaluate((element) => {
+    element.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+  });
+  await page.locator(".computer-exploded-fallback").waitFor({ state: "visible", timeout: 10_000 });
+  check("Context loss switches to fallback", await page.locator(".computer-exploded-fallback").isVisible());
 
   console.log("4. Verify hardware builder path");
   await page.getByRole("button", { name: /返回课程首页/ }).click();
@@ -170,6 +196,9 @@ try {
   check("Static fallback visible", await fallbackPage.locator(".computer-exploded-fallback").isVisible());
   check("Fallback creates no canvas", await fallbackPage.locator(".computer-exploded canvas").count() === 0);
   check("Fallback keeps bus teaching content", await fallbackPage.getByText("数据总线传数据", { exact: false }).isVisible());
+  for (let step = 1; step < 6; step += 1) {
+    await fallbackPage.locator(".computer-exploded-fallback").getByRole("button", { name: "下一步" }).click();
+  }
   await fallbackPage.getByRole("button", { name: "完成静态探索" }).click();
   check("Fallback can complete overview", await fallbackPage.getByRole("button", { name: "已完成静态探索" }).isDisabled());
   await dismissQuestSettlement(fallbackPage);
