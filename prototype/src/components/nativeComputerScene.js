@@ -33,7 +33,7 @@ function createPartMesh(subPart, partId, registry) {
     metalness: base.metalness,
     roughness: base.roughness,
     transparent: true,
-    opacity: 0.22,
+    opacity: 0.52,
     depthWrite: false,
   }));
   const highlighted = registry.add(base.clone());
@@ -123,7 +123,7 @@ export function createNativeComputerScene(container, options = {}) {
   renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
   renderer.domElement.addEventListener("contextmenu", preventContextMenu);
 
-  scene.add(new AmbientLight("#ffffff", 0.65));
+  scene.add(new AmbientLight("#ffffff", 1.05));
   const keyLight = new DirectionalLight("#ffffff", 1.5);
   keyLight.position.set(3, 4, 2);
   scene.add(keyLight);
@@ -179,13 +179,19 @@ export function createNativeComputerScene(container, options = {}) {
   const labels = new Map();
   for (const entry of busEntries) {
     if (labels.has(entry.connection.label)) continue;
+    const labelIndex = labels.size;
     const element = document.createElement("span");
     element.className = "native-bus-label";
     element.dataset.busLabel = entry.connection.label;
     element.textContent = entry.connection.label;
     element.style.color = entry.connection.color;
     labelLayer.append(element);
-    labels.set(entry.connection.label, { element, midpoint: entry.midpoint });
+    labels.set(entry.connection.label, {
+      element,
+      midpoint: entry.midpoint,
+      offsetX: [-20, 20, -12, 12, -28, 28, 0][labelIndex] ?? 0,
+      offsetY: [-16, 14, 26, -28, 38, -40, 0][labelIndex] ?? 0,
+    });
   }
 
   const pointer = new Vector2();
@@ -228,8 +234,8 @@ export function createNativeComputerScene(container, options = {}) {
         label.element.hidden = true;
         continue;
       }
-      label.element.style.left = `${point.left}px`;
-      label.element.style.top = `${point.top}px`;
+      label.element.style.left = `${point.left + label.offsetX}px`;
+      label.element.style.top = `${point.top + label.offsetY}px`;
     }
   }
 
@@ -256,11 +262,12 @@ export function createNativeComputerScene(container, options = {}) {
       entry.particle.visible = showConnections && !viewState.reducedMotion;
       entry.material.depthTest = !viewState.xray;
       entry.material.transparent = viewState.xray;
-      entry.material.opacity = viewState.xray ? 0.95 : 1;
+      entry.material.opacity = viewState.xray ? 0.56 : 1;
       if (length > 0) {
         entry.mesh.position.copy(entry.midpoint);
         entry.mesh.quaternion.copy(entry.quaternion.setFromUnitVectors(UP, entry.direction.normalize()));
-        entry.mesh.scale.set(connection.thickness, length, connection.thickness);
+        const thickness = connection.thickness * (viewState.xray ? 0.48 : 1);
+        entry.mesh.scale.set(thickness, length, thickness);
         entry.particle.position.copy(entry.from).lerp(entry.to, (elapsed * 0.3 + index / busEntries.length) % 1);
       }
     }
