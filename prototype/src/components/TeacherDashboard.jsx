@@ -15,6 +15,7 @@ import { InterventionGroups } from "./teacher/InterventionGroups.jsx";
 import { buildTeacherQuestModel, buildTeacherSetupSteps, buildInterventionGroups } from "../teacherQuest.js";
 import { buildTeacherEmptyState } from "../emptyStates.js";
 import { buildCourseRouteGroups } from "../courseRoute.js";
+import { TeacherCourseWorkbench } from "./TeacherCourseWorkbench.jsx";
 
 function statusText(status) {
   return { completed: "已完成", "in-progress": "进行中", unlocked: "未开始", locked: "未解锁" }[status] ?? status;
@@ -165,6 +166,7 @@ export function TeacherStudioDashboard({
           })()}
 
           {selectedTeacherClassId && <TeacherAssignments classId={selectedTeacherClassId} />}
+          {selectedTeacherClassId && <TeacherCourseWorkbench classId={selectedTeacherClassId} students={students} />}
 
           <div className="teacher-studio-summary">
             <Metric icon={CheckCircle} label="学生数" value={classOverview?.summary.studentCount ?? students.length} />

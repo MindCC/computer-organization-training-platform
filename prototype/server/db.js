@@ -229,6 +229,75 @@ export function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_assignments_class ON assignments(class_id);
     CREATE INDEX IF NOT EXISTS idx_submissions_student ON student_submissions(student_id);
     CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON student_submissions(assignment_id);
+
+    CREATE TABLE IF NOT EXISTS course_drafts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL DEFAULT '',
+      learning_objectives_json TEXT NOT NULL,
+      guide_challenge_id TEXT NOT NULL DEFAULT 'computer-components',
+      guide_script_json TEXT NOT NULL,
+      assignment_outline_json TEXT NOT NULL DEFAULT '{}',
+      project_outline_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      published_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_course_drafts_class ON course_drafts(class_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS team_projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      course_draft_id INTEGER NOT NULL UNIQUE REFERENCES course_drafts(id) ON DELETE CASCADE,
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      milestones_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_team_projects_class ON team_projects(class_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS project_teams (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      team_project_id INTEGER NOT NULL REFERENCES team_projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(team_project_id, name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_teams_project ON project_teams(team_project_id);
+
+    CREATE TABLE IF NOT EXISTS project_team_members (
+      team_id INTEGER NOT NULL REFERENCES project_teams(id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(team_id, student_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_team_members_student ON project_team_members(student_id);
+
+    CREATE TABLE IF NOT EXISTS project_milestone_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      team_project_id INTEGER NOT NULL REFERENCES team_projects(id) ON DELETE CASCADE,
+      milestone_id TEXT NOT NULL,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      reflection TEXT NOT NULL DEFAULT '',
+      evidence_url TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'submitted', 'reviewed')),
+      client_submission_id TEXT,
+      teacher_feedback TEXT NOT NULL DEFAULT '',
+      submitted_at TEXT,
+      reviewed_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(team_project_id, milestone_id, student_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_project_submissions_project ON project_milestone_submissions(team_project_id, status);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_project_submission_client
+      ON project_milestone_submissions(student_id, client_submission_id)
+      WHERE client_submission_id IS NOT NULL;
   `);
   ensureColumn(db, "notes", "challenge_id", "TEXT");
   ensureColumn(db, "notes", "updated_at", "TEXT");

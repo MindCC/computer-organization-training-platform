@@ -7,6 +7,7 @@ import { CurrentMissionCard } from "./classroom/student/CurrentMissionCard.jsx";
 import { CurrentQuestPanel } from "./quest/CurrentQuestPanel.jsx";
 import { QuestMap } from "./quest/QuestMap.jsx";
 import { FirstUseGuide } from "./quest/FirstUseGuide.jsx";
+import { buildStudentProjectSummary } from "../courseWorkbenchState.js";
 
 function NextStepCard({ challenge, progress, onEnter }) {
   return (
@@ -24,7 +25,7 @@ function NextStepCard({ challenge, progress, onEnter }) {
   );
 }
 
-export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter, allowSkipLocked = false }) {
+export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter, allowSkipLocked = false, projects = [], onOpenProjects }) {
   const questModel = buildStudentQuestModel(routeGroups, nextRecommendedChallenge, progress);
   const firstUseSteps = buildFirstUseSteps(progress);
   const homeEmptyState = buildStudentHomeEmptyState(summary, routeGroups);
@@ -33,6 +34,7 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
     ...group,
     completedCount: group.items.filter((item) => item.status === "completed").length,
   }));
+  const projectSummary = buildStudentProjectSummary(projects);
 
   if (classroomViewModel?.active) {
     return (
@@ -151,6 +153,11 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
             <span>预计剩余课时</span>
           </div>
         </div>
+      </section>
+
+      <section className="project-home-card" aria-label="小组项目">
+        <div><span className="eyebrow">小组项目</span><h2>{projectSummary.count ? `你有 ${projectSummary.count} 个进行中的协作项目` : "等待教师分配小组项目"}</h2><p>{projectSummary.nextMilestone?.title ? `下一里程碑：${projectSummary.nextMilestone.title}` : "发布并分组后，可在这里提交个人反思和查看评价。"}</p></div>
+        {projectSummary.count ? <button className="primary-button" onClick={onOpenProjects} type="button">打开项目</button> : null}
       </section>
 
       <QuestMap

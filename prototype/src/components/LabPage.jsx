@@ -29,6 +29,7 @@ export function LabPage({
   setMemoryAddress, setMemoryOperation, setMemoryWriteValue,
   memoryAccessState, setShowSettings, student, statusMessage, changeView,
   classroomLabViewModel,
+  courseGuide,
 }) {
   const l = lab;
   const cur = l.currentChallenge;
@@ -87,6 +88,7 @@ export function LabPage({
               autoPlay={false}
               completed={l.currentRecord?.status === "completed"}
               onComplete={l.completeOverviewChallenge}
+              courseGuide={courseGuide}
             />
           </Suspense>
         </div>

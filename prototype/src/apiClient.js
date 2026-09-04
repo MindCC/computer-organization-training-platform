@@ -129,6 +129,20 @@ export const api = {
   saveAssignmentDraft: (assignmentId, answers) => apiRequest(`/api/student/assignments/${assignmentId}/draft`, { method: "POST", body: JSON.stringify({ answers }) }),
   submitAssignment: (assignmentId, answers) => apiRequest(`/api/student/assignments/${assignmentId}/submit`, { method: "POST", body: JSON.stringify({ answers }) }),
   studentSubmissions: () => apiRequest("/api/student/submissions"),
+  // Course workbench APIs
+  createCourseDraft: (classId, payload) => apiRequest(`/api/teacher/classes/${classId}/course-drafts`, { method: "POST", body: JSON.stringify(payload) }),
+  generateCourseDraft: (classId, payload) => apiRequest(`/api/teacher/classes/${classId}/course-drafts/generate`, { method: "POST", body: JSON.stringify(payload) }),
+  teacherCourseDrafts: (classId) => apiRequest(`/api/teacher/classes/${classId}/course-drafts`),
+  courseDraftDetail: (draftId) => apiRequest(`/api/teacher/course-drafts/${draftId}`),
+  updateCourseDraft: (draftId, payload) => apiRequest(`/api/teacher/course-drafts/${draftId}`, { method: "PUT", body: JSON.stringify(payload) }),
+  publishCourseDraft: (draftId) => apiRequest(`/api/teacher/course-drafts/${draftId}/publish`, { method: "POST" }),
+  createProjectTeam: (draftId, payload) => apiRequest(`/api/teacher/course-drafts/${draftId}/project/teams`, { method: "POST", body: JSON.stringify(payload) }),
+  replaceProjectTeamMembers: (teamId, members) => apiRequest(`/api/teacher/project-teams/${teamId}/members`, { method: "PUT", body: JSON.stringify({ members }) }),
+  reviewProjectSubmission: (submissionId, feedback) => apiRequest(`/api/teacher/project-submissions/${submissionId}/review`, { method: "POST", body: JSON.stringify({ feedback }) }),
+  projectSummary: (classId) => apiRequest(`/api/teacher/classes/${classId}/project-summary`),
+  studentProjects: () => apiRequest("/api/student/projects"),
+  studentProjectDetail: (projectId) => apiRequest(`/api/student/projects/${projectId}`),
+  submitProjectMilestone: (projectId, milestoneId, payload) => apiRequest(`/api/student/projects/${projectId}/milestones/${milestoneId}/submission`, { method: "POST", body: JSON.stringify(payload) }),
   mistakes: () => apiRequest("/api/student/mistakes"),
   auditLogs: (params = {}) => {
     const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== "")).toString();

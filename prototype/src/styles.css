@@ -8451,3 +8451,11 @@ body {
   font-size: 13px;
   line-height: 1.55;
 }
+/* Course workbench and project collaboration */
+.course-workbench-grid { display:grid; grid-template-columns:minmax(260px,1fr) minmax(240px,1fr); gap:20px; }
+.project-home-card { display:flex; justify-content:space-between; gap:24px; align-items:center; padding:22px; margin:18px 0; border-radius:16px; background:linear-gradient(135deg,#eef6ff,#f5fbff); border:1px solid rgba(37,99,235,.16); }
+.course-workbench label,.project-milestone label { display:grid; gap:6px; margin:10px 0; font-size:13px; color:var(--ink-muted,#64748b); }
+.course-workbench input,.course-workbench textarea,.project-milestone input,.project-milestone textarea { width:100%; border:1px solid rgba(100,116,139,.28); border-radius:9px; padding:9px; font:inherit; background:rgba(255,255,255,.78); }
+.course-draft-row,.project-milestone { display:grid; gap:8px; padding:14px; margin:10px 0; border:1px solid rgba(100,116,139,.2); border-radius:12px; }
+.team-maker { display:flex; gap:8px; flex-wrap:wrap; }.project-page { max-width:1040px; margin:0 auto; padding:32px; }.project-card-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; }.project-card { text-align:left; display:grid; gap:8px; padding:18px; border:1px solid rgba(71,85,105,.24); border-radius:14px; background:white; color:inherit; }.project-card span,.eyebrow { color:#2563eb; }.project-roster { display:flex; gap:10px; flex-wrap:wrap; margin:18px 0; }.project-roster span { background:#eef6ff; padding:6px 9px; border-radius:999px; }.project-feedback,.course-guide-status { padding:10px; background:#edfdf3; border-radius:8px; }.course-guide-panel { position:absolute; right:16px; top:70px; z-index:3; width:min(320px,calc(100% - 32px)); padding:16px; background:rgba(10,20,35,.94); color:#f8fafc; border:1px solid rgba(125,211,252,.45); border-radius:14px; box-shadow:0 16px 44px rgba(0,0,0,.35); }.course-guide-heading { display:flex; justify-content:space-between; gap:12px; }.course-guide-heading div { display:grid; gap:4px; }.course-guide-heading button { color:inherit; background:transparent; border:0; font-size:24px; cursor:pointer; }
+@media (max-width: 720px) { .course-workbench-grid { grid-template-columns:1fr; }.project-page { padding:18px; }.course-guide-panel { top:58px; right:10px; width:calc(100% - 20px); } }

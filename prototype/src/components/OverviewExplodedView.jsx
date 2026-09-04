@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from "react";
 import { NativeComputerScene } from "./NativeComputerScene.jsx";
 import { ThreeSceneFallback } from "./ThreeSceneFallback.jsx";
 import { COMPUTER_PARTS, getPartInstances } from "./computerParts.js";
+import { CourseGuidePanel } from "./CourseGuidePanel.jsx";
+import { nextGuideStep } from "../courseWorkbenchState.js";
 
 // Assembly steps: which part appears at which step
 const ASSEMBLY_STEPS = [
@@ -15,7 +17,7 @@ const ASSEMBLY_STEPS = [
   { step: 8, label: "整机完成", partIds: ["case", "psu", "motherboard", "cpu", "ram-0", "ram-1", "gpu", "storage"], desc: "组装完成！各部件通过数据总线、地址总线和控制总线相互通信，电源为所有部件供电。试试旋转和缩放查看整机结构。", showConnections: true },
 ];
 
-export function OverviewExplodedView({ autoPlay = false, completed = false, onComplete }) {
+export function OverviewExplodedView({ autoPlay = false, completed = false, onComplete, courseGuide = null }) {
   const prefersReducedMotion = typeof window !== "undefined"
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const shouldAutoPlay = autoPlay && !prefersReducedMotion;
@@ -26,6 +28,17 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
   const [selectedPart, setSelectedPart] = useState(null);
   const [showHint, setShowHint] = useState(true);
   const [xray, setXray] = useState(false);
+  const [guideIndex, setGuideIndex] = useState(0);
+  const [guideVisible, setGuideVisible] = useState(true);
+
+  useEffect(() => { setGuideIndex(0); setGuideVisible(true); }, [courseGuide?.id]);
+  useEffect(() => {
+    const action = courseGuide?.guideScript?.[guideIndex]?.action;
+    if (!action) return;
+    if (action.type === "highlightPart") setSelectedPart(COMPUTER_PARTS.find((item) => item.id === action.partId) ?? null);
+    if (action.type === "setXray") setXray(action.enabled);
+    if (action.type === "showHint") setShowHint(true);
+  }, [courseGuide, guideIndex]);
 
   // The effective distance for connection line positioning:
   // - auto mode: target settle distance (1.3) after animation completes
@@ -89,6 +102,7 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
         }}
         viewState={sceneViewState}
       />
+      {guideVisible && courseGuide ? <CourseGuidePanel guide={courseGuide} index={guideIndex} completed={completed} onClose={() => setGuideVisible(false)} onAcknowledge={() => setGuideIndex((index) => nextGuideStep(courseGuide.guideScript, index, { acknowledged: true, challengeCompleted: completed }))} /> : null}
 
       {/* Top bar: mode toggle */}
       <div className="exploded-topbar">

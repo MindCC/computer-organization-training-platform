@@ -53,6 +53,9 @@ import { createClassroomSessionRouter } from "./classroomSessionRoutes.js";
 import { createAssignmentRepository } from "./assignmentRepository.js";
 import { createAssignmentService } from "./assignmentService.js";
 import { createAssignmentRouter } from "./assignmentRoutes.js";
+import { createCourseWorkbenchRepository } from "./courseWorkbenchRepository.js";
+import { createCourseWorkbenchService } from "./courseWorkbenchService.js";
+import { createCourseWorkbenchRouter } from "./courseWorkbenchRoutes.js";
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 import { buildMistakeBook } from "../src/mistakeBook.js";
@@ -99,6 +102,8 @@ export function createApp(options = {}) {
   const sessionService = createClassroomSessionService({ db, repository: sessionRepository });
   const assignmentRepository = createAssignmentRepository(db);
   const assignmentService = createAssignmentService({ db, repository: assignmentRepository });
+  const courseWorkbenchRepository = createCourseWorkbenchRepository(db);
+  const courseWorkbenchService = createCourseWorkbenchService({ db, repository: courseWorkbenchRepository, generateSuggestion: options.generateCourseDraftSuggestion });
 
   // Request logger with response timing
   app.use((req, res, next) => {
@@ -126,6 +131,7 @@ export function createApp(options = {}) {
   // Feature routers must run after global logging and CSRF middleware.
   app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole }));
   app.use("/api", createAssignmentRouter({ service: assignmentService, requireRole }));
+  app.use("/api", createCourseWorkbenchRouter({ service: courseWorkbenchService, requireRole, audit }));
 
   // Deep health check
   const _startedAt = Date.now();

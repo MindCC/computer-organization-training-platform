@@ -77,6 +77,7 @@ import { buildQuestSettlement } from "./questExperience.js";
 import { useLabState } from "./hooks/useLabState.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
+import { getActiveGuideForChallenge } from "./courseWorkbenchState.js";
 import avatarImage from "./assets/alex-chen-avatar.webp";
 import labIllustration from "./assets/lab-circuit-illustration.webp";
 
@@ -94,6 +95,8 @@ const TeacherStudioDashboard = lazy(() => import("./components/TeacherDashboard.
   .then((module) => ({ default: module.TeacherStudioDashboard })));
 const StudentAssignments = lazy(() => import("./components/StudentAssignments.jsx")
   .then((module) => ({ default: module.StudentAssignments })));
+const StudentProjects = lazy(() => import("./components/StudentProjects.jsx")
+  .then((module) => ({ default: module.StudentProjects })));
 const CoursewareView = lazy(() => import("./components/CoursewareView.jsx")
   .then((module) => ({ default: module.CoursewareView })));
 const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
@@ -109,6 +112,7 @@ const navItems = [
   { id: "mistakes", label: "错题本", icon: BookOpen },
   { id: "notes", label: "学习笔记", icon: Notebook },
   { id: "assignments", label: "课后作业", icon: Notebook },
+  { id: "projects", label: "小组项目", icon: Target },
   { id: "courseware", label: "课程课件", icon: BookOpen },
   { id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" },
 ];
@@ -475,6 +479,7 @@ export function App() {
     "进入全加器实验，当前缺少进位输入。",
   ]);
   const [notes, setNotes] = useState(initialNotes);
+  const [studentProjects, setStudentProjects] = useState([]);
   const [noteDraft, setNoteDraft] = useState("全加器实验中，Cin 会影响和位，也会参与 Cout 的判断。");
   const [noteSearchQuery, setNoteSearchQuery] = useState("");
   const [noteFilterTag, setNoteFilterTag] = useState("");
@@ -548,6 +553,7 @@ export function App() {
   }, [focusChallenge]);
   const routeGroups = useMemo(() => buildCourseRouteGroups(LEARNING_ITEMS, progress), [progress]);
   const nextRecommendedChallenge = useMemo(() => findNextRecommendedChallenge(LEARNING_ITEMS, progress), [progress]);
+  const activeCourseGuide = useMemo(() => getActiveGuideForChallenge(studentProjects, lab.currentChallenge?.id), [studentProjects, lab.currentChallenge?.id]);
 
   // Trigger quest settlement when a lab submission passes
   useEffect(() => {
@@ -589,10 +595,11 @@ export function App() {
   async function loadRoleData(user = auth.user) {
     if (!user) return;
     if (user.role === "student") {
-      const [{ progress: nextProgress, allowSkipLocked }, { notes: nextNotes }] = await Promise.all([api.studentProgress(), api.listNotes()]);
+      const [{ progress: nextProgress, allowSkipLocked }, { notes: nextNotes }, { projects }] = await Promise.all([api.studentProgress(), api.listNotes(), api.studentProjects()]);
       setProgress({ ...buildInitialLearningProgress(), ...nextProgress });
       setAllowSkipLocked(Boolean(allowSkipLocked));
       setNotes(nextNotes);
+      setStudentProjects(projects ?? []);
       setStudent({
         name: user.displayName,
         goal: user.profile?.goal ?? "\u5b8c\u6210\u516d\u4e2a\u8fd0\u7b97\u5668\u5173\u5361",
@@ -921,6 +928,7 @@ export function App() {
               setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue}
               memoryAccessState={memoryAccessState} setShowSettings={setShowSettings}
               student={student} statusMessage={statusMessage} changeView={changeView}
+              courseGuide={activeCourseGuide}
               classroomLabViewModel={{ ...classroomSession.viewModel, submitAttempt: classroomSession.submit }} />
           </Suspense>
         </ErrorBoundary>
@@ -1026,7 +1034,7 @@ export function App() {
             <span>{statusMessage}</span>
           </div>
 
-          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} /> : null}
+          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} projects={studentProjects} onOpenProjects={() => changeView("projects")} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} /> : null}
           {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
           {activeView === "mistakes" ? <MistakeBookPage navigateToChallenge={navigateToChallenge} changeView={changeView} /> : null}
           {activeView === "hardware-game" ? (
@@ -1059,6 +1067,7 @@ export function App() {
             />
           ) : null}
           {activeView === "assignments" ? <StudentAssignments /> : null}
+          {activeView === "projects" ? <StudentProjects /> : null}
           {activeView === "courseware" ? <CoursewareView navigateToChallenge={navigateToChallenge} /> : null}
           {activeView === "teacher" ? (
             <ErrorBoundary>
