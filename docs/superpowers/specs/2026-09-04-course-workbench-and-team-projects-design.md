@@ -19,7 +19,7 @@
 
 ### CourseDraft
 
-`course_drafts` 由教师拥有，字段包括 `id`、`teacher_id`、`class_id`、`title`、`summary`、`learning_objectives_json`、`guide_script_json`、`assignment_outline_json`、`project_outline_json`、`status`、`created_at`、`updated_at`、`published_at`。
+`course_drafts` 由教师拥有，字段包括 `id`、`teacher_id`、`class_id`、`title`、`summary`、`learning_objectives_json`、`guide_challenge_id`、`guide_script_json`、`assignment_outline_json`、`project_outline_json`、`status`、`created_at`、`updated_at`、`published_at`。
 
 状态仅允许 `draft -> published`。发布后草稿内容冻结；教师需要修改时新建草稿版本，避免已参与学生的任务定义变化。
 
@@ -32,7 +32,7 @@
 - `highlightPart` 的部件 ID 必须存在于电脑组成场景的部件清单。
 - `setXray` 只有布尔值。
 
-服务端验证并持久化脚本，客户端不得执行脚本以外的操作。
+第一版的 `guide_challenge_id` 固定为现有的 `computer-components` 3D 概述关卡；服务端验证并持久化脚本，客户端不得执行脚本以外的操作。
 
 ### TeamProject
 
