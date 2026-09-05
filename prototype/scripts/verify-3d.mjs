@@ -3,6 +3,7 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
+import { verifyHardwareAssembly } from './verify-hardware-assembly-path.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const baseUrl = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
@@ -163,13 +164,10 @@ try {
   console.log("4. Verify hardware builder path");
   await page.getByRole("button", { name: /返回课程首页/ }).click();
   await page.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
-  await page.waitForSelector(".hardware-workbench", { timeout: 20_000 });
-  check("Builder workbench visible", await page.locator(".hardware-workbench").isVisible());
-  check("Builder assembly image", await page.locator(".hardware-workbench-image").isVisible());
-  check("Builder hotspots", await page.locator(".hardware-workbench-hotspot").count() >= 4);
-  check("Builder catalog panel", await page.locator(".hardware-catalog-panel").isVisible());
-  check("Builder score", await page.locator(".builder-score").isVisible());
-  await page.screenshot({ path: path.join(artifactDir, "3d-builder.png"), fullPage: true });
+  await verifyHardwareAssembly(page, artifactDir);
+  check('Interactive assembly game verified', true);
+  await browser.close();
+  browser = null;
 
   console.log("5. Verify WebGL-disabled static teaching path");
   try {
@@ -208,9 +206,10 @@ try {
   // 结算层可能在导航回首页时才渲染，先关掉再继续点击导航。
   await dismissQuestSettlement(fallbackPage);
   await fallbackPage.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
-  await fallbackPage.waitForSelector(".hardware-workbench", { timeout: 20_000 });
-  check("Builder works without WebGL", await fallbackPage.locator(".hardware-workbench").isVisible());
-  check("Builder controls remain usable", await fallbackPage.locator(".hardware-catalog-panel").isVisible());
+  await fallbackPage.waitForSelector(".assembly-workshop", { timeout: 20_000 });
+  check("Builder explains unavailable WebGL", await fallbackPage.locator(".assembly-fallback").isVisible());
+  await fallbackPage.getByRole('button', { name: '安装到CPU 插座', exact: true }).click();
+  check("Fallback can install parts", (await fallbackPage.locator('.assembly-counter strong').textContent()).includes('1 / 3'));
 
   assert.deepEqual(pageErrors, [], "3D QA must not emit page errors");
   assert.deepEqual(fallbackPageErrors, [], "3D fallback QA must not emit page errors");

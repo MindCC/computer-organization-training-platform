@@ -1,0 +1,68 @@
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { expect } from '@playwright/test';
+
+export async function verifyHardwareAssembly(page, artifactDir) {
+  const workshop = page.getByRole('region', { name: '3D 交互装机工作台' });
+  await expect(workshop).toBeVisible();
+  await expect(workshop.locator('canvas')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: '开机自检', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '请先完成装配与开机自检' })).toBeDisabled();
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await workshop.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(600);
+  await page.screenshot({ path: path.join(artifactDir, 'assembly-desktop.png'), fullPage: true });
+  async function dragPart(part, socket) {
+    const rack = await page.locator(`[data-rack="${part}"]`).boundingBox();
+    const target = await page.locator(`[data-socket="${socket}"]`).boundingBox();
+    assert.ok(rack && target);
+    await page.mouse.move(rack.x + rack.width / 2, rack.y + rack.height / 2 - 31);
+    await page.mouse.down();
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 18 });
+    await page.mouse.up();
+    await page.waitForTimeout(400);
+  }
+  await dragPart('cpu', 'memory');
+  await expect(page.locator('.assembly-action-strip')).toContainText('插槽不匹配');
+  await expect(page.locator('.assembly-counter strong')).toHaveText('0 / 3');
+  await dragPart('cpu', 'cpu');
+  await expect(page.locator('.assembly-counter strong')).toHaveText('1 / 3');
+  await page.getByRole('button', { name: '拆下处理器', exact: true }).click();
+  await expect(page.locator('.assembly-counter strong')).toHaveText('0 / 3');
+  await page.getByRole('button', { name: '安装到CPU 插座', exact: true }).last().click();
+  await page.locator('[data-rack="memory"]').click();
+  await page.locator('[data-socket="memory"]').click();
+  await page.locator('[data-rack="storage"]').click();
+  await page.locator('[data-socket="storage"]').click();
+  await expect(page.locator('.assembly-counter strong')).toHaveText('3 / 3');
+  await page.getByRole('button', { name: '开机自检', exact: true }).click();
+  await expect(page.locator('.assembly-boot')).toContainText('开机成功', { timeout: 10000 });
+  await expect(page.getByRole('button', { name: '交付装机 · 提交方案' })).toBeEnabled();
+  await page.locator('.hardware-case.active').click();
+  await expect(page.getByRole('button', { name: '交付装机 · 提交方案' })).toBeEnabled();
+  await page.screenshot({ path: path.join(artifactDir, 'assembly-boot.png'), fullPage: true });
+  await page.locator('#assembly-variant').selectOption('ssd-1tb');
+  await expect(page.locator('.assembly-counter strong')).toHaveText('2 / 3');
+  await expect(page.getByRole('button', { name: '请先完成装配与开机自检' })).toBeDisabled();
+  await page.locator('.assembly-part-tabs button').filter({ hasText: '显卡' }).click();
+  await page.locator('#assembly-variant').selectOption('gpu-entry');
+  await expect(page.locator('[data-rack="gpu"]')).toBeVisible();
+  await expect(page.locator('.assembly-counter strong')).toHaveText('2 / 4');
+  await page.getByRole('button', { name: '俯视 / 透视' }).click();
+  await page.getByRole('button', { name: '重置观察视角' }).click();
+  await page.getByRole('button', { name: '专注装机 ↗' }).click();
+  await expect(page.locator('.assembly-workshop.focused')).toBeVisible();
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: path.join(artifactDir, 'assembly-focused.png') });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.assembly-workshop.focused')).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(300);
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'mobile must not overflow');
+  const mobileCanvas = await workshop.locator('canvas').boundingBox();
+  const mobileRack = await page.locator('[data-rack="gpu"]').boundingBox();
+  assert.ok(mobileRack.x >= mobileCanvas.x && mobileRack.x + mobileRack.width <= mobileCanvas.x + mobileCanvas.width, 'active mobile part remains within viewport');
+  await page.screenshot({ path: path.join(artifactDir, 'assembly-mobile.png'), fullPage: true });
+  await page.setViewportSize({ width: 1366, height: 768 });
+  console.log('  PASS 3D drag/drop, wrong socket, removal, keyboard alternative, POST, config invalidation, discrete GPU and responsive layout');
+}

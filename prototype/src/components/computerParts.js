@@ -35,23 +35,25 @@ const matIOShield = new MeshStandardMaterial({ color: "#666", metalness: 0.6, ro
 const matPort = new MeshStandardMaterial({ color: "#444", metalness: 0.5, roughness: 0.4 });
 const matUSB = new MeshStandardMaterial({ color: "#1a1a3a", metalness: 0.4, roughness: 0.4 });
 const matPowerBtn = new MeshStandardMaterial({ color: "#4fc3f7", metalness: 0.3, roughness: 0.3, emissive: "#0a3a5a", emissiveIntensity: 0.4 });
+const matCaseFan = new MeshStandardMaterial({ color: "#3c5968", metalness: 0.45, roughness: 0.35 });
 
 // ── Reusable geometry ──
 const pcbBaseGeo = new BoxGeometry(1.2, 0.025, 1.0);
 const cpuIhsGeo = new BoxGeometry(0.38, 0.04, 0.38);
 const cpuPcbGeo = new BoxGeometry(0.42, 0.015, 0.42);
-const ramBoardGeo = new BoxGeometry(0.055, 0.48, 0.01);
-const ramChipGeo = new BoxGeometry(0.045, 0.08, 0.008);
-const gpuBoardGeo = new BoxGeometry(0.38, 0.04, 0.26);
-const gpuFanRingGeo = new RingGeometry(0.06, 0.09, 24);
-const gpuFanBladeGeo = new BoxGeometry(0.025, 0.12, 0.006);
+// DIMMs stand a little above the board while their long edge follows the Z-axis.
+const ramBoardGeo = new BoxGeometry(0.035, 0.15, 0.46);
+const ramChipGeo = new BoxGeometry(0.041, 0.075, 0.07);
+const gpuBoardGeo = new BoxGeometry(0.56, 0.035, 0.25);
+const gpuFanRingGeo = new RingGeometry(0.052, 0.085, 24);
+const gpuFanBladeGeo = new BoxGeometry(0.022, 0.006, 0.105);
 const storageGeo = new BoxGeometry(0.18, 0.13, 0.32);
 const psuGeo = new BoxGeometry(0.33, 0.26, 0.43);
 const psuFanGrillGeo = new RingGeometry(0.06, 0.1, 32);
 const psuFanCenterGeo = new SphereGeometry(0.02, 8, 8);
 const caseFrameGeoV = new BoxGeometry(0.02, 0.88, 0.02);
 const caseFrameGeoH = new BoxGeometry(1.38, 0.02, 0.02);
-const caseFrameGeoD = new BoxGeometry(0.02, 0.02, 0.58);
+const caseFrameGeoD = new BoxGeometry(0.02, 0.02, 1.16);
 const cpuSocketGeo = new BoxGeometry(0.46, 0.002, 0.46);
 const dimmSlotGeo = new BoxGeometry(0.06, 0.002, 0.5);
 const pcieSlotGeo = new BoxGeometry(0.4, 0.002, 0.05);
@@ -60,14 +62,14 @@ const pcieSlotGeo = new BoxGeometry(0.4, 0.002, 0.05);
 
 // GPU fan compound: ring + blades + center hub
 function gpuFanGroup() {
-  return [
-    { type: "ring", geo: gpuFanRingGeo, mat: matGPU_SHROUD, pos: [0, 0.05, 0], rot: [-Math.PI / 2, 0, 0] },
+  return [-0.15, 0.15].flatMap((fanX) => [
+    { type: "ring", geo: gpuFanRingGeo, mat: matGPU_SHROUD, pos: [fanX, 0.062, 0], rot: [-Math.PI / 2, 0, 0] },
     ...Array.from({ length: 7 }, (_, i) => {
       const angle = (i / 7) * Math.PI * 2;
-      return { type: "box", geo: gpuFanBladeGeo, mat: matGPU_FAN, pos: [Math.cos(angle) * 0.045, 0.047, Math.sin(angle) * 0.045], rot: [0, angle, 0.3] };
+      return { type: "box", geo: gpuFanBladeGeo, mat: matGPU_FAN, pos: [fanX + Math.cos(angle) * 0.04, 0.059, Math.sin(angle) * 0.04], rot: [0, angle, 0.3] };
     }),
-    { type: "sphere", geo: new SphereGeometry(0.03, 8, 8), mat: matGPU_FAN, pos: [0, 0.05, 0], rot: [0, 0, 0] },
-  ];
+    { type: "sphere", geo: new SphereGeometry(0.025, 8, 8), mat: matGPU_FAN, pos: [fanX, 0.062, 0], rot: [0, 0, 0] },
+  ]);
 }
 
 // PSU fan grill
@@ -100,7 +102,7 @@ function psuCablesGroup() {
 
 // Case wireframe: 12 edges
 function caseFrameEdges() {
-  const hw = 0.69, hh = 0.44, hd = 0.29;
+  const hw = 0.69, hh = 0.44, hd = 0.58;
   return [
     { geo: caseFrameGeoV, mat: matCase_FRAME, pos: [-hw, 0, -hd] },
     { geo: caseFrameGeoV, mat: matCase_FRAME, pos: [hw, 0, -hd] },
@@ -108,12 +110,31 @@ function caseFrameEdges() {
     { geo: caseFrameGeoV, mat: matCase_FRAME, pos: [hw, 0, hd] },
     { geo: new BoxGeometry(1.38, 0.02, 0.02), mat: matCase_FRAME, pos: [0, -hh, -hd] },
     { geo: new BoxGeometry(1.38, 0.02, 0.02), mat: matCase_FRAME, pos: [0, -hh, hd] },
-    { geo: new BoxGeometry(0.02, 0.02, 0.58), mat: matCase_FRAME, pos: [-hw, -hh, 0] },
-    { geo: new BoxGeometry(0.02, 0.02, 0.58), mat: matCase_FRAME, pos: [hw, -hh, 0] },
+    { geo: caseFrameGeoD, mat: matCase_FRAME, pos: [-hw, -hh, 0] },
+    { geo: caseFrameGeoD, mat: matCase_FRAME, pos: [hw, -hh, 0] },
     { geo: new BoxGeometry(1.38, 0.02, 0.02), mat: matCase_FRAME, pos: [0, hh, -hd] },
     { geo: new BoxGeometry(1.38, 0.02, 0.02), mat: matCase_FRAME, pos: [0, hh, hd] },
-    { geo: new BoxGeometry(0.02, 0.02, 0.58), mat: matCase_FRAME, pos: [-hw, hh, 0] },
-    { geo: new BoxGeometry(0.02, 0.02, 0.58), mat: matCase_FRAME, pos: [hw, hh, 0] },
+    { geo: caseFrameGeoD, mat: matCase_FRAME, pos: [-hw, hh, 0] },
+    { geo: caseFrameGeoD, mat: matCase_FRAME, pos: [hw, hh, 0] },
+  ];
+}
+
+function caseFrontFan() {
+  const bladeGeo = new BoxGeometry(0.035, 0.18, 0.012);
+  return [
+    { type: "ring", geo: new RingGeometry(0.13, 0.155, 28), mat: matCaseFan, pos: [0.39, -0.08, -0.576] },
+    ...Array.from({ length: 7 }, (_, i) => {
+      const angle = (i / 7) * Math.PI * 2;
+      return {
+        type: "box",
+        geo: bladeGeo,
+        mat: matCaseFan,
+        pos: [0.39 + Math.cos(angle) * 0.065, -0.08 + Math.sin(angle) * 0.065, -0.57],
+        rot: [0, 0, angle + 0.42],
+        fanBlade: true,
+      };
+    }),
+    { type: "cyl", geo: new CylinderGeometry(0.038, 0.038, 0.018, 16), mat: matCaseFan, pos: [0.39, -0.08, -0.566], rot: [Math.PI / 2, 0, 0] },
   ];
 }
 
@@ -121,16 +142,17 @@ function caseFrameEdges() {
 function caseFrontPanel() {
   return [
     // Front panel plate
-    { type: "box", geo: new BoxGeometry(1.38, 0.88, 0.01), mat: matCase_FRONT, pos: [0, 0, -0.295], rot: [0, 0, 0] },
+    { type: "box", geo: new BoxGeometry(1.38, 0.88, 0.01), mat: matCase_FRONT, pos: [0, 0, -0.585], rot: [0, 0, 0] },
     // Power button (glowing blue cylinder)
-    { type: "cyl", geo: new CylinderGeometry(0.025, 0.025, 0.02, 16), mat: matPowerBtn, pos: [0.45, 0.3, -0.305], rot: [Math.PI / 2, 0, 0] },
+    { type: "cyl", geo: new CylinderGeometry(0.025, 0.025, 0.02, 16), mat: matPowerBtn, pos: [0.45, 0.3, -0.595], rot: [Math.PI / 2, 0, 0] },
     // USB ports (two small dark rectangles)
-    { type: "box", geo: new BoxGeometry(0.04, 0.015, 0.005), mat: matUSB, pos: [-0.35, 0.3, -0.3], rot: [0, 0, 0] },
-    { type: "box", geo: new BoxGeometry(0.04, 0.015, 0.005), mat: matUSB, pos: [-0.28, 0.3, -0.3], rot: [0, 0, 0] },
+    { type: "box", geo: new BoxGeometry(0.04, 0.015, 0.005), mat: matUSB, pos: [-0.35, 0.3, -0.592], rot: [0, 0, 0] },
+    { type: "box", geo: new BoxGeometry(0.04, 0.015, 0.005), mat: matUSB, pos: [-0.28, 0.3, -0.592], rot: [0, 0, 0] },
     // Audio jack (small circle)
-    { type: "cyl", geo: new CylinderGeometry(0.015, 0.015, 0.005, 12), mat: matPort, pos: [-0.2, 0.3, -0.3], rot: [Math.PI / 2, 0, 0] },
+    { type: "cyl", geo: new CylinderGeometry(0.015, 0.015, 0.005, 12), mat: matPort, pos: [-0.2, 0.3, -0.592], rot: [Math.PI / 2, 0, 0] },
     // Reset button (tiny)
-    { type: "cyl", geo: new CylinderGeometry(0.012, 0.012, 0.015, 12), mat: matPort, pos: [0.35, 0.3, -0.3], rot: [Math.PI / 2, 0, 0] },
+    { type: "cyl", geo: new CylinderGeometry(0.012, 0.012, 0.015, 12), mat: matPort, pos: [0.35, 0.3, -0.592], rot: [Math.PI / 2, 0, 0] },
+    ...caseFrontFan(),
   ];
 }
 
@@ -209,12 +231,13 @@ export const COMPUTER_PARTS = [
     subParts: [
       ...caseFrameEdges(),
       ...caseFrontPanel(),
-      // Transparent side/top/bottom panels (keep interior visible)
-      { type: "box", geo: new BoxGeometry(1.38, 0.88, 0.005), mat: matCase_PANEL, pos: [0, 0, 0.295], rot: [0, 0, 0] },
-      { type: "box", geo: new BoxGeometry(0.005, 0.88, 0.59), mat: matCase_PANEL, pos: [-0.695, 0, 0], rot: [0, 0, 0] },
-      { type: "box", geo: new BoxGeometry(0.005, 0.88, 0.59), mat: matCase_PANEL, pos: [0.695, 0, 0], rot: [0, 0, 0] },
-      { type: "box", geo: new BoxGeometry(1.38, 0.005, 0.59), mat: matCase_PANEL, pos: [0, -0.442, 0], rot: [0, 0, 0] },
-      { type: "box", geo: new BoxGeometry(1.38, 0.005, 0.59), mat: matCase_PANEL, pos: [0, 0.442, 0], rot: [0, 0, 0] },
+      // Open top and lightly glazed sides keep the installed parts readable.
+      { type: "box", geo: new BoxGeometry(1.38, 0.88, 0.005), mat: matCase_PANEL, pos: [0, 0, 0.585], rot: [0, 0, 0] },
+      { type: "box", geo: new BoxGeometry(0.005, 0.88, 1.17), mat: matCase_PANEL, pos: [-0.695, 0, 0], rot: [0, 0, 0] },
+      { type: "box", geo: new BoxGeometry(0.005, 0.88, 1.17), mat: matCase_PANEL, pos: [0.695, 0, 0], rot: [0, 0, 0] },
+      { type: "box", geo: new BoxGeometry(1.38, 0.005, 1.17), mat: matCase_PANEL, pos: [0, -0.442, 0], rot: [0, 0, 0] },
+      // Metal motherboard tray brings the board down onto a credible support plane.
+      { type: "box", geo: new BoxGeometry(1.24, 0.035, 1.04), mat: matCase_FRAME, pos: [0, 0.015, 0], rot: [0, 0, 0] },
     ],
     basePos: [0, 0, 0],
     explodeDir: [0, 0, 0],
@@ -248,6 +271,9 @@ export const COMPUTER_PARTS = [
     subParts: [
       { type: "box", geo: cpuPcbGeo, mat: matCPU_PCB, pos: [0, -0.01, 0] },
       { type: "box", geo: cpuIhsGeo, mat: matCPU_IHS, pos: [0, 0.02, 0] },
+      // Raised lid center and four retention shoulders make the package read as a CPU.
+      { type: "box", geo: new BoxGeometry(0.25, 0.008, 0.25), mat: matCPU_IHS, pos: [0, 0.044, 0] },
+      ...[[-0.18, -0.18], [-0.18, 0.18], [0.18, -0.18], [0.18, 0.18]].map(([x, z]) => ({ type: "box", geo: new BoxGeometry(0.045, 0.018, 0.045), mat: matCPU_PCB, pos: [x, 0.005, z] })),
       ...cpuPinGrid(),
       // Corner orientation triangle marker
       { type: "cyl", geo: new CylinderGeometry(0.015, 0.015, 0.002, 3), mat: matGold, pos: [-0.16, 0.042, -0.16], rot: [Math.PI / 2, 0, 0] },
@@ -267,13 +293,13 @@ export const COMPUTER_PARTS = [
     description: "随机存取存储器，临时存储正在运行的程序和数据。断电后数据丢失（易失性）。底部金色触点插入主板 DIMM 插槽。对应五大部件中的「存储器」。",
     subParts: [
       { type: "box", geo: ramBoardGeo, mat: matRAM_PCB, pos: [0, 0, 0] },
-      ...Array.from({ length: 4 }, (_, i) => ({ type: "box", geo: ramChipGeo, mat: matRAM_CHIP, pos: [0, -0.15 + i * 0.1, 0.012], rot: [0, 0, 0] })),
+      ...Array.from({ length: 5 }, (_, i) => ({ type: "box", geo: ramChipGeo, mat: matRAM_CHIP, pos: [0.022, 0.01, -0.17 + i * 0.085], rot: [0, 0, 0] })),
       // Gold contact edge (brighter, more visible)
-      { type: "box", geo: new BoxGeometry(0.05, 0.16, 0.016), mat: matGoldBright, pos: [0, -0.24, 0.012] },
+      { type: "box", geo: new BoxGeometry(0.04, 0.018, 0.42), mat: matGoldBright, pos: [0, -0.082, 0] },
       // Notch in contact edge
-      { type: "box", geo: new BoxGeometry(0.05, 0.012, 0.018), mat: matRAM_PCB, pos: [0, -0.18, 0.013], rot: [0, 0, 0] },
+      { type: "box", geo: new BoxGeometry(0.042, 0.021, 0.025), mat: matRAM_PCB, pos: [0, -0.083, 0.035], rot: [0, 0, 0] },
       // Label sticker on top
-      { type: "box", geo: new BoxGeometry(0.04, 0.1, 0.003), mat: matLabel, pos: [0, 0.1, 0.008], rot: [0, 0, 0] },
+      { type: "box", geo: new BoxGeometry(0.042, 0.045, 0.14), mat: matLabel, pos: [0.022, 0.035, 0], rot: [0, 0, 0] },
     ],
     basePos: [-0.3, 0.12, 0.1],
     explodeDir: [-0.18, 0.26, 0.12],
@@ -287,10 +313,10 @@ export const COMPUTER_PARTS = [
     description: "第二条内存条，与内存 1 组成双通道，提升数据吞吐速度。双通道使内存带宽翻倍。",
     subParts: [
       { type: "box", geo: ramBoardGeo, mat: matRAM_PCB, pos: [0, 0, 0] },
-      ...Array.from({ length: 4 }, (_, i) => ({ type: "box", geo: ramChipGeo, mat: matRAM_CHIP, pos: [0, -0.15 + i * 0.1, 0.012], rot: [0, 0, 0] })),
-      { type: "box", geo: new BoxGeometry(0.05, 0.16, 0.016), mat: matGoldBright, pos: [0, -0.24, 0.012] },
-      { type: "box", geo: new BoxGeometry(0.05, 0.012, 0.018), mat: matRAM_PCB, pos: [0, -0.18, 0.013], rot: [0, 0, 0] },
-      { type: "box", geo: new BoxGeometry(0.04, 0.1, 0.003), mat: matLabel, pos: [0, 0.1, 0.008], rot: [0, 0, 0] },
+      ...Array.from({ length: 5 }, (_, i) => ({ type: "box", geo: ramChipGeo, mat: matRAM_CHIP, pos: [0.022, 0.01, -0.17 + i * 0.085], rot: [0, 0, 0] })),
+      { type: "box", geo: new BoxGeometry(0.04, 0.018, 0.42), mat: matGoldBright, pos: [0, -0.082, 0] },
+      { type: "box", geo: new BoxGeometry(0.042, 0.021, 0.025), mat: matRAM_PCB, pos: [0, -0.083, 0.035], rot: [0, 0, 0] },
+      { type: "box", geo: new BoxGeometry(0.042, 0.045, 0.14), mat: matLabel, pos: [0.022, 0.035, 0], rot: [0, 0, 0] },
     ],
     basePos: [-0.15, 0.12, 0.1],
     explodeDir: [-0.1, 0.26, 0.12],
@@ -304,12 +330,13 @@ export const COMPUTER_PARTS = [
     description: "图形处理器，专门加速图形渲染和并行计算。通过 PCIe 总线与 CPU 通信，背面有 HDMI/DP 输出接口连接显示器。现代 GPU 也可用于 AI 训练。",
     subParts: [
       { type: "box", geo: gpuBoardGeo, mat: matGPU_PCB, pos: [0, 0, 0] },
+      { type: "box", geo: new BoxGeometry(0.54, 0.025, 0.23), mat: matGPU_SHROUD, pos: [0, 0.035, 0] },
       // Fan shroud ring + blades + hub
       ...gpuFanGroup(),
       // Output bracket with ports
       ...gpuOutputBracket(),
       // PCIe gold finger connector (bright gold strip)
-      { type: "box", geo: new BoxGeometry(0.3, 0.015, 0.025), mat: matGoldBright, pos: [0, -0.03, -0.14] },
+      { type: "box", geo: new BoxGeometry(0.38, 0.015, 0.025), mat: matGoldBright, pos: [0.04, -0.03, -0.14] },
       // GPU core heatsink under fan
       { type: "box", geo: new BoxGeometry(0.15, 0.03, 0.12), mat: matHeatsink, pos: [0, 0.025, 0.05], rot: [0, 0, 0] },
     ],
@@ -409,6 +436,7 @@ export function flattenPart(part, explodeDistance = 0) {
     basePos: part.basePos,
     explodeDir: part.explodeDir,
     parentId: part.id,
+    fanBlade: sub.fanBlade === true,
   }));
 }
 

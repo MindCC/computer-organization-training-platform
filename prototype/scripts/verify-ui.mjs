@@ -188,15 +188,20 @@ for (const challenge of CIRCUIT_CHALLENGES.filter((item) => item.id !== "compute
 }
 
 await openHardwareGame(page);
-await page.locator(".hardware-workbench-image").waitFor({ state: "visible", timeout: 10_000 });
-assert.equal(await page.locator(".hardware-workbench-hotspot").count(), 4, "workbench exposes four selectable hardware hotspots");
-assert.equal(await page.locator(".hardware-workbench canvas").count(), 0, "hardware challenge does not fall back to primitive WebGL boxes");
-assert.equal(await page.locator(".hardware-workbench-image").evaluate((image) => image.naturalWidth >= 1200), true, "assembly asset is sharp enough for the classroom workbench");
+await page.locator(".assembly-workshop").waitFor({ state: "visible", timeout: 10_000 });
+assert.equal(await page.locator(".assembly-part-tabs button").count(), 4, "workshop exposes four assembly categories");
+assert.equal(await page.locator(".assembly-workshop canvas").count(), 1, "hardware challenge renders the modeled 3D workbench");
 assert.equal(await page.locator(".profile-menu").count(), 0, "profile menu closes before entering the hardware workbench");
-await page.getByRole("button", { name: "\u9009\u62e9\u5185\u5b58" }).click();
-await page.getByRole("button", { name: /16GB \u5185\u5b58/ }).click();
-await assertVisible(page, "\u5df2\u9009 4 / 4");
-assert.equal(await page.getByRole("button", { name: /16GB \u5185\u5b58/ }).getAttribute("aria-pressed"), "true");
+await page.locator('.assembly-part-tabs button').filter({ hasText: '内存' }).click();
+await page.locator('#assembly-variant').selectOption('mem-16');
+assert.equal(await page.locator('#assembly-variant').inputValue(), 'mem-16');
+await page.getByRole('button', { name: '安装到DIMM 插槽', exact: true }).last().click();
+await page.locator('.assembly-part-tabs button').filter({ hasText: '处理器' }).click();
+await page.getByRole('button', { name: '安装到CPU 插座', exact: true }).last().click();
+await page.locator('.assembly-part-tabs button').filter({ hasText: '硬盘' }).click();
+await page.getByRole('button', { name: '安装到硬盘托架', exact: true }).last().click();
+await page.getByRole('button', { name: '开机自检', exact: true }).click();
+await page.getByRole('button', { name: '交付装机 · 提交方案' }).waitFor({ state: 'visible' });
 await page.screenshot({ path: artifactPath("precision-workshop-desktop.png"), fullPage: true });
 
 await assertVisible(page, text.hardwareGame);
@@ -204,7 +209,7 @@ await assertVisible(page, "\u7535\u8111\u88c5\u673a\u5e97\u7ecf\u8425\u6311\u621
 await assertVisible(page, "\u5ba2\u6237\u6ee1\u610f\u5ea6");
 await assertVisible(page, "\u7ecf\u8425\u5229\u6da6");
 const hardwareAttemptPromise = waitForAttemptResponse(page);
-await page.getByRole("button", { name: text.submitPlan }).click();
+await page.getByRole("button", { name: '交付装机 · 提交方案' }).click();
 await assertAttemptSaved(await hardwareAttemptPromise, "game-office-pc");
 await dismissQuestSettlementIfPresent(page);
 await assertVisible(page, text.goalReached);

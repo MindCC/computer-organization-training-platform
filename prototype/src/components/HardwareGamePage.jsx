@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CheckCircle, CurrencyCny, Gauge, Target, WarningCircle } from "@phosphor-icons/react";
 import { HARDWARE_GAME_CASES, gradeHardwareBuild } from "../hardwareGame.js";
-import { HardwareBuilderView } from "./HardwareBuilderView.jsx";
+import { HardwareAssemblyWorkbench } from "./HardwareAssemblyWorkbench.jsx";
 
 const caseGroups = [
   { id: "overview", title: "\u7b2c\u4e00\u7ae0\u00b7\u8ba1\u7b97\u673a\u6982\u8ff0" },
@@ -19,11 +19,15 @@ export function HardwareGamePage({
   submitHardwareBuild,
 }) {
   const [activeCategory, setActiveCategory] = useState("cpu");
+  const [readyConfiguration, setReadyConfiguration] = useState(null);
+  const canDeliver = readyConfiguration === JSON.stringify(hardwareSelection);
   const selectedCase = HARDWARE_GAME_CASES.find((item) => item.id === selectedHardwareCaseId) ?? HARDWARE_GAME_CASES[0];
   const preview = gradeHardwareBuild(selectedCase.id, hardwareSelection);
   const budgetOk = preview.metrics.totalPrice <= selectedCase.targets.budget;
 
   function selectCase(caseId) {
+    if (caseId === selectedHardwareCaseId) return;
+    setReadyConfiguration(null);
     setSelectedHardwareCaseId(caseId);
     setHardwareFeedback(null);
   }
@@ -64,13 +68,13 @@ export function HardwareGamePage({
           <section className="hardware-mission-card">
             <div className="hardware-mission-card-title">
               <span>{"\u4efb\u52a1\u8fdb\u5ea6"}</span>
-              <strong>{preview.passed ? "4 / 4" : Math.max(1, 4 - preview.errors.length) + " / 4"}</strong>
+              <strong>{canDeliver ? '已开机' : '装配中'}</strong>
             </div>
             <ol className="hardware-mission-steps">
               <li className="done"><CheckCircle size={17} weight="fill" /><span>{"\u9009\u62e9\u5408\u9002\u7684 CPU"}</span></li>
               <li className={preview.metrics.memory >= selectedCase.targets.memory ? "done" : "active"}><CheckCircle size={17} weight="fill" /><span>{"\u914d\u7f6e\u8db3\u591f\u5185\u5b58"}</span></li>
               <li className={preview.metrics.storageSpeed >= selectedCase.targets.storageSpeed ? "done" : "active"}><CheckCircle size={17} weight="fill" /><span>{"\u5e73\u8861\u5b58\u50a8\u5bb9\u91cf\u4e0e\u901f\u5ea6"}</span></li>
-              <li className={preview.passed ? "done" : ""}><Target size={17} /><span>{"\u63d0\u4ea4\u62a5\u4ef7\u65b9\u6848"}</span></li>
+              <li className={canDeliver ? "done" : ""}><Target size={17} /><span>装配与开机自检</span></li>
             </ol>
           </section>
 
@@ -100,7 +104,9 @@ export function HardwareGamePage({
         </aside>
 
         <section className="hardware-game-main">
-          <HardwareBuilderView
+          <HardwareAssemblyWorkbench
+            key={selectedCase.id}
+            onAssemblyReady={setReadyConfiguration}
             activeCategory={activeCategory}
             onCategoryChange={setActiveCategory}
             onPartChange={setHardwareSelection}
@@ -114,7 +120,7 @@ export function HardwareGamePage({
                 <span className="eyebrow">{"\u5ba2\u6237\u53cd\u9988\u4e0e\u7ecf\u8425\u6570\u636e"}</span>
                 <h2>{preview.passed ? "\u65b9\u6848\u53ef\u4ee5\u62a5\u4ef7" : "\u8fd8\u6709\u9700\u6c42\u672a\u6ee1\u8db3"}</h2>
               </div>
-              <button className="primary-button" onClick={submitHardwareBuild} type="button">{"\u63d0\u4ea4\u65b9\u6848"}</button>
+              <button className="primary-button" disabled={!canDeliver} onClick={() => { if (canDeliver) submitHardwareBuild(); }} type="button">{canDeliver ? '交付装机 · 提交方案' : '请先完成装配与开机自检'}</button>
             </header>
 
             <div className="hardware-business-strip">

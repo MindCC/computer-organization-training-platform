@@ -1,0 +1,97 @@
+.assembly-workshop { border: 1px solid #cbd7da; border-radius: 14px; overflow: hidden; background: #f8faf9; color: #20353d; box-shadow: 0 12px 32px #182f3c0c; min-width: 0; }
+.assembly-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; background: #172e3b; color: #f0f6f6; }
+.assembly-brand { display: flex; align-items: center; gap: 12px; }
+.assembly-brand svg { color: #73d9c8; }
+.assembly-brand small { font-size: 9px; letter-spacing: .14em; color: #99b2bd; }
+.assembly-brand h2 { margin: 2px 0 0; font-size: 17px; color: #fff; }
+.assembly-view-controls { display: flex; gap: 6px; }
+.assembly-focus-toggle { margin-left: auto; color: #85e3cd; background: transparent; border: 1px solid #4d877b; border-radius: 5px; padding: 8px 10px; font-size: 11px; }
+.assembly-workshop.focused { position: fixed; inset: 12px; z-index: 1500; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; box-shadow: 0 0 0 40px #0d2029eb; }
+.assembly-workshop.focused .assembly-viewport { height: 100%; }
+.assembly-view-controls button { display: flex; align-items: center; background: #ffffff09; border: 1px solid #ffffff23; color: #e4efef; padding: 8px 10px; border-radius: 5px; font-size: 11px; }
+.assembly-view-controls button[aria-pressed=true] { background: #265951; border-color: #498f83; }
+.assembly-viewport { height: clamp(370px, 49vh, 580px); position: relative; overflow: hidden; background: #dce5e8; }
+.assembly-viewport .computer-exploded { width: 100%; height: 100%; min-height: 0; position: absolute; inset: 0; }
+.assembly-viewport canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.assembly-scene-heading { position: absolute; top: 18px; left: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font: 600 10px monospace; letter-spacing: .1em; pointer-events: none; color: #264951; }
+.assembly-scene-heading small { flex-basis: 100%; font: 11px sans-serif; letter-spacing: 0; color: #596e77; }
+.assembly-live-dot { width: 6px; height: 6px; border-radius: 50%; background: #118979; }
+.assembly-counter { position: absolute; right: 20px; top: 16px; display: grid; text-align: right; pointer-events: none; }
+.assembly-counter strong { font-size: 26px; color: #154a49; }
+.assembly-counter strong span { font-size: 15px; color: #698087; font-weight: 400; }
+.assembly-counter small { font-size: 10px; color: #526b71; }
+.assembly-guide { position: absolute; left: 20px; bottom: 34px; display: flex; align-items: center; gap: 10px; max-width: 355px; padding: 12px; background: #f8fcf4e6; border: 1px solid #bfcecb; border-radius: 8px; pointer-events: none; box-shadow: 0 4px 12px #102f3c0a; }
+.assembly-guide span { display: grid; gap: 4px; }
+.assembly-guide strong { font-size: 12px; }
+.assembly-guide small { font-size: 10px; line-height: 1.6; color: #556b72; }
+.assembly-scene-footer { position: absolute; bottom: 10px; left: 20px; right: 20px; display: flex; justify-content: space-between; pointer-events: none; font: 9px monospace; color: #61777a; }
+.assembly-scene-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.assembly-scene-labels button { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; white-space: nowrap; border-radius: 4px; font: 600 10px sans-serif; padding: 7px 9px; cursor: pointer; }
+.assembly-scene-labels button[hidden] { display: none; }
+.assembly-slot-label { color: #49646a; background: #eff5f2e8; border: 1px dashed #668887; box-shadow: 0 3px 9px #16354615; }
+.assembly-slot-label.active { color: #065e52; background: #d2faed; border: 1px solid #138d7c; box-shadow: 0 0 0 3px #1baa8122; }
+.assembly-slot-label.installed { color: #f2fffa; background: #258578; border: 1px solid #258578; opacity: .8; }
+.assembly-rack-label { color: #effaf8; border: 1px solid #698a94; background: #284652ec; }
+.assembly-rack-label.active { border-color: #64dfc4; background: #16675b; }
+.assembly-action-strip { display: flex; align-items: center; gap: 9px; padding: 12px 18px; background: #eaf3ee; border-top: 1px solid #ccdcd6; font-size: 11px; min-height: 43px; }
+.assembly-action-strip svg { flex: 0 0 auto; color: #168272; }
+.assembly-action-strip strong { margin-left: auto; white-space: nowrap; font-size: 11px; color: #3d5b57; }
+.assembly-console { display: grid; grid-template-columns: 1fr 175px; padding: 16px 18px; gap: 20px; }
+.assembly-parts-controls { min-width: 0; }
+.assembly-part-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border-bottom: 1px solid #d5dfdc; }
+.assembly-part-tabs button { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 6px 11px; background: none; border: 0; border-bottom: 2px solid transparent; color: #587073; font-size: 12px; }
+.assembly-part-tabs button > span { display: flex; color: #168575; font: 11px monospace; }
+.assembly-part-tabs small { font-size: 9px; color: #718581; }
+.assembly-part-tabs button[aria-pressed=true] { color: #0a665a; border-bottom-color: #138879; background: #eaf4ef; }
+.assembly-part-config { display: flex; align-items: flex-end; gap: 10px; padding-top: 12px; }
+.assembly-part-config label { display: grid; gap: 5px; color: #536c72; font-size: 10px; flex: 1; min-width: 0; }
+.assembly-part-config select { background: white; color: #27444b; border: 1px solid #cbdad4; border-radius: 5px; font-size: 12px; width: 100%; padding: 9px; }
+.assembly-secondary { background: #f2f7f4; border: 1px solid #adc6bc; border-radius: 5px; padding: 9px 11px; color: #186154; font-size: 11px; white-space: nowrap; }
+.assembly-integrated { font-size: 10px; color: #56736a; max-width: 180px; margin: 0 0 5px; }
+.assembly-power-controls { border-left: 1px solid #d8e2dd; padding-left: 18px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.assembly-power { display: flex; align-items: center; justify-content: center; gap: 8px; background: #147c68; border: 1px solid #147c68; color: #fff; border-radius: 6px; padding: 14px 10px; font-size: 13px; font-weight: 600; }
+.assembly-power:disabled { background: #e1e7e4; border-color: #d0d9d4; color: #8b9d95; cursor: not-allowed; }
+.assembly-power.online { background: #213d45; border-color: #213d45; }
+.assembly-power-controls small { font-size: 10px; line-height: 1.7; color: #73817b; }
+.assembly-boot { position: absolute; right: 20px; top: 86px; padding: 20px; background: #112e30f2; border: 1px solid #6aac98; border-radius: 8px; color: #c7fbe5; width: 260px; box-shadow: 0 12px 32px #0a232340; }
+.assembly-boot > strong { display: block; margin: 9px 0 14px; font-size: 17px; }
+.assembly-boot p { font: 11px/1.6 monospace; margin: 7px 0; }
+.assembly-boot small { display: block; margin-top: 12px; font-size: 11px; line-height: 1.6; color: #9fbcb1; }
+.assembly-fallback { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 50px 25px; text-align: center; }
+.assembly-workshop button:focus-visible, .assembly-workshop select:focus-visible { outline: 3px solid #d29c35; outline-offset: 3px; }
+.hardware-game-page .hardware-game-layout { grid-template-columns: 210px minmax(0, 1fr); gap: 18px; }
+.hardware-game-page .hardware-game-hero { padding: 18px 22px; min-height: 0; }
+.hardware-game-page .hardware-game-heading h1 { font-size: 25px; }
+.hardware-game-page .hardware-game-heading p { font-size: 12px; }
+.hardware-game-page .hardware-business-panel { margin-top: 0; }
+@media (max-width: 1200px) {
+  .hardware-game-page .hardware-game-layout { grid-template-columns: minmax(0, 1fr); }
+  .hardware-game-page .hardware-mission-rail { display: grid; grid-template-columns: 1fr 170px; gap: 12px; }
+  .hardware-game-page .hardware-mission-card.customer { grid-column: 1; }
+  .hardware-game-page .hardware-mission-card.budget { grid-column: 2; }
+  .hardware-game-page .hardware-mission-card:not(.customer):not(.budget) { display: none; }
+  .hardware-game-page .hardware-case-rail { grid-column: 1 / -1; display: flex; gap: 12px; overflow-x: auto; }
+  .hardware-case-rail > .eyebrow { display: none; }
+  .hardware-game-page .hardware-case-group { display: flex; gap: 8px; }
+  .hardware-case-group > strong { display: none; }
+  .hardware-game-page .hardware-case { min-width: 125px; }
+}
+@media (max-width: 700px) {
+  .assembly-toolbar { padding: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .assembly-view-controls { margin-left: auto; }
+  .assembly-viewport { height: 390px; }
+  .assembly-console { grid-template-columns: 1fr; gap: 14px; padding: 12px; }
+  .assembly-power-controls { border-left: 0; border-top: 1px solid #d8e2dd; padding: 12px 0 0; }
+  .assembly-power-controls small { text-align: center; }
+  .assembly-action-strip { flex-wrap: wrap; padding: 10px 12px; }
+  .assembly-action-strip > span { flex: 1; min-width: 180px; }
+  .assembly-action-strip strong { flex-basis: 100%; margin-left: 25px; }
+  .assembly-part-tabs small { flex-basis: 100%; padding-left: 17px; }
+  .assembly-guide { max-width: calc(100% - 40px); padding: 8px; }
+  .assembly-boot { width: 230px; right: 12px; padding: 16px; }
+  .assembly-scene-labels button { font-size: 9px; padding: 6px; }
+  .assembly-scene-footer span:last-child { display: none; }
+  .hardware-game-page .hardware-mission-rail { grid-template-columns: 1fr; }
+  .hardware-game-page .hardware-mission-card.budget { grid-column: 1; }
+  .hardware-game-page .hardware-game-heading h1 { font-size: 22px; }
+}

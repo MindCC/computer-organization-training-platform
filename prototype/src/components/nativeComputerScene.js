@@ -6,7 +6,9 @@ import { Vector2 } from "three/src/math/Vector2.js";
 import { Vector3 } from "three/src/math/Vector3.js";
 import { CylinderGeometry } from "three/src/geometries/CylinderGeometry.js";
 import { SphereGeometry } from "three/src/geometries/SphereGeometry.js";
-import { GridHelper } from "three/src/helpers/GridHelper.js";
+import { ACESFilmicToneMapping, PCFSoftShadowMap } from 'three/src/constants.js';
+import { createWorkshopEnvironment } from './workshopEnvironment.js';
+import { createAssemblyInteraction } from './assemblySceneInteraction.js';
 import { Group } from "three/src/objects/Group.js";
 import { Mesh } from "three/src/objects/Mesh.js";
 import { MeshBasicMaterial } from "three/src/materials/MeshBasicMaterial.js";
@@ -37,13 +39,16 @@ function createPartMesh(subPart, partId, registry) {
     depthWrite: false,
   }));
   const highlighted = registry.add(base.clone());
-  highlighted.emissive.set("#ffa726");
-  highlighted.emissiveIntensity = 0.5;
+  highlighted.emissive.set("#16b8a6");
+  highlighted.emissiveIntensity = 0.09;
 
-  const mesh = new Mesh(subPart.geo, base);
+  const mesh = new Mesh(registry.add(subPart.geo.clone()), base);
+  mesh.castShadow = !base.transparent;
+  mesh.receiveShadow = true;
   mesh.position.fromArray(subPart.pos ?? [0, 0, 0]);
   mesh.rotation.fromArray(subPart.rot ?? [0, 0, 0]);
   mesh.userData.partId = partId;
+  if (subPart.fanBlade) mesh.userData.fanAngle = Math.atan2((subPart.pos?.[1] ?? 0) + 0.08, (subPart.pos?.[0] ?? 0) - 0.39);
   mesh.userData.materials = { base, xray, highlighted };
   return mesh;
 }
@@ -61,21 +66,27 @@ function applyMeshMaterial(mesh, state, partId) {
 export function createNativeComputerScene(container, options = {}) {
   const registry = createResourceRegistry();
   const scene = new Scene();
-  scene.background = new Color("#08090a");
+  scene.background = new Color(options.assembly ? '#dce5e8' : '#15232c');
   const camera = new PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.fromArray(options.cameraPosition ?? [1.2, 0.8, 2]);
+  const initialPosition = options.cameraPosition ?? (options.assembly ? [0.65, 1.6, 2.0] : [1.5, 1.6, 2.5]);
+  camera.position.fromArray(initialPosition);
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: "low-power" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.35;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.domElement.dataset.partPicking = "enabled";
   container.append(renderer.domElement);
 
-  const cameraTarget = new Vector3(0, 0.05, 0);
+  const cameraTarget = new Vector3(options.assembly ? -0.28 : 0, 0.05, 0);
   const offset = camera.position.clone().sub(cameraTarget);
   let cameraDistance = offset.length();
   let azimuth = Math.atan2(offset.x, offset.z);
   let polar = Math.acos(offset.y / cameraDistance);
   let drag = null;
   let suppressClick = false;
+  let assemblyInteraction = null;
   function updateCamera() {
     const sinPolar = Math.sin(polar);
     camera.position.set(
@@ -87,10 +98,12 @@ export function createNativeComputerScene(container, options = {}) {
     renderer.domElement.dataset.cameraChanged = "true";
   }
   function onPointerDown(event) {
+    if (assemblyInteraction?.pointerDown(event)) return;
     drag = { x: event.clientX, y: event.clientY, button: event.button, moved: false };
     renderer.domElement.setPointerCapture?.(event.pointerId);
   }
   function onPointerMove(event) {
+    if (assemblyInteraction?.pointerMove(event)) return;
     if (!drag) return;
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
@@ -107,37 +120,45 @@ export function createNativeComputerScene(container, options = {}) {
     updateCamera();
   }
   function onPointerUp(event) {
+    if (assemblyInteraction?.pointerUp(event, event.type === 'pointercancel')) return;
     renderer.domElement.releasePointerCapture?.(event.pointerId);
     suppressClick = Boolean(drag?.moved);
     drag = null;
   }
   function onWheel(event) {
     event.preventDefault();
-    cameraDistance = Math.max(0.8, Math.min(4, cameraDistance * (event.deltaY > 0 ? 1.12 : 0.89)));
+    cameraDistance = Math.max(1.3, Math.min(6, cameraDistance * (event.deltaY > 0 ? 1.12 : 0.89)));
     updateCamera();
   }
   function preventContextMenu(event) { event.preventDefault(); }
   renderer.domElement.addEventListener("pointerdown", onPointerDown);
   renderer.domElement.addEventListener("pointermove", onPointerMove);
   renderer.domElement.addEventListener("pointerup", onPointerUp);
+  renderer.domElement.addEventListener("pointercancel", onPointerUp);
   renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
   renderer.domElement.addEventListener("contextmenu", preventContextMenu);
 
-  scene.add(new AmbientLight("#ffffff", 1.05));
-  const keyLight = new DirectionalLight("#ffffff", 1.5);
+  scene.add(new AmbientLight("#e8f5ff", 1.7));
+  const keyLight = new DirectionalLight("#ffffff", 2.5);
   keyLight.position.set(3, 4, 2);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(1024, 1024);
+  keyLight.shadow.camera.left = -3;
+  keyLight.shadow.camera.right = 3;
+  keyLight.shadow.camera.top = 3;
+  keyLight.shadow.camera.bottom = -3;
+  keyLight.shadow.normalBias = 0.02;
   scene.add(keyLight);
-  const fillLight = new DirectionalLight("#ffd9a0", 0.45);
+  const fillLight = new DirectionalLight("#d2e5ff", 1.1);
   fillLight.position.set(-2, 1, -1);
   scene.add(fillLight);
-  scene.add(new GridHelper(3, 30, "#2a2a5e", "#1a1a3e").translateY(-0.45));
+  const workshop = createWorkshopEnvironment(scene, registry);
 
   const partGroups = new Map();
   for (const part of COMPUTER_PARTS) {
     const group = new Group();
     group.userData.partId = part.id;
     for (const subPart of part.subParts ?? []) {
-      registry.add(subPart.geo);
       group.add(createPartMesh(subPart, part.id, registry));
     }
     scene.add(group);
@@ -145,9 +166,9 @@ export function createNativeComputerScene(container, options = {}) {
   }
   const motherboard = partGroups.get("motherboard")?.group;
   for (const detail of MOBO_DETAILS) {
-    registry.add(detail.geo);
     motherboard?.add(createPartMesh(detail, "motherboard", registry));
   }
+  if (options.assembly) assemblyInteraction = createAssemblyInteraction(container, renderer.domElement, camera, partGroups, options);
 
   const busGeometry = registry.add(new CylinderGeometry(1, 1, 1, 8));
   const particleGeometry = registry.add(new SphereGeometry(0.035, 8, 8));
@@ -197,6 +218,7 @@ export function createNativeComputerScene(container, options = {}) {
   const pointer = new Vector2();
   const raycaster = new Raycaster();
   function onClick(event) {
+    if (assemblyInteraction?.consumeClick() || options.assembly) return;
     if (suppressClick) {
       suppressClick = false;
       return;
@@ -207,7 +229,7 @@ export function createNativeComputerScene(container, options = {}) {
       -((event.clientY - bounds.top) / bounds.height) * 2 + 1,
     );
     raycaster.setFromCamera(pointer, camera);
-    const groups = [...partGroups.values()].map(({ group }) => group);
+    const groups = [...partGroups.values()].map(({ group }) => group).filter(group => group.visible);
     const hit = raycaster.intersectObjects(groups, true)[0];
     const partId = hit?.object?.userData?.partId;
     if (partId) options.onPartSelect?.(partId);
@@ -246,9 +268,20 @@ export function createNativeComputerScene(container, options = {}) {
     elapsed = time / 1000;
     for (const [partId, entry] of partGroups) {
       entry.group.visible = viewState.visiblePartIds.has(partId);
-      entry.group.position.fromArray(partPosition(entry.part, currentDistance));
-      entry.group.traverse((node) => applyMeshMaterial(node, viewState, partId));
+      if (!viewState.assembly) entry.group.position.fromArray(partPosition(entry.part, currentDistance));
+      else if (['case', 'motherboard', 'psu'].includes(partId)) entry.group.position.fromArray(entry.part.basePos);
+      entry.group.traverse((node) => {
+        applyMeshMaterial(node, viewState, partId);
+        if (node.userData.fanAngle !== undefined) {
+          const angle = node.userData.fanAngle + (viewState.assembly?.powered && !viewState.reducedMotion ? elapsed * 9 : 0);
+          node.position.x = 0.39 + Math.cos(angle) * 0.065;
+          node.position.y = -0.08 + Math.sin(angle) * 0.065;
+          node.rotation.z = angle + 0.42;
+        }
+      });
     }
+    assemblyInteraction?.update(viewState.assembly, viewState.reducedMotion);
+    workshop.update(Boolean(viewState.assembly?.powered), elapsed, viewState.reducedMotion);
     const showConnections = viewState.showConnections;
     for (let index = 0; index < busEntries.length; index += 1) {
       const entry = busEntries[index];
@@ -281,6 +314,7 @@ export function createNativeComputerScene(container, options = {}) {
     const width = Math.max(1, container.clientWidth);
     const height = Math.max(1, container.clientHeight);
     camera.aspect = width / height;
+    if (options.assembly) camera.zoom = Math.min(1, camera.aspect / 1.7);
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
   }
@@ -288,11 +322,24 @@ export function createNativeComputerScene(container, options = {}) {
   resizeObserver?.observe(container);
   if (!resizeObserver) window.addEventListener("resize", resize);
   resize();
+  updateCamera();
   render(0);
 
   let disposed = false;
   return {
-    setViewState(nextState) { viewState = normalizeSceneViewState(nextState); },
+    setViewState(nextState) {
+      const previous = viewState;
+      viewState = normalizeSceneViewState(nextState);
+      if (previous.cameraPreset !== viewState.cameraPreset || previous.resetKey !== viewState.resetKey) {
+        cameraTarget.set(options.assembly ? -0.28 : 0, 0.05, 0);
+        const pos = viewState.cameraPreset === 'top' ? [0, 3.6, 0.15] : initialPosition;
+        offset.fromArray(pos).sub(cameraTarget);
+        cameraDistance = offset.length();
+        azimuth = Math.atan2(offset.x, offset.z);
+        polar = Math.acos(offset.y / cameraDistance);
+        updateCamera();
+      }
+    },
     resize,
     dispose() {
       if (disposed) return;
@@ -304,10 +351,14 @@ export function createNativeComputerScene(container, options = {}) {
       renderer.domElement.removeEventListener("pointerdown", onPointerDown);
       renderer.domElement.removeEventListener("pointermove", onPointerMove);
       renderer.domElement.removeEventListener("pointerup", onPointerUp);
+      renderer.domElement.removeEventListener("pointercancel", onPointerUp);
       renderer.domElement.removeEventListener("wheel", onWheel);
       renderer.domElement.removeEventListener("contextmenu", preventContextMenu);
       renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
       registry.dispose();
+      keyLight.shadow.map?.dispose();
+      assemblyInteraction?.dispose();
+      workshop.dispose();
       renderer.dispose();
       labelLayer.remove();
       renderer.domElement.remove();

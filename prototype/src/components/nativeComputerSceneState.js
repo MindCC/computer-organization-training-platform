@@ -7,6 +7,9 @@ export function normalizeSceneViewState(input = {}) {
     xray: Boolean(input.xray),
     showConnections: Boolean(input.showConnections),
     reducedMotion: Boolean(input.reducedMotion),
+    assembly: input.assembly ?? null,
+    cameraPreset: input.cameraPreset ?? null,
+    resetKey: input.resetKey ?? 0,
   };
 }
 
