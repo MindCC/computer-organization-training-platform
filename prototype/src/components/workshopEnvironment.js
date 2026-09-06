@@ -15,7 +15,7 @@ export function createWorkshopEnvironment(scene, registry) {
   scene.add(root);
 
   const material = (options) => registry.add(new MeshStandardMaterial(options));
-  const navy = material({ color: "#142638", roughness: 0.72, metalness: 0.18 });
+  const navy = material({ color: "#536d78", roughness: 0.72, metalness: 0.18 });
   const navyDark = material({ color: "#091722", roughness: 0.62, metalness: 0.3 });
   const steel = material({ color: "#698393", roughness: 0.38, metalness: 0.68 });
   const teal = material({ color: "#20a6a4", roughness: 0.4, metalness: 0.25 });

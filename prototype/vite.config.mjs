@@ -12,11 +12,12 @@ export default defineConfig({
       output: {
         onlyExplicitManualChunks: true,
         manualChunks(id) {
-          if (
-            id.endsWith("/node_modules/three/src/renderers/WebGLRenderer.js")
-            || id.includes("/node_modules/three/src/renderers/webgl/")
-          ) return "three-renderer";
-          if (id.includes("/node_modules/three/src/")) return "three-core";
+          // Math/constants have no dependency on the renderer or scene graph.
+          // Splitting the renderer from core creates a cycle with eager initializers.
+          if (id.includes('/node_modules/three/src/')) {
+            if (id.includes('/src/math/') || /\/src\/(constants|utils)\.js$/.test(id)) return 'three-math';
+            return 'three-runtime';
+          }
         },
       },
     },

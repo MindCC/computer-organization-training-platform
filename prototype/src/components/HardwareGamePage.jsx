@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
+import { assemblyDraftKey, readAssemblyDraftSelection } from '../assemblyDraft.js';
 import { CheckCircle, CurrencyCny, Gauge, Target, WarningCircle } from "@phosphor-icons/react";
 import { HARDWARE_GAME_CASES, gradeHardwareBuild } from "../hardwareGame.js";
 import { HardwareAssemblyWorkbench } from "./HardwareAssemblyWorkbench.jsx";
@@ -9,6 +10,7 @@ const caseGroups = [
 ];
 
 export function HardwareGamePage({
+  userId,
   hardwareSelection,
   setHardwareSelection,
   hardwareFeedback,
@@ -22,6 +24,14 @@ export function HardwareGamePage({
   const [readyConfiguration, setReadyConfiguration] = useState(null);
   const canDeliver = readyConfiguration === JSON.stringify(hardwareSelection);
   const selectedCase = HARDWARE_GAME_CASES.find((item) => item.id === selectedHardwareCaseId) ?? HARDWARE_GAME_CASES[0];
+  const draftStorage = useMemo(() => { try { return window.localStorage; } catch { return null; } }, []);
+  const draftKey = assemblyDraftKey(userId, selectedCase.id);
+  const [restoredKey, setRestoredKey] = useState(undefined);
+  useLayoutEffect(() => {
+    setHardwareSelection(current => readAssemblyDraftSelection(draftStorage, draftKey, current));
+    setReadyConfiguration(null);
+    setRestoredKey(draftKey);
+  }, [draftKey, draftStorage, setHardwareSelection]);
   const preview = gradeHardwareBuild(selectedCase.id, hardwareSelection);
   const budgetOk = preview.metrics.totalPrice <= selectedCase.targets.budget;
 
@@ -104,15 +114,17 @@ export function HardwareGamePage({
         </aside>
 
         <section className="hardware-game-main">
-          <HardwareAssemblyWorkbench
-            key={selectedCase.id}
+          {restoredKey === draftKey && <HardwareAssemblyWorkbench
+            key={draftKey ?? selectedCase.id}
+            draftKey={draftKey}
+            draftStorage={draftStorage}
             onAssemblyReady={setReadyConfiguration}
             activeCategory={activeCategory}
             onCategoryChange={setActiveCategory}
             onPartChange={setHardwareSelection}
             parts={hardwareSelection}
             score={preview}
-          />
+          />}
 
           <section className="hardware-business-panel">
             <header className="section-heading">

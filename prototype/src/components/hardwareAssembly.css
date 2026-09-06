@@ -4,7 +4,7 @@
 .assembly-brand svg { color: #73d9c8; }
 .assembly-brand small { font-size: 9px; letter-spacing: .14em; color: #99b2bd; }
 .assembly-brand h2 { margin: 2px 0 0; font-size: 17px; color: #fff; }
-.assembly-view-controls { display: flex; gap: 6px; }
+.assembly-view-controls { display: flex; gap: 6px; flex-wrap: wrap; }
 .assembly-focus-toggle { margin-left: auto; color: #85e3cd; background: transparent; border: 1px solid #4d877b; border-radius: 5px; padding: 8px 10px; font-size: 11px; }
 .assembly-workshop.focused { position: fixed; inset: 12px; z-index: 1500; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; box-shadow: 0 0 0 40px #0d2029eb; }
 .assembly-workshop.focused .assembly-viewport { height: 100%; }
@@ -28,11 +28,16 @@
 .assembly-scene-labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .assembly-scene-labels button { position: absolute; transform: translate(-50%, -50%); pointer-events: auto; white-space: nowrap; border-radius: 4px; font: 600 10px sans-serif; padding: 7px 9px; cursor: pointer; }
 .assembly-scene-labels button[hidden] { display: none; }
+.assembly-drop-status { position: absolute; top: 76px; left: 50%; transform: translateX(-50%); padding: 9px 14px; border-radius: 6px; background: #123f37ee; color: #edfff9; font-size: 12px; pointer-events: none; max-width: 85%; text-align: center; }
+.assembly-drop-status[hidden] { display: none; }
+.assembly-drop-status[data-state=wrong] { background: #804812f2; }
+.assembly-guide { left: auto; right: 20px; max-width: 290px; pointer-events: none; }
 .assembly-slot-label { color: #49646a; background: #eff5f2e8; border: 1px dashed #668887; box-shadow: 0 3px 9px #16354615; }
 .assembly-slot-label.active { color: #065e52; background: #d2faed; border: 1px solid #138d7c; box-shadow: 0 0 0 3px #1baa8122; }
 .assembly-slot-label.installed { color: #f2fffa; background: #258578; border: 1px solid #258578; opacity: .8; }
 .assembly-rack-label { color: #effaf8; border: 1px solid #698a94; background: #284652ec; }
 .assembly-rack-label.active { border-color: #64dfc4; background: #16675b; }
+.assembly-scene-labels .assembly-rack-label { transform: translate(calc(-100% - 18px), -50%); }
 .assembly-action-strip { display: flex; align-items: center; gap: 9px; padding: 12px 18px; background: #eaf3ee; border-top: 1px solid #ccdcd6; font-size: 11px; min-height: 43px; }
 .assembly-action-strip svg { flex: 0 0 auto; color: #168272; }
 .assembly-action-strip strong { margin-left: auto; white-space: nowrap; font-size: 11px; color: #3d5b57; }

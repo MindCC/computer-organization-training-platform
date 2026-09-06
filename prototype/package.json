@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
-    "test": "node --test src/*.test.mjs src/shared/*.test.mjs src/circuit/*.test.mjs server/*.test.mjs",
+    "test": "node --test src/*.test.mjs src/shared/*.test.mjs src/circuit/*.test.mjs src/components/*.test.mjs src/motion/*.test.mjs scripts/*.test.mjs server/*.test.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "server": "node server/server.js",
     "dev:server": "node server/server.js",
@@ -17,6 +17,8 @@
     "seed:teacher": "node server/seedTeacher.js",
     "seed:demo": "node server/seedDemoClassroom.js",
     "qa:3d": "node scripts/run-browser-qa.mjs scripts/verify-3d.mjs",
+    "preqa:production": "npm run build -- --manifest",
+    "qa:production": "node scripts/run-browser-qa.mjs scripts/verify-production-modules.mjs --production && node scripts/run-browser-qa.mjs scripts/verify-3d.mjs --production",
     "qa:assets": "node scripts/verify-asset-budget.mjs",
     "preqa:build-budget": "npm run build -- --manifest",
     "qa:build-budget": "node scripts/verify-build-budget.mjs",

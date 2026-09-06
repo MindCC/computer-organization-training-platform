@@ -3,6 +3,12 @@ import path from 'node:path';
 import { expect } from '@playwright/test';
 
 export async function verifyHardwareAssembly(page, artifactDir) {
+  async function partPoint(part) {
+    return page.locator(`[data-rack="${part}"]`).evaluate(element => {
+      const bounds = element.parentElement.getBoundingClientRect();
+      return { x: bounds.x + parseFloat(element.style.left), y: bounds.y + parseFloat(element.style.top) };
+    });
+  }
   const workshop = page.getByRole('region', { name: '3D 交互装机工作台' });
   await expect(workshop).toBeVisible();
   await expect(workshop.locator('canvas')).toHaveCount(1);
@@ -11,14 +17,44 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await page.setViewportSize({ width: 1366, height: 768 });
   await workshop.scrollIntoViewIfNeeded();
   await page.waitForTimeout(600);
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-preview', 'cpu');
+  await expect(page.locator('.assembly-slot-label:visible')).toHaveCount(1);
+  await page.getByRole('button', { name: '部件近景', exact: true }).click();
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-camera-preset', 'part');
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: path.join(artifactDir, 'assembly-closeup.png'), fullPage: true });
+  await page.getByRole('button', { name: '重置观察视角' }).click();
+  await page.waitForTimeout(700);
+  const initialSocket = await page.locator('[data-socket="cpu"]').boundingBox();
+  const canvasBounds = await workshop.locator('canvas').boundingBox();
+  await page.mouse.move(canvasBounds.x + 25, canvasBounds.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(canvasBounds.x + 95, canvasBounds.y + 125, { steps: 10 });
+  await page.mouse.up();
+  await page.getByRole('button', { name: '重置观察视角' }).click();
+  await expect.poll(async () => {
+    const restored = await page.locator('[data-socket="cpu"]').boundingBox();
+    return Math.abs(restored.x - initialSocket.x) + Math.abs(restored.y - initialSocket.y);
+  }, { message: 'reset restores camera orientation, not only distance' }).toBeLessThan(3);
+  const memoryPick = await partPoint('memory');
+  await page.mouse.click(memoryPick.x, memoryPick.y);
+  await expect(page.locator('.assembly-part-tabs button').filter({ hasText: '内存' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-camera-preset', 'part');
+  await page.waitForTimeout(700);
+  await page.locator('.assembly-part-tabs button').filter({ hasText: '处理器' }).click();
+  await page.getByRole('button', { name: '重置观察视角' }).click();
+  await page.waitForTimeout(700);
   await page.screenshot({ path: path.join(artifactDir, 'assembly-desktop.png'), fullPage: true });
   async function dragPart(part, socket) {
-    const rack = await page.locator(`[data-rack="${part}"]`).boundingBox();
-    const target = await page.locator(`[data-socket="${socket}"]`).boundingBox();
-    assert.ok(rack && target);
-    await page.mouse.move(rack.x + rack.width / 2, rack.y + rack.height / 2 - 31);
+    const rack = await partPoint(part);
+    assert.ok(rack);
+    await page.mouse.move(rack.x, rack.y);
     await page.mouse.down();
+    await expect(page.locator(`[data-socket="${socket}"]`)).toBeVisible();
+    const target = await page.locator(`[data-socket="${socket}"]`).boundingBox();
+    assert.ok(target);
     await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 18 });
+    await expect(workshop.locator('canvas')).toHaveAttribute('data-drop-state', part === socket ? 'ready' : 'wrong');
     await page.mouse.up();
     await page.waitForTimeout(400);
   }
@@ -30,8 +66,10 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await page.getByRole('button', { name: '拆下处理器', exact: true }).click();
   await expect(page.locator('.assembly-counter strong')).toHaveText('0 / 3');
   await page.getByRole('button', { name: '安装到CPU 插座', exact: true }).last().click();
+  await page.locator('.assembly-part-tabs button').filter({ hasText: '内存' }).click();
   await page.locator('[data-rack="memory"]').click();
   await page.locator('[data-socket="memory"]').click();
+  await page.locator('.assembly-part-tabs button').filter({ hasText: '硬盘' }).click();
   await page.locator('[data-rack="storage"]').click();
   await page.locator('[data-socket="storage"]').click();
   await expect(page.locator('.assembly-counter strong')).toHaveText('3 / 3');
@@ -41,6 +79,27 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await page.locator('.hardware-case.active').click();
   await expect(page.getByRole('button', { name: '交付装机 · 提交方案' })).toBeEnabled();
   await page.screenshot({ path: path.join(artifactDir, 'assembly-boot.png'), fullPage: true });
+  const caseName = await page.locator('.hardware-case.active span').innerText();
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('.sidebar-nav .nav-item').filter({ hasText: '硬件配置挑战' }).click();
+  await page.locator('.hardware-case').filter({ hasText: caseName }).click();
+  await expect(page.locator('.assembly-counter strong')).toHaveText('3 / 3');
+  await expect(page.getByRole('button', { name: '请先完成装配与开机自检' })).toBeDisabled();
+  await expect(page.locator('.assembly-action-strip')).toContainText('已恢复');
+  await page.locator('.hardware-case').filter({ hasNotText: caseName }).first().click();
+  await expect(page.locator('.assembly-counter strong')).toHaveText('0 / 3');
+  const cancelRack = await partPoint('cpu');
+  await page.mouse.move(cancelRack.x, cancelRack.y);
+  await page.mouse.down();
+  await page.mouse.move(cancelRack.x + 70, cancelRack.y - 50, { steps: 5 });
+  await workshop.locator('canvas').dispatchEvent('pointercancel', { pointerId: 1 });
+  await page.mouse.up();
+  await expect(page.locator('.assembly-counter strong')).toHaveText('0 / 3');
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-drop-state', 'idle');
+  await page.waitForTimeout(500);
+  await page.locator('.hardware-case').filter({ hasText: caseName }).click();
+  await expect(page.locator('.assembly-counter strong')).toHaveText('3 / 3');
+  await page.locator('.assembly-part-tabs button').filter({ hasText: '硬盘' }).click();
   await page.locator('#assembly-variant').selectOption('ssd-1tb');
   await expect(page.locator('.assembly-counter strong')).toHaveText('2 / 3');
   await expect(page.getByRole('button', { name: '请先完成装配与开机自检' })).toBeDisabled();
@@ -48,6 +107,14 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await page.locator('#assembly-variant').selectOption('gpu-entry');
   await expect(page.locator('[data-rack="gpu"]')).toBeVisible();
   await expect(page.locator('.assembly-counter strong')).toHaveText('2 / 4');
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('.sidebar-nav .nav-item').filter({ hasText: '硬件配置挑战' }).click();
+  await page.locator('.hardware-case').filter({ hasText: caseName }).click();
+  await expect(page.locator('.assembly-counter strong')).toHaveText('2 / 4');
+  await page.locator('.assembly-part-tabs button').filter({ hasText: '硬盘' }).click();
+  await expect(page.locator('#assembly-variant')).toHaveValue('ssd-1tb');
+  await page.locator('.assembly-part-tabs button').filter({ hasText: '显卡' }).click();
+  await expect(page.locator('#assembly-variant')).toHaveValue('gpu-entry');
   await page.getByRole('button', { name: '俯视 / 透视' }).click();
   await page.getByRole('button', { name: '重置观察视角' }).click();
   await page.getByRole('button', { name: '专注装机 ↗' }).click();

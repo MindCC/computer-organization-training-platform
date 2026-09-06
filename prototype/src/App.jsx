@@ -1040,7 +1040,7 @@ export function App() {
           {activeView === "hardware-game" ? (
             <ErrorBoundary>
               <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u786c\u4ef6\u914d\u7f6e\u6311\u6218..." />}>
-                <HardwareGamePage hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} />
+                <HardwareGamePage userId={auth.user?.id} hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} />
               </Suspense>
             </ErrorBoundary>
           ) : null}

@@ -189,6 +189,31 @@ try {
   );
 
   assert.deepEqual(pageErrors, [], "performance QA must not emit page errors");
+  async function openAssembly() {
+    await page.locator('.sidebar-nav .nav-item').filter({ hasText: '硬件配置挑战' }).click();
+    await page.locator('.assembly-workshop canvas').waitFor({ state: 'visible' });
+  }
+  async function leaveAssembly() {
+    await page.locator('.sidebar-nav .nav-item').filter({ hasText: '课程首页' }).click();
+    await page.locator('.assembly-workshop canvas').waitFor({ state: 'detached' });
+  }
+  await returnHome(page);
+  await openAssembly();
+  await leaveAssembly();
+  const initialAssemblyHeap = await collectHeap(cdp);
+  for (let cycle = 0; cycle < 10; cycle += 1) {
+    await openAssembly();
+    await leaveAssembly();
+  }
+  const assemblyHeapDelta = (await collectHeap(cdp)) - initialAssemblyHeap;
+  assert.ok(assemblyHeapDelta <= heapBudgetBytes, `assembly heap grew ${assemblyHeapDelta} bytes`);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await openAssembly();
+  const assemblyFrames = await sampleFrameRate(page, durationMs);
+  assert.ok(assemblyFrames.fps >= 30, `assembly frame rate ${assemblyFrames.fps} is below 30 FPS`);
+  assert.ok(assemblyFrames.p95FrameMs <= 50, `assembly p95 frame time ${assemblyFrames.p95FrameMs} exceeds 50ms`);
+  assert.deepEqual(pageErrors, [], 'assembly QA must not emit page errors');
+  console.log('ASSEMBLY_PERF_RESULT ' + JSON.stringify({ cycles: 10, assemblyHeapDelta, fps: assemblyFrames.fps, p95FrameMs: assemblyFrames.p95FrameMs }));
   console.log("PERF_RESULT " + JSON.stringify({
     cycles: 10,
     durationMs,

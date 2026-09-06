@@ -9,11 +9,11 @@ import { MeshStandardMaterial } from "three/src/materials/MeshStandardMaterial.j
 import { Shape } from "three/src/extras/core/Shape.js";
 
 // ── Materials ──
-const matCPU_IHS = new MeshStandardMaterial({ color: "#C0C0C0", metalness: 0.85, roughness: 0.15 });
+const matCPU_IHS = new MeshStandardMaterial({ color: "#dce3e8", metalness: 0.58, roughness: 0.32 });
 const matCPU_PCB = new MeshStandardMaterial({ color: "#1a4d1a", metalness: 0.1, roughness: 0.6 });
 const matRAM_PCB = new MeshStandardMaterial({ color: "#0d4d0d", metalness: 0.05, roughness: 0.55 });
 const matRAM_CHIP = new MeshStandardMaterial({ color: "#111", metalness: 0.2, roughness: 0.4 });
-const matMobo = new MeshStandardMaterial({ color: "#0d3320", metalness: 0.05, roughness: 0.7 });
+const matMobo = new MeshStandardMaterial({ color: "#286f52", metalness: 0.05, roughness: 0.7 });
 const matGPU_PCB = new MeshStandardMaterial({ color: "#1a1a1a", metalness: 0.4, roughness: 0.4 });
 const matGPU_FAN = new MeshStandardMaterial({ color: "#333", metalness: 0.6, roughness: 0.3 });
 const matGPU_SHROUD = new MeshStandardMaterial({ color: "#222", metalness: 0.5, roughness: 0.35 });
@@ -22,9 +22,9 @@ const matStorageLabel = new MeshStandardMaterial({ color: "#ddd", metalness: 0.1
 const matPSU = new MeshStandardMaterial({ color: "#333", metalness: 0.6, roughness: 0.3 });
 const matPSU_FAN = new MeshStandardMaterial({ color: "#222", metalness: 0.7, roughness: 0.2 });
 const matPSU_CABLE = new MeshStandardMaterial({ color: "#1a1a1a", metalness: 0.3, roughness: 0.6 });
-const matCase_FRAME = new MeshStandardMaterial({ color: "#2a2a3e", metalness: 0.5, roughness: 0.4 });
+const matCase_FRAME = new MeshStandardMaterial({ color: "#647780", metalness: 0.35, roughness: 0.4 });
 const matCase_PANEL = new MeshStandardMaterial({ color: "#16162a", metalness: 0.2, roughness: 0.6, transparent: true, opacity: 0.15 });
-const matCase_FRONT = new MeshStandardMaterial({ color: "#1a1a2e", metalness: 0.3, roughness: 0.5 });
+const matCase_FRONT = new MeshStandardMaterial({ color: "#415968", metalness: 0.25, roughness: 0.5 });
 const matSocket = new MeshStandardMaterial({ color: "#2a2a2a", metalness: 0.8, roughness: 0.3 });
 const matSlot = new MeshStandardMaterial({ color: "#1a1a1a", metalness: 0.5, roughness: 0.4 });
 const matGold = new MeshStandardMaterial({ color: "#d4a843", metalness: 0.9, roughness: 0.1 });

@@ -10,8 +10,10 @@ const allowedVerifiers = new Set([
   "scripts/verify-3d.mjs",
   "scripts/verify-performance.mjs",
   "scripts/verify-classroom.mjs",
+  "scripts/verify-production-modules.mjs",
 ]);
 const verifier = String(process.argv[2] ?? "").replaceAll("\\", "/");
+const production = process.argv.includes('--production');
 if (!allowedVerifiers.has(verifier)) {
   throw new Error("Unsupported verifier: " + verifier);
 }
@@ -23,7 +25,7 @@ const databasePath = path.join(tempDir, "classroom.sqlite");
 const apiPort = await findOpenPort();
 const appPort = await findOpenPort(new Set([apiPort]));
 const apiUrl = "http://127.0.0.1:" + apiPort;
-const appUrl = "http://127.0.0.1:" + appPort;
+const appUrl = production ? apiUrl : "http://127.0.0.1:" + appPort;
 const teacherUsername = "teacher";
 const teacherPassword = "ChangeMe123!";
 const processes = [];
@@ -103,11 +105,14 @@ try {
       PORT: String(apiPort),
       DEEPSEEK_API_KEY: "",
       PUBLIC_BASE_URL: appUrl,
+      NODE_ENV: production ? 'production' : 'development',
+      SESSION_SECRET: 'isolated-browser-qa-session-secret',
+      COOKIE_SECURE: '0',
     },
   });
   processes.push(apiProcess);
 
-  const appProcess = run(process.execPath, [
+  const appProcess = production ? null : run(process.execPath, [
     "node_modules/vite/bin/vite.js",
     "--host", "127.0.0.1",
     "--port", String(appPort),
@@ -115,10 +120,10 @@ try {
   ], {
     env: { PROTOTYPE_API_PROXY_TARGET: apiUrl },
   });
-  processes.push(appProcess);
+  if (appProcess) processes.push(appProcess);
 
   await waitFor(apiUrl + "/api/health", [[apiProcess, "API server"]]);
-  await waitFor(appUrl, [[apiProcess, "API server"], [appProcess, "Vite server"]]);
+  await waitFor(appUrl, [[apiProcess, "API server"], ...(appProcess ? [[appProcess, "Vite server"]] : [])]);
 
   const verify = run(process.execPath, [verifier], {
     env: {

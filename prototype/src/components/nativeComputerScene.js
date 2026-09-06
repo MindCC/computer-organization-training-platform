@@ -9,6 +9,8 @@ import { SphereGeometry } from "three/src/geometries/SphereGeometry.js";
 import { ACESFilmicToneMapping, PCFSoftShadowMap } from 'three/src/constants.js';
 import { createWorkshopEnvironment } from './workshopEnvironment.js';
 import { createAssemblyInteraction } from './assemblySceneInteraction.js';
+import { assemblyCameraPose } from '../assemblySceneLayout.js';
+import { ASSEMBLY_PARTS } from '../hardwareAssembly.js';
 import { Group } from "three/src/objects/Group.js";
 import { Mesh } from "three/src/objects/Mesh.js";
 import { MeshBasicMaterial } from "three/src/materials/MeshBasicMaterial.js";
@@ -68,7 +70,7 @@ export function createNativeComputerScene(container, options = {}) {
   const scene = new Scene();
   scene.background = new Color(options.assembly ? '#dce5e8' : '#15232c');
   const camera = new PerspectiveCamera(45, 1, 0.1, 100);
-  const initialPosition = options.cameraPosition ?? (options.assembly ? [0.65, 1.6, 2.0] : [1.5, 1.6, 2.5]);
+  const initialPosition = options.cameraPosition ?? (options.assembly ? assemblyCameraPose().position : [1.5, 1.6, 2.5]);
   camera.position.fromArray(initialPosition);
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: "low-power" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
@@ -87,6 +89,8 @@ export function createNativeComputerScene(container, options = {}) {
   let drag = null;
   let suppressClick = false;
   let assemblyInteraction = null;
+  let cameraTransition = null;
+  let pendingCameraTransition = null;
   function updateCamera() {
     const sinPolar = Math.sin(polar);
     camera.position.set(
@@ -98,6 +102,8 @@ export function createNativeComputerScene(container, options = {}) {
     renderer.domElement.dataset.cameraChanged = "true";
   }
   function onPointerDown(event) {
+    cameraTransition = null;
+    pendingCameraTransition = null;
     if (assemblyInteraction?.pointerDown(event)) return;
     drag = { x: event.clientX, y: event.clientY, button: event.button, moved: false };
     renderer.domElement.setPointerCapture?.(event.pointerId);
@@ -126,6 +132,8 @@ export function createNativeComputerScene(container, options = {}) {
     drag = null;
   }
   function onWheel(event) {
+    cameraTransition = null;
+    pendingCameraTransition = null;
     event.preventDefault();
     cameraDistance = Math.max(1.3, Math.min(6, cameraDistance * (event.deltaY > 0 ? 1.12 : 0.89)));
     updateCamera();
@@ -152,6 +160,11 @@ export function createNativeComputerScene(container, options = {}) {
   const fillLight = new DirectionalLight("#d2e5ff", 1.1);
   fillLight.position.set(-2, 1, -1);
   scene.add(fillLight);
+  if (options.assembly) {
+    const benchLight = new DirectionalLight('#fff5e5', 2.2);
+    benchLight.position.set(-3, 4, 3);
+    scene.add(benchLight);
+  }
   const workshop = createWorkshopEnvironment(scene, registry);
 
   const partGroups = new Map();
@@ -168,7 +181,13 @@ export function createNativeComputerScene(container, options = {}) {
   for (const detail of MOBO_DETAILS) {
     motherboard?.add(createPartMesh(detail, "motherboard", registry));
   }
-  if (options.assembly) assemblyInteraction = createAssemblyInteraction(container, renderer.domElement, camera, partGroups, options);
+  if (options.assembly) assemblyInteraction = createAssemblyInteraction(container, renderer.domElement, camera, partGroups, {
+    ...options, scene, registry,
+    onGestureEnd({ moved, cancelled }) {
+      if (!moved && !cancelled) cameraTransition = pendingCameraTransition;
+      pendingCameraTransition = null;
+    },
+  });
 
   const busGeometry = registry.add(new CylinderGeometry(1, 1, 1, 8));
   const particleGeometry = registry.add(new SphereGeometry(0.035, 8, 8));
@@ -262,6 +281,23 @@ export function createNativeComputerScene(container, options = {}) {
   }
 
   function render(time) {
+    if (cameraTransition) {
+      const amount = viewState.reducedMotion ? 1 : .13;
+      cameraTarget.lerp(cameraTransition.target, amount);
+      cameraDistance += (cameraTransition.distance - cameraDistance) * amount;
+      azimuth += (cameraTransition.azimuth - azimuth) * amount;
+      polar += (cameraTransition.polar - polar) * amount;
+      updateCamera();
+      if (Math.abs(cameraDistance - cameraTransition.distance) + cameraTarget.distanceTo(cameraTransition.target)
+        + Math.abs(azimuth - cameraTransition.azimuth) + Math.abs(polar - cameraTransition.polar) < .001) {
+        cameraTarget.copy(cameraTransition.target);
+        cameraDistance = cameraTransition.distance;
+        azimuth = cameraTransition.azimuth;
+        polar = cameraTransition.polar;
+        updateCamera();
+        cameraTransition = null;
+      }
+    }
     const target = viewState.targetExplodeDistance;
     currentDistance += (target - currentDistance) * (viewState.reducedMotion ? 1 : 0.08);
     if (Math.abs(target - currentDistance) < 0.001) currentDistance = target;
@@ -330,7 +366,16 @@ export function createNativeComputerScene(container, options = {}) {
     setViewState(nextState) {
       const previous = viewState;
       viewState = normalizeSceneViewState(nextState);
-      if (previous.cameraPreset !== viewState.cameraPreset || previous.resetKey !== viewState.resetKey) {
+      if (options.assembly && (previous.cameraPreset !== viewState.cameraPreset || previous.resetKey !== viewState.resetKey || (viewState.cameraPreset === 'part' && previous.selectedPartId !== viewState.selectedPartId))) {
+        const selected = ASSEMBLY_PARTS.find(part => part.sceneId === viewState.selectedPartId);
+        const pose = assemblyCameraPose(viewState.cameraPreset, selected?.rack, partGroups.get(selected?.sceneId)?.part.basePos);
+        const target = new Vector3().fromArray(pose.target);
+        offset.fromArray(pose.position).sub(target);
+        const nextTransition = { target, distance: offset.length(), azimuth: Math.atan2(offset.x, offset.z), polar: Math.acos(offset.y / offset.length()) };
+        if (assemblyInteraction?.isDragging()) pendingCameraTransition = nextTransition;
+        else cameraTransition = nextTransition;
+        renderer.domElement.dataset.cameraPreset = viewState.cameraPreset ?? 'perspective';
+      } else if (!options.assembly && (previous.cameraPreset !== viewState.cameraPreset || previous.resetKey !== viewState.resetKey)) {
         cameraTarget.set(options.assembly ? -0.28 : 0, 0.05, 0);
         const pos = viewState.cameraPreset === 'top' ? [0, 3.6, 0.15] : initialPosition;
         offset.fromArray(pos).sub(cameraTarget);

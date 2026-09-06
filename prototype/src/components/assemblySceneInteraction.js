@@ -3,6 +3,13 @@ import { Vector3 } from 'three/src/math/Vector3.js';
 import { Plane } from 'three/src/math/Plane.js';
 import { Raycaster } from 'three/src/core/Raycaster.js';
 import { ASSEMBLY_PARTS } from '../hardwareAssembly.js';
+import { assemblyLabelVisible, nearestAssemblySocket, assemblyEntryPosition } from '../assemblySceneLayout.js';
+import { Box3 } from 'three/src/math/Box3.js';
+import { BoxGeometry } from 'three/src/geometries/BoxGeometry.js';
+import { EdgesGeometry } from 'three/src/geometries/EdgesGeometry.js';
+import { LineSegments } from 'three/src/objects/LineSegments.js';
+import { LineBasicMaterial } from 'three/src/materials/LineBasicMaterial.js';
+import { MeshBasicMaterial } from 'three/src/materials/MeshBasicMaterial.js';
 
 // React validates every requested installation. This controller only owns gestures and projection.
 export function createAssemblyInteraction(container, canvas, camera, partGroups, options) {
@@ -13,9 +20,36 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
   let state = null;
   let gesture = null;
   let blockClick = false;
+  let hoveredSocket = null;
+  const priorInstallation = new Map();
+  const previews = new Map();
+  const previewMaterial = options.registry.add(new MeshBasicMaterial({ color: '#25bfa4', transparent: true, opacity: .18, depthWrite: false }));
+  const outlineMaterial = options.registry.add(new LineBasicMaterial({ color: '#087e6b', transparent: true, opacity: .9, depthTest: false }));
+  for (const part of ASSEMBLY_PARTS) {
+    const source = partGroups.get(part.sceneId).group;
+    const preview = source.clone(true);
+    preview.traverse(node => { if (node.isMesh) { node.material = previewMaterial; node.castShadow = false; } });
+    const bounds = new Box3().setFromObject(source);
+    const size = bounds.getSize(new Vector3()).multiplyScalar(1.08);
+    const box = new BoxGeometry(size.x, size.y, size.z);
+    const edges = options.registry.add(new EdgesGeometry(box));
+    box.dispose();
+    const outline = new LineSegments(edges, outlineMaterial);
+    outline.position.copy(bounds.getCenter(new Vector3()));
+    outline.renderOrder = 5;
+    preview.add(outline);
+    preview.position.fromArray(partGroups.get(part.sceneId).part.basePos);
+    preview.visible = false;
+    options.scene.add(preview);
+    previews.set(part.id, preview);
+  }
   const layer = document.createElement('div');
   layer.className = 'assembly-scene-labels';
   container.append(layer);
+  const dropStatus = document.createElement('div');
+  dropStatus.className = 'assembly-drop-status';
+  dropStatus.setAttribute('role', 'status');
+  container.append(dropStatus);
   const labels = ASSEMBLY_PARTS.map((part, index) => {
     const element = document.createElement('button');
     element.type = 'button';
@@ -67,6 +101,8 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
     gesture.moved ||= Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) > 5;
     cast(event);
     if (gesture.moved && raycaster.ray.intersectPlane(plane, point)) gesture.group.position.copy(point);
+    const bounds = canvas.getBoundingClientRect();
+    hoveredSocket = nearestAssemblySocket(labels.filter(({part}) => !(part.id === 'gpu' && state.integrated)), event.clientX - bounds.left, event.clientY - bounds.top);
     return true;
   }
   function pointerUp(event, cancelled = false) {
@@ -74,6 +110,7 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
     if (event.pointerId !== gesture.pointerId) return true;
     const current = gesture;
     gesture = null;
+    hoveredSocket = null;
     canvas.style.cursor = 'grab';
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     blockClick = true;
@@ -82,42 +119,58 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
       const x = event.clientX - bounds.left;
       const y = event.clientY - bounds.top;
       const candidates = labels.filter(({ part }) => !(part.id === 'gpu' && state.integrated));
-      const nearest = candidates.map(label => ({ label, distance: Math.min(Math.hypot(x - label.screen.x, y - label.screen.y), Math.hypot(x - label.anchor.x, y - label.anchor.y)) }))
-        .sort((a, b) => a.distance - b.distance)[0];
-      options.onInstall?.(current.part.id, nearest?.distance < 42 ? nearest.label.part.id : null);
+      options.onInstall?.(current.part.id, nearestAssemblySocket(candidates, x, y));
     }
+    options.onGestureEnd?.({ moved: current.moved, cancelled });
     return true;
   }
   function update(nextState, reducedMotion) {
     state = nextState;
     layer.hidden = !state;
     if (!state) return;
+    const dragging = Boolean(gesture);
+    const wrongTarget = dragging && hoveredSocket && hoveredSocket !== gesture.part.id;
+    canvas.dataset.dropState = dragging ? (wrongTarget ? 'wrong' : hoveredSocket ? 'ready' : 'moving') : 'idle';
+    dropStatus.hidden = !dragging;
+    dropStatus.dataset.state = canvas.dataset.dropState;
+    const statusText = wrongTarget ? '插槽不匹配 · 请对准青绿色轮廓' : hoveredSocket ? '位置正确 · 松开完成安装' : '正在移动 · 对准青绿色安装预览';
+    if (dropStatus.textContent !== statusText) dropStatus.textContent = statusText;
+    previewMaterial.color.set(wrongTarget ? '#e5a23c' : '#25bfa4');
+    let previewId = '';
     labels.forEach(({ part, element, rackLabel, screen, anchor }, index) => {
       const { group, part: model } = partGroups.get(part.sceneId);
       const installed = Boolean(state.installed[part.id]);
       const hidden = part.id === 'gpu' && state.integrated;
       group.visible = !hidden;
+      if (installed && priorInstallation.get(part.id) === false && !reducedMotion) {
+        group.position.fromArray(assemblyEntryPosition(part.id, model.basePos));
+      }
+      priorInstallation.set(part.id, installed);
       if (gesture?.part.id !== part.id) group.position.lerp(point.fromArray(installed ? model.basePos : part.rack), reducedMotion ? 1 : 0.14);
       const socket = project(point.fromArray(model.basePos));
       anchor.x = socket.x; anchor.y = socket.y;
       const offsets = [[55, 48], [0, 18], [-18, -40], [50, -30]][index];
       screen.x = socket.x + offsets[0]; screen.y = socket.y + offsets[1];
       element.style.left = `${screen.x}px`; element.style.top = `${screen.y}px`;
-      const narrow = container.clientWidth < 520;
-      element.hidden = hidden || (narrow && state.activeId !== part.id);
+      element.hidden = hidden || !assemblyLabelVisible(part.id, state.activeId, dragging);
       element.disabled = installed || state.locked || !state.activeId;
       element.className = `assembly-slot-label${installed ? ' installed' : ''}${state.activeId === part.id ? ' active' : ''}`;
       const rack = project(point.fromArray(part.rack));
-      rackLabel.style.left = `${rack.x}px`; rackLabel.style.top = `${rack.y + 31}px`;
-      rackLabel.hidden = hidden || installed || (narrow && state.activeId !== part.id);
+      rackLabel.style.left = `${rack.x}px`; rackLabel.style.top = `${rack.y}px`;
+      rackLabel.hidden = hidden || installed || state.activeId !== part.id;
       rackLabel.disabled = state.locked;
       rackLabel.classList.toggle('active', state.activeId === part.id);
+      const preview = previews.get(part.id);
+      preview.visible = !hidden && !installed && !state.locked && state.activeId === part.id;
+      if (preview.visible) previewId = part.id;
     });
+    canvas.dataset.preview = previewId;
     const secondRam = partGroups.get('ram-1');
     if (secondRam) secondRam.group.visible = false;
   }
   return { update, pointerDown, pointerMove, pointerUp,
+    isDragging() { return Boolean(gesture); },
     consumeClick() { const result = blockClick; blockClick = false; return result; },
-    dispose() { layer.remove(); gesture = null; },
+    dispose() { layer.remove(); dropStatus.remove(); previews.forEach(preview => options.scene.remove(preview)); gesture = null; },
   };
 }
