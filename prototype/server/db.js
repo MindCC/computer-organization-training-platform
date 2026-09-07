@@ -287,6 +287,26 @@ export function migrate(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_lab_run_events_run ON lab_run_events(lab_run_id, sequence);
 
+    CREATE TABLE IF NOT EXISTS cpu_practice_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+      state_json TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS cpu_practice_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      cpu_practice_run_id INTEGER NOT NULL REFERENCES cpu_practice_runs(id) ON DELETE CASCADE,
+      sequence INTEGER NOT NULL,
+      event_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(cpu_practice_run_id, sequence),
+      UNIQUE(cpu_practice_run_id, event_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_cpu_practice_events_run ON cpu_practice_events(cpu_practice_run_id, sequence);
+
     CREATE TABLE IF NOT EXISTS team_projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       course_draft_id INTEGER NOT NULL UNIQUE REFERENCES course_drafts(id) ON DELETE CASCADE,

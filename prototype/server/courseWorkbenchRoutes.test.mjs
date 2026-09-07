@@ -74,6 +74,10 @@ test("teacher publishes a course, assigns a team, then reviews the student's mil
     result = await request(baseUrl, `/api/teacher/classes/${classId}/lab-runs`, {}, teacherJar);
     assert.equal(result.body.runs[0].studentDisplayName, "学生");
     assert.equal(result.body.runs[0].eventCount, 1);
+    result = await request(baseUrl, "/api/student/cpu-practice", {}, studentJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/student/cpu-practice/events", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ baseRevision: 0, batchId: "practice-route-1", events: [{ eventId: "practice-event-1", type: "cpu.stepMicro", payload: { machine: { pc: 1 } } }] }) }, studentJar);
+    assert.equal(result.body.run.state.revision, 1);
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 

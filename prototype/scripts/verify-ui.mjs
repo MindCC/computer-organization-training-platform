@@ -409,6 +409,18 @@ async function verifyReactFlowChallenge(targetPage, challenge) {
   if (challenge.id === "instruction-data") {
     await assertVisible(targetPage, text.journeyCheckpoint);
     await assertVisible(targetPage, text.pcToMar);
+    const cpuPanel = targetPage.locator(".cpu-execution-panel");
+    await cpuPanel.waitFor({ state: "visible", timeout: 10_000 });
+    const microStep = cpuPanel.getByRole("button", { name: "微步", exact: true });
+    await microStep.waitFor({ state: "visible", timeout: 10_000 });
+    await targetPage.waitForFunction(() => ![...document.querySelectorAll(".cpu-execution-panel button")].some((button) => button.textContent.includes("微步") && button.disabled));
+    const savedPractice = targetPage.waitForResponse((response) => response.url().endsWith("/api/student/cpu-practice/events") && response.request().method() === "POST");
+    await microStep.click();
+    const savedPracticeResponse = await savedPractice;
+    assert.equal(savedPracticeResponse.status(), 200, `CPU public-practice event should persist: ${await savedPracticeResponse.text()}`);
+    await targetPage.reload({ waitUntil: "networkidle" });
+    await cpuPanel.waitFor({ state: "visible", timeout: 10_000 });
+    await assertVisible(targetPage, "已恢复上次公共练习");
   }
   if (challenge.id === "memory-address") {
     await assertVisible(targetPage, "简化存储系统");
