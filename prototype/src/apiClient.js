@@ -140,6 +140,7 @@ export const api = {
   replaceProjectTeamMembers: (teamId, members) => apiRequest(`/api/teacher/project-teams/${teamId}/members`, { method: "PUT", body: JSON.stringify({ members }) }),
   reviewProjectSubmission: (submissionId, feedback) => apiRequest(`/api/teacher/project-submissions/${submissionId}/review`, { method: "POST", body: JSON.stringify({ feedback }) }),
   projectSummary: (classId) => apiRequest(`/api/teacher/classes/${classId}/project-summary`),
+  teacherLabRuns: (classId) => apiRequest(`/api/teacher/classes/${classId}/lab-runs`),
   studentProjects: () => apiRequest("/api/student/projects"),
   studentProjectDetail: (projectId) => apiRequest(`/api/student/projects/${projectId}`),
   submitProjectMilestone: (projectId, milestoneId, payload) => apiRequest(`/api/student/projects/${projectId}/milestones/${milestoneId}/submission`, { method: "POST", body: JSON.stringify(payload) }),
