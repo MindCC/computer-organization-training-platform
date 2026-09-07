@@ -2,7 +2,7 @@ export function createCourseWorkbenchRepository(db) {
   return {
     createDraft, getDraft, listDraftsByClass, updateDraft, publishDraft,
     getProject, createTeam, replaceTeamMembers, getStudentProject, listStudentProjects,
-    upsertSubmission, reviewSubmission, getSubmission, getProjectSummary,
+    upsertSubmission, reviewSubmission, getSubmission, getProjectSummary, listReviewSubmissions,
   };
 
   function createDraft({ teacherId, classId, payload }) {
@@ -121,6 +121,26 @@ export function createCourseWorkbenchRepository(db) {
       teamCount: db.prepare("SELECT COUNT(*) AS count FROM project_teams pt JOIN team_projects tp ON tp.id=pt.team_project_id WHERE tp.class_id=?").get(classId).count,
       ...statusCounts,
     };
+  }
+
+  function listReviewSubmissions(classId) {
+    return db.prepare(`SELECT pms.*, tp.title AS project_title, tp.milestones_json, pt.name AS team_name,
+      u.display_name AS student_display_name, ptm.role AS team_role
+      FROM project_milestone_submissions pms
+      JOIN team_projects tp ON tp.id=pms.team_project_id
+      JOIN project_teams pt ON pt.team_project_id=tp.id
+      JOIN project_team_members ptm ON ptm.team_id=pt.id AND ptm.student_id=pms.student_id
+      JOIN users u ON u.id=pms.student_id
+      WHERE tp.class_id=?
+      ORDER BY CASE pms.status WHEN 'submitted' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END, pms.updated_at DESC, pms.id DESC`).all(classId)
+      .map((row) => ({
+        ...submissionDto(row),
+        projectTitle: row.project_title,
+        teamName: row.team_name,
+        studentDisplayName: row.student_display_name,
+        teamRole: row.team_role,
+        milestoneTitle: parse(row.milestones_json, []).find((milestone) => milestone.id === row.milestone_id)?.title ?? row.milestone_id,
+      }));
   }
 
   function draftDto(row) {

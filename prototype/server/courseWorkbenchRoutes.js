@@ -27,7 +27,12 @@ export function createCourseWorkbenchRouter({ service, requireRole, audit }) {
     audit(req, "course_draft_published", { targetType: "course_draft", targetId: req.params.id, metadata: { projectId: project.id } }); res.json({ project });
   }));
   router.post("/teacher/course-drafts/:id/project/teams", teacher, send((req, res) => {
-    const team = service.createTeam({ teacherId: req.user.id, draftId: Number(req.params.id), ...req.body });
+    const team = service.createTeam({
+      teacherId: req.user.id,
+      draftId: Number(req.params.id),
+      name: req.body?.name,
+      members: req.body?.members,
+    });
     audit(req, "project_team_created", { targetType: "project_team", targetId: team.id }); res.status(201).json({ team });
   }));
   router.put("/teacher/project-teams/:id/members", teacher, send((req, res) => {
@@ -38,11 +43,18 @@ export function createCourseWorkbenchRouter({ service, requireRole, audit }) {
     const submission = service.reviewSubmission({ teacherId: req.user.id, submissionId: Number(req.params.id), feedback: req.body?.feedback });
     audit(req, "project_submission_reviewed", { targetType: "project_submission", targetId: submission.id }); res.json({ submission });
   }));
-  router.get("/teacher/classes/:classId/project-summary", teacher, send((req, res) => res.json({ summary: service.getTeacherSummary({ teacherId: req.user.id, classId: Number(req.params.classId) }) })));
+  router.get("/teacher/classes/:classId/project-summary", teacher, send((req, res) => res.json(service.getTeacherProjectReview({ teacherId: req.user.id, classId: Number(req.params.classId) }))));
   router.get("/student/projects", student, send((req, res) => res.json({ projects: service.getStudentProjects({ studentId: req.user.id }) })));
   router.get("/student/projects/:id", student, send((req, res) => res.json({ project: service.getStudentProject({ studentId: req.user.id, projectId: Number(req.params.id) }) })));
   router.post("/student/projects/:projectId/milestones/:milestoneId/submission", student, send((req, res) => {
-    const submission = service.submitMilestone({ studentId: req.user.id, projectId: Number(req.params.projectId), milestoneId: req.params.milestoneId, ...req.body });
+    const submission = service.submitMilestone({
+      studentId: req.user.id,
+      projectId: Number(req.params.projectId),
+      milestoneId: req.params.milestoneId,
+      reflection: req.body?.reflection,
+      evidenceUrl: req.body?.evidenceUrl,
+      clientSubmissionId: req.body?.clientSubmissionId,
+    });
     audit(req, "project_submission_saved", { targetType: "project_submission", targetId: submission.id, metadata: { status: submission.status } }); res.json({ submission });
   }));
   return router;

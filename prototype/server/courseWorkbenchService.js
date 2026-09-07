@@ -7,7 +7,7 @@ export function createCourseWorkbenchService({ db, repository, generateSuggestio
   return {
     createDraft, updateDraft, listTeacherDrafts, getTeacherDraft, publishDraft,
     createTeam, replaceTeamMembers, getStudentProjects, getStudentProject,
-    submitMilestone, reviewSubmission, getTeacherSummary, generateDraft,
+    submitMilestone, reviewSubmission, getTeacherSummary, getTeacherProjectReview, generateDraft,
   };
 
   function notFound(message = "资源不存在") { return Object.assign(new Error(message), { status: 404 }); }
@@ -86,6 +86,10 @@ export function createCourseWorkbenchService({ db, repository, generateSuggestio
     return repository.reviewSubmission(submissionId, text);
   }
   function getTeacherSummary({ teacherId, classId }) { ownClass(teacherId, classId); return repository.getProjectSummary(classId); }
+  function getTeacherProjectReview({ teacherId, classId }) {
+    ownClass(teacherId, classId);
+    return { summary: repository.getProjectSummary(classId), submissions: repository.listReviewSubmissions(classId) };
+  }
 
   function validateTeamName(value) { const name = String(value ?? "").trim(); if (!name || name.length > 80) throw bad("小组名称无效"); return name; }
   function validateMembers(classId, members, projectId, replacingTeamId = null) {

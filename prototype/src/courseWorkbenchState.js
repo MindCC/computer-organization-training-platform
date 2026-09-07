@@ -15,6 +15,15 @@ export function canEditMilestoneSubmission(submission) {
   return submission?.status !== "reviewed";
 }
 
+export function createEditableMilestoneDraft(draft, submission, createId) {
+  if (draft) return draft;
+  return {
+    reflection: submission?.reflection ?? "",
+    evidenceUrl: submission?.evidenceUrl ?? "",
+    clientSubmissionId: createId(),
+  };
+}
+
 export function buildStudentProjectSummary(projects) {
   const list = Array.isArray(projects) ? projects : [];
   const next = list.flatMap((project) => project.milestones ?? []).find((milestone) => milestone?.dueAt) ?? null;

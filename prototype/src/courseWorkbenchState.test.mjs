@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canEditMilestoneSubmission, getActiveGuideForChallenge, nextGuideStep } from "./courseWorkbenchState.js";
+import { canEditMilestoneSubmission, createEditableMilestoneDraft, getActiveGuideForChallenge, nextGuideStep } from "./courseWorkbenchState.js";
 
 const project = {
   guideChallengeId: "computer-components",
@@ -25,4 +25,11 @@ test("locks reviewed milestone submissions", () => {
   assert.equal(canEditMilestoneSubmission(null), true);
   assert.equal(canEditMilestoneSubmission({ status: "submitted" }), true);
   assert.equal(canEditMilestoneSubmission({ status: "reviewed" }), false);
+});
+
+test("starts each editable revision with a fresh idempotency key but preserves an in-flight draft", () => {
+  const submission = { reflection: "初稿", evidenceUrl: "https://example.edu/old", clientSubmissionId: "saved-request" };
+  const revision = createEditableMilestoneDraft(null, submission, () => "new-request");
+  assert.deepEqual(revision, { reflection: "初稿", evidenceUrl: "https://example.edu/old", clientSubmissionId: "new-request" });
+  assert.equal(createEditableMilestoneDraft(revision, submission, () => "another-request"), revision);
 });

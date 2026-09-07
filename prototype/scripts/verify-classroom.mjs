@@ -12,9 +12,6 @@ const STUDENT_USER = "qa101";
 const STUDENT_PASS = "Student123!";
 const TIMEOUT = 20_000;
 const UI = {
-  account: "\u8d26\u53f7",
-  password: "\u5bc6\u7801",
-  login: "\u767b\u5f55",
   dashboard: "\u6559\u5e08\u770b\u677f",
   create: "\u521b\u5efa\u8349\u7a3f",
   start: "\u5f00\u59cb\u8bfe\u5802",
@@ -61,14 +58,14 @@ async function login(context, username, password, label, errors) {
   const page = await context.newPage();
   attachErrors(page, label, errors);
   await page.goto(APP_URL, { waitUntil: "domcontentloaded" });
-  await page.getByLabel(UI.account, { exact: true }).fill(username);
-  await page.getByLabel(UI.password, { exact: true }).fill(password);
+  await page.getByLabel(/\u8d26\u53f7/).fill(username);
+  await page.getByLabel(/\u5bc6\u7801/).fill(password);
   const responsePromise = page.waitForResponse(
     (response) => response.url().endsWith("/api/auth/login")
       && response.request().method() === "POST",
     { timeout: TIMEOUT },
   );
-  await page.getByRole("button", { name: UI.login, exact: true }).click();
+  await page.locator("button.login-submit").click();
   assert.equal((await responsePromise).status(), 200, `${label} UI login`);
   return page;
 }
