@@ -1,7 +1,7 @@
 import { applyLabEventBatch, createLabRunSnapshot } from "../src/shared/labRunState.js";
 
 export function createLabRunRepository(db) {
-  return { createOrGetRun, getRun, appendEvents };
+  return { createOrGetRun, getRun, appendEvents, listClassRuns };
 
   function createOrGetRun({ studentId, courseVersionId, stepId }) {
     const existing = db.prepare("SELECT * FROM lab_runs WHERE student_id=? AND course_version_id=? AND step_id=?").get(studentId, courseVersionId, stepId);
@@ -28,6 +28,20 @@ export function createLabRunRepository(db) {
       }
       return { ...getRun(runId), duplicate: applied.duplicate };
     })();
+  }
+
+  function listClassRuns(classId) {
+    return db.prepare(`SELECT lr.*, u.display_name AS student_display_name, COUNT(lre.id) AS event_count
+      FROM lab_runs lr
+      JOIN course_versions cv ON cv.id=lr.course_version_id
+      JOIN course_drafts cd ON cd.id=cv.course_draft_id
+      JOIN users u ON u.id=lr.student_id
+      LEFT JOIN lab_run_events lre ON lre.lab_run_id=lr.id
+      WHERE cd.class_id=?
+      GROUP BY lr.id
+      ORDER BY lr.updated_at DESC, lr.id DESC`).all(classId).map((row) => ({
+      ...dto(row), studentDisplayName: row.student_display_name, eventCount: row.event_count,
+    }));
   }
 
   function dto(row) {

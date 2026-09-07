@@ -1,7 +1,8 @@
+import { teacherOwnsClass } from "./db.js";
 import { normalizeLabEventBatch } from "../src/shared/labRunState.js";
 
 export function createLabRunService({ db, repository }) {
-  return { createRun, getRun, appendEvents };
+  return { createRun, getRun, appendEvents, listTeacherRuns };
 
   function notFound() { return Object.assign(new Error("实验记录不存在"), { status: 404 }); }
   function createRun({ studentId, courseVersionId, stepId }) {
@@ -20,6 +21,10 @@ export function createLabRunService({ db, repository }) {
     const saved = repository.appendEvents(runId, normalizeLabEventBatch(payload));
     if (!saved) throw notFound();
     return saved;
+  }
+  function listTeacherRuns({ teacherId, classId }) {
+    if (!teacherOwnsClass(db, teacherId, classId)) throw notFound();
+    return repository.listClassRuns(classId);
   }
   function findStudentVersion(studentId, courseVersionId) {
     const row = db.prepare(`SELECT cv.* FROM course_versions cv

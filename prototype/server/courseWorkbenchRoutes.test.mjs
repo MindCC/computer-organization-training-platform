@@ -71,6 +71,9 @@ test("teacher publishes a course, assigns a team, then reviews the student's mil
     assert.equal(result.body.run.state.revision, 1);
     result = await request(baseUrl, `/api/student/lab-runs/${runId}/events`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ baseRevision: 0, batchId: "route-batch-1", events: [{ eventId: "route-event-1", type: "cpu.executeInstruction", payload: {} }] }) }, studentJar);
     assert.equal(result.body.run.duplicate, true);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/lab-runs`, {}, teacherJar);
+    assert.equal(result.body.runs[0].studentDisplayName, "学生");
+    assert.equal(result.body.runs[0].eventCount, 1);
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 
@@ -93,6 +96,8 @@ test("route identities cannot be overridden by request bodies", async () => {
     await request(baseUrl, `/api/teacher/course-drafts/${draftId}/project/teams`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "目标组", members: [{ studentId: targetStudent.id, role: "实验" }] }) }, teacherTwoJar);
 
     result = await request(baseUrl, `/api/teacher/course-drafts/${draftId}/project/teams`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ teacherId: teacherTwo.id, name: "越权组", members: [{ studentId: targetStudent.id, role: "记录" }] }) }, teacherOneJar);
+    assert.equal(result.response.status, 404);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/lab-runs`, {}, teacherOneJar);
     assert.equal(result.response.status, 404);
 
     await request(baseUrl, "/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "other-student", password: "Student123!" }) }, studentOneJar);
