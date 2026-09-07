@@ -33,3 +33,9 @@ test("starts each editable revision with a fresh idempotency key but preserves a
   assert.deepEqual(revision, { reflection: "初稿", evidenceUrl: "https://example.edu/old", clientSubmissionId: "new-request" });
   assert.equal(createEditableMilestoneDraft(revision, submission, () => "another-request"), revision);
 });
+
+test("uses a new idempotency key after a saved draft is cleared", () => {
+  const submission = { reflection: "已保存", evidenceUrl: "", clientSubmissionId: "saved-request" };
+  const nextRevision = createEditableMilestoneDraft(undefined, submission, () => "next-request");
+  assert.equal(nextRevision.clientSubmissionId, "next-request");
+});
