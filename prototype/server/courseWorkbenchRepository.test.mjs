@@ -29,6 +29,8 @@ test("repository persists a published course, team and idempotent student submis
   const retry = repo.upsertSubmission({ projectId: project.id, milestoneId: "proposal", studentId: student.id, reflection: "不同内容", evidenceUrl: "https://example.edu/b", clientSubmissionId: "submission-1" });
 
   assert.equal(project.course_draft_id, draft.id);
+  assert.equal(project.courseVersion.courseSpec.courseKey, `legacy-course-${draft.id}`);
+  assert.match(project.courseVersion.content_hash, /^[a-f0-9]{64}$/);
   assert.equal(team.members[0].role, "实验");
   assert.equal(first.id, retry.id);
   assert.equal(retry.reflection, "初稿");

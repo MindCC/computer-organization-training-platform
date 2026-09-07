@@ -248,6 +248,20 @@ export function migrate(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_course_drafts_class ON course_drafts(class_id, id DESC);
 
+    CREATE TABLE IF NOT EXISTS course_versions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      course_draft_id INTEGER NOT NULL REFERENCES course_drafts(id) ON DELETE RESTRICT,
+      course_key TEXT NOT NULL,
+      revision INTEGER NOT NULL,
+      schema_version INTEGER NOT NULL,
+      course_spec_json TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(course_key, revision),
+      UNIQUE(course_draft_id, revision)
+    );
+    CREATE INDEX IF NOT EXISTS idx_course_versions_draft ON course_versions(course_draft_id, revision DESC);
+
     CREATE TABLE IF NOT EXISTS team_projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       course_draft_id INTEGER NOT NULL UNIQUE REFERENCES course_drafts(id) ON DELETE CASCADE,

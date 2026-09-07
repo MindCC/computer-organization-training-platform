@@ -12,6 +12,7 @@ import { MissionHud } from "./classroom/student/MissionHud.jsx";
 import { MissionPauseOverlay } from "./classroom/student/MissionPauseOverlay.jsx";
 import { MissionSettlement } from "./classroom/student/MissionSettlement.jsx";
 import { LabAssistantPanel } from "./LabAssistantPanel.jsx";
+import { CpuExecutionPanel } from "./CpuExecutionPanel.jsx";
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
 const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").then((m) => ({ default: m.OverviewExplodedView })));
@@ -121,6 +122,7 @@ export function LabPage({
             <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{cur.title}</h1><p>{labDescription(cur.id)}</p></div><div className="lab-studio-actionbar"><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></div></div>
             <div className="lab-studio-inputs">{(challengeControlMeta[cur.id] ?? []).map((ctrl) => ctrl.type === "bit" ? <Toggle key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} onChange={(v) => l.handleInputChange(ctrl.key, v)} /> : <Stepper key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} min={ctrl.min} max={ctrl.max} onChange={(v) => l.handleInputChange(ctrl.key, v)} />)}</div>
             <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} /></Suspense>)}</div>
+            {cur.id === "instruction-data" ? <CpuExecutionPanel /> : null}
             {js.length > 0 ? <DataJourneyPanel steps={js} activeStep={l.activeStep} /> : null}
             {cur.id === "memory-address" ? <MemorySystemPanel address={memoryAddress} operation={memoryOperation} state={memoryAccessState} writeValue={memoryWriteValue} onAddressChange={setMemoryAddress} onOperationChange={setMemoryOperation} onWriteValueChange={setMemoryWriteValue} /> : null}
             {cur.id === "machine-number" ? <MachineNumberPanel value={l.inputState.signedValue ?? -5} /> : null}

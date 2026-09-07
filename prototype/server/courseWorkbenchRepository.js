@@ -1,6 +1,10 @@
+import crypto from "node:crypto";
+import { createLegacyCourseSpec } from "../src/shared/courseSpec.js";
+
 export function createCourseWorkbenchRepository(db) {
   return {
     createDraft, getDraft, listDraftsByClass, updateDraft, publishDraft,
+    getCourseVersion,
     getProject, createTeam, replaceTeamMembers, getStudentProject, listStudentProjects,
     upsertSubmission, reviewSubmission, getSubmission, getProjectSummary, listReviewSubmissions,
   };
@@ -32,11 +36,28 @@ export function createCourseWorkbenchRepository(db) {
     return db.transaction(() => {
       const draft = getDraft(id);
       if (!draft) return null;
+      const courseVersion = createCourseVersion(draft);
       db.prepare("UPDATE course_drafts SET status='published', published_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP WHERE id=?").run(id);
       const result = db.prepare("INSERT INTO team_projects (course_draft_id, class_id, title, description, milestones_json) VALUES (?, ?, ?, ?, ?)")
         .run(id, draft.class_id, draft.projectOutline.title, draft.projectOutline.description, json(draft.projectOutline.milestones));
-      return getProject(Number(result.lastInsertRowid));
+      return { ...getProject(Number(result.lastInsertRowid)), courseVersion };
     })();
+  }
+
+  function createCourseVersion(draft) {
+    const spec = createLegacyCourseSpec(draft);
+    const encoded = json(spec);
+    const contentHash = crypto.createHash("sha256").update(encoded).digest("hex");
+    const result = db.prepare(`INSERT INTO course_versions
+      (course_draft_id, course_key, revision, schema_version, course_spec_json, content_hash)
+      VALUES (?, ?, ?, ?, ?, ?)`)
+      .run(draft.id, spec.courseKey, spec.revision, spec.schemaVersion, encoded, contentHash);
+    return getCourseVersion(Number(result.lastInsertRowid));
+  }
+
+  function getCourseVersion(id) {
+    const row = db.prepare("SELECT * FROM course_versions WHERE id=?").get(id);
+    return row ? { ...row, courseSpec: parse(row.course_spec_json, {}) } : null;
   }
 
   function getProject(id) {
