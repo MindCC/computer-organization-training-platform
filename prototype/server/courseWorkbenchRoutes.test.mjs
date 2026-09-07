@@ -49,6 +49,7 @@ test("teacher publishes a course, assigns a team, then reviews the student's mil
     result = await request(baseUrl, `/api/teacher/course-drafts/${draftId}/publish`, { method: "POST" }, teacherJar);
     assert.equal(result.response.status, 200);
     const projectId = result.body.project.id;
+    const courseVersionId = result.body.project.courseVersion.id;
     result = await request(baseUrl, `/api/teacher/course-drafts/${draftId}/project/teams`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "第一组", members: [{ studentId: 2, role: "实验" }] }) }, teacherJar);
     assert.equal(result.response.status, 201);
 
@@ -63,6 +64,13 @@ test("teacher publishes a course, assigns a team, then reviews the student's mil
     assert.equal(result.body.summary.reviewed, 1);
     assert.equal(result.body.submissions[0].studentDisplayName, "学生");
     assert.equal(result.body.submissions[0].milestoneTitle, "方案");
+    result = await request(baseUrl, "/api/student/lab-runs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ courseVersionId, stepId: "guide-cpu" }) }, studentJar);
+    assert.equal(result.response.status, 201);
+    const runId = result.body.run.id;
+    result = await request(baseUrl, `/api/student/lab-runs/${runId}/events`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ baseRevision: 0, batchId: "route-batch-1", events: [{ eventId: "route-event-1", type: "cpu.executeInstruction", payload: {} }] }) }, studentJar);
+    assert.equal(result.body.run.state.revision, 1);
+    result = await request(baseUrl, `/api/student/lab-runs/${runId}/events`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ baseRevision: 0, batchId: "route-batch-1", events: [{ eventId: "route-event-1", type: "cpu.executeInstruction", payload: {} }] }) }, studentJar);
+    assert.equal(result.body.run.duplicate, true);
   } finally { await new Promise((resolve) => server.close(resolve)); }
 });
 

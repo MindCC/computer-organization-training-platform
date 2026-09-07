@@ -56,6 +56,9 @@ import { createAssignmentRouter } from "./assignmentRoutes.js";
 import { createCourseWorkbenchRepository } from "./courseWorkbenchRepository.js";
 import { createCourseWorkbenchService } from "./courseWorkbenchService.js";
 import { createCourseWorkbenchRouter } from "./courseWorkbenchRoutes.js";
+import { createLabRunRepository } from "./labRunRepository.js";
+import { createLabRunService } from "./labRunService.js";
+import { createLabRunRouter } from "./labRunRoutes.js";
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 import { buildMistakeBook } from "../src/mistakeBook.js";
@@ -104,6 +107,8 @@ export function createApp(options = {}) {
   const assignmentService = createAssignmentService({ db, repository: assignmentRepository });
   const courseWorkbenchRepository = createCourseWorkbenchRepository(db);
   const courseWorkbenchService = createCourseWorkbenchService({ db, repository: courseWorkbenchRepository, generateSuggestion: options.generateCourseDraftSuggestion });
+  const labRunRepository = createLabRunRepository(db);
+  const labRunService = createLabRunService({ db, repository: labRunRepository });
 
   // Request logger with response timing
   app.use((req, res, next) => {
@@ -132,6 +137,7 @@ export function createApp(options = {}) {
   app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole }));
   app.use("/api", createAssignmentRouter({ service: assignmentService, requireRole }));
   app.use("/api", createCourseWorkbenchRouter({ service: courseWorkbenchService, requireRole, audit }));
+  app.use("/api", createLabRunRouter({ service: labRunService, requireRole, audit }));
 
   // Deep health check
   const _startedAt = Date.now();
