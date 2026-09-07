@@ -12,6 +12,15 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   const workshop = page.getByRole('region', { name: '3D 交互装机工作台' });
   await expect(workshop).toBeVisible();
   await expect(workshop.locator('canvas')).toHaveCount(1);
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-model-source', 'blender-glb');
+  await page.getByRole('button', { name: '固定主板', exact: true }).click();
+  await expect(page.locator('.assembly-action-strip')).toContainText('请先打开侧板');
+  async function prepareCase() {
+    await page.getByRole('button', { name: '打开侧板', exact: true }).click();
+    await page.getByRole('button', { name: '固定主板', exact: true }).click();
+    await page.getByRole('button', { name: '固定电源', exact: true }).click();
+  }
+  await prepareCase();
   await expect(page.getByRole('button', { name: '开机自检', exact: true })).toBeDisabled();
   await expect(page.getByRole('button', { name: '请先完成装配与开机自检' })).toBeDisabled();
   await page.setViewportSize({ width: 1366, height: 768 });
@@ -73,6 +82,17 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await page.locator('[data-rack="storage"]').click();
   await page.locator('[data-socket="storage"]').click();
   await expect(page.locator('.assembly-counter strong')).toHaveText('3 / 3');
+  await expect(page.getByRole('button', { name: '开机自检', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: '固定CPU 散热器', exact: true }).click();
+  await page.getByRole('combobox', { name: '目标接口', exact: true }).selectOption('cpu-power');
+  await page.getByRole('button', { name: '连接接口', exact: true }).click();
+  await expect(page.locator('.assembly-action-strip')).toContainText('接口不匹配');
+  for (const [from,to] of [['psu-atx','board-atx'],['psu-cpu','cpu-power'],['cooler-fan','cpu-fan'],['ssd-data','board-sata'],['psu-sata','ssd-power']]) {
+    await page.getByRole('combobox', { name: '线缆端', exact: true }).selectOption(from);
+    await page.getByRole('combobox', { name: '目标接口', exact: true }).selectOption(to);
+    await page.getByRole('button', { name: '连接接口', exact: true }).click();
+  }
+  await expect(page.getByRole('button', { name: '开机自检', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '开机自检', exact: true }).click();
   await expect(page.locator('.assembly-boot')).toContainText('开机成功', { timeout: 10000 });
   await expect(page.getByRole('button', { name: '交付装机 · 提交方案' })).toBeEnabled();
@@ -88,6 +108,8 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await expect(page.locator('.assembly-action-strip')).toContainText('已恢复');
   await page.locator('.hardware-case').filter({ hasNotText: caseName }).first().click();
   await expect(page.locator('.assembly-counter strong')).toHaveText('0 / 3');
+  await prepareCase();
+  await page.waitForTimeout(600);
   const cancelRack = await partPoint('cpu');
   await page.mouse.move(cancelRack.x, cancelRack.y);
   await page.mouse.down();
@@ -131,5 +153,11 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   assert.ok(mobileRack.x >= mobileCanvas.x && mobileRack.x + mobileRack.width <= mobileCanvas.x + mobileCanvas.width, 'active mobile part remains within viewport');
   await page.screenshot({ path: path.join(artifactDir, 'assembly-mobile.png'), fullPage: true });
   await page.setViewportSize({ width: 1366, height: 768 });
+  await page.route('**/models/teaching-pc.glb', route => route.abort());
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.locator('.sidebar-nav .nav-item').filter({ hasText: '硬件配置挑战' }).click();
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-model-source', 'procedural');
+  await expect(page.locator('.assembly-model-status')).toContainText('加载失败');
+  await page.unroute('**/models/teaching-pc.glb');
   console.log('  PASS 3D drag/drop, wrong socket, removal, keyboard alternative, POST, config invalidation, discrete GPU and responsive layout');
 }

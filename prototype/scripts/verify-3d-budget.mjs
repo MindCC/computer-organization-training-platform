@@ -13,7 +13,10 @@ assert.ok(manifest[entryKey], `3D entry ${entryKey} was not found`);
 const chunks = await measureChunks({
   root: path.join(root, "dist"),
   manifest,
-  keys: collectStaticChunkKeys(manifest, entryKey, { excludeEntries: true }),
+  keys: [...new Set([
+    ...collectStaticChunkKeys(manifest, entryKey, { excludeEntries: true }),
+    ...collectStaticChunkKeys(manifest, "src/components/teachingPcAsset.js", { excludeEntries: true }),
+  ])],
 });
 const maxChunkBytes = 500 * 1024;
 const maxGzipBytes = 220 * 1024;

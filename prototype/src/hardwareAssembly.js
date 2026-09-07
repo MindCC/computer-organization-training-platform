@@ -3,7 +3,7 @@ import { HARDWARE_PARTS } from './hardwareGame.js';
 export const ASSEMBLY_PARTS = [
   { id: 'cpu', sceneId: 'cpu', label: '处理器', socket: 'CPU 插座', hint: '对齐金色三角标记，放入 CPU 插座。', rack: [-1.15, -0.25, -0.62] },
   { id: 'memory', sceneId: 'ram-0', label: '内存', socket: 'DIMM 插槽', hint: '将金手指缺口对准 DIMM 插槽，垂直压入。', rack: [-1.15, -0.2, -0.2] },
-  { id: 'storage', sceneId: 'storage', label: '硬盘', socket: '硬盘托架', hint: '放入硬盘托架，教学模式自动连接 SATA 数据与供电。', rack: [-1.15, -0.25, 0.23] },
+  { id: 'storage', sceneId: 'storage', label: '硬盘', socket: '硬盘托架', hint: '放入硬盘托架，随后连接 SATA 数据与供电。', rack: [-1.15, -0.25, 0.23] },
   { id: 'gpu', sceneId: 'gpu', label: '显卡', socket: 'PCIe 插槽', hint: '将显卡金手指对准 PCIe 插槽。', rack: [-1.15, -0.25, 0.68] },
 ];
 

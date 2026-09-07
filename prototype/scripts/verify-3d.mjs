@@ -208,6 +208,8 @@ try {
   await fallbackPage.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
   await fallbackPage.waitForSelector(".assembly-workshop", { timeout: 20_000 });
   check("Builder explains unavailable WebGL", await fallbackPage.locator(".assembly-fallback").isVisible());
+  await fallbackPage.getByRole('button', { name: '打开侧板', exact: true }).click();
+  await fallbackPage.getByRole('button', { name: '固定主板', exact: true }).click();
   await fallbackPage.getByRole('button', { name: '安装到CPU 插座', exact: true }).click();
   check("Fallback can install parts", (await fallbackPage.locator('.assembly-counter strong').textContent()).includes('1 / 3'));
 

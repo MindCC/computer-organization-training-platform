@@ -100,3 +100,14 @@
   .hardware-game-page .hardware-mission-card.budget { grid-column: 1; }
   .hardware-game-page .hardware-game-heading h1 { font-size: 22px; }
 }
+
+.assembly-model-status { position: absolute; left: 16px; bottom: 36px; font-size: 11px; color: #284d56; background: #f4faf7e8; border-radius: 6px; padding: 4px 8px; pointer-events: none; }
+.assembly-structure-controls { padding: 12px 18px; border-top: 1px solid #d8e2dd; background: #f3f7f5; display: grid; gap: 10px; }
+.assembly-structure-parts, .assembly-cable-controls, .assembly-cable-list { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.assembly-structure-controls button { padding: 7px 10px; border: 1px solid #cad9d3; border-radius: 6px; background: white; color: #23463f; font-size: 12px; cursor: pointer; }
+.assembly-structure-controls button[aria-pressed="true"] { background: #d9efe5; border-color: #47a88e; }
+.assembly-structure-controls button:disabled { opacity: .55; cursor: default; }
+.assembly-cable-controls label { display: grid; gap: 4px; font-size: 11px; color: #47635b; min-width: 0; }
+.assembly-cable-controls select { max-width: 100%; min-width: 0; padding: 6px; border: 1px solid #cad9d3; border-radius: 5px; background: white; color: #24483f; }
+.assembly-cable-list button { font-size: 10px; padding: 4px 7px; }
+@media (max-width: 700px) { .assembly-cable-controls { display: grid; grid-template-columns: minmax(0,1fr) 12px minmax(0,1fr); } .assembly-cable-controls > button { grid-column: 1 / -1; } .assembly-structure-controls { padding: 10px; } }

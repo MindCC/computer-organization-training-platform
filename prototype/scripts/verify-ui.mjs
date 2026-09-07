@@ -190,8 +190,12 @@ for (const challenge of CIRCUIT_CHALLENGES.filter((item) => item.id !== "compute
 await openHardwareGame(page);
 await page.locator(".assembly-workshop").waitFor({ state: "visible", timeout: 10_000 });
 assert.equal(await page.locator(".assembly-part-tabs button").count(), 4, "workshop exposes four assembly categories");
+await page.locator('.assembly-workshop canvas[data-model-source="blender-glb"]').waitFor({ state: "visible", timeout: 20_000 });
 assert.equal(await page.locator(".assembly-workshop canvas").count(), 1, "hardware challenge renders the modeled 3D workbench");
 assert.equal(await page.locator(".profile-menu").count(), 0, "profile menu closes before entering the hardware workbench");
+await page.getByRole('button', { name: '打开侧板', exact: true }).click();
+await page.getByRole('button', { name: '固定主板', exact: true }).click();
+await page.getByRole('button', { name: '固定电源', exact: true }).click();
 await page.locator('.assembly-part-tabs button').filter({ hasText: '内存' }).click();
 await page.locator('#assembly-variant').selectOption('mem-16');
 assert.equal(await page.locator('#assembly-variant').inputValue(), 'mem-16');
@@ -200,6 +204,12 @@ await page.locator('.assembly-part-tabs button').filter({ hasText: '处理器' }
 await page.getByRole('button', { name: '安装到CPU 插座', exact: true }).last().click();
 await page.locator('.assembly-part-tabs button').filter({ hasText: '硬盘' }).click();
 await page.getByRole('button', { name: '安装到硬盘托架', exact: true }).last().click();
+await page.getByRole('button', { name: '固定CPU 散热器', exact: true }).click();
+for (const [from,to] of [['psu-atx','board-atx'],['psu-cpu','cpu-power'],['cooler-fan','cpu-fan'],['ssd-data','board-sata'],['psu-sata','ssd-power']]) {
+  await page.getByRole('combobox', { name: '线缆端', exact: true }).selectOption(from);
+  await page.getByRole('combobox', { name: '目标接口', exact: true }).selectOption(to);
+  await page.getByRole('button', { name: '连接接口', exact: true }).click();
+}
 await page.getByRole('button', { name: '开机自检', exact: true }).click();
 await page.getByRole('button', { name: '交付装机 · 提交方案' }).waitFor({ state: 'visible' });
 await page.screenshot({ path: artifactPath("precision-workshop-desktop.png"), fullPage: true });

@@ -1,3 +1,4 @@
+import { createStructureScene } from './assemblyStructureScene.js';
 import { AmbientLight } from "three/src/lights/AmbientLight.js";
 import { DirectionalLight } from "three/src/lights/DirectionalLight.js";
 import { Color } from "three/src/math/Color.js";
@@ -181,6 +182,28 @@ export function createNativeComputerScene(container, options = {}) {
   for (const detail of MOBO_DETAILS) {
     motherboard?.add(createPartMesh(detail, "motherboard", registry));
   }
+  if (options.asset) {
+    for (const [id, entry] of partGroups) {
+      const modelName = id === 'ram-0' ? 'ram_0' : id;
+      const node = options.asset.scene.getObjectByName(modelName);
+      entry.group.clear();
+      if (!node) continue;
+      const anchorName = modelName === 'case' ? 'assembly_origin' : 'socket_' + (modelName === 'ram_0' ? 'memory' : modelName);
+      const anchor = options.asset.scene.getObjectByName(anchorName);
+      if (anchor) entry.part = { ...entry.part, basePos: anchor.getWorldPosition(new Vector3()).multiplyScalar(3.1).toArray() };
+      node.removeFromParent();
+      node.position.set(0, 0, 0);
+      node.scale.multiplyScalar(3.1);
+      node.traverse(mesh => {
+        if (!mesh.isMesh) return;
+        mesh.userData.partId = id;
+        mesh.castShadow = true; mesh.receiveShadow = true;
+      });
+      entry.group.add(node);
+    }
+    renderer.domElement.dataset.modelSource = 'blender-glb';
+  } else renderer.domElement.dataset.modelSource = 'procedural';
+  const structureScene = options.assembly ? createStructureScene(scene, partGroups, options.asset, registry) : null;
   if (options.assembly) assemblyInteraction = createAssemblyInteraction(container, renderer.domElement, camera, partGroups, {
     ...options, scene, registry,
     onGestureEnd({ moved, cancelled }) {
@@ -317,6 +340,7 @@ export function createNativeComputerScene(container, options = {}) {
       });
     }
     assemblyInteraction?.update(viewState.assembly, viewState.reducedMotion);
+    structureScene?.update(viewState.assembly, viewState.reducedMotion);
     workshop.update(Boolean(viewState.assembly?.powered), elapsed, viewState.reducedMotion);
     const showConnections = viewState.showConnections;
     for (let index = 0; index < busEntries.length; index += 1) {
@@ -400,6 +424,7 @@ export function createNativeComputerScene(container, options = {}) {
       renderer.domElement.removeEventListener("wheel", onWheel);
       renderer.domElement.removeEventListener("contextmenu", preventContextMenu);
       renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
+      structureScene?.dispose();
       registry.dispose();
       keyLight.shadow.map?.dispose();
       assemblyInteraction?.dispose();
