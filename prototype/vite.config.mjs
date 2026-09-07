@@ -7,6 +7,7 @@ const apiProxyTarget =
   process.env.PROTOTYPE_API_PROXY_TARGET ?? "http://127.0.0.1:8787";
 
 export default defineConfig({
+  resolve: { alias: [{ find: /^three$/, replacement: path.resolve("node_modules/three/src/Three.js") }] },
   build: {
     rollupOptions: {
       output: {
@@ -15,6 +16,7 @@ export default defineConfig({
           // Math/constants have no dependency on the renderer or scene graph.
           // Splitting the renderer from core creates a cycle with eager initializers.
           if (id.includes('/node_modules/three/src/')) {
+            if (id.includes('/src/loaders/') || id.includes('/src/animation/')) return 'three-assets';
             if (id.includes('/src/math/') || /\/src\/(constants|utils)\.js$/.test(id)) return 'three-math';
             return 'three-runtime';
           }

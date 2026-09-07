@@ -191,7 +191,7 @@ try {
   assert.deepEqual(pageErrors, [], "performance QA must not emit page errors");
   async function openAssembly() {
     await page.locator('.sidebar-nav .nav-item').filter({ hasText: '硬件配置挑战' }).click();
-    await page.locator('.assembly-workshop canvas').waitFor({ state: 'visible' });
+    await page.locator('.assembly-workshop canvas[data-model-source="blender-glb"]').waitFor({ state: 'visible' });
   }
   async function leaveAssembly() {
     await page.locator('.sidebar-nav .nav-item').filter({ hasText: '课程首页' }).click();
@@ -199,6 +199,19 @@ try {
   }
   await returnHome(page);
   await openAssembly();
+  await page.getByRole('button', { name: '打开侧板', exact: true }).click();
+  await page.getByRole('button', { name: '固定主板', exact: true }).click();
+  await page.getByRole('button', { name: '固定电源', exact: true }).click();
+  for (const [label,socket] of [['处理器','CPU 插座'],['内存','DIMM 插槽'],['硬盘','硬盘托架']]) {
+    await page.locator('.assembly-part-tabs button').filter({ hasText: label }).click();
+    await page.getByRole('button', { name: '安装到'+socket, exact: true }).last().click();
+  }
+  await page.getByRole('button', { name: '固定CPU 散热器', exact: true }).click();
+  for (const [from,to] of [['psu-atx','board-atx'],['psu-cpu','cpu-power'],['cooler-fan','cpu-fan'],['ssd-data','board-sata'],['psu-sata','ssd-power']]) {
+    await page.getByRole('combobox', { name: '线缆端', exact: true }).selectOption(from);
+    await page.getByRole('combobox', { name: '目标接口', exact: true }).selectOption(to);
+    await page.getByRole('button', { name: '连接接口', exact: true }).click();
+  }
   await leaveAssembly();
   const initialAssemblyHeap = await collectHeap(cdp);
   for (let cycle = 0; cycle < 10; cycle += 1) {
