@@ -44,7 +44,7 @@ export function HardwareGamePage({
     setHardwareFeedback(null);
   }
 
-  if(practiceOpen)return <div className="hardware-game-page"><div className="hardware-training-entry"><button type="button" onClick={()=>setPracticeOpen(false)}>返回客户订单</button><span>教学练习 · 订单装配进度已保留</span></div><AssemblyPractice initialParts={hardwareSelection} caseId={selectedCase.id}/></div>;
+  if(practiceOpen)return <div className="hardware-game-page"><div className="hardware-training-entry"><button type="button" onClick={()=>setPracticeOpen(false)}>返回客户订单</button><span>教学练习 · 订单装配进度已保留</span></div><AssemblyPractice key={draftKey??selectedCase.id} initialParts={hardwareSelection} caseId={selectedCase.id} userId={userId}/></div>;
 
   return (
     <div className="hardware-game-page">

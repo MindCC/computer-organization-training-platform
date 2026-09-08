@@ -11,7 +11,7 @@ import { practiceNextStep, practiceBootFeedback } from '../assemblyPractice.js';
 
 const BOOT_STEPS = ['供电正常 · 主板已通电', 'CPU / 内存自检通过', '存储设备已识别', '显示输出就绪 · 系统启动成功'];
 
-export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCategory, onCategoryChange, onAssemblyReady, draftKey, draftStorage, practiceMode, onPracticeEvent }) {
+export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCategory, onCategoryChange, onAssemblyReady, draftKey, draftStorage, practiceMode, onPracticeEvent, practicePersistence }) {
   const [installed, setInstalled] = useState(() => loadAssemblyDraft(draftStorage, draftKey, parts));
   const [message, setMessage] = useState(() => Object.keys(installed).length ? (practiceMode?'预装主机已就绪，请根据工单症状排查。':'已恢复本订单的装配进度，请重新开机自检。') : '从左侧台面拿起零件，拖到机箱中的对应插槽。');
   const [structure, setStructure] = useState(() => readStructure(draftStorage, draftKey, installed, parts));
@@ -132,7 +132,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
       <div className="assembly-counter"><strong>{status.installed}<span> / {status.total}</span></strong><small>部件已安装</small></div>
       {showGuide && hintsVisible && !bootCurrent && !cableMode && <div className="assembly-guide"><Hand size={20} /><span><strong>{active.label+' · '+active.socket}</strong><small>{active.hint+' 拖动或点击安装，空白处拖动旋转。'}</small></span></div>}
       {bootCurrent && <div className={'assembly-boot' + (powered ? ' online' : '')} role="status"><Power size={25} /><strong>{powered ? '开机成功' : '正在开机自检…'}</strong><div>{BOOT_STEPS.slice(0, boot.step).map(line => <p key={line}>✓ {line}</p>)}</div>{powered && <small>{practiceMode?'练习已完成，请查看下方复盘或开始新一轮。':score.passed ? '装配与订单要求均已满足，可以交付。' : '装配正常，客户配置要求仍需调整。'}</small>}</div>}
-      <div className="assembly-scene-footer"><span>WORKBENCH A · 防静电工作台</span><span>{practiceMode?'本次练习进度 · 刷新后重新开始':saved ? '本机进度已保存 · 开机状态不保留' : '进度仅在本次操作中保留'}</span></div>
+      <div className="assembly-scene-footer"><span>WORKBENCH A · 防静电工作台</span><span>{practiceMode?practicePersistence:saved ? '本机进度已保存 · 开机状态不保留' : '进度仅在本次操作中保留'}</span></div>
     </div>
     <div className="assembly-action-strip" role="status"><Wrench size={17} /><span className="assembly-practice-step">{practiceMode&&hintsVisible&&!powered&&<><b>步骤 {nextStep.number}/{nextStep.total} · {nextStep.title}</b><small>{nextStep.target} {nextStep.why}</small></>}{message}</span>{practiceMode?<button className="practice-hint-button" type="button" disabled={powered||booting} onClick={()=>{setHintSignature(signature);onPracticeEvent?.({type:'hint',message:nextStep.title});}}>查看提示</button>:<strong>{score.metrics.totalPrice <= score.targets.budget ? '预算内' : '超出预算'} · ¥{score.metrics.totalPrice} / ¥{score.targets.budget}</strong>}</div>
     <div className="assembly-structure-controls" aria-label="机箱与接线步骤">

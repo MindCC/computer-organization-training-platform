@@ -6,4 +6,6 @@
 .practice-metrics {display:flex;gap:24px;flex-wrap:wrap;}.practice-metrics span {font-size:12px;color:#526b75;}.practice-metrics strong {display:block;font-size:22px;color:#08796b;margin-top:5px;}.practice-review li {font-size:13px;line-height:1.7;}
 .assembly-practice-step {display:grid;gap:3px;}.assembly-practice-step small {font-size:11px;line-height:1.5;}.assembly-action-strip .practice-hint-button {margin-left:auto;white-space:nowrap;font-size:11px;}
 .assembly-expert-target {max-width:180px;padding:7px;border:1px solid #bed1d3;border-radius:5px;}
+.practice-save-status {padding:9px 14px;background:#edf8f3;color:#215f52;border-radius:7px;font-size:12px;}
+.practice-history h2 small {font-size:12px;font-weight:400;color:#61767f;}.practice-history details {border-top:1px solid #dce7e6;padding:12px 0;}.practice-history summary {cursor:pointer;font-size:13px;line-height:1.6;overflow-wrap:anywhere;}
 @media(max-width:700px){.practice-setup label{width:100%;}.practice-metrics{gap:16px;}.assembly-action-strip{flex-wrap:wrap;}.assembly-expert-target{max-width:130px;}}

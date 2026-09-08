@@ -233,6 +233,7 @@ try {
   for(let cycle=0;cycle<10;cycle++){
     await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
     await page.locator('.assembly-practice canvas[data-model-source="blender-glb"]').waitFor();
+    await page.getByRole('combobox',{name:'练习模式',exact:true}).selectOption('guided');
     await page.getByRole('combobox',{name:'练习模式',exact:true}).selectOption('fault');
     await page.locator('.assembly-practice canvas[data-model-source="blender-glb"]').waitFor();
     await page.getByRole('button',{name:'返回客户订单',exact:true}).click();
