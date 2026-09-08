@@ -16,6 +16,8 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   const [structure, setStructure] = useState(() => readStructure(draftStorage, draftKey, installed, parts));
   const [cableFrom, setCableFrom] = useState(CABLES[0].from);
   const [cableTo, setCableTo] = useState(CABLES[0].to);
+  const [cableMode,setCableMode]=useState(false);
+  const [selectedConnector,setSelectedConnector]=useState(null);
   const [saved, setSaved] = useState(false);
   const [boot, setBoot] = useState(null);
   const [cameraPreset, setCameraPreset] = useState('perspective');
@@ -82,6 +84,15 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
     setMessage(result.message);
     if (result.ok) { setStructure(result.state); invalidate(); }
   }
+  function pickConnector(id) {
+    if(booting || powered || !validStructure.open)return;
+    const cable=CABLES.find(c=>c.from===id);
+    if(cable){setSelectedConnector(id);setCableFrom(id);setMessage('已拿起'+cable.fromLabel+'，请点击主机上的目标接口。');return;}
+    if(!selectedConnector){setMessage('请先点击线缆插头。');return;}
+    const result=connectCable(validStructure,selectedConnector,id,validInstalled,parts);
+    setCableTo(id);setMessage(result.message);
+    if(result.ok){setStructure(result.state);setSelectedConnector(null);invalidate();}
+  }
   function changeVariant(value) {
     invalidate();
     const next = { ...validInstalled }; delete next[active.id]; setInstalled(next);
@@ -89,8 +100,8 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   }
   const sceneState = useMemo(() => ({ visiblePartIds: COMPUTER_PARTS.map(part => part.id), selectedPartId: active.sceneId,
     reducedMotion, cameraPreset, resetKey,
-    assembly: { installed: validInstalled, activeId: active.id, integrated, powered: powered || booting, locked: powered || booting || !validStructure.open || !validStructure.motherboard, structure: validStructure },
-  }), [signature, active.id, integrated, powered, booting, reducedMotion, cameraPreset, resetKey]);
+    assembly: { installed: validInstalled, activeId: active.id, integrated, powered: powered || booting, locked: powered || booting || !validStructure.open || !validStructure.motherboard, structure: validStructure, cableMode, selectedConnector },
+  }), [signature, active.id, integrated, powered, booting, reducedMotion, cameraPreset, resetKey,cableMode,selectedConnector]);
   return <section className={'assembly-workshop' + (focused ? ' focused' : '')} aria-label="3D 交互装机工作台">
     <header className="assembly-toolbar">
       <div className="assembly-brand"><Cube size={23} weight="duotone" /><div><small>PRECISION WORKSHOP / 01</small><h2>装机实验室</h2></div></div>
@@ -98,16 +109,17 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
       <div className="assembly-view-controls"><button type="button" aria-pressed={cameraPreset === 'part'} onClick={() => { setCameraPreset('part'); setResetKey(value => value + 1); }}>部件近景</button><button type="button" aria-pressed={cameraPreset === 'top'} onClick={() => setCameraPreset(current => current === 'top' ? 'perspective' : 'top')}>俯视 / 透视</button><button type="button" onClick={() => { setCameraPreset('perspective'); setResetKey(value => value + 1); }} aria-label="重置观察视角"><ArrowCounterClockwise size={16} /></button><button type="button" aria-pressed={showGuide} onClick={() => setShowGuide(value => !value)}>操作提示</button></div>
     </header>
     <div className="assembly-viewport">
-      <NativeComputerScene assembly viewState={sceneState} onInstall={install} onPartSelect={sceneId => { const part = ASSEMBLY_PARTS.find(part => part.sceneId === sceneId); if (part) { onCategoryChange(part.id); setMessage(part.hint); } }} fallback={<div className="assembly-fallback"><Cube size={40} /><strong>当前设备无法启动 3D 场景</strong><p>可以用下方的部件选择与“安装到插槽”完成教学操作。</p></div>} />
+      <NativeComputerScene assembly viewState={sceneState} onInstall={install} onConnector={pickConnector} onPartSelect={sceneId => { const part = ASSEMBLY_PARTS.find(part => part.sceneId === sceneId); if (part) { onCategoryChange(part.id); setMessage(part.hint); } }} fallback={<div className="assembly-fallback"><Cube size={40} /><strong>当前设备无法启动 3D 场景</strong><p>可以用下方的部件选择与“安装到插槽”完成教学操作。</p></div>} />
       <div className="assembly-scene-heading"><span className="assembly-live-dot" />{powered ? 'SYSTEM ONLINE' : 'ASSEMBLY MODE'}<small>{validStructure.open ? '侧板已打开' : '先打开侧板'} · {validStructure.motherboard ? '主板已固定' : '主板待固定'} · {validStructure.psu ? '电源已固定' : '电源待固定'}</small></div>
       <div className="assembly-counter"><strong>{status.installed}<span> / {status.total}</span></strong><small>部件已安装</small></div>
-      {showGuide && !bootCurrent && <div className="assembly-guide"><Hand size={20} /><span><strong>{active.label} · {active.socket}</strong><small>{active.hint} 拖动或点击安装，空白处拖动旋转。</small></span></div>}
+      {showGuide && !bootCurrent && !cableMode && <div className="assembly-guide"><Hand size={20} /><span><strong>{active.label+' · '+active.socket}</strong><small>{active.hint+' 拖动或点击安装，空白处拖动旋转。'}</small></span></div>}
       {bootCurrent && <div className={'assembly-boot' + (powered ? ' online' : '')} role="status"><Power size={25} /><strong>{powered ? '开机成功' : '正在开机自检…'}</strong><div>{BOOT_STEPS.slice(0, boot.step).map(line => <p key={line}>✓ {line}</p>)}</div>{powered && <small>{score.passed ? '装配与订单要求均已满足，可以交付。' : '装配正常，客户配置要求仍需调整。'}</small>}</div>}
       <div className="assembly-scene-footer"><span>WORKBENCH A · 防静电工作台</span><span>{saved ? '本机进度已保存 · 开机状态不保留' : '进度仅在本次操作中保留'}</span></div>
     </div>
     <div className="assembly-action-strip" role="status"><Wrench size={17} /><span>{message}</span><strong>{score.metrics.totalPrice <= score.targets.budget ? '预算内' : '超出预算'} · ¥{score.metrics.totalPrice} / ¥{score.targets.budget}</strong></div>
     <div className="assembly-structure-controls" aria-label="机箱与接线步骤">
       <div className="assembly-structure-parts">
+        <button type="button" aria-pressed={cableMode} disabled={booting || powered || !validStructure.open} onClick={()=>{setCableMode(value=>!value);setSelectedConnector(null);setCameraPreset('perspective');setResetKey(value=>value+1);}}>{cableMode?'结束接线':'连接线缆'}</button>
         {[['open', '侧板'], ['motherboard', '主板'], ['psu', '电源'], ['cooler', 'CPU 散热器']].map(([id, label]) =>
           <button type="button" key={id} disabled={booting || powered} aria-pressed={Boolean(validStructure[id])} onClick={() => changeStructure(id, !validStructure[id])}>
             {id === 'open' ? (validStructure.open ? '合上侧板' : '打开侧板') : (validStructure[id] ? '拆下' : '固定') + label}

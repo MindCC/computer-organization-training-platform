@@ -10,6 +10,7 @@ import { EdgesGeometry } from 'three/src/geometries/EdgesGeometry.js';
 import { LineSegments } from 'three/src/objects/LineSegments.js';
 import { LineBasicMaterial } from 'three/src/materials/LineBasicMaterial.js';
 import { MeshBasicMaterial } from 'three/src/materials/MeshBasicMaterial.js';
+import { socketApproachAllowed } from './teachingAssetRig.js';
 
 // React validates every requested installation. This controller only owns gestures and projection.
 export function createAssemblyInteraction(container, canvas, camera, partGroups, options) {
@@ -37,7 +38,8 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
     const outline = new LineSegments(edges, outlineMaterial);
     outline.position.copy(bounds.getCenter(new Vector3()));
     outline.renderOrder = 5;
-    preview.add(outline);
+    options.scene.add(outline);outline.visible=false;
+    preview.userData.outline=outline;
     preview.position.fromArray(partGroups.get(part.sceneId).part.basePos);
     preview.visible = false;
     options.scene.add(preview);
@@ -81,7 +83,7 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
   }
   function pointerDown(event) {
     if (gesture) return true;
-    if (!state || state.locked || event.button !== 0) return false;
+    if (!state || state.locked || state.cableMode || event.button !== 0) return false;
     cast(event);
     const available = ASSEMBLY_PARTS.filter(part => !state.installed[part.id] && !(part.id === 'gpu' && state.integrated));
     const hit = raycaster.intersectObjects(available.map(part => partGroups.get(part.sceneId).group), true)[0];
@@ -95,14 +97,22 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
     canvas.style.cursor = 'grabbing';
     return true;
   }
+  function socketAt(event) {
+    const bounds=cast(event);
+    const candidates=labels.filter(({part})=>!(part.id==='gpu' && state.integrated));
+    // A direct hit on the authored part preview has priority over a label's projected target.
+    const hits=candidates.map(({part})=>({id:part.id,hit:raycaster.intersectObject(previews.get(part.id),true)[0]})).filter(x=>x.hit).sort((a,b)=>a.hit.distance-b.hit.distance);
+    const id=hits[0]?.id ?? nearestAssemblySocket(candidates,event.clientX-bounds.left,event.clientY-bounds.top);
+    const entry=partGroups.get(ASSEMBLY_PARTS.find(p=>p.id===id)?.sceneId);
+    return entry?.pose && !socketApproachAllowed(entry.pose,camera.position) ? null : id;
+  }
   function pointerMove(event) {
     if (!gesture) return false;
     if (event.pointerId !== gesture.pointerId) return true;
     gesture.moved ||= Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) > 5;
     cast(event);
     if (gesture.moved && raycaster.ray.intersectPlane(plane, point)) gesture.group.position.copy(point);
-    const bounds = canvas.getBoundingClientRect();
-    hoveredSocket = nearestAssemblySocket(labels.filter(({part}) => !(part.id === 'gpu' && state.integrated)), event.clientX - bounds.left, event.clientY - bounds.top);
+    hoveredSocket=socketAt(event);
     return true;
   }
   function pointerUp(event, cancelled = false) {
@@ -115,18 +125,14 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
     blockClick = true;
     if (current.moved && !cancelled) {
-      const bounds = canvas.getBoundingClientRect();
-      const x = event.clientX - bounds.left;
-      const y = event.clientY - bounds.top;
-      const candidates = labels.filter(({ part }) => !(part.id === 'gpu' && state.integrated));
-      options.onInstall?.(current.part.id, nearestAssemblySocket(candidates, x, y));
+      options.onInstall?.(current.part.id, socketAt(event));
     }
     options.onGestureEnd?.({ moved: current.moved, cancelled });
     return true;
   }
   function update(nextState, reducedMotion) {
     state = nextState;
-    layer.hidden = !state;
+    layer.hidden = !state || state.cableMode;
     if (!state) return;
     const dragging = Boolean(gesture);
     const wrongTarget = dragging && hoveredSocket && hoveredSocket !== gesture.part.id;
@@ -138,12 +144,13 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
     previewMaterial.color.set(wrongTarget ? '#e5a23c' : '#25bfa4');
     let previewId = '';
     labels.forEach(({ part, element, rackLabel, screen, anchor }, index) => {
-      const { group, part: model } = partGroups.get(part.sceneId);
+      const { group, part: model, pose } = partGroups.get(part.sceneId);
       const installed = Boolean(state.installed[part.id]);
       const hidden = part.id === 'gpu' && state.integrated;
       group.visible = !hidden;
       if (installed && priorInstallation.get(part.id) === false && !reducedMotion) {
-        group.position.fromArray(assemblyEntryPosition(part.id, model.basePos));
+        if (pose) group.position.copy(pose.position).addScaledVector(pose.approach, part.id === 'storage' ? .25 : .18);
+        else group.position.fromArray(assemblyEntryPosition(part.id, model.basePos));
       }
       priorInstallation.set(part.id, installed);
       if (gesture?.part.id !== part.id) group.position.lerp(point.fromArray(installed ? model.basePos : part.rack), reducedMotion ? 1 : 0.14);
@@ -161,7 +168,8 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
       rackLabel.disabled = state.locked;
       rackLabel.classList.toggle('active', state.activeId === part.id);
       const preview = previews.get(part.id);
-      preview.visible = !hidden && !installed && !state.locked && state.activeId === part.id;
+      preview.visible = !hidden && !installed && !state.locked && !state.cableMode && state.activeId === part.id;
+      preview.userData.outline.visible=preview.visible;
       if (preview.visible) previewId = part.id;
     });
     canvas.dataset.preview = previewId;
@@ -171,6 +179,6 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
   return { update, pointerDown, pointerMove, pointerUp,
     isDragging() { return Boolean(gesture); },
     consumeClick() { const result = blockClick; blockClick = false; return result; },
-    dispose() { layer.remove(); dropStatus.remove(); previews.forEach(preview => options.scene.remove(preview)); gesture = null; },
+    dispose() { layer.remove(); dropStatus.remove(); previews.forEach(preview => {options.scene.remove(preview);options.scene.remove(preview.userData.outline);}); gesture = null; },
   };
 }

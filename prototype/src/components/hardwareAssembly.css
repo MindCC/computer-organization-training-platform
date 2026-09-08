@@ -6,8 +6,21 @@
 .assembly-brand h2 { margin: 2px 0 0; font-size: 17px; color: #fff; }
 .assembly-view-controls { display: flex; gap: 6px; flex-wrap: wrap; }
 .assembly-focus-toggle { margin-left: auto; color: #85e3cd; background: transparent; border: 1px solid #4d877b; border-radius: 5px; padding: 8px 10px; font-size: 11px; }
-.assembly-workshop.focused { position: fixed; inset: 12px; z-index: 1500; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto; box-shadow: 0 0 0 40px #0d2029eb; }
+.assembly-workshop.focused { position: fixed; inset: 12px; z-index: 1500; display: grid; grid-template-rows: auto minmax(0, 1fr) auto auto auto; box-shadow: 0 0 0 40px #0d2029eb; }
 .assembly-workshop.focused .assembly-viewport { height: 100%; }
+.assembly-workshop.focused .assembly-console { padding: 8px 16px; }
+.assembly-workshop.focused .assembly-structure-controls { padding: 7px 16px; gap: 6px; }
+.assembly-workshop.focused .assembly-cable-controls { display: none; }
+.assembly-workshop.focused .assembly-part-tabs button { padding: 5px 6px; }
+.assembly-workshop.focused .assembly-power-controls small { display: none; }
+.assembly-workshop.focused .assembly-guide { max-width: 240px; padding: 8px; }
+.assembly-connector-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.assembly-connector-layer[hidden] { display: none; }
+.assembly-connector-leaders { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.assembly-connector-layer button { position:absolute; transform:translate(-50%,-50%); pointer-events:auto; border:1px solid #b98b3d; border-radius:5px; background:#fff5dc; color:#674817; font-size:10px; padding:7px 9px; white-space:nowrap; box-shadow:0 2px 8px #1b354025; }
+.assembly-connector-layer button[hidden] { display:none; }
+.assembly-connector-layer button[data-match=true] { border-color:#087d65; background:#c6f9e7; color:#065a47; }
+@media (max-width:700px) { .assembly-workshop.focused { inset:4px; overflow-y:auto; grid-template-rows:auto minmax(300px,1fr) auto auto auto; } .assembly-connector-layer button { font-size:9px; padding:6px; } }
 .assembly-view-controls button { display: flex; align-items: center; background: #ffffff09; border: 1px solid #ffffff23; color: #e4efef; padding: 8px 10px; border-radius: 5px; font-size: 11px; }
 .assembly-view-controls button[aria-pressed=true] { background: #265951; border-color: #498f83; }
 .assembly-viewport { height: clamp(370px, 49vh, 580px); position: relative; overflow: hidden; background: #dce5e8; }

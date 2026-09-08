@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { canUseWebGL } from "../webglSupport.js";
 import { createNativeComputerScene } from "./nativeComputerScene.js";
 
-export function NativeComputerScene({ viewState, onPartSelect, onInstall, fallback, assembly = false }) {
+export function NativeComputerScene({ viewState, onPartSelect, onInstall, onConnector, fallback, assembly = false }) {
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
   const latestSelectRef = useRef(onPartSelect);
   const latestStateRef = useRef(viewState);
   const latestInstallRef = useRef(onInstall);
   latestInstallRef.current = onInstall;
+  const latestConnectorRef=useRef(onConnector);latestConnectorRef.current=onConnector;
   const [assetMessage, setAssetMessage] = useState(assembly ? '正在加载教学主机模型…' : '');
   const [failed, setFailed] = useState(() => !canUseWebGL());
   latestSelectRef.current = onPartSelect;
@@ -37,6 +38,7 @@ export function NativeComputerScene({ viewState, onPartSelect, onInstall, fallba
         const controller = createNativeComputerScene(containerRef.current, {
           assembly, asset,
           onInstall: (...args) => latestInstallRef.current?.(...args),
+          onConnector: id => latestConnectorRef.current?.(id),
           onPartSelect: (partId) => latestSelectRef.current?.(partId),
           onFailure: () => setFailed(true),
         });

@@ -20,6 +20,7 @@
     "preqa:production": "npm run build -- --manifest",
     "qa:production": "node scripts/run-browser-qa.mjs scripts/verify-production-modules.mjs --production && node scripts/run-browser-qa.mjs scripts/verify-3d.mjs --production",
     "qa:assets": "node scripts/verify-asset-budget.mjs",
+    "assets:export": "node scripts/export-teaching-pc.mjs",
     "preqa:build-budget": "npm run build -- --manifest",
     "qa:build-budget": "node scripts/verify-build-budget.mjs",
     "preqa:3d-budget": "npm run build -- --manifest",

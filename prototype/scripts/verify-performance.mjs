@@ -222,6 +222,9 @@ try {
   assert.ok(assemblyHeapDelta <= heapBudgetBytes, `assembly heap grew ${assemblyHeapDelta} bytes`);
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await openAssembly();
+  await page.getByRole('button', { name: '开机自检', exact: true }).click();
+  await page.locator('.assembly-boot').filter({ hasText: '开机成功' }).waitFor();
+  assert.equal(await page.locator('.assembly-workshop canvas').getAttribute('data-fans-running'), 'true', 'sample the powered model with fans running');
   const assemblyFrames = await sampleFrameRate(page, durationMs);
   assert.ok(assemblyFrames.fps >= 30, `assembly frame rate ${assemblyFrames.fps} is below 30 FPS`);
   assert.ok(assemblyFrames.p95FrameMs <= 50, `assembly p95 frame time ${assemblyFrames.p95FrameMs} exceeds 50ms`);

@@ -1,4 +1,8 @@
 import { createStructureScene } from './assemblyStructureScene.js';
+import { createCableScene } from './assemblyCableScene.js';
+import { attachTeachingPart, readSocketPose, createTeachingMotion } from './teachingAssetRig.js';
+import { addWorkshopReflections } from './workshopLighting.js';
+import { Box3 } from 'three/src/math/Box3.js';
 import { AmbientLight } from "three/src/lights/AmbientLight.js";
 import { DirectionalLight } from "three/src/lights/DirectionalLight.js";
 import { Color } from "three/src/math/Color.js";
@@ -76,7 +80,7 @@ export function createNativeComputerScene(container, options = {}) {
   const renderer = new WebGLRenderer({ antialias: true, powerPreference: "low-power" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.35;
+  renderer.toneMappingExposure = options.assembly ? 1.05 : 1.35;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFSoftShadowMap;
   renderer.domElement.dataset.partPicking = "enabled";
@@ -147,7 +151,7 @@ export function createNativeComputerScene(container, options = {}) {
   renderer.domElement.addEventListener("wheel", onWheel, { passive: false });
   renderer.domElement.addEventListener("contextmenu", preventContextMenu);
 
-  scene.add(new AmbientLight("#e8f5ff", 1.7));
+  scene.add(new AmbientLight("#e8f5ff", options.assembly ? .9 : 1.7));
   const keyLight = new DirectionalLight("#ffffff", 2.5);
   keyLight.position.set(3, 4, 2);
   keyLight.castShadow = true;
@@ -162,9 +166,10 @@ export function createNativeComputerScene(container, options = {}) {
   fillLight.position.set(-2, 1, -1);
   scene.add(fillLight);
   if (options.assembly) {
-    const benchLight = new DirectionalLight('#fff5e5', 2.2);
+    const benchLight = new DirectionalLight('#fff5e5', 1.3);
     benchLight.position.set(-3, 4, 3);
     scene.add(benchLight);
+    addWorkshopReflections(scene, registry);
   }
   const workshop = createWorkshopEnvironment(scene, registry);
 
@@ -172,14 +177,14 @@ export function createNativeComputerScene(container, options = {}) {
   for (const part of COMPUTER_PARTS) {
     const group = new Group();
     group.userData.partId = part.id;
-    for (const subPart of part.subParts ?? []) {
+    for (const subPart of options.asset ? [] : part.subParts ?? []) {
       group.add(createPartMesh(subPart, part.id, registry));
     }
     scene.add(group);
     partGroups.set(part.id, { part, group });
   }
   const motherboard = partGroups.get("motherboard")?.group;
-  for (const detail of MOBO_DETAILS) {
+  for (const detail of options.asset ? [] : MOBO_DETAILS) {
     motherboard?.add(createPartMesh(detail, "motherboard", registry));
   }
   if (options.asset) {
@@ -190,20 +195,28 @@ export function createNativeComputerScene(container, options = {}) {
       if (!node) continue;
       const anchorName = modelName === 'case' ? 'assembly_origin' : 'socket_' + (modelName === 'ram_0' ? 'memory' : modelName);
       const anchor = options.asset.scene.getObjectByName(anchorName);
-      if (anchor) entry.part = { ...entry.part, basePos: anchor.getWorldPosition(new Vector3()).multiplyScalar(3.1).toArray() };
-      node.removeFromParent();
-      node.position.set(0, 0, 0);
-      node.scale.multiplyScalar(3.1);
+      if (anchor) {
+        entry.pose = readSocketPose(anchor);
+        const focus = options.asset.scene.getObjectByName('focus_' + (modelName === 'ram_0' ? 'memory' : modelName));
+        entry.focus = focus ? readSocketPose(focus).position.toArray() : entry.pose.position.toArray();
+        entry.part = { ...entry.part, basePos: entry.pose.position.toArray() };
+        attachTeachingPart(node,entry.group,entry.pose);
+      }
       node.traverse(mesh => {
         if (!mesh.isMesh) return;
         mesh.userData.partId = id;
         mesh.castShadow = true; mesh.receiveShadow = true;
+        const base=registry.add(mesh.material.clone()),highlighted=registry.add(base.clone());
+        highlighted.emissive.set('#16b8a6');highlighted.emissiveIntensity=.12;
+        mesh.material=base;mesh.userData.materials={base,highlighted,xray:base};
       });
-      entry.group.add(node);
+      entry.size = new Box3().setFromObject(entry.group).getSize(new Vector3()).toArray();
     }
     renderer.domElement.dataset.modelSource = 'blender-glb';
   } else renderer.domElement.dataset.modelSource = 'procedural';
   const structureScene = options.assembly ? createStructureScene(scene, partGroups, options.asset, registry) : null;
+  const cableScene=options.assembly && options.asset ? createCableScene(scene,container,camera,registry,options.onConnector) : null;
+  const teachingMotion=options.asset ? createTeachingMotion(scene, options.asset.animations) : null;
   if (options.assembly) assemblyInteraction = createAssemblyInteraction(container, renderer.domElement, camera, partGroups, {
     ...options, scene, registry,
     onGestureEnd({ moved, cancelled }) {
@@ -260,7 +273,8 @@ export function createNativeComputerScene(container, options = {}) {
   const pointer = new Vector2();
   const raycaster = new Raycaster();
   function onClick(event) {
-    if (assemblyInteraction?.consumeClick() || options.assembly) return;
+    if (assemblyInteraction?.consumeClick()) return;
+    if(options.assembly){if(!suppressClick)cableScene?.pick(event);suppressClick=false;return;}
     if (suppressClick) {
       suppressClick = false;
       return;
@@ -288,6 +302,7 @@ export function createNativeComputerScene(container, options = {}) {
   let currentDistance = 0;
   let frameId = 0;
   let elapsed = 0;
+  let previousTime=0;
   function updateBusLabels(show) {
     for (const label of labels.values()) {
       label.element.hidden = !show;
@@ -304,6 +319,7 @@ export function createNativeComputerScene(container, options = {}) {
   }
 
   function render(time) {
+    const delta=Math.min(.05,Math.max(1/120,(time-previousTime)/1000));previousTime=time;
     if (cameraTransition) {
       const amount = viewState.reducedMotion ? 1 : .13;
       cameraTarget.lerp(cameraTransition.target, amount);
@@ -341,6 +357,9 @@ export function createNativeComputerScene(container, options = {}) {
     }
     assemblyInteraction?.update(viewState.assembly, viewState.reducedMotion);
     structureScene?.update(viewState.assembly, viewState.reducedMotion);
+    teachingMotion?.update(viewState.assembly,delta,viewState.reducedMotion);
+    cableScene?.update(viewState.assembly);
+    if(options.assembly){renderer.domElement.dataset.fansRunning=String(Boolean(viewState.assembly?.powered && !viewState.reducedMotion));renderer.domElement.dataset.cableMode=String(Boolean(viewState.assembly?.cableMode));}
     workshop.update(Boolean(viewState.assembly?.powered), elapsed, viewState.reducedMotion);
     const showConnections = viewState.showConnections;
     for (let index = 0; index < busEntries.length; index += 1) {
@@ -374,7 +393,7 @@ export function createNativeComputerScene(container, options = {}) {
     const width = Math.max(1, container.clientWidth);
     const height = Math.max(1, container.clientHeight);
     camera.aspect = width / height;
-    if (options.assembly) camera.zoom = Math.min(1, camera.aspect / 1.7);
+    if (options.assembly) camera.zoom = Math.min(1, camera.aspect / 1.45);
     camera.updateProjectionMatrix();
     renderer.setSize(width, height, false);
   }
@@ -390,9 +409,13 @@ export function createNativeComputerScene(container, options = {}) {
     setViewState(nextState) {
       const previous = viewState;
       viewState = normalizeSceneViewState(nextState);
-      if (options.assembly && (previous.cameraPreset !== viewState.cameraPreset || previous.resetKey !== viewState.resetKey || (viewState.cameraPreset === 'part' && previous.selectedPartId !== viewState.selectedPartId))) {
+      if (options.assembly && (previous.cameraPreset !== viewState.cameraPreset || previous.resetKey !== viewState.resetKey || previous.assembly?.selectedConnector !== viewState.assembly?.selectedConnector || (viewState.cameraPreset === 'part' && previous.selectedPartId !== viewState.selectedPartId))) {
         const selected = ASSEMBLY_PARTS.find(part => part.sceneId === viewState.selectedPartId);
-        const pose = assemblyCameraPose(viewState.cameraPreset, selected?.rack, partGroups.get(selected?.sceneId)?.part.basePos);
+        const entry=partGroups.get(selected?.sceneId);
+        const connectorFocus=cableScene?.focus(viewState.assembly?.selectedConnector);
+        const installed = viewState.assembly?.installed?.[selected?.id];
+        const focus = entry?.focus ?? entry?.part.basePos;
+        const pose = connectorFocus ? {target:connectorFocus.toArray(),position:connectorFocus.clone().add(new Vector3(-.65,1.1,1.2)).toArray()} : assemblyCameraPose(viewState.cameraPreset, installed ? focus : selected?.rack, focus, entry?.size);
         const target = new Vector3().fromArray(pose.target);
         offset.fromArray(pose.position).sub(target);
         const nextTransition = { target, distance: offset.length(), azimuth: Math.atan2(offset.x, offset.z), polar: Math.acos(offset.y / offset.length()) };
@@ -425,6 +448,7 @@ export function createNativeComputerScene(container, options = {}) {
       renderer.domElement.removeEventListener("contextmenu", preventContextMenu);
       renderer.domElement.removeEventListener("webglcontextlost", onContextLost);
       structureScene?.dispose();
+      cableScene?.dispose();
       registry.dispose();
       keyLight.shadow.map?.dispose();
       assemblyInteraction?.dispose();
