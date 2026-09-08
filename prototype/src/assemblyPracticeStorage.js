@@ -54,6 +54,20 @@ export function readPracticeStore(storage,key){
   }catch{return {...empty,available:false,corrupt:true};}
 }
 
+// Shared by the API and browser. Unknown fields (including boot/grade flags) are discarded.
+export function normalizePracticeDocument(raw){
+  if(raw?.version!==1||!Array.isArray(raw.history)||raw.history.length>20
+    ||!(raw.active===null||raw.active&&typeof raw.active==='object'))throw new Error('练习记录格式无效');
+  const active=raw.active===null?null:activeFrom(raw.active),history=historyFrom(raw.history);
+  if((raw.active&&!active)||history.length!==raw.history.length
+    ||(active&&active.events.length!==raw.active.events.length))throw new Error('练习记录内容无效');
+  return {version:1,active,history};
+}
+
+export function mergePracticeHistory(local,remote){
+  return historyFrom([...local,...remote]);
+}
+
 export function resumePractice(active,now=Date.now()){
   const valid=activeFrom(active);if(!valid)return null;
   const {elapsedMs,events,...state}=valid;
