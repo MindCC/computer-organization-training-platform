@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { verifyHardwareAssembly } from './verify-hardware-assembly-path.mjs';
+import { verifyAssemblyPractice } from './verify-assembly-practice.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const baseUrl = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
@@ -165,6 +166,7 @@ try {
   await page.getByRole("button", { name: /返回课程首页/ }).click();
   await page.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
   await verifyHardwareAssembly(page, artifactDir);
+  await verifyAssemblyPractice(page, artifactDir);
   check('Interactive assembly game verified', true);
   await browser.close();
   browser = null;

@@ -3,6 +3,7 @@ import { assemblyDraftKey, readAssemblyDraftSelection } from '../assemblyDraft.j
 import { CheckCircle, CurrencyCny, Gauge, Target, WarningCircle } from "@phosphor-icons/react";
 import { HARDWARE_GAME_CASES, gradeHardwareBuild } from "../hardwareGame.js";
 import { HardwareAssemblyWorkbench } from "./HardwareAssemblyWorkbench.jsx";
+import { AssemblyPractice } from './AssemblyPractice.jsx';
 
 const caseGroups = [
   { id: "overview", title: "\u7b2c\u4e00\u7ae0\u00b7\u8ba1\u7b97\u673a\u6982\u8ff0" },
@@ -21,6 +22,7 @@ export function HardwareGamePage({
   submitHardwareBuild,
 }) {
   const [activeCategory, setActiveCategory] = useState("cpu");
+  const [practiceOpen,setPracticeOpen]=useState(false);
   const [readyConfiguration, setReadyConfiguration] = useState(null);
   const canDeliver = readyConfiguration === JSON.stringify(hardwareSelection);
   const selectedCase = HARDWARE_GAME_CASES.find((item) => item.id === selectedHardwareCaseId) ?? HARDWARE_GAME_CASES[0];
@@ -42,6 +44,8 @@ export function HardwareGamePage({
     setHardwareFeedback(null);
   }
 
+  if(practiceOpen)return <div className="hardware-game-page"><div className="hardware-training-entry"><button type="button" onClick={()=>setPracticeOpen(false)}>返回客户订单</button><span>教学练习 · 订单装配进度已保留</span></div><AssemblyPractice initialParts={hardwareSelection} caseId={selectedCase.id}/></div>;
+
   return (
     <div className="hardware-game-page">
       <header className="hardware-game-hero">
@@ -57,6 +61,7 @@ export function HardwareGamePage({
         </div>
       </header>
 
+      <div className="hardware-training-entry"><button type="button" onClick={()=>{setReadyConfiguration(null);setPracticeOpen(true);}}>进入装机教学练习</button><span>引导装配、独立操作、故障排查与练习复盘</span></div>
       <div className="hardware-game-layout">
         <aside className="hardware-mission-rail">
           <section className="hardware-mission-card customer">

@@ -1,0 +1,9 @@
+.hardware-training-entry,.practice-setup {display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 18px;background:#f5faf8;border:1px solid #bed8d2;border-radius:10px;margin-bottom:16px;}
+.hardware-training-entry button,.practice-setup button,.practice-hint-button {padding:8px 12px;border:1px solid #138c79;background:#e1f6ee;color:#075f51;border-radius:6px;cursor:pointer;}
+.practice-setup>div {flex:1;min-width:190px;}.practice-setup p,.practice-brief p,.practice-review p {margin:6px 0;color:#526b75;font-size:13px;line-height:1.6;}
+.practice-setup label {display:grid;gap:5px;font-size:12px;}.practice-setup select {padding:8px;border:1px solid #bfd1d5;border-radius:5px;background:white;max-width:100%;}
+.practice-brief,.practice-review {padding:18px;background:white;border:1px solid #d5e2e5;border-radius:10px;margin-bottom:16px;}.practice-brief small {color:#61767f;}.practice-review {margin-top:16px;}.practice-review h2 {font-size:18px;margin:0 0 12px;}
+.practice-metrics {display:flex;gap:24px;flex-wrap:wrap;}.practice-metrics span {font-size:12px;color:#526b75;}.practice-metrics strong {display:block;font-size:22px;color:#08796b;margin-top:5px;}.practice-review li {font-size:13px;line-height:1.7;}
+.assembly-practice-step {display:grid;gap:3px;}.assembly-practice-step small {font-size:11px;line-height:1.5;}.assembly-action-strip .practice-hint-button {margin-left:auto;white-space:nowrap;font-size:11px;}
+.assembly-expert-target {max-width:180px;padding:7px;border:1px solid #bed1d3;border-radius:5px;}
+@media(max-width:700px){.practice-setup label{width:100%;}.practice-metrics{gap:16px;}.assembly-action-strip{flex-wrap:wrap;}.assembly-expert-target{max-width:130px;}}

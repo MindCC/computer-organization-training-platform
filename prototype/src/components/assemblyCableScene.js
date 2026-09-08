@@ -56,12 +56,12 @@ export function createCableScene(scene, container, camera, registry, onConnector
       port.button.style.left=(port.source?78:container.clientWidth-78)+'px';
       port.button.style.top=(top+lane*Math.max(32,(bottom-top)/4))+'px';
       port.leader.setAttribute('x1',String(x));port.leader.setAttribute('y1',String(y));port.leader.setAttribute('x2',String(parseFloat(port.button.style.left)));port.leader.setAttribute('y2',String(parseFloat(port.button.style.top)));
-      const match=selected?.to===port.id || state.selectedConnector===port.id;
+      const match=state.selectedConnector===port.id || (state.showMatchingHints!==false && selected?.to===port.id);
       port.button.dataset.match=match?'true':'false';port.marker.material.color.set(match?'#19d3ac':'#dfaf51');
     }
     for(const wire of wires){
       const a=ports.find(p=>p.id===wire.c.from),b=ports.find(p=>p.id===wire.c.to);
-      const preview=mode && selected?.id===wire.c.id && available(a,state) && available(b,state);
+      const preview=state.showMatchingHints!==false && mode && selected?.id===wire.c.id && available(a,state) && available(b,state);
       wire.mesh.visible=Boolean(a.anchor && b.anchor && (connected[wire.c.id] || preview));
       if(!wire.mesh.visible)continue;
       wire.mesh.material.opacity=connected[wire.c.id]?1:.35;
