@@ -19,9 +19,13 @@ const allowedVerifiers = new Set([
   "scripts/verify-xray.mjs",
   "scripts/verify-offline-env.mjs",
   "scripts/verify-empty-states.mjs",
-  // 这两个依赖 npm run seed:demo 生成的演示数据，需先播种再运行
+  // 这三个依赖 npm run seed:demo 生成的演示数据，需加 --seed-demo 播种
   "scripts/verify-completion.mjs",
   "scripts/verify-mistakes.mjs",
+  "scripts/verify-overview-exploration.mjs",
+  // 定向回归脚本：3D 中间键平移、总览自由探索、教师看板本轮修复
+  "scripts/verify-middle-pan.mjs",
+  "scripts/verify-teacher-fixes.mjs",
 ]);
 const verifier = String(process.argv[2] ?? "").replaceAll("\\", "/");
 const production = process.argv.includes('--production');

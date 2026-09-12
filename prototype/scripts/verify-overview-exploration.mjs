@@ -36,9 +36,10 @@ try {
   await page.locator('.sidebar-nav').waitFor();
   await openChallengeFromHome(page, '认识计算机五大部件');
   const canvas = page.locator('canvas[data-model-source="blender-glb"]');
-  await canvas.waitFor({ timeout: 20000 });
+  // 冷启动时 vite 首次编译 + GLB 加载明显更慢，这里给足余量避免抖动。
+  await canvas.waitFor({ timeout: 60000 });
   await page.getByRole('button', { name: '自由探索', exact: true }).click();
-  await page.waitForFunction(() => window.qaScene && window.qaCamera);
+  await page.waitForFunction(() => window.qaScene && window.qaCamera, { timeout: 60000 });
   // Pick a visible CPU triangle, rather than assuming model coordinates or screen position.
   const start = await page.evaluate(async () => {
     const { Raycaster } = await import('/node_modules/three/src/core/Raycaster.js');
