@@ -1,15 +1,18 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
+import { fillLoginForm, submitLoginForm, gotoApp } from './lib/qaLogin.mjs';
 import { openChallengeFromHome } from './lib/qaHome.mjs';
 
+// 由 scripts/run-browser-qa.mjs 注入实际地址（随机端口），手工运行时回落到默认开发端口。
+const baseUrl = process.env.PROTOTYPE_URL ?? process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173/';
+// 依赖 seed:demo 生成的演示学生（demo2026001 / Student123!）。
 const browser = await chromium.launch({ headless: true });
 try {
   const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.goto('http://127.0.0.1:5173/', { waitUntil: 'networkidle' });
+  await gotoApp(page, baseUrl);
   // Observe the renderer used by the real page, without adding production test hooks.
   await page.evaluate(async () => {
     const source = await (await fetch('/src/components/nativeComputerScene.js')).text();

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { selectTeacherClass } from "./helpers/select-teacher-class.mjs";
 
@@ -16,7 +17,9 @@ const baseUrl = process.env.PROTOTYPE_URL ?? "http://127.0.0.1:5173";
 const apiUrl = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:8787";
 const teacherUsername = process.env.TEACHER_USERNAME ?? "teacher";
 const teacherPassword = process.env.TEACHER_PASSWORD ?? "ChangeMe123!";
-const samplePptx = process.env.SAMPLE_PPTX ?? path.resolve("qa-artifacts/sample-deck.pptx");
+// 默认样本随脚本入库（qa-artifacts 是本地产物目录，不能作为依赖）。
+const samplePptx = process.env.SAMPLE_PPTX
+  ?? path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "sample-deck.pptx");
 const artifactDir = process.env.QA_ARTIFACT_DIR ? path.resolve(process.env.QA_ARTIFACT_DIR) : path.resolve("qa-artifacts");
 
 const stamp = Date.now();
@@ -76,7 +79,8 @@ page.on("console", (message) => {
 });
 
 try {
-  await page.goto(baseUrl, { waitUntil: "networkidle" });
+  // 开发服务器带 HMR 长连接，networkidle 经常永远不满足，改用 domcontentloaded。
+  await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   if (!(await page.locator("#login-username").isVisible().catch(() => false))) {
     await page.getByRole("button", { name: "登录" }).first().click();
   }
@@ -86,8 +90,7 @@ try {
   await page.locator("#login-username").fill(teacherUsername);
   await page.locator("#login-password").fill(teacherPassword);
   await page.locator(".login-submit").click();
-  await page.waitForLoadState("networkidle");
-  await page.locator(".teacher-studio").waitFor({ state: "visible", timeout: 15_000 });
+  await page.locator(".teacher-studio").waitFor({ state: "visible", timeout: 30_000 });
   await selectTeacherClass(page, className);
 
   // ── 修复 2：课堂实时栏按钮清晰可读 ──

@@ -12,6 +12,8 @@ prototype/qa-artifacts-current/
 prototype/test-artifacts/
 prototype/output/
 prototype/data/
+# 课件上传落盘目录（workspace 根下的本地运行产物，含大体积真实 PPT）——不提交
+courseware/
 # 运行时数据库文件（含 WAL 临时文件）——任何位置都不要提交
 *.sqlite
 *.sqlite-shm
