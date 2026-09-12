@@ -74,11 +74,6 @@ import { buildMistakeBook } from "../src/mistakeBook.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_NAME = "zcyl_session";
 const SESSION_DAYS = 7;
-const PASSWORD_CHANGE_ALLOWED_PATHS = new Set([
-  "/api/auth/change-password",
-  "/api/auth/logout",
-  "/api/auth/me",
-]);
 
 export function createApp(options = {}) {
   const db = options.db ?? openDatabase(options.databasePath);
@@ -163,21 +158,6 @@ export function createApp(options = {}) {
       return res.status(403).json({ error: "跨站请求被拒绝" });
     }
     next();
-  });
-
-  // 首次登录强制改密：导入或重置时生成的一次性口令必须先更换才能访问业务接口。
-  // 只放行查询身份、改密与退出，避免闸门本身把人锁死在门外。
-  app.use((req, res, next) => {
-    if (!req.user) return next();
-    if (sanitizeUser(req.user).profile?.mustChangePassword !== true) return next();
-    if (PASSWORD_CHANGE_ALLOWED_PATHS.has(req.path)) return next();
-    return res.status(403).json({
-      error: {
-        code: "PASSWORD_CHANGE_REQUIRED",
-        message: "首次登录必须修改密码后才能继续使用",
-        retryable: false,
-      },
-    });
   });
 
   // Feature routers must run after global logging and CSRF middleware.

@@ -1237,7 +1237,7 @@ test("teacher can reattach to the running classroom session after a page reload"
   }
 });
 
-test("imported account with a generated password must change it before using APIs", async () => {
+test("imported account can use APIs immediately and change its password voluntarily", async () => {
   const { db, server, baseUrl } = await makeServer();
   const teacherJar = {};
   const studentJar = {};
@@ -1262,16 +1262,22 @@ test("imported account with a generated password must change it before using API
     assert.ok(credential.password, "应回传初始口令供教师发放");
     assert.notEqual(credential.password, "ChangeMe123!", "不得再使用平台统一的默认口令");
 
-    // 一次性口令可登录，但业务接口被强制改密闸门拦住
+    // 初始密码登录后可直接访问业务接口，即使旧的改密标记仍存在。
     result = await request(baseUrl, "/api/auth/login", {
       method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "s1001", password: credential.password }),
     }, studentJar);
     assert.equal(result.response.status, 200);
     result = await request(baseUrl, "/api/student/progress", {}, studentJar);
-    assert.equal(result.response.status, 403);
-    assert.equal(result.body.error.code, "PASSWORD_CHANGE_REQUIRED");
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, studentJar);
+    assert.equal(result.response.status, 200, "existing student session must not block another login");
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "s1001", password: credential.password }),
+    }, studentJar);
 
-    // 改密后放行
+    // 主动改密功能仍然可用。
     result = await request(baseUrl, "/api/auth/change-password", {
       method: "POST", headers: jsonHeaders, body: JSON.stringify({ currentPassword: credential.password, nextPassword: "NewSecret123!" }),
     }, studentJar);

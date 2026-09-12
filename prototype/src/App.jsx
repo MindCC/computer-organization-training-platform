@@ -68,8 +68,7 @@ import { HARDWARE_GAME_CASES, formatHardwareBuildParts, gradeHardwareBuild, hard
 import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRoute.js";
 import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { buildMemoryAccessState } from "./memorySystem.js";
-import { api, onPasswordChangeRequired, clearPasswordChangeRequired } from "./apiClient.js";
-import { PasswordChangeGate } from "./components/PasswordChangeGate.jsx";
+import { api } from "./apiClient.js";
 import { statusText, statusTone, formatMinutes, formatEndpointLabel } from "./components/labUtils.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { LoginPortal } from "./components/auth/LoginPortal.jsx";
@@ -473,7 +472,6 @@ export function App() {
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [showLogin, setShowLogin] = useState(false);
-  const [forcePasswordChange, setForcePasswordChange] = useState(false);
   const [importCredentials, setImportCredentials] = useState([]);
   const pendingDestinationRef = useRef(null);
   const [activeView, setActiveView] = useState("home");
@@ -627,13 +625,6 @@ export function App() {
     if (!lab.selectChallenge(pending, { force: true })) setActiveView("home");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView, auth.user?.role, progress]);
-
-  // 强制改密：使用一次性初始口令的账号会被服务端拒绝所有业务接口，
-  // 这里订阅全局信号并弹出阻断式改密页。
-  useEffect(() => onPasswordChangeRequired(() => setForcePasswordChange(true)), []);
-  useEffect(() => {
-    if (auth.user?.profile?.mustChangePassword) setForcePasswordChange(true);
-  }, [auth.user?.profile?.mustChangePassword]);
 
   // 设置页变更（如跳关开关）后刷新班级列表
   useEffect(() => {
@@ -1000,30 +991,6 @@ export function App() {
 
   if (showLogin) {
     return renderLogin();
-  }
-
-  if (forcePasswordChange) {
-    return (
-      <PasswordChangeGate
-        user={auth.user}
-        onLogout={() => {
-          clearPasswordChangeRequired();
-          setForcePasswordChange(false);
-          handleLogout();
-        }}
-        onDone={async () => {
-          clearPasswordChangeRequired();
-          setForcePasswordChange(false);
-          try {
-            const { user } = await api.me();
-            setAuth({ status: "authenticated", user });
-            await loadRoleData(user);
-          } catch {
-            // 改密已经成功，身份刷新失败不应再次弹窗
-          }
-        }}
-      />
-    );
   }
 
   if (activeView === "lab") {
