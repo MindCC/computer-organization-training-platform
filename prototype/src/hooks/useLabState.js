@@ -40,6 +40,7 @@ export function useLabState({
   setStatusMessage,
   persistStudentAttempt,
   isMobile,
+  allowSkipLocked = false,
   challengeRouteMeta,
   challengeControlMeta,
 }) {
@@ -110,10 +111,14 @@ export function useLabState({
     setStatusMessage("已重做操作。");
   }
 
-  function selectChallenge(challengeId) {
+  function selectChallenge(challengeId, { force = false } = {}) {
     const challenge = CHALLENGES.find((item) => item.id === challengeId);
-    if (progress[challengeId]?.status === "locked") {
-      setStatusMessage("\u8bf7\u5148\u5b8c\u6210\u524d\u7f6e\u5173\u5361\u3002");
+    // 教师开启「允许跳关」后必须真正放行：此前只有首页卡片放开了，实验台与步骤条
+    // 仍然拦截，点进去只会闪烁一行状态文字。
+    // force 供刷新后的恢复使用：此时学情可能尚未加载完，用本地进度判断锁定会误判；
+    // 真正锁定关卡的提交仍会被服务端拒绝。
+    if (!force && !allowSkipLocked && progress[challengeId]?.status === "locked") {
+      setStatusMessage("请先完成前置关卡。");
       return false;
     }
     if (!challenge) return;
@@ -309,7 +314,7 @@ export function useLabState({
     placementPreview, labScoring, currentRecord, simulation, activeStep,
     realtimeDiagnostics, selectedComponentDetail, referenceComponents,
     wirePreviewCopy, wirePreviewStatus,
-    selectChallenge, handleInputChange, runStep, runAll,
+    selectChallenge, handleInputChange, runStep, runAll, allowSkipLocked,
     submitChallenge, completeOverviewChallenge, handleCircuitFlowResult, resetChallenge, fillReferenceStructure,
     handleDrop, handlePaletteDragStart, handlePlacedComponentDragStart,
     handleWireDragStart, handleWireDragMove, handleWireHoverChange, handleWireDragEnd,

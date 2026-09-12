@@ -76,6 +76,7 @@ import { LoginPortal } from "./components/auth/LoginPortal.jsx";
 import { QuestSettlement } from "./components/quest/QuestSettlement.jsx";
 import { buildQuestSettlement } from "./questExperience.js";
 import { useLabState } from "./hooks/useLabState.js";
+import { clearViewSession, readViewSession, resolveRestorableView, writeViewSession } from "./viewSession.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
 import { getActiveGuideForChallenge } from "./courseWorkbenchState.js";
@@ -522,7 +523,7 @@ export function App() {
   const prevFeedbackRef = useRef(null);
   const lab = useLabState({
     progress, setProgress, activityLog, setActivityLog,
-    setStatusMessage, persistStudentAttempt, isMobile,
+    setStatusMessage, persistStudentAttempt, isMobile, allowSkipLocked,
   });
 
   const classroomSession = useClassroomSession({
@@ -570,6 +571,14 @@ export function App() {
     if (settlement) setQuestSettlement(settlement);
   }, [lab.feedback, lab.selectedChallengeId, routeGroups]);
 
+  // 刷新后要恢复的实验台关卡（等学情加载完再按锁定规则打开）
+  const pendingLabRestoreRef = useRef(null);
+  // 初始视图记录必须同步读取：bootstrap 里 setAuth 之后会先经过一个 await，
+  // 期间持久化 effect 会用默认的 home 覆盖掉待恢复的记录。
+  const [initialViewSession] = useState(() => readViewSession());
+  // 恢复结论落地前不要写回，避免同样的覆盖
+  const restoreSettledRef = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
     async function bootstrap() {
@@ -578,14 +587,46 @@ export function App() {
         if (cancelled) return;
         setAuth({ status: "authenticated", user });
         await loadRoleData(user);
-        if (user.role === "teacher") setActiveView("teacher");
+        // 刷新后回到原页面：只恢复当前身份允许停留的视图
+        const restored = resolveRestorableView(initialViewSession, user.role);
+        if (restored?.view === "lab" && restored.challengeId && user.role === "student") {
+          pendingLabRestoreRef.current = restored.challengeId;
+          setActiveView("lab");
+        } else if (restored) {
+          setActiveView(restored.view);
+        } else if (user.role === "teacher") {
+          setActiveView("teacher");
+        }
       } catch {
         if (!cancelled) setAuth({ status: "anonymous", user: null });
+      } finally {
+        restoreSettledRef.current = true;
       }
     }
     bootstrap();
     return () => { cancelled = true; };
   }, []);
+
+  // 记住当前页面，供刷新后恢复。
+  // 登录过程中会先出现「已登录但仍是默认视图」的中间提交，此时不要记录，
+  // 否则会把教师/学生带到错误的落地页。
+  useEffect(() => {
+    if (!auth.user || showLogin || !restoreSettledRef.current) return;
+    writeViewSession({ view: activeView, challengeId: activeView === "lab" ? lab.selectedChallengeId : null });
+  }, [auth.user?.id, activeView, lab.selectedChallengeId, showLogin]);
+
+  // 学情加载完成后再恢复实验台关卡；目标关卡仍锁定则退回首页。
+  // 必须把 activeView 纳入依赖：pendingLabRestoreRef 是在 setAuth/progress 之后才赋值的，
+  // 只依赖前两者会让这次恢复永远不会执行。
+  useEffect(() => {
+    if (activeView !== "lab") return;
+    const pending = pendingLabRestoreRef.current;
+    if (!pending || auth.user?.role !== "student") return;
+    pendingLabRestoreRef.current = null;
+    // 恢复时强制进入：此刻学情可能还没加载完，按本地进度判断会误判为锁定
+    if (!lab.selectChallenge(pending, { force: true })) setActiveView("home");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView, auth.user?.role, progress]);
 
   // 强制改密：使用一次性初始口令的账号会被服务端拒绝所有业务接口，
   // 这里订阅全局信号并弹出阻断式改密页。
@@ -715,6 +756,9 @@ export function App() {
     setProgress(buildInitialLearningProgress());
     setNotes([]);
     setActiveView("home");
+    // 同一台机房电脑换人登录时，不要带上一位学生停留的页面
+    pendingLabRestoreRef.current = null;
+    clearViewSession();
   }
 
   function changeView(view) {
