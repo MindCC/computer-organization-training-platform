@@ -6,7 +6,6 @@ import { challengeRouteMeta, challengeControlMeta, labDescription } from "./labP
 import { MobileLabFallback } from "./MobileLabFallback.jsx";
 import { MachineNumberPanel } from "./MachineNumberPanel.jsx";
 import { MemorySystemPanel } from "./MemorySystemPanel.jsx";
-import { ChallengeCanvas } from "./ChallengeCanvas.jsx";
 import { statusText, statusTone, formatEndpointLabel } from "./labUtils.js";
 import { MissionHud } from "./classroom/student/MissionHud.jsx";
 import { MissionPauseOverlay } from "./classroom/student/MissionPauseOverlay.jsx";
@@ -16,14 +15,6 @@ import { CpuExecutionPanel } from "./CpuExecutionPanel.jsx";
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
 const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").then((m) => ({ default: m.OverviewExplodedView })));
-
-function formatOutputs(outputs) {
-  return Object.entries(outputs).map(([k, v]) => `${outputLabel(k)}=${v}`).join(" · ");
-}
-function outputLabel(key) {
-  const m = { sum: "S", carry: "进位", output: "Y", result: "F", value: "整数", signMagnitude: "原码", onesComplement: "反码", twosComplement: "补码", zero: "零标志" };
-  return m[key] ?? key;
-}
 
 export function LabPage({
   lab, isMobile, memoryAddress, memoryOperation, memoryWriteValue,
@@ -71,8 +62,23 @@ export function LabPage({
     );
   }
   if (cur.id === "computer-components") return ComputerOverviewLab();
-  if (l.currentCircuitModel) return ReactFlowLab();
-  return LegacyLab();
+  // 每个课程关卡都必须在 challengeCircuitModel 中登记（由一致性单测保证）。
+  // 缺少模型时给出明确提示，而不是退回已删除的旧画布。
+  if (!l.currentCircuitModel) {
+    return wrapClassroom(
+      <div className="lab-screen">
+        <div className="lab-stage-layout">
+          <section className="lab-stage-panel">
+            <div className="empty-state">
+              <strong>这一关还没有可用的电路模型</strong>
+              <p>请在 circuit/challengeCircuitModel.js 中登记该关卡后重试。</p>
+            </div>
+          </section>
+        </div>
+      </div>,
+    );
+  }
+  return ReactFlowLab();
 
   function ComputerOverviewLab() {
     return wrapClassroom(
@@ -115,7 +121,7 @@ export function LabPage({
         <main className="lab-studio-grid">
           <aside className="lab-studio-route" aria-label="挑战路径">
             <div className="lab-studio-route-title"><strong>挑战路径</strong><span>共 {CHALLENGES.length} 关</span></div>
-            <div className="lab-studio-stepper">{CHALLENGES.map((c, i) => { const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} disabled={r?.status === "locked"} key={c.id} onClick={() => l.selectChallenge(c.id)} type="button"><span className="lab-studio-step-number">{i + 1}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{r?.bestScore ?? 0} / 100</span></button>); })}</div>
+            <div className="lab-studio-stepper">{CHALLENGES.map((c, i) => { const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} disabled={!l.allowSkipLocked && r?.status === "locked"} key={c.id} onClick={() => l.selectChallenge(c.id)} type="button"><span className="lab-studio-step-number">{i + 1}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{r?.bestScore ?? 0} / 100</span></button>); })}</div>
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
           </aside>
           <section className="lab-studio-workspace">
@@ -135,21 +141,6 @@ export function LabPage({
             </div>
           </section>
         </main>
-      </div>
-    );
-  }
-
-  function LegacyLab() {
-    return wrapClassroom(
-      <div className="lab-screen">
-        <div className="lab-stage-layout legacy">
-          <aside className="lab-palette-panel">
-            <div className="lab-panel-heading"><strong>元件区</strong><small>拖动元件到目标槽位，或点击参考结构快速对照。</small></div>
-            <div className="component-palette">{l.placementBlueprint.map((slot) => (<button draggable className="component-chip" key={slot.id} onClick={() => { l.setExpandedComponent(slot.displayLabel); l.setSelectedComponent(slot.displayLabel); }} onDragStart={(e) => l.handlePaletteDragStart(e, slot)} type="button"><Cpu size={18} /><span>{slot.displayLabel}</span><small>{slot.role}</small></button>))}</div>
-            <div className="lab-actions"><button className="primary-button" onClick={l.submitChallenge} type="button">提交检测</button><button className="ghost-button" onClick={l.resetChallenge} type="button">重置本关</button><button className="ghost-button" onClick={l.fillReferenceStructure} type="button">查看参考结构</button></div>
-          </aside>
-          <section className="lab-stage-panel"><div className="circuit-canvas" onDragOver={(e) => e.preventDefault()}><Suspense fallback={<div>加载中...</div>}><ChallengeCanvas activeStep={l.activeStep} challenge={cur} challengeId={cur.id} connectionBlueprint={l.connectionBlueprint} connections={l.connections} expandedComponent={l.expandedComponent} feedback={l.feedback} inputState={l.inputState} onBoardDragOver={(e) => e.preventDefault()} onBoardDrop={l.handleDrop} onPlacedComponentDragStart={l.handlePlacedComponentDragStart} onRemoveConnection={l.handleRemoveConnection} outputText={formatOutputs(l.simulation.outputs)} placementBlueprint={l.placementBlueprint} placementPreview={l.placementPreview} placedComponents={l.placedComponents} selectedComponent={l.selectedComponent} setExpandedComponent={l.setExpandedComponent} setSelectedComponent={l.setSelectedComponent} simulation={l.simulation} simulationStep={l.simulationStep} wireDrag={l.wireDrag} wireHoverEndpoint={l.wireHoverEndpoint} onWireDragEnd={l.handleWireDragEnd} onWireHoverChange={l.handleWireHoverChange} onWireDragMove={l.handleWireDragMove} onWireDragStart={l.handleWireDragStart} wirePreviewCopy={l.wirePreviewCopy} wirePreviewStatus={l.wirePreviewStatus} /></Suspense></div></section>
-        </div>
       </div>
     );
   }

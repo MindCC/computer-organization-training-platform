@@ -1,5 +1,7 @@
-﻿import assert from "node:assert/strict";
+import assert from "node:assert/strict";
 import test from "node:test";
+
+import { CHALLENGES } from "../platformLogic.js";
 
 import {
   AND_GATE_CIRCUIT,
@@ -25,6 +27,18 @@ test("结构化模型覆盖基础门到运算器路线关卡", () => {
   assert.equal(getCircuitChallenge("instruction-data"), INSTRUCTION_DATA_CIRCUIT);
   assert.equal(getCircuitChallenge("half-adder"), HALF_ADDER_CIRCUIT);
   assert.equal(getCircuitChallenge("and-gate"), AND_GATE_CIRCUIT);
+});
+
+test("每个课程关卡都必须在结构化模型里登记", () => {
+  // 实验台按 getCircuitChallenge 分派画布：漏登记会退回旧画布路径，而旧画布已删除。
+  for (const challenge of CHALLENGES) {
+    assert.ok(getCircuitChallenge(challenge.id), `missing circuit model for ${challenge.id}`);
+  }
+  assert.equal(
+    CHALLENGES.length,
+    CIRCUIT_CHALLENGES.length,
+    "challenge list and circuit model list must stay in sync",
+  );
 });
 
 test("每个结构化关卡都使用稳定节点和端口 id", () => {
