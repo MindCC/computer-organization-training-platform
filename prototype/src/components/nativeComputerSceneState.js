@@ -18,6 +18,17 @@ export function partPosition(part, distance) {
   return part.basePos.map((value, index) => value + part.explodeDir[index] * distance);
 }
 
+// Render-loop helper: writes an exploded connection endpoint into an existing
+// vector so a frame never allocates an endpoint array (or a Vector3) per bus.
+export function writeConnectionEndpoint(target, part, offset, distance = 0) {
+  if (!part) return target.set(offset[0] ?? 0, offset[1] ?? 0, offset[2] ?? 0);
+  return target.set(
+    part.basePos[0] + part.explodeDir[0] * distance + (offset[0] ?? 0),
+    part.basePos[1] + part.explodeDir[1] * distance + (offset[1] ?? 0),
+    part.basePos[2] + part.explodeDir[2] * distance + (offset[2] ?? 0),
+  );
+}
+
 export function screenPointFromNdc(ndc, width, height) {
   if (ndc.z < -1 || ndc.z > 1) return null;
   return {

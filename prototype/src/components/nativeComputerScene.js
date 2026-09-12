@@ -25,11 +25,11 @@ import { PerspectiveCamera } from "three/src/cameras/PerspectiveCamera.js";
 import { Raycaster } from "three/src/core/Raycaster.js";
 import { Scene } from "three/src/scenes/Scene.js";
 import { WebGLRenderer } from "three/src/renderers/WebGLRenderer.js";
-import { COMPUTER_PARTS, CONNECTIONS, MOBO_DETAILS, getConnectionEndpoint } from "./computerParts.js";
+import { COMPUTER_PARTS, CONNECTIONS, MOBO_DETAILS } from "./computerParts.js";
 import {
   createResourceRegistry,
   normalizeSceneViewState,
-  partPosition,
+  writeConnectionEndpoint,
   screenPointFromNdc,
 } from "./nativeComputerSceneState.js";
 
@@ -218,6 +218,7 @@ export function createNativeComputerScene(container, options = {}) {
   const workshop = createWorkshopEnvironment(scene, registry);
 
   const partGroups = new Map();
+  const partById = new Map(COMPUTER_PARTS.map((part) => [part.id, part]));
   for (const part of COMPUTER_PARTS) {
     const group = new Group();
     group.userData.partId = part.id;
@@ -390,7 +391,12 @@ export function createNativeComputerScene(container, options = {}) {
     for (const [partId, entry] of partGroups) {
       entry.group.visible = viewState.visiblePartIds.has(partId);
       if (!viewState.assembly) {
-        entry.group.position.fromArray(partPosition(entry.part, currentDistance));
+        // Write the exploded position in place: the render loop must not allocate per part per frame.
+        entry.group.position.set(
+          entry.part.basePos[0] + entry.part.explodeDir[0] * currentDistance,
+          entry.part.basePos[1] + entry.part.explodeDir[1] * currentDistance,
+          entry.part.basePos[2] + entry.part.explodeDir[2] * currentDistance,
+        );
         if (explorationOffsets.has(partId)) entry.group.position.add(explorationOffsets.get(partId));
       }
       else if (['case', 'motherboard', 'psu'].includes(partId)) entry.group.position.fromArray(entry.part.basePos);
@@ -414,8 +420,8 @@ export function createNativeComputerScene(container, options = {}) {
     for (let index = 0; index < busEntries.length; index += 1) {
       const entry = busEntries[index];
       const { connection } = entry;
-      entry.from.fromArray(getConnectionEndpoint(connection.fromPart, connection.fromOffset, currentDistance));
-      entry.to.fromArray(getConnectionEndpoint(connection.toPart, connection.toOffset, currentDistance));
+      writeConnectionEndpoint(entry.from, partById.get(connection.fromPart), connection.fromOffset, currentDistance);
+      writeConnectionEndpoint(entry.to, partById.get(connection.toPart), connection.toOffset, currentDistance);
       if (options.exploration && options.asset) {
         const from = partGroups.get(connection.fromPart);
         const to = partGroups.get(connection.toPart);

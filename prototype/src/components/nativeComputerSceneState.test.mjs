@@ -5,6 +5,7 @@ import {
   normalizeSceneViewState,
   partPosition,
   screenPointFromNdc,
+  writeConnectionEndpoint,
 } from "./nativeComputerSceneState.js";
 
 test("normalizes native scene state without leaking mutable sets", () => {
@@ -28,6 +29,25 @@ test("auto animation targets the settled 1.3 explosion distance", () => {
 
 test("computes an exploded parent position", () => {
   assert.deepEqual(partPosition({ basePos: [1, 2, 3], explodeDir: [0.5, -1, 2] }, 2), [2, 0, 7]);
+});
+
+test("writes a connection endpoint into the supplied target without replacing it", () => {
+  const target = {
+    values: null,
+    set(x, y, z) {
+      this.values = [x, y, z];
+      return this;
+    },
+  };
+  const result = writeConnectionEndpoint(
+    target,
+    { basePos: [1, 2, 3], explodeDir: [0.5, -1, 2] },
+    [0.25, 0, -0.5],
+    2,
+  );
+
+  assert.equal(result, target);
+  assert.deepEqual(target.values, [2.25, 0, 6.5]);
 });
 
 test("projects visible NDC points and hides points outside clip depth", () => {
