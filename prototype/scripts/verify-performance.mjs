@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
-import { fillLoginForm, submitLoginForm } from "./lib/qaLogin.mjs";
+import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
 import { openChallengeFromHome } from "./lib/qaHome.mjs";
 
 const baseUrl = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
@@ -54,7 +54,7 @@ async function setupStudent() {
 }
 
 async function login(page, student) {
-  await page.goto(baseUrl, { waitUntil: "networkidle" });
+  await gotoApp(page, baseUrl);
   await fillLoginForm(page, { username: student.username, password: student.password });
   await submitLoginForm(page);
   await page.getByText("当前任务", { exact: true }).first().waitFor({

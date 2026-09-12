@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
+import { openChallengeFromHome } from "./lib/qaHome.mjs";
+import { gotoApp } from "./lib/qaLogin.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -73,7 +75,7 @@ const pageErrors = [];
 page.on("pageerror", (error) => pageErrors.push(error.message));
 
 try {
-await page.goto(baseUrl, { waitUntil: "networkidle" });
+await gotoApp(page, baseUrl);
 await assertVisible(page, text.appTitle);
 await assertVisible(page, "当前任务");
 await page.getByRole("button", { name: "开始第一个实验" }).click();
@@ -91,7 +93,9 @@ await assertNoVisibleMojibake(page, "teacher dashboard");
 await openClassroomSettings(page);
 const templateHref = await page.locator(".settings-template-link").getAttribute("href");
 assert.match(templateHref ?? "", /^data:text\/csv/);
-await assertVisible(page, text.importStudents);
+// 断言收敛到设置弹层内：「导入学生」这几个字也出现在看板空状态文案里，
+// 用 getByText 会命中弹层背后的隐藏段落。
+await page.locator(".settings-overlay").getByRole("button", { name: text.importStudents }).waitFor({ state: "visible", timeout: 30_000 });
 await page.getByRole("button", { name: "\u5173\u95ed" }).click();
 await page.screenshot({ path: artifactPath("teacher-empty.png"), fullPage: true });
 
@@ -339,20 +343,8 @@ async function logout(targetPage) {
 
 async function openChallenge(targetPage, title) {
   await dismissQuestSettlementNow(targetPage);
-  const target = targetPage.getByRole("button").filter({ hasText: title }).first();
-  if (!(await target.isVisible().catch(() => false))) {
-    // 课程首页按章节折叠，默认只展开第一章；目标关卡可能位于未展开的章节里，
-    // 先把折叠的章节全部展开再定位，否则按钮根本不在 DOM 中。
-    const toggles = targetPage.locator(".project-chapter-toggle");
-    const toggleCount = await toggles.count();
-    for (let index = 0; index < toggleCount; index += 1) {
-      const toggle = toggles.nth(index);
-      if ((await toggle.getAttribute("aria-expanded")) !== "true") {
-        await toggle.click();
-      }
-    }
-  }
-  await target.click();
+  // 首页按章节折叠，且顶栏也有含关卡标题的按钮：统一用共享助手定位真正的关卡入口。
+  await openChallengeFromHome(targetPage, title);
   await assertVisible(targetPage, title);
 }
 
@@ -535,9 +527,13 @@ async function assertNoVisibleMojibake(targetPage, label) {
 }
 
 async function assertVisible(targetPage, visibleText) {
-  const locator = targetPage.getByText(visibleText, { exact: false }).first();
+  // 同一段文案在页面里可能出现多次（弹层背后的看板、空状态提示等），
+  // getByText().first() 会命中隐藏的那一个；断言应针对"可见的那一个"。
+  const locator = targetPage.getByText(visibleText, { exact: false }).filter({ visible: true }).first();
   try {
-    await locator.waitFor({ state: "visible", timeout: 10_000 });
+    // 开发服务器按需编译：懒加载的页面 chunk 在冷启动或机器繁忙时可能超过 10 秒，
+    // 过紧的等待会把"还在加载"误判成"页面错误"。
+    await locator.waitFor({ state: "visible", timeout: 30_000 });
     assert.equal(await locator.isVisible(), true);
   } catch (error) {
     const bodyText = await targetPage.locator("body").innerText().catch(() => "<body unavailable>");

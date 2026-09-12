@@ -6,7 +6,7 @@ import { chromium } from "@playwright/test";
 import { verifyHardwareAssembly } from './verify-hardware-assembly-path.mjs';
 import { verifyAssemblyPractice } from './verify-assembly-practice.mjs';
 import { verifyAssemblyPracticeSync } from './verify-assembly-practice-sync.mjs';
-import { fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
+import { fillLoginForm, submitLoginForm, gotoApp } from './lib/qaLogin.mjs';
 import { openChallengeFromHome } from './lib/qaHome.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -99,15 +99,19 @@ try {
   await expectOk(response, "student import");
 
   console.log("2. Login as student");
-  await page.goto(baseUrl, { waitUntil: "networkidle" });
+  await gotoApp(page, baseUrl);
   await fillLoginForm(page, { username: studentUsername, password: studentPassword });
   await submitLoginForm(page);
   await page.getByRole("main").first().waitFor({ state: "visible", timeout: 20_000 });
 
   console.log("3. Verify computer overview and assembly path");
   await openChallengeFromHome(page, "认识计算机五大部件");
-  await page.waitForSelector(".computer-exploded", { timeout: 20_000 });
+  // 开发服务器按需编译 LabPage 的依赖图，连续跑门禁时首次加载可能明显变慢，
+  // 因此给这个懒加载页面留出更宽的时间；生产门禁走构建产物不受此影响。
+  await page.waitForSelector(".computer-exploded", { timeout: 60_000 });
   const canvas = page.locator(".computer-exploded canvas");
+  // 场景初始化是异步的：先等 canvas 真正挂载，再断言数量，否则会取到挂载前的空快照。
+  await canvas.first().waitFor({ state: "visible", timeout: 20_000 });
   check("Overview canvas exists", await canvas.count() > 0);
   check(
     "Native Three.js renderer is active",
@@ -117,6 +121,8 @@ try {
   check("Step mode button", await page.getByRole("button", { name: "分步组装" }).isVisible());
   check("Auto mode button", await page.getByRole("button", { name: "自动爆炸" }).isVisible());
 
+  // 步骤条要等场景与教学资产就绪后才渲染，同样给宽一点的时间。
+  await page.locator(".exploded-stepbar").waitFor({ state: "visible", timeout: 60_000 });
   check("Guided assembly is the default", await page.locator(".exploded-stepbar").isVisible());
 
   await page.getByRole("button", { name: "分步组装" }).click();
@@ -189,7 +195,7 @@ try {
   }
   const fallbackPage = await fallbackBrowser.newPage({ viewport: { width: 1366, height: 768 } });
   fallbackPage.on("pageerror", (error) => fallbackPageErrors.push(error.message));
-  await fallbackPage.goto(baseUrl, { waitUntil: "networkidle" });
+  await gotoApp(fallbackPage, baseUrl);
   await fillLoginForm(fallbackPage, { username: studentUsername, password: studentPassword });
   await submitLoginForm(fallbackPage);
   await fallbackPage.getByRole("main").first().waitFor({ state: "visible", timeout: 20_000 });

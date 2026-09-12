@@ -1,13 +1,15 @@
 import assert from 'node:assert/strict';
 import { expect } from '@playwright/test';
 import path from 'node:path';
+import { clickCentered } from './lib/qaInteraction.mjs';
 
 export async function verifyAssemblyPracticeSync(page,browser,artifactDir){
   const synced=p=>expect(p.locator('.practice-sync-status')).toContainText('已同步到服务器',{timeout:15000});
   const enter=async p=>{await p.locator('.sidebar-nav .nav-item').filter({hasText:'硬件配置挑战'}).click();await p.getByRole('button',{name:'进入装机教学练习',exact:true}).click();};
   await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
   await page.getByRole('combobox',{name:'练习模式',exact:true}).selectOption('guided');
-  await page.getByRole('button',{name:'重新练习',exact:true}).click();
+  // 页面向下滚动后，练习头部会被固定顶栏盖住；先居中再点。
+  await clickCentered(page.getByRole('button',{name:'重新练习',exact:true}));
   for(const name of ['打开侧板','固定主板','固定电源'])await page.getByRole('button',{name,exact:true}).click();
   await page.locator('#assembly-variant').selectOption('cpu-i5');
   await page.getByRole('button',{name:'安装到CPU 插座',exact:true}).last().click();await synced(page);
