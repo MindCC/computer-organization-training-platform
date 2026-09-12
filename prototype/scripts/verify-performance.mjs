@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+import { fillLoginForm, submitLoginForm } from "./lib/qaLogin.mjs";
+import { openChallengeFromHome } from "./lib/qaHome.mjs";
 
 const baseUrl = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
 const apiUrl = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:8787";
@@ -53,9 +55,8 @@ async function setupStudent() {
 
 async function login(page, student) {
   await page.goto(baseUrl, { waitUntil: "networkidle" });
-  await page.getByLabel("账号").fill(student.username);
-  await page.getByLabel("密码").fill(student.password);
-  await page.getByRole("button", { name: "登录" }).click();
+  await fillLoginForm(page, { username: student.username, password: student.password });
+  await submitLoginForm(page);
   await page.getByText("当前任务", { exact: true }).first().waitFor({
     state: "visible",
     timeout: 20_000,
@@ -63,8 +64,8 @@ async function login(page, student) {
 }
 
 async function openOverview(page) {
-  await page.locator(".quest-stage").filter({ has: page.getByText("认识计算机五大部件", { exact: true }) }).first()
-    .click();
+  // 首页已改为章节折叠布局，按标题从对应章节进入概览关卡。
+  await openChallengeFromHome(page, "认识计算机五大部件");
   await page.waitForSelector(".computer-exploded canvas", { timeout: 20_000 });
   assert.equal(
     await page.locator(".computer-exploded canvas").count(),
