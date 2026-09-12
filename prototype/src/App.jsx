@@ -68,7 +68,8 @@ import { HARDWARE_GAME_CASES, formatHardwareBuildParts, gradeHardwareBuild, hard
 import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRoute.js";
 import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { buildMemoryAccessState } from "./memorySystem.js";
-import { api } from "./apiClient.js";
+import { api, onPasswordChangeRequired, clearPasswordChangeRequired } from "./apiClient.js";
+import { PasswordChangeGate } from "./components/PasswordChangeGate.jsx";
 import { statusText, statusTone, formatMinutes, formatEndpointLabel } from "./components/labUtils.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { LoginPortal } from "./components/auth/LoginPortal.jsx";
@@ -471,6 +472,8 @@ export function App() {
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [showLogin, setShowLogin] = useState(false);
+  const [forcePasswordChange, setForcePasswordChange] = useState(false);
+  const [importCredentials, setImportCredentials] = useState([]);
   const pendingDestinationRef = useRef(null);
   const [activeView, setActiveView] = useState("home");
   const [progress, setProgress] = useState(() => buildInitialLearningProgress());
@@ -583,6 +586,13 @@ export function App() {
     bootstrap();
     return () => { cancelled = true; };
   }, []);
+
+  // 强制改密：使用一次性初始口令的账号会被服务端拒绝所有业务接口，
+  // 这里订阅全局信号并弹出阻断式改密页。
+  useEffect(() => onPasswordChangeRequired(() => setForcePasswordChange(true)), []);
+  useEffect(() => {
+    if (auth.user?.profile?.mustChangePassword) setForcePasswordChange(true);
+  }, [auth.user?.profile?.mustChangePassword]);
 
   // 设置页变更（如跳关开关）后刷新班级列表
   useEffect(() => {
@@ -912,10 +922,11 @@ export function App() {
     if (!selectedTeacherClassId) return;
     try {
       const report = await api.importStudents(selectedTeacherClassId, csvImportText);
-      setTeacherMessage("\u5bfc\u5165\u5b8c\u6210\uff1a\u65b0\u589e " + report.imported + "\uff0c\u66f4\u65b0 " + report.updated + "\uff0c\u8df3\u8fc7 " + report.skipped);
+      setTeacherMessage(`导入完成：新增 ${report.imported}，更新 ${report.updated}，跳过 ${report.skipped}`);
+      setImportCredentials(report.credentials ?? []);
       await refreshTeacherClasses(selectedTeacherClassId);
     } catch (error) {
-      setTeacherMessage("\u5bfc\u5165\u5931\u8d25\uff1a" + error.message);
+      setTeacherMessage(`导入失败：${error.message}`);
     }
   }
 
@@ -947,6 +958,30 @@ export function App() {
     return renderLogin();
   }
 
+  if (forcePasswordChange) {
+    return (
+      <PasswordChangeGate
+        user={auth.user}
+        onLogout={() => {
+          clearPasswordChangeRequired();
+          setForcePasswordChange(false);
+          handleLogout();
+        }}
+        onDone={async () => {
+          clearPasswordChangeRequired();
+          setForcePasswordChange(false);
+          try {
+            const { user } = await api.me();
+            setAuth({ status: "authenticated", user });
+            await loadRoleData(user);
+          } catch {
+            // 改密已经成功，身份刷新失败不应再次弹窗
+          }
+        }}
+      />
+    );
+  }
+
   if (activeView === "lab") {
     return (
       <div className="app-shell lab-mode-shell">
@@ -958,7 +993,7 @@ export function App() {
             onComplete={lab.completeOverviewChallenge}
           />
         )}>
-          <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u5b9e\u9a8c\u5de5\u4f5c\u53f0..." />}>
+          <Suspense fallback={<FeatureLoading label="正在加载实验工作台..." />}>
             <LabPage lab={lab} isMobile={isMobile}
               memoryAddress={memoryAddress} memoryOperation={memoryOperation} memoryWriteValue={memoryWriteValue}
               setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue}
@@ -1027,7 +1062,7 @@ export function App() {
       <div className="workspace">
         <aside className="sidebar">
           <nav className="sidebar-nav" aria-label="主导航">
-            {navItems.filter((item) => auth.user?.role === "teacher" ? ["home", "teacher"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware"].includes(item.id)).map(({ id, icon: Icon, label }) => (
+            {navItems.filter((item) => auth.user?.role === "teacher" ? ["home", "teacher", "courseware"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware"].includes(item.id)).map(({ id, icon: Icon, label }) => (
               <button
                 className={activeView === id ? "nav-item active" : "nav-item"}
                 key={id}
@@ -1063,19 +1098,19 @@ export function App() {
         </aside>
 
         <main className="dashboard">
-          <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u5f53\u524d\u529f\u80fd..." />}>
+          <Suspense fallback={<FeatureLoading label="正在加载当前功能..." />}>
           <ErrorBoundary key={activeView}>
           <div className="status-banner">
             <Sparkle size={18} />
             <span>{statusMessage}</span>
           </div>
 
-          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} projects={studentProjects} onOpenProjects={() => changeView("projects")} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} /> : null}
+          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} projects={studentProjects} onOpenProjects={() => changeView("projects")} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
           {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
           {activeView === "mistakes" ? <MistakeBookPage navigateToChallenge={navigateToChallenge} changeView={changeView} /> : null}
           {activeView === "hardware-game" ? (
             <ErrorBoundary>
-              <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u786c\u4ef6\u914d\u7f6e\u6311\u6218..." />}>
+              <Suspense fallback={<FeatureLoading label="正在加载硬件配置挑战..." />}>
                 <HardwareGamePage userId={auth.user?.id} hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} />
               </Suspense>
             </ErrorBoundary>
@@ -1104,7 +1139,7 @@ export function App() {
           ) : null}
           {activeView === "assignments" ? <StudentAssignments /> : null}
           {activeView === "projects" ? <StudentProjects /> : null}
-          {activeView === "courseware" ? <CoursewareView navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} /> : null}
+          {activeView === "courseware" ? <CoursewareView navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
           {activeView === "teacher" ? (
             <ErrorBoundary>
             <TeacherStudioDashboard
@@ -1150,8 +1185,8 @@ export function App() {
     if (!showSettings) return null;
     return (
       <ErrorBoundary key="settings-modal">
-        <Suspense fallback={<FeatureLoading label="\u6b63\u5728\u52a0\u8f7d\u8bbe\u7f6e..." />}>
-          <SettingsModal setShowSettings={setShowSettings} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} student={student} updateStudent={updateStudent} saveStudentSettings={saveStudentSettings} />
+        <Suspense fallback={<FeatureLoading label="正在加载设置..." />}>
+          <SettingsModal setShowSettings={setShowSettings} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} importCredentials={importCredentials} student={student} updateStudent={updateStudent} saveStudentSettings={saveStudentSettings} />
         </Suspense>
       </ErrorBoundary>
     );

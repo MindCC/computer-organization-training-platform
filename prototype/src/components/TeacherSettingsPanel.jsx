@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../apiClient.js";
 import { passwordStrength } from "../passwordStrength.js";
+import { downloadCredentialsCsv } from "../importCredentials.js";
 
 const AUDIT_ACTION_LABELS = {
   login_success: "登录成功",
@@ -27,6 +28,7 @@ export function SettingsModal({
   csvImportText,
   setCsvImportText,
   importStudentsToClass,
+  importCredentials = [],
   student,
   updateStudent,
   saveStudentSettings,
@@ -127,6 +129,24 @@ export function SettingsModal({
               <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">
                 导入学生
               </button>
+              {importCredentials.length > 0 ? (
+                <div className="teacher-import-credentials">
+                  <strong>新账号初始口令（仅本次显示，请立即发放）</strong>
+                  <p>未在 CSV 中指定初始密码的账号会获得一次性随机口令，学生首次登录后必须先改密。</p>
+                  <div className="teacher-credential-list">
+                    {importCredentials.map((item) => (
+                      <div className="teacher-credential-row" key={item.username}>
+                        <span>{item.username}</span>
+                        <span>{item.displayName}</span>
+                        <code>{item.password}</code>
+                      </div>
+                    ))}
+                  </div>
+                  <button className="ghost-button" type="button" onClick={() => downloadCredentialsCsv(importCredentials)}>
+                    下载初始口令 CSV
+                  </button>
+                </div>
+              ) : null}
             </section>
 
             <section className="settings-block teacher-rule-settings">

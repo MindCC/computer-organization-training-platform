@@ -12,9 +12,10 @@ prototype/qa-artifacts-current/
 prototype/test-artifacts/
 prototype/output/
 prototype/data/
-prototype/*.sqlite
-prototype/*.sqlite-shm
-prototype/*.sqlite-wal
+# 运行时数据库文件（含 WAL 临时文件）——任何位置都不要提交
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
 prototype/vite.err.log
 prototype/vite.out.log
 prototype/server.err.log

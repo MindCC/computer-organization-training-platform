@@ -83,6 +83,9 @@ export function createCoursewareUploadRouter({ db, requireRole, dataDirectory = 
     if (!entryPath.startsWith(directory) || !fs.existsSync(entryPath)) return res.status(404).json({ error: "转换后的课件文件不存在" });
     let html = fs.readFileSync(entryPath, "utf8");
     html = html.replace(/(src|href)="([^"#:][^"]*)"/g, (_all, attribute, value) => `${attribute}="/api/courseware/uploads/${upload.id}/asset?name=${encodeURIComponent(value)}"`);
+    // 这是 LibreOffice 解析不受信任 PPTX 的产物，按“不可信内容”对待：
+    // 禁止脚本与外部资源，只允许同源图片/样式。
+    res.set("Content-Security-Policy", "default-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'none'; frame-ancestors 'self'");
     res.type("html").send(html);
   });
 

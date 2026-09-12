@@ -1,4 +1,5 @@
 import { normalizePracticeDocument, mergePracticeHistory } from './assemblyPracticeStorage.js';
+import { createRandomId } from './shared/randomId.js';
 
 const empty=()=>({version:1,active:null,history:[]});
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -16,7 +17,7 @@ export function createPracticeTransport(caseId,userId){
 }
 
 // One serialized outbox per mounted student/order. Persist document + request together.
-export function createPracticeSync({storage,key,request,onChange=()=>{},onRestore=()=>{},uuid=()=>crypto.randomUUID()}){
+export function createPracticeSync({storage,key,request,onChange=()=>{},onRestore=()=>{},uuid=()=>createRandomId('practice')}){
   let document=empty(),revision=null,dirty=false,pending=null,conflict=null;
   let stopped=false,busy=null,timer=null,controller=null,localAvailable=true,status='loading',epoch=0;
   try{

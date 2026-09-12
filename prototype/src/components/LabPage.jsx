@@ -84,7 +84,7 @@ export function LabPage({
           <div className="lab-studio-user"><span>{student.name}</span><button aria-label="打开个人设置" className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button"><GearSix size={19} /></button></div>
         </header>
         <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-          <Suspense fallback={<div className="flow-loading">\u6b63\u5728\u52a0\u8f7d 3D \u6982\u89c8...</div>}>
+          <Suspense fallback={<div className="flow-loading">正在加载 3D 概览...</div>}>
             <OverviewExplodedView
               autoPlay={false}
               completed={l.currentRecord?.status === "completed"}

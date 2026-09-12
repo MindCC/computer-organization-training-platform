@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --lab-surface: rgba(255, 255, 255, 0.92);
   --lab-surface-strong: #ffffff;
   --lab-border: rgba(29, 78, 216, 0.14);
@@ -8472,3 +8472,14 @@ body {
 .cpu-registers > div { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:7px; margin-top:9px; }.cpu-registers dl { margin:0; padding:8px; border-radius:8px; background:#eff6ff; }.cpu-registers dt { font-size:11px; color:#64748b; }.cpu-registers dd { margin:4px 0 0; overflow:hidden; text-overflow:ellipsis; font:600 13px ui-monospace,SFMono-Regular,Consolas,monospace; }
 .cpu-memory { grid-column:1 / -1; }.cpu-memory > div { display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:8px; margin-top:9px; }.cpu-memory span { display:grid; gap:3px; padding:8px; border-radius:8px; background:#f8fafc; border:1px solid transparent; }.cpu-memory span.selected { border-color:#14b8a6; background:#ccfbf1; }.cpu-memory b,.cpu-memory small { font-size:11px; color:#64748b; }.cpu-memory code { font-size:12px; color:#0f172a; }
 @media (max-width: 820px) { .cpu-execution-grid { grid-template-columns:1fr; }.cpu-registers > div { grid-template-columns:repeat(3,minmax(0,1fr)); }.cpu-memory > div { grid-template-columns:repeat(4,minmax(0,1fr)); } }
+
+/* 学生导入后的初始口令清单：一次性随机口令，仅本次显示，需要教师立即发放 */
+.teacher-import-credentials { display:grid; gap:8px; margin-top:12px; padding:12px; border:1px solid rgba(20,184,166,.32); border-radius:12px; background:#f0fdfa; }
+.teacher-import-credentials > strong { font-size:14px; color:#0f766e; }
+.teacher-import-credentials > p { margin:0; font-size:12px; color:var(--ink-muted,#64748b); line-height:1.5; }
+.teacher-credential-list { display:grid; gap:6px; max-height:220px; overflow:auto; }
+.teacher-credential-row { display:grid; grid-template-columns:minmax(90px,.8fr) minmax(80px,.8fr) minmax(140px,1.2fr); gap:8px; align-items:center; padding:7px 9px; border-radius:8px; background:#fff; }
+.teacher-credential-row span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; }
+.teacher-credential-row code { font:600 13px ui-monospace,SFMono-Regular,Consolas,monospace; color:#0f172a; }
+.teacher-import-credentials button { justify-self:start; }
+@media (max-width: 720px) { .teacher-credential-row { grid-template-columns:1fr; } }

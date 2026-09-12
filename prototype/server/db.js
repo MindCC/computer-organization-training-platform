@@ -1,4 +1,4 @@
-﻿import Database from "better-sqlite3";
+import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { LEARNING_ITEMS, buildInitialLearningProgress, recordAttempt, summarizeLearning } from "../src/platformLogic.js";
@@ -487,6 +487,22 @@ export function updateUserPassword(db, userId, passwordHash) {
   db.prepare("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(passwordHash, userId);
 }
 
+/**
+ * 教师重置学生口令。授权判定与写入收在同一个函数里：目标必须是该教师名下班级里的学生。
+ * 不能用 updateUserPassword 代替——那条路径同时服务本人改密，无法区分调用者身份。
+ */
+export function resetStudentPassword(db, teacherId, studentId, passwordHash) {
+  const owned = db.prepare(`
+    SELECT u.id FROM users u
+    JOIN class_members cm ON cm.student_id = u.id
+    JOIN classes c ON c.id = cm.class_id
+    WHERE u.id = ? AND u.role = 'student' AND c.teacher_id = ?
+  `).get(studentId, teacherId);
+  if (!owned) return false;
+  const result = db.prepare("UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND role = 'student'").run(passwordHash, studentId);
+  return result.changes === 1;
+}
+
 export function createClass(db, teacherId, name) {
   const result = db.prepare("INSERT INTO classes (name, teacher_id) VALUES (?, ?)").run(name.trim(), teacherId);
   return db.prepare("SELECT * FROM classes WHERE id = ?").get(result.lastInsertRowid);
@@ -717,7 +733,7 @@ export function getTeacherStudentDetail(db, teacherId, studentId, classId = null
     FROM class_members cm
     JOIN classes c ON c.id = cm.class_id
     JOIN users u ON u.id = cm.student_id
-    WHERE cm.student_id = ? AND c.teacher_id = ? AND (? IS NULL OR c.id = ?)
+    WHERE cm.student_id = ? AND c.teacher_id = ? AND u.role = 'student' AND (? IS NULL OR c.id = ?)
     LIMIT 1
   `).get(studentId, teacherId, classId, classId);
   if (!membership) return null;
@@ -1019,15 +1035,22 @@ export function disableStudent(db, studentId) {
 }
 
 export function enableStudent(db, studentId) {
-  db.prepare("UPDATE users SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(studentId);
+  db.prepare("UPDATE users SET status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND role = 'student'").run(studentId);
 }
 
 export function transferStudent(db, studentId, fromClassId, toClassId) {
+  // 目标必须是学生，且必须确实在源班级里。缺少这两个前置校验时，教师可以把
+  // 任意用户（包括其他教师）拉进自己的花名册，从而通过随后的重置密码接口接管账号。
+  const student = db.prepare("SELECT id FROM users WHERE id = ? AND role = 'student'").get(studentId);
+  if (!student) return false;
+  const inSourceClass = db.prepare("SELECT 1 FROM class_members WHERE class_id = ? AND student_id = ?").get(fromClassId, studentId);
+  if (!inSourceClass) return false;
   const tx = db.transaction(() => {
     db.prepare("DELETE FROM class_members WHERE class_id = ? AND student_id = ?").run(fromClassId, studentId);
     addStudentToClass(db, toClassId, studentId);
   });
   tx();
+  return true;
 }
 
 

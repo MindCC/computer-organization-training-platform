@@ -7,7 +7,7 @@ import path from "node:path";
 
 import { hashPassword, verifyPassword } from "./auth.js";
 import { createApp, parseStudentCsv } from "./app.js";
-import { createUser, migrate, openDatabase } from "./db.js";
+import { addStudentToClass, createClass, createUser, migrate, openDatabase } from "./db.js";
 
 async function makeServer(options = {}) {
   const db = openDatabase(options.databasePath ?? ":memory:");
@@ -1114,4 +1114,166 @@ test("parseStudentCsv strips BOM, handles quoted fields, enforces limits", () =>
     () => parseStudentCsv(many),
     (error) => error.status === 400 && /上限/.test(error.message),
   );
+});
+
+test("teacher cannot hijack another teacher or another class's student", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherAJar = {};
+  const jsonHeaders = { "content-type": "application/json" };
+  try {
+    const teacherB = createUser(db, { username: "teacher-b", displayName: "教师B", role: "teacher", passwordHash: await hashPassword("TeacherB123!") });
+    const classB = createClass(db, teacherB.id, "B 的班级");
+    const studentB = createUser(db, { username: "student-b", displayName: "学生B", role: "student", passwordHash: await hashPassword("StudentB123!") });
+    addStudentToClass(db, classB.id, studentB.id);
+
+    let result = await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherAJar);
+    assert.equal(result.response.status, 200);
+
+    const classA1 = (await request(baseUrl, "/api/classes", { method: "POST", headers: jsonHeaders, body: JSON.stringify({ name: "A 班一" }) }, teacherAJar)).body.class.id;
+    const classA2 = (await request(baseUrl, "/api/classes", { method: "POST", headers: jsonHeaders, body: JSON.stringify({ name: "A 班二" }) }, teacherAJar)).body.class.id;
+
+    // 不能用 transfer 把其他教师或他班学生拉进自己的花名册
+    for (const targetId of [teacherB.id, studentB.id]) {
+      result = await request(baseUrl, `/api/teacher/students/${targetId}/transfer`, {
+        method: "POST", headers: jsonHeaders, body: JSON.stringify({ fromClassId: classA1, toClassId: classA2 }),
+      }, teacherAJar);
+      assert.equal(result.response.status, 404, `transfer of user ${targetId} must be rejected`);
+
+      result = await request(baseUrl, `/api/teacher/students/${targetId}/reset-password`, {
+        method: "POST", headers: jsonHeaders, body: JSON.stringify({ password: "Hijacked123!" }),
+      }, teacherAJar);
+      assert.equal(result.response.status, 404, `password reset of user ${targetId} must be rejected`);
+    }
+
+    // 原口令仍然有效，劫持口令无效
+    result = await request(baseUrl, "/api/auth/login", { method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "teacher-b", password: "Hijacked123!" }) });
+    assert.equal(result.response.status, 401);
+    result = await request(baseUrl, "/api/auth/login", { method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "teacher-b", password: "TeacherB123!" }) });
+    assert.equal(result.response.status, 200);
+
+    // 正规转班仍然可用
+    await request(baseUrl, `/api/teacher/classes/${classA1}/import-students`, {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ csv: "own-student,本班学生,OwnPass123!" }),
+    }, teacherAJar);
+    const ownStudentId = db.prepare("SELECT id FROM users WHERE username = 'own-student'").get().id;
+    result = await request(baseUrl, `/api/teacher/students/${ownStudentId}/transfer`, {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ fromClassId: classA1, toClassId: classA2 }),
+    }, teacherAJar);
+    assert.equal(result.response.status, 200);
+
+    // 导入不得改写他班学生资料，也不得复活被停用的账号
+    db.prepare("UPDATE users SET status = 'disabled' WHERE id = ?").run(studentB.id);
+    result = await request(baseUrl, `/api/teacher/classes/${classA1}/import-students`, {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ csv: "student-b,被篡改的姓名,StudentB123!" }),
+    }, teacherAJar);
+    assert.equal(result.response.status, 200);
+    const afterImport = db.prepare("SELECT display_name AS displayName, status FROM users WHERE id = ?").get(studentB.id);
+    assert.equal(afterImport.displayName, "学生B");
+    assert.equal(afterImport.status, "disabled");
+
+    // CSV 公式注入载荷被拒绝，不会建出账号
+    result = await request(baseUrl, `/api/teacher/classes/${classA1}/import-students`, {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ csv: "formula,=cmd|'/c calc'!A0,FormulaPass123!" }),
+    }, teacherAJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.imported, 0);
+    assert.equal(db.prepare("SELECT COUNT(*) AS count FROM users WHERE username = 'formula'").get().count, 0);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});
+
+test("teacher can reattach to the running classroom session after a page reload", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  const otherTeacherJar = {};
+  const jsonHeaders = { "content-type": "application/json" };
+  try {
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    let result = await request(baseUrl, "/api/classes", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ name: "重连班" }),
+    }, teacherJar);
+    const classId = result.body.class.id;
+
+    // 还没有课堂时必须返回 null，而不是报错
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/sessions/current`, {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.session, null);
+
+    const session = (await request(baseUrl, `/api/teacher/classes/${classId}/sessions`, {
+      method: "POST",
+      headers: jsonHeaders,
+      body: JSON.stringify({ templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80, allowMakeup: false }),
+    }, teacherJar)).body.session;
+    await request(baseUrl, `/api/teacher/sessions/${session.id}/start`, { method: "POST" }, teacherJar);
+
+    // 教师刷新页面后应能重新发现进行中的课堂
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/sessions/current`, {}, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.session.id, session.id);
+    assert.equal(result.body.session.status, "live");
+
+    // 其他教师不能查询别人班级的当前课堂
+    createUser(db, { username: "teacher-c", displayName: "教师C", role: "teacher", passwordHash: await hashPassword("TeacherC123!") });
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "teacher-c", password: "TeacherC123!" }),
+    }, otherTeacherJar);
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/sessions/current`, {}, otherTeacherJar);
+    assert.equal(result.response.status, 404);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
+});
+
+test("imported account with a generated password must change it before using APIs", async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const teacherJar = {};
+  const studentJar = {};
+  const jsonHeaders = { "content-type": "application/json" };
+  try {
+    await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "teacher", password: "Teacher123!" }),
+    }, teacherJar);
+    let result = await request(baseUrl, "/api/classes", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ name: "首登改密班" }),
+    }, teacherJar);
+    const classId = result.body.class.id;
+
+    // 不提供初始密码 → 服务端生成一次性随机口令并回传给教师
+    result = await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ csv: "学号,姓名\ns1001,学生甲" }),
+    }, teacherJar);
+    assert.equal(result.response.status, 200);
+    assert.equal(result.body.imported, 1);
+    const credential = result.body.credentials[0];
+    assert.equal(credential.username, "s1001");
+    assert.ok(credential.password, "应回传初始口令供教师发放");
+    assert.notEqual(credential.password, "ChangeMe123!", "不得再使用平台统一的默认口令");
+
+    // 一次性口令可登录，但业务接口被强制改密闸门拦住
+    result = await request(baseUrl, "/api/auth/login", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ username: "s1001", password: credential.password }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/student/progress", {}, studentJar);
+    assert.equal(result.response.status, 403);
+    assert.equal(result.body.error.code, "PASSWORD_CHANGE_REQUIRED");
+
+    // 改密后放行
+    result = await request(baseUrl, "/api/auth/change-password", {
+      method: "POST", headers: jsonHeaders, body: JSON.stringify({ currentPassword: credential.password, nextPassword: "NewSecret123!" }),
+    }, studentJar);
+    assert.equal(result.response.status, 200);
+    result = await request(baseUrl, "/api/student/progress", {}, studentJar);
+    assert.equal(result.response.status, 200);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
 });

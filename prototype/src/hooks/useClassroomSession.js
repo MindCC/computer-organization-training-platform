@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../apiClient.js";
+import { createRandomId } from "../shared/randomId.js";
 import {
   pendingSubmissionKey,
   readPendingSubmission,
@@ -61,7 +62,7 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
   }, [apiClient]);
 
   const submit = useCallback(async (payload) => {
-    const clientSubmissionId = payload.clientSubmissionId ?? crypto.randomUUID();
+    const clientSubmissionId = payload.clientSubmissionId ?? createRandomId("classroom");
     const submission = { ...payload, clientSubmissionId };
     const key = pendingSubmissionKey({
       userId,

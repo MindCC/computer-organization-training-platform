@@ -25,7 +25,7 @@ function NextStepCard({ challenge, progress, onEnter }) {
   );
 }
 
-export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter, allowSkipLocked = false, projects = [], onOpenProjects }) {
+export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter, allowSkipLocked = false, projects = [], onOpenProjects, userId = "anonymous" }) {
   const questModel = buildStudentQuestModel(routeGroups, nextRecommendedChallenge, progress);
   const firstUseSteps = buildFirstUseSteps(progress);
   const homeEmptyState = buildStudentHomeEmptyState(summary, routeGroups);
@@ -128,7 +128,7 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
     <main className="quest-student-home">
       <FirstUseGuide
         steps={firstUseSteps}
-        storageKey={`zcyl:quest-guide-dismissed:${typeof window !== "undefined" ? window.__USER_ID__ ?? "" : ""}`}
+        storageKey={`zcyl:quest-guide-dismissed:${userId}`}
       />
 
       {homeEmptyState ? (

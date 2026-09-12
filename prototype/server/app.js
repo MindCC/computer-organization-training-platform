@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import crypto from "node:crypto";
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -36,6 +36,7 @@ import {
   migrate,
   openDatabase,
   recordStudentAttempt,
+  resetStudentPassword,
   sanitizeUser,
   setClassAllowSkipLocked,
   teacherOwnsClass,
@@ -72,6 +73,11 @@ import { buildMistakeBook } from "../src/mistakeBook.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_NAME = "zcyl_session";
 const SESSION_DAYS = 7;
+const PASSWORD_CHANGE_ALLOWED_PATHS = new Set([
+  "/api/auth/change-password",
+  "/api/auth/logout",
+  "/api/auth/me",
+]);
 
 export function createApp(options = {}) {
   const db = options.db ?? openDatabase(options.databasePath);
@@ -104,6 +110,19 @@ export function createApp(options = {}) {
 
   app.use(express.json({ limit: "1mb" }));
   app.use(express.text({ type: ["text/csv", "text/plain"], limit: "1mb" }));
+
+  // 安全响应头：项目未引入 helmet，这里补齐最小必要集合。
+  // 注意 X-Frame-Options 必须是 SAMEORIGIN——课件演示依赖同源 iframe，DENY 会把它一起挡掉。
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Referrer-Policy", "same-origin");
+    if (process.env.COOKIE_SECURE) {
+      res.setHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
+    }
+    next();
+  });
+
   app.use(loadSession(db, sessionSecret));
 
   // Classroom and assignment services
@@ -138,6 +157,21 @@ export function createApp(options = {}) {
       return res.status(403).json({ error: "跨站请求被拒绝" });
     }
     next();
+  });
+
+  // 首次登录强制改密：导入或重置时生成的一次性口令必须先更换才能访问业务接口。
+  // 只放行查询身份、改密与退出，避免闸门本身把人锁死在门外。
+  app.use((req, res, next) => {
+    if (!req.user) return next();
+    if (sanitizeUser(req.user).profile?.mustChangePassword !== true) return next();
+    if (PASSWORD_CHANGE_ALLOWED_PATHS.has(req.path)) return next();
+    return res.status(403).json({
+      error: {
+        code: "PASSWORD_CHANGE_REQUIRED",
+        message: "首次登录必须修改密码后才能继续使用",
+        retryable: false,
+      },
+    });
   });
 
   // Feature routers must run after global logging and CSRF middleware.
@@ -289,11 +323,14 @@ export function createApp(options = {}) {
       const csvText = typeof req.body === "string" ? req.body : String(req.body?.csv ?? "");
       const rows = parseStudentCsv(csvText);
       const passwordHashCache = new Map();
-      const report = { imported: 0, updated: 0, skipped: 0, errors: [] };
+      const generatedPasswords = new Map();
+      const report = { imported: 0, updated: 0, skipped: 0, errors: [], credentials: [] };
       for (const row of rows) {
         if (row.username && row.displayName && !getUserByUsername(db, row.username)) {
-          const password = row.password || "ChangeMe123!";
+          // 每个新账号使用一次性随机口令（除非 CSV 显式指定），并回传给教师用于发放。
+          const password = row.password || generateInitialPassword();
           passwordHashCache.set(row.username, await hashPassword(password));
+          generatedPasswords.set(row.username, password);
         }
       }
 
@@ -310,18 +347,32 @@ export function createApp(options = {}) {
             report.errors.push({ line: row.line, message: "账号已被教师占用" });
             continue;
           }
-          if (!user) {
+          const nameCheck = normalizeDisplayName(row.displayName);
+          if (!nameCheck.ok) {
+            report.skipped += 1;
+            report.errors.push({ line: row.line, message: nameCheck.error });
+            continue;
+          }
+          if (user) {
+            // 同一名学生可能同时修多位教师的课，因此允许把已存在的学生加入本班。
+            // 但不能借导入改写他班学生已有的资料，也不能复活被禁用的账号——
+            // 这两点曾是“教师接管他人账号”的越权原语。
+            const alreadyMember = db.prepare("SELECT 1 FROM class_members WHERE class_id = ? AND student_id = ?").get(classId, user.id);
+            if (alreadyMember) {
+              // 已在本班：允许修正花名册上的姓名，状态字段一律不动。
+              db.prepare("UPDATE users SET display_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(nameCheck.value, user.id);
+            }
+            report.updated += 1;
+          } else {
             user = createUser(db, {
               username: row.username,
-              displayName: row.displayName,
+              displayName: nameCheck.value,
               role: "student",
               passwordHash: passwordHashCache.get(row.username),
-              profile: { goal: "完成计算机概述到运算器关卡", mode: "强引导模式", mustChangePassword: true },
+              profile: { goal: "完成计算机概述到运算器关卡", mode: "强引导模式", mustChangePassword: !row.password },
             });
             report.imported += 1;
-          } else {
-            db.prepare("UPDATE users SET display_name = ?, status = 'active', updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(row.displayName, user.id);
-            report.updated += 1;
+            report.credentials.push({ username: row.username, displayName: nameCheck.value, password: generatedPasswords.get(row.username) });
           }
           addStudentToClass(db, classId, user.id);
         }
@@ -430,11 +481,14 @@ export function createApp(options = {}) {
 
   app.post("/api/teacher/students/:studentId/reset-password", requireRole("teacher"), async (req, res, next) => {
     try {
-      const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId));
-      if (!detail) return res.status(404).json({ error: "学生不存在" });
-      const nextPassword = String(req.body?.password ?? "ChangeMe123!");
-      updateUserPassword(db, Number(req.params.studentId), await hashPassword(nextPassword));
-      audit(req, "reset_password", { targetType: "user", targetId: req.params.studentId });
+      const studentId = Number(req.params.studentId);
+      const requested = typeof req.body?.password === "string" ? req.body.password.trim() : "";
+      // 未指定时生成一次性随机口令，避免全平台共用同一个可预测的默认口令。
+      const nextPassword = requested || generateInitialPassword();
+      const ok = await resetStudentPassword(db, req.user.id, studentId, await hashPassword(nextPassword));
+      if (!ok) return res.status(404).json({ error: "学生不存在" });
+      updateUserProfile(db, studentId, { profile: { mustChangePassword: true } });
+      audit(req, "reset_password", { targetType: "user", targetId: studentId });
       res.json({ ok: true, password: nextPassword });
     } catch (error) { next(error); }
   });
@@ -483,7 +537,9 @@ export function createApp(options = {}) {
       if (!teacherOwnsClass(db, req.user.id, fromId) || !teacherOwnsClass(db, req.user.id, toId)) {
         return res.status(404).json({ error: "班级不存在" });
       }
-      transferStudent(db, Number(req.params.studentId), fromId, toId);
+      if (!transferStudent(db, Number(req.params.studentId), fromId, toId)) {
+        return res.status(404).json({ error: "学生不存在或不在该班级" });
+      }
       audit(req, "transfer_student", { targetType: "user", targetId: req.params.studentId, metadata: { transfer: { from: fromId, to: toId } } });
       res.json({ ok: true });
     } catch (error) { next(error); }
@@ -629,7 +685,13 @@ export function createApp(options = {}) {
 
   app.put("/api/student/profile", requireRole("student"), (req, res) => {
     const { displayName, goal, mode } = req.body ?? {};
-    const user = updateUserProfile(db, req.user.id, { displayName, profile: { goal, mode } });
+    let nextDisplayName = displayName;
+    if (displayName !== undefined) {
+      const nameCheck = normalizeDisplayName(displayName);
+      if (!nameCheck.ok) return res.status(400).json({ error: nameCheck.error });
+      nextDisplayName = nameCheck.value;
+    }
+    const user = updateUserProfile(db, req.user.id, { displayName: nextDisplayName, profile: { goal, mode } });
     res.json({ user: sanitizeUser(user) });
   });
 
@@ -825,7 +887,25 @@ function renderScoresCsv(students) {
 
 function escapeCsv(value) {
   const text = String(value ?? "");
-  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  // Excel / LibreOffice 会把 = + - @ 开头的内容当公式执行（CSV 注入）。
+  // 先中和公式前缀，再处理引号与换行转义。
+  const neutralized = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+  return /[",\n\r]/.test(neutralized) ? `"${neutralized.replace(/"/g, '""')}"` : neutralized;
+}
+
+/** 校验并规范化显示名：限制长度与字符集，避免公式前缀与控制字符进入导出文件与 AI 载荷。 */
+function normalizeDisplayName(input) {
+  const value = String(input ?? "").trim();
+  if (!value) return { ok: false, error: "姓名不能为空" };
+  if (value.length > MAX_FIELD_LENGTH) return { ok: false, error: `姓名不能超过 ${MAX_FIELD_LENGTH} 个字符` };
+  if (/[\r\n\t\u0000-\u001f]/.test(value)) return { ok: false, error: "姓名不能包含控制字符" };
+  if (/^[=+\-@]/.test(value)) return { ok: false, error: "姓名不能以 = + - @ 开头" };
+  return { ok: true, value };
+}
+
+/** 生成一次性初始口令（导入/重置用），避免全平台共用可预测的默认口令。 */
+export function generateInitialPassword() {
+  return `Zcyl-${crypto.randomBytes(6).toString("base64url")}`;
 }
 
 function parseCookies(header) {

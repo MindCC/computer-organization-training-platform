@@ -1,4 +1,4 @@
-﻿export class ApiError extends Error {
+export class ApiError extends Error {
   constructor({ status, code, message, retryable = false }) {
     super(message);
     this.name = "ApiError";
@@ -11,6 +11,32 @@
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RETRIES = 2;
 const RETRY_BASE_DELAY_MS = 400;
+
+let passwordChangeRequired = false;
+const passwordChangeListeners = new Set();
+
+/**
+ * 强制改密信号：服务端对需要改密的账号会在任何业务接口返回
+ * PASSWORD_CHANGE_REQUIRED。界面据此弹出阻断式改密页，而不是把 403 当成普通错误。
+ */
+export function onPasswordChangeRequired(listener) {
+  passwordChangeListeners.add(listener);
+  return () => passwordChangeListeners.delete(listener);
+}
+
+export function isPasswordChangeRequired() {
+  return passwordChangeRequired;
+}
+
+export function clearPasswordChangeRequired() {
+  passwordChangeRequired = false;
+}
+
+function notifyPasswordChangeRequired() {
+  if (passwordChangeRequired) return;
+  passwordChangeRequired = true;
+  for (const listener of passwordChangeListeners) listener();
+}
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -59,6 +85,7 @@ export async function apiRequest(path, options = {}) {
           message: body.error.message ?? "请求失败",
           retryable: body.error.retryable === true,
         });
+        if (apiError.code === "PASSWORD_CHANGE_REQUIRED") notifyPasswordChangeRequired();
         // 服务端明确标记可重试的错误才重试；其余直接抛
         if (retryableMethod && apiError.retryable && attempt < maxAttempts) {
           lastError = apiError;
@@ -108,6 +135,7 @@ export const api = {
   currentClassroom: () => apiRequest("/api/student/classroom/current"),
   enterClassroom: (sessionId) => apiRequest(`/api/student/classroom/${sessionId}/enter`, { method: "POST" }),
   createClassroomSession: (classId, payload) => apiRequest(`/api/teacher/classes/${classId}/sessions`, { method: "POST", body: JSON.stringify(payload) }),
+  currentClassroomSession: (classId) => apiRequest(`/api/teacher/classes/${classId}/sessions/current`),
   startClassroomSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/start`, { method: "POST" }),
   pauseClassroomSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/pause`, { method: "POST" }),
   resumeClassroomSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/resume`, { method: "POST" }),

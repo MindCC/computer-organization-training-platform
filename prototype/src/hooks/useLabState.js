@@ -64,9 +64,15 @@ export function useLabState({
   const labScoring = useMemo(() => ({ connection: gradeConnections(selectedChallengeId, connections), placement: placementPreview }), [selectedChallengeId, connections, placementPreview]);
   const currentRecord = useMemo(() => progress[selectedChallengeId] ?? {}, [progress, selectedChallengeId]);
 
-  const simulation = useMemo(() => simulateChallenge(currentChallenge, connections, inputState), [currentChallenge, connections, inputState]);
+  // simulateChallenge / buildRealtimeDiagnostics 的签名分别是 (challengeId, inputs)
+  // 与 ({ challengeId, connections, inputState, feedback })。此前传入的是 challenge 对象
+  // 和位置参数，导致动态演示恒走兜底分支、实时诊断恒为“未知关卡”。
+  const simulation = useMemo(() => simulateChallenge(currentChallenge.id, inputState), [currentChallenge, inputState]);
   const activeStep = useMemo(() => Math.min(simulationStep, simulation.steps.length - 1), [simulationStep, simulation.steps.length]);
-  const realtimeDiagnostics = useMemo(() => buildRealtimeDiagnostics(currentChallenge, connections, labScoring), [currentChallenge, connections, labScoring]);
+  const realtimeDiagnostics = useMemo(
+    () => buildRealtimeDiagnostics({ challengeId: currentChallenge.id, connections, inputState, feedback }),
+    [currentChallenge, connections, inputState, feedback],
+  );
 
   const selectedStudyCard = useMemo(() => buildComponentStudyCard(selectedComponent, connections, currentChallenge), [selectedComponent, connections, currentChallenge]);
   const selectedComponentDetail = useMemo(() => {
