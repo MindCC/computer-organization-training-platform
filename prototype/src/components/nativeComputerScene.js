@@ -9,6 +9,7 @@ import { Color } from "three/src/math/Color.js";
 import { Quaternion } from "three/src/math/Quaternion.js";
 import { Vector2 } from "three/src/math/Vector2.js";
 import { Vector3 } from "three/src/math/Vector3.js";
+import { Plane } from "three/src/math/Plane.js";
 import { CylinderGeometry } from "three/src/geometries/CylinderGeometry.js";
 import { SphereGeometry } from "three/src/geometries/SphereGeometry.js";
 import { ACESFilmicToneMapping, PCFSoftShadowMap } from 'three/src/constants.js';
@@ -96,6 +97,15 @@ export function createNativeComputerScene(container, options = {}) {
   let assemblyInteraction = null;
   let cameraTransition = null;
   let pendingCameraTransition = null;
+  const explorationOffsets = new Map();
+  let explorationDrag = null;
+  const dragPlane = new Plane();
+  const dragPoint = new Vector3();
+  function castPointer(event) {
+    const bounds = renderer.domElement.getBoundingClientRect();
+    pointer.set((event.clientX - bounds.left) / bounds.width * 2 - 1, -(event.clientY - bounds.top) / bounds.height * 2 + 1);
+    raycaster.setFromCamera(pointer, camera);
+  }
   function updateCamera() {
     const sinPolar = Math.sin(polar);
     camera.position.set(
@@ -107,19 +117,45 @@ export function createNativeComputerScene(container, options = {}) {
     renderer.domElement.dataset.cameraChanged = "true";
   }
   function onPointerDown(event) {
+    if (event.button === 1) event.preventDefault();
     cameraTransition = null;
     pendingCameraTransition = null;
+    if (options.exploration && event.button === 0) {
+      castPointer(event);
+      const hit = raycaster.intersectObjects([...partGroups.values()].filter(entry => entry.group.visible).map(entry => entry.group), true)[0];
+      const id = hit?.object.userData.partId;
+      const entry = partGroups.get(id);
+      if (entry && id !== 'case') {
+        dragPlane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new Vector3()), hit.point);
+        explorationDrag = { id, start: hit.point.clone(), offset: (explorationOffsets.get(id) ?? new Vector3()).clone(), x: event.clientX, y: event.clientY, moved: false };
+        options.onPartSelect?.(id);
+        renderer.domElement.setPointerCapture?.(event.pointerId);
+        renderer.domElement.style.cursor = 'grabbing';
+        return;
+      }
+    }
     if (assemblyInteraction?.pointerDown(event)) return;
     drag = { x: event.clientX, y: event.clientY, button: event.button, moved: false };
     renderer.domElement.setPointerCapture?.(event.pointerId);
   }
   function onPointerMove(event) {
+    if (explorationDrag) {
+      castPointer(event);
+      explorationDrag.moved ||= Math.hypot(event.clientX - explorationDrag.x, event.clientY - explorationDrag.y) > 4;
+      if (explorationDrag.moved && raycaster.ray.intersectPlane(dragPlane, dragPoint)) {
+        explorationOffsets.set(explorationDrag.id, dragPoint.clone().sub(explorationDrag.start).add(explorationDrag.offset));
+      }
+      return;
+    }
     if (assemblyInteraction?.pointerMove(event)) return;
     if (!drag) return;
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
     drag.moved ||= Math.abs(dx) + Math.abs(dy) > 3;
-    if (drag.button === 2) {
+    if ((options.assembly || options.exploration) && drag.button === 1) {
+      const scale = 2 * cameraDistance * Math.tan(camera.fov * Math.PI / 360) / Math.max(1, renderer.domElement.clientHeight);
+      cameraTarget.add(new Vector3(-dx * scale, dy * scale, 0).applyQuaternion(camera.quaternion));
+    } else if (drag.button === 2) {
       cameraTarget.x -= dx * 0.003 * cameraDistance;
       cameraTarget.y += dy * 0.003 * cameraDistance;
     } else {
@@ -131,6 +167,14 @@ export function createNativeComputerScene(container, options = {}) {
     updateCamera();
   }
   function onPointerUp(event) {
+    if (explorationDrag) {
+      if (event.type === 'pointercancel') explorationOffsets.set(explorationDrag.id, explorationDrag.offset);
+      explorationDrag = null;
+      suppressClick = true;
+      renderer.domElement.style.cursor = 'grab';
+      renderer.domElement.releasePointerCapture?.(event.pointerId);
+      return;
+    }
     if (assemblyInteraction?.pointerUp(event, event.type === 'pointercancel')) return;
     renderer.domElement.releasePointerCapture?.(event.pointerId);
     suppressClick = Boolean(drag?.moved);
@@ -208,7 +252,9 @@ export function createNativeComputerScene(container, options = {}) {
         mesh.castShadow = true; mesh.receiveShadow = true;
         const base=registry.add(mesh.material.clone()),highlighted=registry.add(base.clone());
         highlighted.emissive.set('#16b8a6');highlighted.emissiveIntensity=.12;
-        mesh.material=base;mesh.userData.materials={base,highlighted,xray:base};
+        const xray = registry.add(base.clone());
+        xray.transparent = true; xray.opacity = .3; xray.depthWrite = false;
+        mesh.material=base;mesh.userData.materials={base,highlighted,xray};
       });
       entry.size = new Box3().setFromObject(entry.group).getSize(new Vector3()).toArray();
     }
@@ -230,7 +276,7 @@ export function createNativeComputerScene(container, options = {}) {
   const busGroup = new Group();
   const particleGroup = new Group();
   scene.add(busGroup, particleGroup);
-  const busEntries = CONNECTIONS.map((connection) => {
+  const busEntries = CONNECTIONS.filter(connection => !options.exploration || (connection.fromPart !== 'ram-1' && connection.toPart !== 'ram-1')).map((connection) => {
     const material = registry.add(new MeshBasicMaterial({ color: connection.color }));
     const mesh = new Mesh(busGeometry, material);
     busGroup.add(mesh);
@@ -343,7 +389,10 @@ export function createNativeComputerScene(container, options = {}) {
     elapsed = time / 1000;
     for (const [partId, entry] of partGroups) {
       entry.group.visible = viewState.visiblePartIds.has(partId);
-      if (!viewState.assembly) entry.group.position.fromArray(partPosition(entry.part, currentDistance));
+      if (!viewState.assembly) {
+        entry.group.position.fromArray(partPosition(entry.part, currentDistance));
+        if (explorationOffsets.has(partId)) entry.group.position.add(explorationOffsets.get(partId));
+      }
       else if (['case', 'motherboard', 'psu'].includes(partId)) entry.group.position.fromArray(entry.part.basePos);
       entry.group.traverse((node) => {
         applyMeshMaterial(node, viewState, partId);
@@ -367,6 +416,12 @@ export function createNativeComputerScene(container, options = {}) {
       const { connection } = entry;
       entry.from.fromArray(getConnectionEndpoint(connection.fromPart, connection.fromOffset, currentDistance));
       entry.to.fromArray(getConnectionEndpoint(connection.toPart, connection.toOffset, currentDistance));
+      if (options.exploration && options.asset) {
+        const from = partGroups.get(connection.fromPart);
+        const to = partGroups.get(connection.toPart);
+        if (from) entry.from.copy(from.group.position);
+        if (to) entry.to.copy(to.group.position);
+      }
       entry.midpoint.copy(entry.from).add(entry.to).multiplyScalar(0.5);
       entry.direction.copy(entry.to).sub(entry.from);
       const length = entry.direction.length();
@@ -409,6 +464,16 @@ export function createNativeComputerScene(container, options = {}) {
     setViewState(nextState) {
       const previous = viewState;
       viewState = normalizeSceneViewState(nextState);
+      if (options.exploration) {
+        if (previous.returnPart !== viewState.returnPart && viewState.returnPart) {
+          if (viewState.returnPart.id) explorationOffsets.delete(viewState.returnPart.id);
+          else explorationOffsets.clear();
+        }
+        if (previous.targetExplodeDistance !== viewState.targetExplodeDistance || [...previous.visiblePartIds].join() !== [...viewState.visiblePartIds].join()) {
+          explorationOffsets.clear();
+          explorationDrag = null;
+        }
+      }
       if (options.assembly && (previous.cameraPreset !== viewState.cameraPreset || previous.resetKey !== viewState.resetKey || previous.assembly?.selectedConnector !== viewState.assembly?.selectedConnector || (viewState.cameraPreset === 'part' && previous.selectedPartId !== viewState.selectedPartId))) {
         const selected = ASSEMBLY_PARTS.find(part => part.sceneId === viewState.selectedPartId);
         const entry=partGroups.get(selected?.sceneId);

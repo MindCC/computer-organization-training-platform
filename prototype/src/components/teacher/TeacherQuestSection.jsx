@@ -5,8 +5,10 @@ import { TeacherQuestOverview } from "./TeacherQuestOverview.jsx";
 import { TeacherSetupChecklist } from "./TeacherSetupChecklist.jsx";
 import { InterventionGroups } from "./InterventionGroups.jsx";
 
-/** 课程地图进度、开课准备清单与分层干预分组。 */
-export function TeacherQuestSection({ selectedClass, students, classSummary, teacherSession }) {
+const ALL_SECTIONS = ["checklist", "coverage", "groups"];
+
+/** 课程地图进度、开课准备清单与分层干预分组；sections 控制渲染哪些版块，便于拆分到不同工作区。 */
+export function TeacherQuestSection({ selectedClass, students, classSummary, teacherSession, sections = ALL_SECTIONS }) {
   const routeGroups = buildCourseRouteGroups(LEARNING_ITEMS, classSummary ?? {});
   const questModel = buildTeacherQuestModel(routeGroups, students);
   const setupSteps = buildTeacherSetupSteps({
@@ -19,9 +21,9 @@ export function TeacherQuestSection({ selectedClass, students, classSummary, tea
 
   return (
     <>
-      <TeacherSetupChecklist steps={setupSteps} />
-      <TeacherQuestOverview model={questModel} onSelectStage={() => {}} />
-      <InterventionGroups groups={interventionGroups} onAction={() => {}} />
+      {sections.includes("checklist") && <TeacherSetupChecklist steps={setupSteps} />}
+      {sections.includes("coverage") && <TeacherQuestOverview model={questModel} onSelectStage={() => {}} />}
+      {sections.includes("groups") && <InterventionGroups groups={interventionGroups} onAction={() => {}} />}
     </>
   );
 }

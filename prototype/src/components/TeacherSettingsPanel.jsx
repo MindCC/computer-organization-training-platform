@@ -156,7 +156,7 @@ export function SettingsModal({
               {importCredentials.length > 0 ? (
                 <div className="teacher-import-credentials">
                   <strong>新账号初始口令（仅本次显示，请立即发放）</strong>
-                  <p>未在 CSV 中指定初始密码的账号会获得一次性随机口令，学生首次登录后必须先改密。</p>
+                  <p>未在 CSV 中指定初始密码的账号会获得随机初始密码，学生登录后可在个人设置中修改密码。</p>
                   <div className="teacher-credential-list">
                     {importCredentials.map((item) => (
                       <div className="teacher-credential-row" key={item.username}>

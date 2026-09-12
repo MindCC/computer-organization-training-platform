@@ -7,6 +7,9 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
 
 Current durable prototype preferences (the scope map below resolves overlap):
+- First-level component exploration shares the assembly lab Blender asset and camera controls; allow dragging components out for inspection and returning them, while retaining guided steps and completion grading.
+- Assembly lab camera: middle-button drag pans the view; left-button drag on empty space rotates, and the wheel zooms.
+- First-login password changes are optional. Do not block login or course access with a mandatory password-change gate; retain voluntary password changes in personal settings.
 - The approved UI direction is the bright "Precision Workshop" concept: compact navy navigation, light neutral work surfaces, teal interaction states, realistic identifiable computer parts, and dense but breathable operational layouts.
 - Hardware assembly must never fall back to unlabeled primitive boxes as its primary experience; every selectable part needs a recognizable visual, a clear hotspot/list state, and immediate compatibility, budget, and outcome feedback.
 - Homepage should not display the student's personal name in the main visual area.

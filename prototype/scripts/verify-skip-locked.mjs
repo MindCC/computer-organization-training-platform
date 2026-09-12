@@ -3,6 +3,7 @@ import { chromium } from "@playwright/test";
 import { CHALLENGES } from "../src/platformLogic.js";
 import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
 import { openChallengeFromHome } from "./lib/qaHome.mjs";
+import { selectTeacherClass } from "./helpers/select-teacher-class.mjs";
 
 // P2-C: 跳关开关 UI 实测
 const appUrl = process.env.PROTOTYPE_URL ?? process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:8787";
@@ -42,7 +43,7 @@ await submitLoginForm(page);
 await page.waitForTimeout(2500);
 
 // 选择刚创建的班级
-await page.locator(".teacher-class", { hasText: className }).click();
+await selectTeacherClass(page, className);
 await page.waitForLoadState("networkidle");
 
 const settingsButton = page.getByRole("button", { name: "课堂设置" });

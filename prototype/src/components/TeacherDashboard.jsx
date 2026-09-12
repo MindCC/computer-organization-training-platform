@@ -34,6 +34,8 @@ export function TeacherStudioDashboard({
   const students = classOverview?.students ?? [];
   const hardwareSummary = adaptHardwareGameSummary(classOverview?.hardwareGameSummary);
   const [lastRefreshAt, setLastRefreshAt] = useState(() => Date.now());
+  const [workspace, setWorkspace] = useState('teaching');
+  const [statistic, setStatistic] = useState('overview');
 
   const refreshSelectedClass = useCallback(() => {
     if (!selectedTeacherClassId) return;
@@ -69,6 +71,18 @@ export function TeacherStudioDashboard({
       </header>
 
       <div className="teacher-studio-layout">
+        <aside className="teacher-workspace-nav" aria-label="教师工作区">
+          <button type="button" aria-pressed={workspace === 'teaching'} onClick={() => setWorkspace('teaching')}>教学活动</button>
+          <button type="button" aria-pressed={workspace === 'statistics'} onClick={() => setWorkspace('statistics')}>学情统计</button>
+          {workspace === 'statistics' && (
+            <nav className="statistics-nav" aria-label="统计分类">
+              {[['overview','学情洞察'],['monitor','学习监控'],['assistant','学情分析助手'],['students','学情明细']].map(([id,label]) => (
+                <button key={id} type="button" aria-pressed={statistic === id} onClick={() => setStatistic(id)}>{label}</button>
+              ))}
+            </nav>
+          )}
+        </aside>
+        <div className="teacher-class-selector">
         <TeacherClassSidebar
           teacherClasses={teacherClasses}
           selectedTeacherClassId={selectedTeacherClassId}
@@ -78,9 +92,14 @@ export function TeacherStudioDashboard({
           createTeacherClass={createTeacherClass}
           onSelectClass={selectClass}
         />
+        </div>
 
         <section className="teacher-studio-main">
-          <ClassroomCommandCenter teacherSession={teacherSession} />
+          <ClassroomCommandCenter teacherSession={teacherSession} statistics={workspace === 'statistics' && statistic === 'monitor'} showSetup={workspace === 'teaching'} />
+
+          {workspace === 'statistics' && <header className="statistics-heading"><span className="eyebrow">学情统计</span><h2>{({ overview: '章节完成度与班级概览', monitor: '课堂完成度与报告', assistant: 'AI 学情分析', students: '学生学习明细' })[statistic]}</h2><p>基于当前班级的真实学习记录，查看完成情况与教学反馈。</p></header>}
+
+          <div hidden={workspace !== 'statistics' || statistic !== 'overview'}>
 
           {selectedTeacherClassId ? (
             <TeacherQuestSection
@@ -88,14 +107,27 @@ export function TeacherStudioDashboard({
               students={students}
               classSummary={classOverview?.summary}
               teacherSession={teacherSession}
+              sections={["coverage"]}
             />
           ) : null}
+          <TeacherClassSummary classOverview={classOverview} students={students} hardwareSummary={hardwareSummary} />
+          </div>
 
+          <div hidden={workspace !== 'teaching'}>
+          {selectedTeacherClassId ? (
+            <TeacherQuestSection
+              selectedClass={selectedClass}
+              students={students}
+              classSummary={classOverview?.summary}
+              teacherSession={teacherSession}
+              sections={["checklist"]}
+            />
+          ) : null}
           {selectedTeacherClassId ? <TeacherAssignments classId={selectedTeacherClassId} /> : null}
           {selectedTeacherClassId ? <TeacherCourseWorkbench classId={selectedTeacherClassId} students={students} /> : null}
+          </div>
 
-          <TeacherClassSummary classOverview={classOverview} students={students} hardwareSummary={hardwareSummary} />
-
+          <div hidden={workspace !== 'statistics' || statistic !== 'assistant'}>
           <TeacherAssistantReport
             assistant={assistantReport}
             selectedTeacherClassId={selectedTeacherClassId}
@@ -103,7 +135,21 @@ export function TeacherStudioDashboard({
             assistantError={assistantError}
             generateAssistantReport={generateAssistantReport}
           />
+          </div>
 
+          <div hidden={workspace !== 'statistics' || statistic !== 'monitor'}>
+          {selectedTeacherClassId ? (
+            <TeacherQuestSection
+              selectedClass={selectedClass}
+              students={students}
+              classSummary={classOverview?.summary}
+              teacherSession={teacherSession}
+              sections={["groups"]}
+            />
+          ) : null}
+          </div>
+
+          <div hidden={workspace !== 'statistics' || statistic !== 'students'}>
           <TeacherRiskStudents
             atRiskStudents={assistant.atRiskStudents}
             onOpenStudent={openTeacherStudentDetail}
@@ -123,6 +169,7 @@ export function TeacherStudioDashboard({
               onClose={() => setSelectedTeacherStudent(null)}
             />
           ) : null}
+          </div>
         </section>
       </div>
     </div>

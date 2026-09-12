@@ -1,12 +1,10 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { promisify } from "node:util";
-import { execFile } from "node:child_process";
 import express from "express";
 
-const run = promisify(execFile);
-const MAX_FILE_BYTES = 30 * 1024 * 1024;
+// 上限 200MB：取消原 30MB 限制，仅拦截明显异常的超大文件。
+const MAX_FILE_BYTES = 200 * 1024 * 1024;
 
 function countSlidesFromPptx(buffer) {
   // PPTX 是 ZIP；文件名会同时出现在本地文件头和中央目录中，用 Set 去重即可。
@@ -36,12 +34,13 @@ export function createCoursewareUploadRouter({ db, requireRole, dataDirectory = 
     res.json({ uploads: all });
   });
 
-  router.post("/courseware/uploads", requireRole(["teacher", "student"]), express.raw({ type: "application/vnd.openxmlformats-officedocument.presentationml.presentation", limit: MAX_FILE_BYTES }), async (req, res, next) => {
+  // 上传即就绪：转换渲染全部由前端 pptx-preview 完成，服务端只负责存储与权限。
+  router.post("/courseware/uploads", requireRole(["teacher", "student"]), express.raw({ type: "application/vnd.openxmlformats-officedocument.presentationml.presentation", limit: MAX_FILE_BYTES }), async (req, res) => {
     let uploadedName = String(req.get("x-file-name") ?? "课件.pptx");
     try { uploadedName = decodeURIComponent(uploadedName); } catch { /* keep a safely encoded name */ }
     const originalName = path.basename(uploadedName).slice(0, 180);
     const extension = path.extname(originalName).toLowerCase();
-    if (extension !== ".pptx") return res.status(400).json({ error: "第一版仅支持 .pptx 文件" });
+    if (extension !== ".pptx") return res.status(400).json({ error: "仅支持 .pptx 文件" });
     if (!Buffer.isBuffer(req.body) || req.body.length === 0) return res.status(400).json({ error: "请选择要上传的 PPTX 文件" });
     let classId = Number(req.get("x-class-id")) || null;
     if (req.user.role === "teacher" && !classId) return res.status(400).json({ error: "教师上传课件需选择班级" });
@@ -56,28 +55,28 @@ export function createCoursewareUploadRouter({ db, requireRole, dataDirectory = 
     const storageKey = crypto.randomUUID();
     const slideCount = countSlidesFromPptx(req.body);
     const sourcePath = path.join(sourceDirectory, `${storageKey}.pptx`);
-    const renderedDirectory = path.join(outputDirectory, storageKey);
-    fs.mkdirSync(renderedDirectory, { recursive: true });
     fs.writeFileSync(sourcePath, req.body, { flag: "wx" });
     const visibility = req.user.role === "teacher" ? "class" : "private";
-    const result = db.prepare("INSERT INTO courseware_uploads (owner_user_id,class_id,visibility,original_name,storage_key,slide_count,status) VALUES (?,?,?,?,?,?,?)")
-      .run(req.user.id, classId, visibility, originalName, storageKey, slideCount, "processing");
-    const id = Number(result.lastInsertRowid);
-    try {
-      await run(process.env.PPT_CONVERTER ?? "soffice", ["--headless", "--convert-to", "html", "--outdir", renderedDirectory, sourcePath], { timeout: 90_000, windowsHide: true, maxBuffer: 2 * 1024 * 1024 });
-      const entry = fs.readdirSync(renderedDirectory).find((name) => name.toLowerCase().endsWith(".html"));
-      if (!entry) throw new Error("转换器没有生成 HTML 文件");
-      db.prepare("UPDATE courseware_uploads SET status='ready', html_entry=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").run(entry, id);
-    } catch (error) {
-      db.prepare("UPDATE courseware_uploads SET status='failed', error_message=?, updated_at=CURRENT_TIMESTAMP WHERE id=?").run("PPTX 转换失败：" + error.message.slice(0, 300), id);
-    }
-    res.status(201).json({ upload: dto(getUpload(id)) });
+    const result = db.prepare("INSERT INTO courseware_uploads (owner_user_id,class_id,visibility,original_name,storage_key,slide_count,status) VALUES (?,?,?,?,?,?,'ready')")
+      .run(req.user.id, classId, visibility, originalName, storageKey, slideCount);
+    res.status(201).json({ upload: dto(getUpload(Number(result.lastInsertRowid))) });
   });
 
+  // 前端 pptx-preview 渲染所需的原始 PPTX 文件（带权限校验）。
+  router.get("/courseware/uploads/:id/file", requireRole(["teacher", "student"]), (req, res) => {
+    const upload = getUpload(Number(req.params.id));
+    if (!isAllowed(upload, req.user)) return res.status(404).json({ error: "课件不存在" });
+    const filePath = path.join(sourceDirectory, `${upload.storage_key}.pptx`);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: "课件源文件不存在" });
+    res.setHeader("Content-Security-Policy", "default-src 'none'");
+    res.type("application/vnd.openxmlformats-officedocument.presentationml.presentation").sendFile(filePath);
+  });
+
+  // 旧版 LibreOffice 转换产物的兼容端点：仅历史数据仍在使用，新上传不再生成。
   router.get("/courseware/uploads/:id/html", requireRole(["teacher", "student"]), (req, res) => {
     const upload = getUpload(Number(req.params.id));
     if (!isAllowed(upload, req.user)) return res.status(404).json({ error: "课件不存在" });
-    if (upload.status !== "ready" || !upload.html_entry) return res.status(409).json({ error: upload.error_message ?? "课件仍在转换" });
+    if (upload.status !== "ready" || !upload.html_entry) return res.status(409).json({ error: upload.error_message ?? "该课件不支持网页转换预览，已改用内置渲染器" });
     const directory = path.join(outputDirectory, upload.storage_key);
     const entryPath = path.join(directory, upload.html_entry);
     if (!entryPath.startsWith(directory) || !fs.existsSync(entryPath)) return res.status(404).json({ error: "转换后的课件文件不存在" });

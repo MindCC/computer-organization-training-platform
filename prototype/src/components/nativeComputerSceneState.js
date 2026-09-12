@@ -10,6 +10,7 @@ export function normalizeSceneViewState(input = {}) {
     assembly: input.assembly ?? null,
     cameraPreset: input.cameraPreset ?? null,
     resetKey: input.resetKey ?? 0,
+    returnPart: input.returnPart ?? null,
   };
 }
 

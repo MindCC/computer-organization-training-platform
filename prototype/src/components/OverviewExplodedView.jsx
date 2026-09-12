@@ -21,15 +21,19 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
   const prefersReducedMotion = typeof window !== "undefined"
     && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const shouldAutoPlay = autoPlay && !prefersReducedMotion;
+  // 已批准的行为（见 AGENTS.md）：3D 概述默认进入「分步组装」引导，
+  // 「自动爆炸」与 X-ray 由学生手动开启。这里曾默认落到「自由探索」，与约定不符。
   const [mode, setMode] = useState(shouldAutoPlay ? "auto" : "step");
   const [autoAnimating, setAutoAnimating] = useState(shouldAutoPlay);
-  const [explodeDistance, setExplodeDistance] = useState(0);
+  const [explodeDistance, setExplodeDistance] = useState(shouldAutoPlay ? 0 : 0);
   const [currentStep, setCurrentStep] = useState(shouldAutoPlay ? 0 : 1);
   const [selectedPart, setSelectedPart] = useState(null);
   const [showHint, setShowHint] = useState(true);
   const [xray, setXray] = useState(false);
   const [guideIndex, setGuideIndex] = useState(0);
   const [guideVisible, setGuideVisible] = useState(true);
+  const [returnPart, setReturnPart] = useState(null);
+  function returnParts(id = null) { setReturnPart({ id }); }
 
   useEffect(() => { setGuideIndex(0); setGuideVisible(true); }, [courseGuide?.id]);
   useEffect(() => {
@@ -44,7 +48,7 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
   // - auto mode: target settle distance (1.3) after animation completes
   // - manual mode: explodeDistance
   const effectiveDistance = autoAnimating ? 1.3 : explodeDistance;
-  const allParts = useMemo(() => getPartInstances(effectiveDistance), [effectiveDistance]);
+  const allParts = useMemo(() => getPartInstances(effectiveDistance).filter(part => part.parentId !== 'ram-1'), [effectiveDistance]);
 
   useEffect(() => { const t = setTimeout(() => setShowHint(false), 5000); return () => clearTimeout(t); }, []);
 
@@ -61,7 +65,7 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
 
   // Filter parts by current step (match by parentId or id)
   const visibleParts = useMemo(() => {
-    if (mode === "auto" || currentStep === 0) return allParts;
+    if (mode !== "step" || currentStep === 0) return allParts;
     const stepData = ASSEMBLY_STEPS[currentStep - 1];
     if (!stepData) return allParts;
     const stepPartIds = stepData.partIds;
@@ -79,7 +83,7 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
     });
   }, [visibleParts]);
 
-  const stepData = currentStep > 0 ? ASSEMBLY_STEPS[currentStep - 1] : null;
+  const stepData = mode === 'step' && currentStep > 0 ? ASSEMBLY_STEPS[currentStep - 1] : null;
   const showConnections = stepData?.showConnections ?? false;
 
   const sceneViewState = useMemo(() => ({
@@ -90,15 +94,17 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
     xray,
     showConnections: showConnections || mode === "auto" || xray,
     reducedMotion: prefersReducedMotion,
-  }), [uniqueParts, explodeDistance, mode, autoAnimating, selectedPart, xray, showConnections, prefersReducedMotion]);
+    returnPart,
+  }), [uniqueParts, explodeDistance, mode, autoAnimating, selectedPart, xray, showConnections, prefersReducedMotion, returnPart]);
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <NativeComputerScene
+        exploration
         fallback={<ThreeSceneFallback completed={completed} context="overview" onComplete={onComplete} />}
         onPartSelect={(partId) => {
           const part = COMPUTER_PARTS.find((item) => item.id === partId) ?? null;
-          setSelectedPart((current) => current?.id === partId ? null : part);
+          setSelectedPart(part);
         }}
         viewState={sceneViewState}
       />
@@ -106,8 +112,11 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
 
       {/* Top bar: mode toggle */}
       <div className="exploded-topbar">
+        <button className={mode === 'explore' ? 'active' : ''} onClick={() => { setMode('explore'); setAutoAnimating(false); setExplodeDistance(.8); returnParts(); }} type="button">自由探索</button>
         <button className={mode === "auto" ? "active" : ""} onClick={() => { setMode("auto"); setCurrentStep(0); setAutoAnimating(true); }} type="button">自动爆炸</button>
-        <button className={mode === "step" ? "active" : ""} onClick={() => { setMode("step"); setCurrentStep(1); setAutoAnimating(false); }} type="button">分步组装</button>
+        <button className={mode === "step" ? "active" : ""} onClick={() => { setMode("step"); setCurrentStep(1); setAutoAnimating(false); setExplodeDistance(0); returnParts(); setSelectedPart(null); }} type="button">分步组装</button>
+        <button onClick={() => returnParts(selectedPart?.parentId ?? selectedPart?.id)} disabled={!selectedPart || selectedPart.id === 'case'} type="button">选中部件归位</button>
+        <button onClick={() => { setAutoAnimating(false); setExplodeDistance(0); returnParts(); }} type="button">全部归位</button>
         <button
           aria-pressed={xray}
           className={xray ? "active xray-toggle" : "xray-toggle"}
@@ -125,6 +134,8 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
           </div>
         )}
       </div>
+
+      {mode === 'explore' && <div className="exploded-step-desc"><strong>拿起部件，观察它的作用</strong><p>左键拖动部件可将其取出查看，点击列表查看功能说明。使用“选中部件归位”放回部件；完成后进入“分步组装”检验认识。</p></div>}
 
       <div className="exploded-part-list" aria-label="部件列表">
         {uniqueParts.map((part) => {
@@ -221,9 +232,9 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
       </div>
 
       {/* Operation hint */}
-      {showHint && (
+      {(showHint || mode === 'explore') && (
         <div className="exploded-hint-bar">
-          🖱 拖拽旋转 · 滚轮缩放 · 右键平移 · 点击部件查看详情
+          左键拖部件 · 空白处左键旋转 · 中键平移 · 滚轮缩放 · 点击查看功能
         </div>
       )}
     </div>

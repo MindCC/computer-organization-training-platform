@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { canUseWebGL } from "../webglSupport.js";
 import { createNativeComputerScene } from "./nativeComputerScene.js";
 
-export function NativeComputerScene({ viewState, onPartSelect, onInstall, onConnector, fallback, assembly = false }) {
+export function NativeComputerScene({ viewState, onPartSelect, onInstall, onConnector, fallback, assembly = false, exploration = false }) {
   const containerRef = useRef(null);
   const controllerRef = useRef(null);
   const latestSelectRef = useRef(onPartSelect);
@@ -21,7 +21,7 @@ export function NativeComputerScene({ viewState, onPartSelect, onInstall, onConn
     let releaseAsset = () => {};
     async function start() {
       let asset;
-      if (assembly) {
+      if (assembly || exploration) {
         try {
           const loader = await import('./teachingPcAsset.js');
           asset = await loader.loadTeachingAsset();
@@ -36,7 +36,7 @@ export function NativeComputerScene({ viewState, onPartSelect, onInstall, onConn
       if (cancelled) return;
       try {
         const controller = createNativeComputerScene(containerRef.current, {
-          assembly, asset,
+          assembly, exploration, asset,
           onInstall: (...args) => latestInstallRef.current?.(...args),
           onConnector: id => latestConnectorRef.current?.(id),
           onPartSelect: (partId) => latestSelectRef.current?.(partId),
@@ -58,7 +58,7 @@ export function NativeComputerScene({ viewState, onPartSelect, onInstall, onConn
       controllerRef.current = null;
       releaseAsset();
     };
-  }, [failed, assembly]);
+  }, [failed, assembly, exploration]);
 
   useEffect(() => { controllerRef.current?.setViewState(viewState); }, [viewState]);
 

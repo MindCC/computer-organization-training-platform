@@ -697,6 +697,273 @@
 }
 @media (max-width: 760px) { .courseware-view { padding:18px; }.courseware-header { align-items:flex-start; flex-wrap:wrap; }.courseware-header .primary-button { margin-left:0 !important; }.uploaded-courseware-content { grid-template-columns:1fr; }.uploaded-courseware-content iframe { min-height:400px; height:400px; }.page-notes { border-left:0; border-top:1px solid var(--border); } }
 
+/* ---- PPTX 前端渲染舞台（pptx-preview） ---- */
+.pptx-stage { position:relative; min-height:520px; background:#e9eef5; overflow:auto; }
+.pptx-stage .pptx-render-host { min-height:520px; }
+.pptx-stage-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; min-height:520px; color:var(--muted); font-size:.9rem; }
+.pptx-stage-error { display:flex; align-items:center; justify-content:center; min-height:200px; padding:20px; color:var(--danger); font-size:.9rem; }
+
+/* ---- 课堂实时栏按钮：补齐 secondary/danger，保证深色底上清晰可读 ---- */
+.secondary-button,
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 140ms ease, background 140ms ease;
+}
+.secondary-button {
+  border: 1px solid var(--border);
+  color: var(--navy);
+  background: #fff;
+}
+.danger-button {
+  border: 0;
+  color: #fff;
+  background: var(--danger);
+  box-shadow: 0 8px 18px rgba(216, 93, 77, 0.32);
+}
+.secondary-button:hover { filter: brightness(0.97); }
+.danger-button:hover { filter: brightness(1.06); }
+/* 深色仪表条内的按钮统一提高对比度 */
+.live-session-dashboard .ghost-button {
+  border-color: rgba(255, 255, 255, 0.42);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+.live-session-dashboard .live-session-time { opacity: 0.85; font-weight: 600; }
+.live-session-dashboard .live-session-info > strong { font-size: 1.02rem; }
+
+/* ---- 教师工作区：左侧分类导航（参考学情分析布局） ---- */
+.teacher-studio-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(230px, 280px) minmax(0, 1fr);
+  align-items: start;
+}
+/* 班级下拉的固有宽度由最长选项决定，必须显式允许收缩，否则窄屏会把整页撑宽。 */
+.teacher-class-select {
+  min-width: 0;
+}
+.teacher-class-select select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+.teacher-workspace-nav {
+  position: sticky;
+  top: 14px;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-strong, #fff);
+}
+.teacher-workspace-nav > button,
+.statistics-nav button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink, #1c2b3a);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.teacher-workspace-nav > button:hover,
+.statistics-nav button:hover { background: var(--teal-soft, #e5f7f1); }
+.teacher-workspace-nav > button[aria-pressed="true"] {
+  background: linear-gradient(135deg, var(--teal, #2ba98e), #1f8f77);
+  color: #fff;
+}
+.statistics-nav {
+  display: grid;
+  gap: 2px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.statistics-nav button { padding-left: 20px; font-size: 0.86rem; font-weight: 500; }
+.statistics-nav button[aria-pressed="true"] {
+  background: var(--teal-soft, #e5f7f1);
+  color: var(--teal, #2ba98e);
+  font-weight: 700;
+}
+.statistics-heading {
+  margin-bottom: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-strong, #fff);
+}
+.statistics-heading h2 { margin: 2px 0 4px; font-size: 1.15rem; font-weight: 800; }
+.statistics-heading p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.statistics-details {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-strong, #fff);
+  overflow: hidden;
+}
+.statistics-details > summary {
+  padding: 13px 18px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: var(--navy, #173e6e);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.statistics-details > summary::before { content: "▸"; transition: transform 140ms ease; }
+.statistics-details[open] > summary::before { transform: rotate(90deg); }
+.statistics-details[open] > summary { border-bottom: 1px solid var(--border); }
+.statistics-details > *:not(summary) { padding: 14px 18px; }
+
+/* ---- 课堂报告矩阵 ---- */
+.report-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+.report-matrix-table th,
+.report-matrix-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+.report-matrix-table th {
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.report-matrix-table tr:last-child td { border-bottom: 0; }
+.report-status-chip {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.report-status-chip.completed { background: var(--teal-soft, #e5f7f1); color: var(--teal, #2ba98e); }
+.report-status-chip.in_progress { background: #fff4dd; color: #a86c00; }
+.report-status-chip.not_started { background: #eef1f5; color: var(--muted); }
+.report-completion { display: flex; align-items: center; gap: 8px; min-width: 130px; }
+.report-completion span { font-size: 0.78rem; color: var(--muted); white-space: nowrap; }
+.report-completion-shell {
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--soft, #eef1f5);
+  overflow: hidden;
+}
+.report-completion-fill { height: 100%; border-radius: 3px; background: var(--teal, #2ba98e); min-width: 2px; }
+.star-filled { color: #f0a52c; }
+.star-empty { color: #d7dde5; }
+.report-xp { font-weight: 700; }
+.report-badges { color: var(--muted); font-size: 0.8rem; }
+
+/* ---- 课程路线覆盖率：按章节排列 ---- */
+.teacher-quest-summary {
+  margin-left: auto;
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+.teacher-quest-summary strong { font-size: 1.6rem; color: var(--teal, #2ba98e); line-height: 1; }
+.teacher-quest-summary span { font-size: 0.74rem; color: var(--muted); }
+.teacher-quest-chapters { display: grid; gap: 10px; }
+.teacher-quest-chapter {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+.teacher-quest-chapter.completed { border-color: rgba(43, 169, 142, 0.5); background: linear-gradient(135deg, #e5f7f1 0%, #ddf2ec 100%); }
+.teacher-quest-chapter-index {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--teal-soft, #e5f7f1);
+  color: var(--teal, #2ba98e);
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+.teacher-quest-chapter.completed .teacher-quest-chapter-index { background: var(--teal, #2ba98e); color: #fff; }
+.teacher-quest-chapter-main { display: grid; gap: 7px; min-width: 0; }
+.teacher-quest-chapter-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.teacher-quest-chapter-title strong { font-size: 0.95rem; }
+.teacher-quest-chapter-title small { color: var(--muted); font-size: 0.75rem; }
+.teacher-quest-chapter-detail summary {
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.teacher-quest-chapter-detail summary:hover { color: var(--teal, #2ba98e); }
+.teacher-quest-chapter-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+.teacher-quest-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+}
+.teacher-quest-item-rate { font-weight: 800; color: var(--teal, #2ba98e); }
+.teacher-quest-chapter-rate {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 74px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--teal-soft, #e5f7f1);
+}
+.teacher-quest-chapter-rate strong { font-size: 1.25rem; color: var(--teal, #2ba98e); line-height: 1; }
+.teacher-quest-chapter-rate span { font-size: 0.7rem; color: var(--muted); font-weight: 700; }
+
+@media (max-width: 1280px) {
+  .teacher-studio-layout { grid-template-columns: 170px minmax(0, 1fr); }
+  .teacher-class-selector { grid-column: 2; }
+}
+@media (max-width: 900px) {
+  .teacher-studio-layout { grid-template-columns: minmax(0, 1fr); }
+  .teacher-workspace-nav { position: static; }
+  .teacher-class-selector { grid-column: auto; }
+  .teacher-quest-chapter { grid-template-columns: 40px minmax(0, 1fr); }
+  .teacher-quest-chapter-rate { grid-column: 2; justify-items: start; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .mission-route-node,
   .classroom-signal,

@@ -5745,6 +5745,10 @@ textarea:focus-visible {
   background: rgba(15, 16, 17, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(16px);
+  width: max-content;
+  max-width: calc(100% - 24px);
+  flex-wrap: wrap;
+  justify-content: center;
 }
 .exploded-topbar button {
   padding: 5px 14px; border-radius: 6px; border: none;

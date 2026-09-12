@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
+import { selectTeacherClass, selectFirstTeacherClass } from "./helpers/select-teacher-class.mjs";
 
 // P1-A 空状态 + P1-C 教师设置页备份区 浏览器实测
 const baseUrl = process.env.PROTOTYPE_URL ?? "http://127.0.0.1:8787";
@@ -82,8 +83,9 @@ async function logout(page) {
   const freshClass = "空状态验证班 " + Date.now();
   await page.getByLabel("新班级名称").fill(freshClass);
   await page.getByRole("button", { name: "创建班级" }).click();
-  await assertVisible(page, freshClass);
-  await page.locator(".teacher-class", { hasText: freshClass }).click();
+  if (!(await selectTeacherClass(page, freshClass))) {
+    throw new Error(`创建班级后下拉框中未找到：${freshClass}`);
+  }
   await page.waitForLoadState("networkidle");
   const settingsButton = page.getByRole("button", { name: "课堂设置" });
   if (!(await settingsButton.isVisible().catch(() => false))) {
@@ -118,8 +120,7 @@ async function logout(page) {
     await login(page, "teacher", "ChangeMe123!");
     await assertVisible(page, "教师数据页");
     // 选中含零进度学生的班级
-    const classButton = page.locator(".teacher-class").first();
-    await classButton.click();
+    await selectFirstTeacherClass(page);
     await page.waitForLoadState("networkidle");
     // 学生表内应有「还没有提交数据」或「暂无学生数据」空状态之一
     const noSubmit = await page.getByText("还没有提交数据", { exact: false }).count();

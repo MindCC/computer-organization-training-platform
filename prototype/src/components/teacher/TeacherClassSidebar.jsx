@@ -12,20 +12,26 @@ export function TeacherClassSidebar({
     <aside className="teacher-studio-sidebar">
       <div className="teacher-studio-card">
         <div className="teacher-studio-card-heading"><strong>选择班级</strong></div>
-        <div className="teacher-class-list">
-          {teacherClasses.length === 0 ? <p className="empty-state">还没有班级，先在下方创建一个。</p> : null}
-          {teacherClasses.map((item) => (
-            <button
-              className={item.id === selectedTeacherClassId ? "teacher-class active" : "teacher-class"}
-              key={item.id}
-              onClick={() => onSelectClass(item.id)}
-              type="button"
+        {teacherClasses.length === 0 ? (
+          <p className="empty-state">还没有班级，先在下方创建一个。</p>
+        ) : (
+          <label className="form-row teacher-class-select">
+            <span>当前班级</span>
+            <select
+              value={selectedTeacherClassId ?? ""}
+              onChange={(event) => {
+                const picked = teacherClasses.find((item) => String(item.id) === event.target.value);
+                if (picked) onSelectClass(picked.id);
+              }}
             >
-              <strong>{item.name}</strong>
-              <span>{item.studentCount} 名学生</span>
-            </button>
-          ))}
-        </div>
+              {teacherClasses.map((item) => (
+                <option key={item.id} value={String(item.id)}>
+                  {item.name}（{item.studentCount} 名学生）
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
       <div className="teacher-studio-card">

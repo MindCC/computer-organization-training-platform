@@ -16,7 +16,7 @@ export function SessionStudentGrid({ viewModel, onSelectStudent }) {
   return (
     <div className="session-student-grid">
       <div className="session-grid-header">
-        <strong>学生队列</strong>
+        <strong>课堂完成度矩阵</strong>
         <div className="session-grid-counts">
           <span className="count-tag needs-help">
             <WarningCircle size={14} /> 需帮助 {needsHelp?.length ?? 0}
@@ -29,7 +29,7 @@ export function SessionStudentGrid({ viewModel, onSelectStudent }) {
           </span>
         </div>
       </div>
-      <div className="session-grid-rows">
+      <div className="session-completion-matrix">
         {all.map((student) => (
           <button
             className="session-student-row"
@@ -43,6 +43,7 @@ export function SessionStudentGrid({ viewModel, onSelectStudent }) {
                 <span className="dot" />}
             </span>
             <span className="session-student-name">{student.displayName}</span>
+            <strong>{student.status === 'completed' ? '已完成' : student.status === 'in_progress' ? '进行中' : '未开始'}</strong>
             <span className="session-student-stage">{stageLabel(student.currentStageIndex)}</span>
             <span className="session-student-xp">{student.xp} XP</span>
             <span className="session-student-stars">
