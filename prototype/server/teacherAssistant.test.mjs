@@ -1,4 +1,4 @@
-﻿import test from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
 import Database from "better-sqlite3";
 
@@ -7,10 +7,12 @@ import { readDeepSeekConfig, requestChatCompletion } from "./aiClient.js";
 import { addStudentToClass, createClass, createUser, migrate } from "./db.js";
 import {
   buildFallbackAssistantReport,
+  buildTeacherAssistantData,
   buildTeacherAssistantMessages,
   buildTeacherAssistantPayload,
   generateTeacherAssistantReport,
   parseAssistantJson,
+  restoreStudentNames,
 } from "./teacherAssistant.js";
 
 function makeMemoryDb() {
@@ -251,7 +253,7 @@ test("requestChatCompletion rejects oversized message content before fetch", asy
   assert.equal(fetchCalls, 0);
 });
 
-test("buildTeacherAssistantPayload includes teaching data and excludes secrets", async () => {
+test("AI payload replaces student identities with labels while the local payload keeps them", async () => {
   const db = makeMemoryDb();
   const teacher = createUser(db, {
     username: "teacher-a",
@@ -269,16 +271,66 @@ test("buildTeacherAssistantPayload includes teaching data and excludes secrets",
   });
   addStudentToClass(db, classRow.id, student.id);
 
-  const payload = buildTeacherAssistantPayload(db, classRow.id);
-  const serialized = JSON.stringify(payload);
+  const { aiPayload, localPayload, roster } = buildTeacherAssistantData(db, classRow.id);
+  const serialized = JSON.stringify(aiPayload);
 
-  assert.equal(payload.className, "计组一班");
-  assert.equal(payload.students[0].displayName, "李同学");
-  assert.equal(payload.students[0].username, "2026001");
+  assert.equal(aiPayload.className, "计组一班");
+  assert.equal(aiPayload.students[0].label, "学生1");
+  assert.doesNotMatch(serialized, /李同学/, "student name must not be sent to the AI provider");
+  assert.doesNotMatch(serialized, /2026001/, "student id must not be sent to the AI provider");
   assert.doesNotMatch(serialized, /password_hash/i);
   assert.doesNotMatch(serialized, /Student123!/);
   assert.doesNotMatch(serialized, /session/i);
   assert.doesNotMatch(serialized, /cookie/i);
+
+  // 本地规则回退不离开本机，因此保留真实姓名
+  assert.equal(localPayload.students[0].displayName, "李同学");
+  assert.deepEqual(roster, [{ label: "学生1", id: student.id, displayName: "李同学", username: "2026001" }]);
+});
+
+test("AI report labels are mapped back to the real student", async () => {
+  const db = makeMemoryDb();
+  const teacher = createUser(db, {
+    username: "teacher-map",
+    displayName: "映射老师",
+    role: "teacher",
+    passwordHash: await hashPassword("Teacher123!"),
+  });
+  const classRow = createClass(db, teacher.id, "计组映射班");
+  const student = createUser(db, {
+    username: "2026002",
+    displayName: "王小明",
+    role: "student",
+    passwordHash: await hashPassword("Student123!"),
+  });
+  addStudentToClass(db, classRow.id, student.id);
+
+  const response = await generateTeacherAssistantReport(db, teacher.id, classRow.id, {
+    env: { DEEPSEEK_API_KEY: "sk-test" },
+    aiRequester: async (_config, messages) => {
+      assert.doesNotMatch(messages[0].content, /王小明/, "outbound prompt must stay pseudonymous");
+      assert.match(messages[0].content, /学生1/);
+      return JSON.stringify({
+        lessonFocus: "全加器进位",
+        riskStudents: [{ name: "学生1", reason: "进位链错误", suggestion: "重做半加器" }],
+        groupingPlan: [],
+        commonMisconceptions: [],
+        nextClassPlan: [],
+        teacherScript: "讲解进位传递",
+      });
+    },
+  });
+
+  assert.equal(response.source, "ai");
+  assert.equal(response.report.riskStudents[0].name, "王小明");
+  assert.equal(response.report.riskStudents[0].studentId, student.id);
+});
+
+test("restoreStudentNames leaves unknown names untouched", () => {
+  const report = { lessonFocus: "x", riskStudents: [{ name: "旁听生", reason: "r", suggestion: "s" }] };
+  const restored = restoreStudentNames(report, [{ label: "学生1", id: 7, displayName: "张三", username: "s1" }]);
+  assert.equal(restored.riskStudents[0].name, "旁听生");
+  assert.equal(restored.riskStudents[0].studentId, null);
 });
 
 test("buildFallbackAssistantReport returns usable report shape", async () => {

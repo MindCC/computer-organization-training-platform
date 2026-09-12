@@ -102,8 +102,10 @@ prototype/
 | `DEEPSEEK_API_KEY` | 否 | 智能助教密钥；缺失时自动降级为本地规则建议 |
 | `DATABASE_PATH` | 否 | SQLite 路径（默认 `data/classroom.sqlite`） |
 | `PORT` | 否 | 服务端口（默认 8787） |
-| `COOKIE_SECURE` | 否 | HTTPS 部署置 `1`，为 cookie 加 Secure 标记 |
-| `PUBLIC_BASE_URL` | 否 | 前端外部地址，用于 CSRF Origin 校验 |
+| `COOKIE_SECURE` | 否 | HTTPS 部署置 `1`（或 `true`），为 cookie 加 Secure 标记 |
+| `PUBLIC_BASE_URL` | 否 | 前端外部地址，用于 CSRF Origin 校验；HTTPS 反代部署时必填 |
+| `TRUST_PROXY` | 否 | 反向代理后面部署时置 `1`，信任 `X-Forwarded-For`；**直接对外暴露时必须留空**，否则可伪造成源 IP 绕过按 IP 的登录限流 |
+| `TRUST_PROXY_HOPS` | 否 | 反向代理层数（默认 1） |
 | `TEACHER_USERNAME` / `TEACHER_PASSWORD` / `TEACHER_NAME` | 否 | 首次 `npm run seed:teacher` 的教师账号 |
 
 > 项目不加载 `.env` 文件（未内置 dotenv），需在启动前 `export` 或由进程管理器（pm2 / systemd）注入；`.env` 已加入 `.gitignore` 防止误提交密钥。
@@ -119,6 +121,13 @@ prototype/
 ### 课程课件
 
 「课程课件」是学生与教师共用的入口（教师侧边栏同样可见）。教师上传 PPTX 时需先在页面上的「发布班级」选择器中选择班级；未选择时会给出提示。课件由 `soffice` 转换为 HTML 后在同源 iframe 中以沙箱方式演示，并附带严格的 CSP。
+
+### 安全相关行为（部署前请知悉）
+
+- **登录限流**：按用户名（5 次/分钟）与来源 IP（30 次/分钟）双维度拦截；任一命中返回 429。成功登录会同时清除两个维度，避免共享出口 IP 的教室被个别学生输错密码拖垮。
+- **改密后吊销其他会话**：`/api/auth/change-password` 会踢掉该账号的其它设备会话，仅保留当前会话。
+- **整库备份需二次确认**：`POST /api/admin/backup` 需要请求体里带上**本人当前口令**（`{"password":"..."}`），教师端「数据与备份」区块内置了输入框。快照为原始 `.sqlite` 文件，可直接用于恢复；GET 方式已移除。
+- **智能助教不发送学生身份**：发往 DeepSeek 的载荷中，学生只用代号（`学生1`、`学生2`…），不含姓名与学号；AI 返回的代号会在服务端映射回真实姓名，教师界面显示不变。本地规则降级不走网络，因此仍使用真实姓名。
 
 ## 环境要求
 
