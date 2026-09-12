@@ -339,7 +339,20 @@ async function logout(targetPage) {
 
 async function openChallenge(targetPage, title) {
   await dismissQuestSettlementNow(targetPage);
-  await targetPage.getByRole("button").filter({ hasText: title }).first().click();
+  const target = targetPage.getByRole("button").filter({ hasText: title }).first();
+  if (!(await target.isVisible().catch(() => false))) {
+    // 课程首页按章节折叠，默认只展开第一章；目标关卡可能位于未展开的章节里，
+    // 先把折叠的章节全部展开再定位，否则按钮根本不在 DOM 中。
+    const toggles = targetPage.locator(".project-chapter-toggle");
+    const toggleCount = await toggles.count();
+    for (let index = 0; index < toggleCount; index += 1) {
+      const toggle = toggles.nth(index);
+      if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+        await toggle.click();
+      }
+    }
+  }
+  await target.click();
   await assertVisible(targetPage, title);
 }
 
