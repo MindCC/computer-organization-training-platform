@@ -13,6 +13,14 @@ test("origin comparison rejects prefix lookalikes and accepts exact origin", () 
   assert.equal(isTrustedRequestOrigin(req, "https://school.example"), true);
 });
 
+test("local development accepts Vite's next available port on loopback", () => {
+  const req = {
+    protocol: "http",
+    headers: { host: "127.0.0.1:8787", origin: "http://127.0.0.1:5175" },
+  };
+  assert.equal(isTrustedRequestOrigin(req, "http://127.0.0.1:5173"), true);
+});
+
 test("login failure window restarts after expiry", () => {
   let clock = 1_000;
   const tracker = createLoginFailureTracker({

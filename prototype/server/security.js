@@ -3,7 +3,17 @@ export function isTrustedRequestOrigin(req, publicBaseUrl = "") {
   if (!source) return true;
   try {
     const expected = new URL(publicBaseUrl || `${req.protocol}://${req.headers.host}`);
-    return new URL(source).origin === expected.origin;
+    const actual = new URL(source);
+    if (actual.origin === expected.origin) return true;
+    // Vite 端口被占用时会依次选择 5174、5175…；只对默认本机开发地址放行该范围。
+    const actualPort = Number(actual.port);
+    return expected.protocol === "http:"
+      && expected.hostname === "127.0.0.1"
+      && expected.port === "5173"
+      && actual.protocol === "http:"
+      && actual.hostname === "127.0.0.1"
+      && actualPort >= 5173
+      && actualPort <= 5199;
   } catch {
     return false;
   }
