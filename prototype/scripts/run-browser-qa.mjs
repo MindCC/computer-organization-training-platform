@@ -11,6 +11,7 @@ const allowedVerifiers = new Set([
   "scripts/verify-performance.mjs",
   "scripts/verify-classroom.mjs",
   "scripts/verify-production-modules.mjs",
+  "scripts/verify-teacher-dashboard.mjs",
 ]);
 const verifier = String(process.argv[2] ?? "").replaceAll("\\", "/");
 const production = process.argv.includes('--production');

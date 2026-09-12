@@ -207,6 +207,14 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       return { session: fresh, studentState, mission, remainingSeconds };
     },
 
+    getCurrentForClass({ teacherId, classId }) {
+      const owned = db.prepare("SELECT 1 FROM classes WHERE id = ? AND teacher_id = ?").get(classId, teacherId);
+      if (!owned) throw classroomError("CLASS_NOT_FOUND", "班级不存在", 404, false);
+      const session = repository.findActiveForClass(classId);
+      if (!session) return { session: null };
+      return { session: expireIfNeeded(session) };
+    },
+
     enterStudent({ studentId, sessionId }) {
       const session = repository.getById(sessionId);
       if (!session) throw classroomError("SESSION_NOT_FOUND", "课堂场次不存在", 404, false);
@@ -263,14 +271,6 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       if (!graded.ok && graded.ok !== undefined) {
         throw classroomError("INVALID_STAGE_EVIDENCE", graded.error, graded.status, false);
       }
-      // Use the existing recordStudentAttempt with sessionId and clientSubmissionId
-      const progress = recordStudentAttempt(
-        db,
-        studentId,
-        graded.challengeId,
-        graded.result,
-        { sessionId: fresh.id, clientSubmissionId: payload.clientSubmissionId, inTransaction: true },
-      );
       // Calculate updated rewards — track per-stage attempts
       const prevResult = safeJson(studentState.result_json) ?? {};
       const prevStageAttempts = prevResult.stageAttempts ?? mission.stages.map(() => 0);
@@ -301,17 +301,30 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       const badges = calculateBadges(passedStageIds);
       const nextStageIndex = graded.result.passed ? stageIndex + 1 : stageIndex;
       const allDone = nextStageIndex >= mission.stages.length;
-      const updated = repository.updateStudentAfterAttempt({
-        sessionId: fresh.id,
-        studentId,
-        status: allDone ? "completed" : "in_progress",
-        currentStageIndex: nextStageIndex,
-        xp: rewards.xp,
-        stars: rewards.stars,
-        streak: graded.result.passed ? studentState.streak + 1 : 0,
-        result: { stageScores: allStageScores, passedStageIds, badges, averageScore: rewards.average, stageAttempts: newStageAttempts, firstAttemptPasses: newFirstPass },
-        completedAt: allDone ? new Date(now()).toISOString() : null,
-      });
+      // 尝试记录与课堂阶段状态必须原子提交：此前 inTransaction:true 却没有外层事务，
+      // 中断后重试会命中重复提交分支，阶段不再推进，学生被永久卡在该关。
+      let progress;
+      let updated;
+      db.transaction(() => {
+        progress = recordStudentAttempt(
+          db,
+          studentId,
+          graded.challengeId,
+          graded.result,
+          { sessionId: fresh.id, clientSubmissionId: payload.clientSubmissionId, inTransaction: true },
+        );
+        updated = repository.updateStudentAfterAttempt({
+          sessionId: fresh.id,
+          studentId,
+          status: allDone ? "completed" : "in_progress",
+          currentStageIndex: nextStageIndex,
+          xp: rewards.xp,
+          stars: rewards.stars,
+          streak: graded.result.passed ? studentState.streak + 1 : 0,
+          result: { stageScores: allStageScores, passedStageIds, badges, averageScore: rewards.average, stageAttempts: newStageAttempts, firstAttemptPasses: newFirstPass },
+          completedAt: allDone ? new Date(now()).toISOString() : null,
+        });
+      })();
       return {
         session: repository.getById(fresh.id),
         studentState: updated,

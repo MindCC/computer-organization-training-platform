@@ -3,7 +3,7 @@ import { BookOpen, CaretRight, ArrowSquareOut, Lightbulb, Flask, Presentation, S
 import { COURSEWARE } from "../courseware.js";
 import { api } from "../apiClient.js";
 
-export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [], selectedTeacherClassId }) {
+export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [], selectedTeacherClassId, onSelectTeacherClass }) {
   const [expanded, setExpanded] = useState(null);
   const [uploads, setUploads] = useState([]);
   const [selectedUpload, setSelectedUpload] = useState(null);
@@ -71,16 +71,31 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
           <p>{auth.user.role === "teacher" ? "上传后会发布给当前教师看板所选班级。" : "上传后仅你本人和任课教师可见，不会向小组或全班公开。"}</p>
         </div>
         <div className="courseware-upload-actions">
-          {auth.user.role === "teacher" && <span className="courseware-class-label">发布班级：{teacherClasses.find((item) => item.id === selectedTeacherClassId)?.name ?? "请先在教师看板选择班级"}</span>}
+          {auth.user.role === "teacher" && (teacherClasses.length > 0 ? (
+            <label className="courseware-class-label">
+              发布班级：
+              <select
+                aria-label="选择发布课件的班级"
+                value={selectedTeacherClassId ?? ""}
+                onChange={(event) => onSelectTeacherClass?.(Number(event.target.value) || null)}
+              >
+                <option value="">请选择班级</option>
+                {teacherClasses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
+            </label>
+          ) : (
+            <span className="courseware-class-label">还没有班级：请先到「教师指挥台」创建班级。</span>
+          ))}
           <label className="primary-button upload-label"><UploadSimple size={16} /> {uploading ? "转换中…" : "选择 PPTX"}<input aria-label="上传 PPTX 课件" type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" onChange={upload} disabled={uploading || (auth.user.role === "teacher" && !selectedTeacherClassId)} /></label>
         </div>
         {uploadMessage && <p className="courseware-message">{uploadMessage}</p>}
+        {auth.user.role === "teacher" && !selectedTeacherClassId && <p className="courseware-message">尚未选择发布班级：在上方选择要发布的班级后即可上传（没有班级请先到「教师指挥台」创建）。</p>}
         {uploads.length > 0 && <div className="uploaded-courseware-list">{uploads.map((item) => <button type="button" key={item.id} className={selectedUpload?.id === item.id ? "uploaded-courseware active" : "uploaded-courseware"} onClick={() => { setSelectedUpload(item); setPageNumber(1); }}><Presentation size={16} /><span>{item.originalName}</span><small>{item.status === "ready" ? "可演示" : item.status === "processing" ? "转换中" : "转换失败"}</small></button>)}</div>}
       </section>}
 
       {selectedUpload?.status === "ready" && <section className="uploaded-courseware-stage">
         <div className="uploaded-courseware-toolbar"><strong>{selectedUpload.originalName} · {selectedUpload.slideCount} 页</strong><label>当前页 <input type="number" min="1" max={selectedUpload.slideCount} value={pageNumber} onChange={(event) => setPageNumber(Math.min(selectedUpload.slideCount, Math.max(1, Number(event.target.value) || 1)))} /></label></div>
-        <div className="uploaded-courseware-content"><iframe title={`${selectedUpload.originalName} HTML 演示`} src={`/api/courseware/uploads/${selectedUpload.id}/html`} /><aside className="page-notes"><h3><NotePencil size={18} /> 第 {pageNumber} 页笔记</h3><textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="记录这一页的要点、问题或思路…" /><button type="button" className="primary-button" onClick={submitNote}>保存笔记</button><div className="page-note-list">{notes.length ? notes.map((note) => <article key={note.id}><strong>{note.authorName}{note.visibility === "private" ? "（仅自己可见）" : ""}</strong><p>{note.content}</p></article>) : <p>本页还没有笔记。</p>}</div></aside></div>
+        <div className="uploaded-courseware-content"><iframe title={`${selectedUpload.originalName} HTML 演示`} sandbox="allow-scripts" src={`/api/courseware/uploads/${selectedUpload.id}/html`} /><aside className="page-notes"><h3><NotePencil size={18} /> 第 {pageNumber} 页笔记</h3><textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="记录这一页的要点、问题或思路…" /><button type="button" className="primary-button" onClick={submitNote}>保存笔记</button><div className="page-note-list">{notes.length ? notes.map((note) => <article key={note.id}><strong>{note.authorName}{note.visibility === "private" ? "（仅自己可见）" : ""}</strong><p>{note.content}</p></article>) : <p>本页还没有笔记。</p>}</div></aside></div>
       </section>}
 
       <div className="courseware-chapters">

@@ -27,6 +27,7 @@
     "qa:3d-budget": "node scripts/verify-3d-budget.mjs",
     "qa:performance": "node scripts/run-browser-qa.mjs scripts/verify-performance.mjs",
     "qa:ui": "node scripts/run-browser-qa.mjs scripts/verify-ui.mjs",
+    "qa:teacher": "node scripts/run-browser-qa.mjs scripts/verify-teacher-dashboard.mjs",
     "preqa:classroom": "npm run build -- --manifest",
     "qa:classroom": "node scripts/run-browser-qa.mjs scripts/verify-classroom.mjs --production",
     "qa:classroom-load": "node scripts/verify-classroom-load.mjs"

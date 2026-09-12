@@ -18,6 +18,17 @@ export function createClassroomSessionRouter({ service, requireRole }) {
     }
   });
 
+  router.get("/teacher/classes/:classId/sessions/current", requireRole("teacher"), (req, res, next) => {
+    try {
+      res.json(service.getCurrentForClass({
+        teacherId: req.user.id,
+        classId: Number(req.params.classId),
+      }));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   for (const action of ["start", "pause", "resume", "end"]) {
     router.post(`/teacher/sessions/:id/${action}`, requireRole("teacher"), (req, res, next) => {
       try {

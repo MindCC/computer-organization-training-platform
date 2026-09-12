@@ -292,9 +292,18 @@ async function openClassroomSettings(targetPage) {
 }
 
 async function login(targetPage, username, password) {
-  await targetPage.getByLabel("\u8d26\u53f7").fill(username);
-  await targetPage.getByLabel("\u5bc6\u7801").fill(password);
-  await targetPage.getByRole("button", { name: text.login }).click();
+  // 退出登录后应用会回到匿名落地页，需要先进入登录表单；
+  // 输入框按 id 定位，避免依赖会随登录身份变化的 aria-label 文案。
+  if (!(await targetPage.locator("#login-username").isVisible().catch(() => false))) {
+    const entry = targetPage.getByRole("button", { name: text.login }).first();
+    if (await entry.isVisible().catch(() => false)) {
+      await entry.click();
+      await targetPage.waitForLoadState("networkidle");
+    }
+  }
+  await targetPage.locator("#login-username").fill(username);
+  await targetPage.locator("#login-password").fill(password);
+  await targetPage.locator(".login-submit").click();
   await targetPage.waitForLoadState("networkidle");
 }
 

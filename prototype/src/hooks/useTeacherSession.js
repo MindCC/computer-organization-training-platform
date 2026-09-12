@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { api } from "../apiClient.js";
 
 const POLL_MS = 15_000;
@@ -7,14 +7,15 @@ export function useTeacherSession({ classId, enabled, apiClient = api }) {
   const [viewModel, setViewModel] = useState({ active: false });
   const [error, setError] = useState(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
-  const polling = useRef(null);
 
   const loadOverview = useCallback(async (sessionId) => {
     try {
       const data = await apiClient.classroomOverview(sessionId);
       const vm = buildTeacherVm(data);
       setViewModel(vm);
-      setLastUpdatedAt(data.updatedAt ?? new Date().toISOString());
+      // 只有真正变化才写 state：每轮轮询都写一个新字符串会触发无谓重渲染。
+      const nextUpdatedAt = data.updatedAt ?? new Date().toISOString();
+      setLastUpdatedAt((current) => (current === nextUpdatedAt ? current : nextUpdatedAt));
       setError(null);
     } catch (err) {
       // Keep stale data on error, just mark the error
@@ -68,6 +69,37 @@ export function useTeacherSession({ classId, enabled, apiClient = api }) {
     }
   }, [apiClient]);
 
+  // 恢复进行中的课堂：教师刷新页面后必须能重新挂上此前的直播课堂，
+  // 否则看板退回“创建课堂任务”面板，进行中的课堂就此失联。
+  const restoreCurrentSession = useCallback(async () => {
+    if (!classId) return;
+    try {
+      const data = await apiClient.currentClassroomSession(classId);
+      if (!data?.session) {
+        setViewModel({ active: false });
+        return;
+      }
+      const session = data.session;
+      setViewModel((prev) => ({
+        ...prev,
+        active: true,
+        sessionId: session.id,
+        title: session.title,
+        status: session.status,
+        paused: session.status === "paused",
+        ended: session.status === "ended",
+      }));
+      setError(null);
+    } catch {
+      // 恢复失败不应阻断看板其余部分
+    }
+  }, [apiClient, classId]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    restoreCurrentSession();
+  }, [enabled, restoreCurrentSession]);
+
   // Poll overview when a session is active
   useEffect(() => {
     if (!enabled || !viewModel.active || !viewModel.sessionId) return;
@@ -77,7 +109,6 @@ export function useTeacherSession({ classId, enabled, apiClient = api }) {
         loadOverview(viewModel.sessionId);
       }
     }, POLL_MS);
-    polling.current = intervalId;
     return () => clearInterval(intervalId);
   }, [enabled, viewModel.active, viewModel.sessionId, viewModel.ended, loadOverview]);
 

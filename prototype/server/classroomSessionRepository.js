@@ -3,6 +3,7 @@ export function createClassroomSessionRepository(db) {
     createDraft,
     getById,
     findCurrentForStudent,
+    findActiveForClass,
     findActiveConflictsForClass,
     getStudentState,
     enterStudent,
@@ -54,6 +55,16 @@ export function createClassroomSessionRepository(db) {
       ORDER BY CASE WHEN cs.status IN ('live', 'paused') THEN 0 ELSE 1 END, cs.id DESC
       LIMIT 1
     `).get(studentId) ?? null;
+  }
+
+  /** 教师看板用于重新挂上进行中的课堂（含尚未开始的草稿）。 */
+  function findActiveForClass(classId) {
+    return db.prepare(`
+      SELECT * FROM classroom_sessions
+      WHERE class_id = ? AND status IN ('draft', 'live', 'paused')
+      ORDER BY CASE WHEN status IN ('live', 'paused') THEN 0 ELSE 1 END, id DESC
+      LIMIT 1
+    `).get(classId) ?? null;
   }
 
   function findActiveConflictsForClass(classId, excludeSessionId = null) {
