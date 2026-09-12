@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { openChallengeFromHome } from "./lib/qaHome.mjs";
 import { gotoApp } from "./lib/qaLogin.mjs";
-import { openTeacherWorkspace, TEACHER_WORKSPACE } from "./lib/qaTeacherWorkspace.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
@@ -104,31 +103,19 @@ await page.getByLabel("\u65b0\u73ed\u7ea7\u540d\u79f0").fill(text.className);
 await page.getByRole("button", { name: text.createClass }).click();
 await assertVisible(page, text.className);
 await selectClass(page, text.className);
-// 教师看板是「教学活动 / 学情统计 → 子标签」结构，智能助教在学情分析助手标签下
-await openTeacherWorkspace(page, TEACHER_WORKSPACE.statistics, TEACHER_WORKSPACE.assistant);
 await assertVisible(page, text.smartAssistant);
 await page.getByRole("button", { name: text.generateAssistant }).click();
 await assertAssistantReportGenerated(page);
 assert.equal(await page.locator(".teacher-import-panel").count(), 0);
-await openTeacherWorkspace(page, TEACHER_WORKSPACE.statistics, TEACHER_WORKSPACE.insight);
 await assertVisible(page, "班级探索进度");
-assert.equal(await page.locator(".teacher-quest-overview").count(), 1);
-await openTeacherWorkspace(page, TEACHER_WORKSPACE.teaching);
 await assertVisible(page, "首次开课");
+assert.equal(await page.locator(".teacher-quest-overview").count(), 1);
 assert.equal(await page.locator(".teacher-setup-checklist").count(), 1);
 await openClassroomSettings(page);
 await page.getByLabel("\u5b66\u751f\u5bfc\u5165 CSV").fill(`\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n${text.studentNo},${text.studentName},${text.studentPassword}`);
 await page.getByRole("button", { name: text.importStudents }).click();
 await page.getByRole("button", { name: "\u5173\u95ed" }).click();
-// 学生表与导出入口在「学情明细」标签下
-await openTeacherWorkspace(page, TEACHER_WORKSPACE.statistics, TEACHER_WORKSPACE.students);
-try {
-  await page.locator(".teacher-student-table").getByText(text.studentName).waitFor({ state: "visible", timeout: 15_000 });
-} catch {
-  // 导入后学情快照可能还是旧的：手动刷新一次再断言
-  await page.getByRole("button", { name: "立即刷新" }).click();
-  await page.locator(".teacher-student-table").getByText(text.studentName).waitFor({ state: "visible", timeout: 30_000 });
-}
+await page.locator(".teacher-student-table").getByText(text.studentName).waitFor({ state: "visible", timeout: 10_000 });
 await page.screenshot({ path: artifactPath("teacher-imported.png"), fullPage: true });
 const csvText = await page.evaluate(async () => {
   const response = await fetch(document.querySelector('a[href$="/export.csv"]').href, { credentials: "include" });
@@ -264,11 +251,8 @@ await logout(page);
 await login(page, teacherUsername, teacherPassword);
 await assertVisible(page, text.teacherHeading);
 await selectClass(page, text.className);
-// 重新登录后看板回到「教学活动」：硬件挑战汇总在「学情洞察」，学生表在「学情明细」。
-await openTeacherWorkspace(page, TEACHER_WORKSPACE.statistics, TEACHER_WORKSPACE.insight);
-await assertVisible(page, text.teacherHardwareSummary);
-await openTeacherWorkspace(page, TEACHER_WORKSPACE.statistics, TEACHER_WORKSPACE.students);
 await assertVisible(page, text.studentName);
+await assertVisible(page, text.teacherHardwareSummary);
 await page.locator(".teacher-student-table .record-row").filter({ hasText: text.studentName }).last().getByRole("button", { name: text.viewDetail }).click();
 const detailPanel = page.locator(".teacher-detail-panel");
 await detailPanel.waitFor({ state: "visible", timeout: 10_000 });

@@ -3,7 +3,6 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
 import { fillLoginForm } from "./lib/qaLogin.mjs";
-import { openTeacherWorkspace, TEACHER_WORKSPACE } from "./lib/qaTeacherWorkspace.mjs";
 
 const APP_URL = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
 const API_URL = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:3001";
@@ -228,8 +227,6 @@ try {
     teacherPage.getByRole("button", { name: "\u5237\u65b0", exact: true }),
     "refresh overview",
   );
-  // 学生网格只在「学情统计 → 学习监控」标签下渲染
-  await openTeacherWorkspace(teacherPage, TEACHER_WORKSPACE.statistics, TEACHER_WORKSPACE.monitor);
   await teacherPage.locator(".session-student-name", { hasText: "QA\u5b66\u751f" }).waitFor({
     state: "visible", timeout: TIMEOUT,
   });
@@ -281,14 +278,6 @@ try {
   );
   assert.equal(ended.body.session.status, "ended");
   assert.ok(ended.body.report);
-  // 结束后报告收在「课堂报告 · 点击展开完成情况」折叠块里：先展开，再按需加载
-  const reportDetails = teacherPage.locator("details.statistics-details").filter({ hasText: "课堂报告" }).first();
-  await reportDetails.waitFor({ state: "visible", timeout: TIMEOUT });
-  await reportDetails.locator("summary").click();
-  const loadReportButton = reportDetails.getByRole("button", { name: "查看课堂报告" });
-  if (await loadReportButton.isVisible().catch(() => false)) {
-    await loadReportButton.click();
-  }
   await teacherPage.getByText(UI.report, { exact: true }).waitFor({
     state: "visible", timeout: TIMEOUT,
   });
