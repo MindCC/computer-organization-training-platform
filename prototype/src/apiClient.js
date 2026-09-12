@@ -154,4 +154,16 @@ export const api = {
   setSkipLocked: (classId, allow) => apiRequest(`/api/teacher/classes/${classId}/skip-locked`, { method: "PUT", body: JSON.stringify({ allow }) }),
   sessions: () => apiRequest("/api/teacher/sessions"),
   revokeSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}`, { method: "DELETE" }),
+  coursewareUploads: () => apiRequest("/api/courseware/uploads"),
+  uploadCourseware: (file, classId = null) => apiRequest("/api/courseware/uploads", {
+    method: "POST",
+    body: file,
+    headers: {
+      "content-type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+      "x-file-name": encodeURIComponent(file.name),
+      ...(classId ? { "x-class-id": String(classId) } : {}),
+    },
+  }),
+  coursewareNotes: (coursewareId, pageNumber) => apiRequest(`/api/courseware/uploads/${coursewareId}/notes?page=${pageNumber}`),
+  addCoursewareNote: (coursewareId, payload) => apiRequest(`/api/courseware/uploads/${coursewareId}/notes`, { method: "POST", body: JSON.stringify(payload) }),
 };

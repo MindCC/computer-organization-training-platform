@@ -294,6 +294,16 @@
   transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
+.login-portal .login-back {
+  justify-self: start;
+  padding: 0;
+  color: var(--login-muted);
+}
+
+.login-portal .login-back:hover {
+  color: var(--login-text);
+}
+
 .login-portal .login-submit:hover {
   border-color: #f5cc83;
   background: var(--login-accent-strong);

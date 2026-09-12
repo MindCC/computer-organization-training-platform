@@ -679,6 +679,13 @@
 .section-chip { background: rgba(40, 109, 232, 0.06); color: var(--navy); padding: 3px 10px; border-radius: 6px; font-size: 0.82rem; }
 .courseware-footer { margin-top: 32px; padding-top: 20px; border-top: 1px solid var(--border); }
 .courseware-footer h3 { font-size: 1rem; margin-bottom: 8px; }
+.upload-courseware-panel { display:grid; gap:12px; margin:0 0 24px; padding:18px; border:1px solid rgba(40,109,232,.24); border-radius:12px; background:#f7faff; }
+.upload-courseware-panel strong { display:flex; align-items:center; gap:7px; color:var(--navy); }.upload-courseware-panel p { margin:6px 0 0; color:var(--muted); font-size:.88rem; }
+.courseware-upload-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }.courseware-class-label,.courseware-message { font-size:.84rem; color:var(--muted); }.courseware-message { margin:0 !important; color:var(--navy) !important; }
+.upload-label { display:inline-flex; align-items:center; gap:6px; cursor:pointer; }.upload-label input { display:none; }
+.uploaded-courseware-list { display:flex; gap:8px; flex-wrap:wrap; }.uploaded-courseware { display:flex; align-items:center; gap:7px; max-width:100%; padding:8px 10px; border:1px solid var(--border); border-radius:8px; background:#fff; color:var(--ink); cursor:pointer; }.uploaded-courseware.active { border-color:var(--blue); box-shadow:0 0 0 2px rgba(40,109,232,.12); }.uploaded-courseware span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }.uploaded-courseware small { color:var(--muted); white-space:nowrap; }
+.uploaded-courseware-stage { margin:0 0 24px; overflow:hidden; border:1px solid var(--border); border-radius:12px; background:var(--surface); }.uploaded-courseware-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:11px 14px; border-bottom:1px solid var(--border); }.uploaded-courseware-toolbar label { color:var(--muted); font-size:.84rem; }.uploaded-courseware-toolbar input { width:58px; margin-left:5px; padding:4px; border:1px solid var(--border); border-radius:5px; }
+.uploaded-courseware-content { display:grid; grid-template-columns:minmax(0,2.1fr) minmax(230px,.9fr); min-height:520px; }.uploaded-courseware-content iframe { width:100%; height:520px; border:0; background:#fff; }.page-notes { display:flex; flex-direction:column; gap:10px; padding:14px; border-left:1px solid var(--border); background:#fbfdff; }.page-notes h3 { display:flex; align-items:center; gap:6px; margin:0; font-size:1rem; }.page-notes textarea { min-height:98px; resize:vertical; border:1px solid var(--border); border-radius:8px; padding:9px; font:inherit; }.page-notes .primary-button { align-self:flex-start; }.page-note-list { display:grid; gap:8px; overflow:auto; }.page-note-list article { padding:9px; border-radius:8px; background:#fff; border:1px solid rgba(0,0,0,.06); }.page-note-list article strong { font-size:.8rem; color:var(--navy); }.page-note-list p { margin:5px 0 0; color:var(--ink); font-size:.86rem; white-space:pre-wrap; }
 
 /* ---- Responsive ---- */
 
@@ -688,6 +695,7 @@
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 760px) { .courseware-view { padding:18px; }.courseware-header { align-items:flex-start; flex-wrap:wrap; }.courseware-header .primary-button { margin-left:0 !important; }.uploaded-courseware-content { grid-template-columns:1fr; }.uploaded-courseware-content iframe { min-height:400px; height:400px; }.page-notes { border-left:0; border-top:1px solid var(--border); } }
 
 @media (prefers-reduced-motion: reduce) {
   .mission-route-node,

@@ -29,3 +29,23 @@ export function buildStudentProjectSummary(projects) {
   const next = list.flatMap((project) => project.milestones ?? []).find((milestone) => milestone?.dueAt) ?? null;
   return { count: list.length, nextMilestone: next };
 }
+
+export function buildProjectChapters(projects) {
+  return (Array.isArray(projects) ? projects : []).map((project) => {
+    const submissions = new Map((project.submissions ?? []).map((submission) => [submission.milestoneId, submission]));
+    const experiments = (project.milestones ?? []).map((milestone) => ({
+      id: milestone.id,
+      title: milestone.title,
+      description: milestone.description,
+      status: submissions.get(milestone.id)?.status ?? "not-started",
+    }));
+    return {
+      id: project.id,
+      title: project.title,
+      description: project.description,
+      teamName: project.team?.name ?? "我的小组",
+      completedCount: experiments.filter((experiment) => experiment.status === "reviewed").length,
+      experiments,
+    };
+  });
+}

@@ -109,8 +109,8 @@ const chapters=[
   kp:"💡 指令和数据都是二进制，CPU通过指令周期的取指/译码/执行阶段区分。层次结构：微程序级→机器语言级→操作系统级→汇编级→高级语言级。",
   demo:"converter"},
 {id:"ch2",title:"计算机中数的表示",sub:"进制转换 · 补码 · 浮点数 · ASCII",type:"dual",cards:[
-  {h:"🔢 进制转换",items:["R进制→十进制：按权展开求和","十进制→R进制：整数除R取余，小数乘R取整","二↔八(3位一组)↔十六(4位一组)"},
-  {h:"➕➖ 有符号数",items:["原码：符号位0正1负","补码：正数同原码，负数=反码+1","补码优点：减法→加法，0唯一"}]],
+  {h:"🔢 进制转换",items:["R进制→十进制：按权展开求和","十进制→R进制：整数除R取余，小数乘R取整","二↔八(3位一组)↔十六(4位一组)"]},
+  {h:"➕➖ 有符号数",items:["原码：符号位0正1负","补码：正数同原码，负数=反码+1","补码优点：减法→加法，0唯一"]}],
   kp:"💡 8位补码范围-128~127。IEEE754浮点：1位符号+8位阶码(移码)+23位尾数(规格化)。",
   demo:"converter"},
 {id:"ch3",title:"运算单元设计",sub:"逻辑门 · 加法器 · ALU · 乘除法",type:"dual",cards:[
@@ -137,7 +137,7 @@ const chapters=[
 {id:"ch8",title:"输入输出系统",sub:"I/O接口 · 中断 · DMA · 外设",type:"dual",cards:[
   {h:"🖥️ I/O接口",items:["数据缓冲、信号转换、设备选择","独立编址 vs 统一编址","数据寄存器+控制寄存器+状态寄存器"]},
   {h:"⚡ 传送方式",items:["无条件(简单设备：LED)","程序查询(CPU轮询,效率低)","中断(设备通知CPU)","DMA(直接存储器访问,最快)"]}],
-  kp:"💡 DMA三阶段：预处理→数据传送→后处理(中断通知)。中断处理流程：关中断→保存现场→识别源→服务→恢复→开中断。"}],
+  kp:"💡 DMA三阶段：预处理→数据传送→后处理(中断通知)。中断处理流程：关中断→保存现场→识别源→服务→恢复→开中断。"},
 ];
 
 // ---- Build UI ----
@@ -153,20 +153,32 @@ for(let i=0;i<30;i++){
   document.getElementById('particles').appendChild(p);
 }
 
+// 每章拆为概览、知识拆解、练习与实验三张交互页，避免一章只有一页摘要。
+const deck=chapters.flatMap((ch,chapterIndex)=>ch.type==='title'
+  ? [{kind:'title',chapter:ch,chapterIndex,chapterId:ch.id}]
+  : ['overview','concept','practice'].map((kind)=>({kind,chapter:ch,chapterIndex,chapterId:ch.id}))
+);
+const chapterFirstSlide=new Map();
+deck.forEach((entry,index)=>{
+  if(!chapterFirstSlide.has(entry.chapterId))chapterFirstSlide.set(entry.chapterId,index);
+});
+
 // Build sidebar + slides
 chapters.forEach((ch,i)=>{
   const btn=document.createElement('div');
   btn.className='sidebar-chapter'+(i===0?' active':'');
+  btn.dataset.chapterId=ch.id;
   btn.innerHTML=`<span class="num">${i===0?'🏠':String(i).padStart(2,'0')}</span>${ch.title}`;
-  btn.onclick=()=>goTo(i);
+  btn.onclick=()=>goTo(chapterFirstSlide.get(ch.id));
   chapterList.appendChild(btn);
 });
 
-chapters.forEach((ch,i)=>{
+deck.forEach((entry,i)=>{
+  const ch=entry.chapter;
   const slide=document.createElement('div');
   slide.className='slide'+(i===0?' active':'');
 
-  if(ch.type==='title'){
+  if(entry.kind==='title'){
     slide.innerHTML=`
       <div class="title-center">
         <h1>🖥️ 计算机组成原理</h1>
@@ -179,16 +191,25 @@ chapters.forEach((ch,i)=>{
         </div>
         <p style="margin-top:48px;color:var(--muted);font-size:.85rem">📖 杨泽雪《计算机组成原理》机械工业出版社 · ← → 键翻页</p>
       </div>`;
+  }else if(entry.kind==='overview'){
+    slide.innerHTML=`
+      <div class="slide-title reveal">${ch.title}</div>
+      <div class="slide-subtitle reveal">第 1 页 · 章节概览 · ${ch.sub}</div>
+      <div class="grid2"><div class="card reveal"><h3>${ch.cards[0].h}</h3><ul>${ch.cards[0].items.map(t=>`<li>${t}</li>`).join('')}</ul></div></div>`;
+  }else if(entry.kind==='concept'){
+    slide.innerHTML=`
+      <div class="slide-title reveal">${ch.title}</div>
+      <div class="slide-subtitle reveal">第 2 页 · 核心知识拆解</div>
+      <div class="grid2"><div class="card reveal"><h3>${ch.cards[1].h}</h3><ul>${ch.cards[1].items.map(t=>`<li>${t}</li>`).join('')}</ul></div></div>
+      <div class="keypoint reveal">${ch.kp}</div>`;
   }else{
     slide.innerHTML=`
       <div class="slide-title reveal">${ch.title}</div>
-      <div class="slide-subtitle reveal">${ch.sub}</div>
-      <div class="grid2">
-        ${ch.cards.map(c=>`<div class="card reveal"><h3>${c.h}</h3><ul>${c.items.map(t=>`<li>${t}</li>`).join('')}</ul></div>`).join('')}
-      </div>
-      ${ch.kp?`<div class="keypoint reveal">${ch.kp}</div>`:''}
+      <div class="slide-subtitle reveal">第 3 页 · 练习与实验</div>
+      <div class="keypoint reveal">${ch.kp}</div>
       ${ch.demo==='converter'?`<div class="demo-box reveal"><h4>🔄 进制转换演示</h4><div class="demo-row"><input id="decInput" placeholder="输入十进制数" value="42"><button onclick="convert()">转换</button></div><div class="demo-output" id="convOut"></div></div>`:''}
-      ${ch.demo==='gates'?`<div class="demo-box reveal"><h4>🚪 逻辑门演示（点击切换输入）</h4><div class="gate-demo" id="gateDemo"></div></div>`:''}`;
+      ${ch.demo==='gates'?`<div class="demo-box reveal"><h4>🚪 逻辑门演示（点击切换输入）</h4><div class="gate-demo" id="gateDemo"></div></div>`:''}
+      <div class="demo-box reveal"><h4>🧩 本页练习</h4><p>用上一页的知识点解释一个真实计算机中的应用场景，再进入关联实验验证你的理解。</p></div>`;
   }
   slideArea.appendChild(slide);
 });
@@ -199,7 +220,7 @@ function goTo(n){
   if(n<0||n>=slides.length)return;
   current=n;
   slides.forEach((s,i)=>s.classList.toggle('active',i===current));
-  document.querySelectorAll('.sidebar-chapter').forEach((b,i)=>b.classList.toggle('active',i===current));
+  document.querySelectorAll('.sidebar-chapter').forEach((b)=>b.classList.toggle('active',b.dataset.chapterId===deck[current].chapterId));
   pageNum.textContent=`${current+1} / ${slides.length}`;
   // Animate reveal elements
   setTimeout(()=>{

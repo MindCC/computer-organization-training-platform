@@ -103,6 +103,35 @@ export function migrate(db) {
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS courseware_uploads (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      class_id INTEGER REFERENCES classes(id) ON DELETE CASCADE,
+      visibility TEXT NOT NULL CHECK (visibility IN ('class', 'private')),
+      original_name TEXT NOT NULL,
+      storage_key TEXT NOT NULL UNIQUE,
+      html_entry TEXT,
+      slide_count INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL CHECK (status IN ('processing', 'ready', 'failed')),
+      error_message TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_courseware_uploads_class ON courseware_uploads(class_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_courseware_uploads_owner ON courseware_uploads(owner_user_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS courseware_page_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      courseware_id INTEGER NOT NULL REFERENCES courseware_uploads(id) ON DELETE CASCADE,
+      page_number INTEGER NOT NULL CHECK (page_number > 0),
+      author_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      visibility TEXT NOT NULL CHECK (visibility IN ('class', 'private')),
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_courseware_page_notes ON courseware_page_notes(courseware_id, page_number);
+
     CREATE TABLE IF NOT EXISTS sessions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

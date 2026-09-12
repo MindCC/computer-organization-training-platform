@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canEditMilestoneSubmission, createEditableMilestoneDraft, getActiveGuideForChallenge, nextGuideStep } from "./courseWorkbenchState.js";
+import { buildProjectChapters, canEditMilestoneSubmission, createEditableMilestoneDraft, getActiveGuideForChallenge, nextGuideStep } from "./courseWorkbenchState.js";
 
 const project = {
   guideChallengeId: "computer-components",
@@ -38,4 +38,30 @@ test("uses a new idempotency key after a saved draft is cleared", () => {
   const submission = { reflection: "已保存", evidenceUrl: "", clientSubmissionId: "saved-request" };
   const nextRevision = createEditableMilestoneDraft(undefined, submission, () => "next-request");
   assert.equal(nextRevision.clientSubmissionId, "next-request");
+});
+
+test("groups a project into a chapter with milestone experiments and their current states", () => {
+  const chapters = buildProjectChapters([{
+    id: 42,
+    title: "运算器设计",
+    description: "从加法器到 ALU 的协作实验。",
+    team: { name: "第 3 组" },
+    milestones: [
+      { id: "adder", title: "搭建加法器", description: "完成数据通路。" },
+      { id: "alu", title: "验证 ALU", description: "完成边界测试。" },
+    ],
+    submissions: [{ milestoneId: "adder", status: "reviewed" }, { milestoneId: "alu", status: "submitted" }],
+  }]);
+
+  assert.deepEqual(chapters, [{
+    id: 42,
+    title: "运算器设计",
+    description: "从加法器到 ALU 的协作实验。",
+    teamName: "第 3 组",
+    completedCount: 1,
+    experiments: [
+      { id: "adder", title: "搭建加法器", description: "完成数据通路。", status: "reviewed" },
+      { id: "alu", title: "验证 ALU", description: "完成边界测试。", status: "submitted" },
+    ],
+  }]);
 });

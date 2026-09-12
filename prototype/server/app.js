@@ -64,6 +64,7 @@ import { createCpuPracticeService } from "./cpuPracticeService.js";
 import { createCpuPracticeRouter } from "./cpuPracticeRoutes.js";
 import { createAssemblyPracticeRepository } from './assemblyPracticeRepository.js';
 import { createAssemblyPracticeRouter } from './assemblyPracticeRoutes.js';
+import { createCoursewareUploadRouter } from "./coursewareUploadRoutes.js";
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 import { buildMistakeBook } from "../src/mistakeBook.js";
@@ -146,6 +147,11 @@ export function createApp(options = {}) {
   app.use("/api", createLabRunRouter({ service: labRunService, requireRole, audit }));
   app.use("/api", createCpuPracticeRouter({ service: cpuPracticeService, requireRole, audit }));
   app.use('/api', createAssemblyPracticeRouter({ repository: createAssemblyPracticeRepository(db), requireRole }));
+  app.use("/api", createCoursewareUploadRouter({
+    db,
+    requireRole,
+    dataDirectory: options.coursewareDirectory ?? path.resolve(path.dirname(db.name === ":memory:" ? process.cwd() : db.name), "courseware"),
+  }));
 
   // Deep health check
   const _startedAt = Date.now();
@@ -728,9 +734,10 @@ function requireAuth(req, res, next) {
 }
 
 function requireRole(role) {
+  const roles = Array.isArray(role) ? role : [role];
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: "请先登录" });
-    if (req.user.role !== role) return res.status(403).json({ error: "权限不足" });
+    if (!roles.includes(req.user.role)) return res.status(403).json({ error: "权限不足" });
     next();
   };
 }

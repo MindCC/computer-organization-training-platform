@@ -470,6 +470,8 @@ export function App() {
   const [auth, setAuth] = useState({ status: "loading", user: null });
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
+  const [showLogin, setShowLogin] = useState(false);
+  const pendingDestinationRef = useRef(null);
   const [activeView, setActiveView] = useState("home");
   const [progress, setProgress] = useState(() => buildInitialLearningProgress());
   const [allowSkipLocked, setAllowSkipLocked] = useState(false);
@@ -679,9 +681,18 @@ export function App() {
     setLoginError("");
     try {
       const { user } = await api.login(loginForm);
+      const destination = pendingDestinationRef.current;
+      pendingDestinationRef.current = null;
       setAuth({ status: "authenticated", user });
       await loadRoleData(user);
-      setActiveView(user.role === "teacher" ? "teacher" : "home");
+      setShowLogin(false);
+      if (user.role === "teacher") {
+        setActiveView("teacher");
+      } else if (destination?.type === "challenge") {
+        openChallenge(destination.challengeId);
+      } else {
+        setActiveView(destination?.view ?? "home");
+      }
     } catch (error) {
       setLoginError(error.message);
     }
@@ -697,12 +708,24 @@ export function App() {
   }
 
   function changeView(view) {
+    if (!auth.user && !["home", "courseware"].includes(view)) {
+      requestLogin({ type: "view", view });
+      return;
+    }
     setShowUserPanel(false);
     setActiveView(view);
     setStatusMessage(`已切换到${navItems.find((item) => item.id === view)?.label ?? "当前页面"}。`);
   }
 
   function navigateToChallenge(challengeId) {
+    if (auth.user?.role !== "student") {
+      requestLogin({ type: "challenge", challengeId });
+      return;
+    }
+    openChallenge(challengeId);
+  }
+
+  function openChallenge(challengeId) {
     setShowUserPanel(false);
     if (challengeId && challengeId.startsWith("game-")) {
       setSelectedHardwareCaseId(challengeId);
@@ -711,6 +734,19 @@ export function App() {
     }
     if (!lab.selectChallenge(challengeId)) return;
     setActiveView("lab");
+  }
+
+  function requestLogin(destination = null) {
+    pendingDestinationRef.current = destination;
+    setLoginError("");
+    setShowLogin(true);
+  }
+
+  function returnToGuestHome() {
+    pendingDestinationRef.current = null;
+    setLoginError("");
+    setShowLogin(false);
+    setActiveView("home");
   }
 
   async function saveNote() {
@@ -907,7 +943,7 @@ export function App() {
     return <div className="login-screen"><div className="login-card"><strong>{"\u6b63\u5728\u8fde\u63a5\u8bfe\u5802\u670d\u52a1\u5668..."}</strong></div></div>;
   }
 
-  if (auth.status === "anonymous") {
+  if (showLogin) {
     return renderLogin();
   }
 
@@ -967,7 +1003,7 @@ export function App() {
             <Bell size={22} />
             <span className="notification-dot">3</span>
           </button>
-          <div className="profile-wrap">
+          {auth.user ? <div className="profile-wrap">
             <button className="profile-button" onClick={() => setShowUserPanel((value) => !value)} type="button">
               <img alt="学生头像" src={avatarImage} />
               <span>
@@ -984,14 +1020,14 @@ export function App() {
                 <button onClick={handleLogout} type="button">退出登录</button>
               </div>
             ) : null}
-          </div>
+          </div> : <button className="ghost-button" onClick={() => requestLogin()} type="button">登录</button>}
         </div>
       </header>
 
       <div className="workspace">
         <aside className="sidebar">
           <nav className="sidebar-nav" aria-label="主导航">
-            {navItems.filter((item) => auth.user?.role === "teacher" ? ["home", "teacher"].includes(item.id) : item.id !== "teacher").map(({ id, icon: Icon, label }) => (
+            {navItems.filter((item) => auth.user?.role === "teacher" ? ["home", "teacher"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware"].includes(item.id)).map(({ id, icon: Icon, label }) => (
               <button
                 className={activeView === id ? "nav-item active" : "nav-item"}
                 key={id}
@@ -1068,7 +1104,7 @@ export function App() {
           ) : null}
           {activeView === "assignments" ? <StudentAssignments /> : null}
           {activeView === "projects" ? <StudentProjects /> : null}
-          {activeView === "courseware" ? <CoursewareView navigateToChallenge={navigateToChallenge} /> : null}
+          {activeView === "courseware" ? <CoursewareView navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} /> : null}
           {activeView === "teacher" ? (
             <ErrorBoundary>
             <TeacherStudioDashboard
@@ -1105,6 +1141,7 @@ export function App() {
         setLoginForm={setLoginForm}
         loginError={loginError}
         onSubmit={handleLogin}
+        onBack={returnToGuestHome}
       />
     );
   }

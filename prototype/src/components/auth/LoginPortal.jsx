@@ -17,7 +17,7 @@ const routeSteps = [
   { id: "verify", icon: PresentationChart, label: "验证并提交成果" },
 ];
 
-export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit }) {
+export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onBack }) {
   const [role, setRole] = useState("student");
   const rootRef = useRef(null);
   const copy = buildRoleEntryCopy(role);
@@ -156,6 +156,7 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit }) {
             <span>{copy.submitLabel}</span>
             <ArrowRight aria-hidden="true" size={20} weight="bold" />
           </button>
+          {onBack ? <button className="ghost-button login-back" onClick={onBack} type="button">先浏览课程</button> : null}
           <small id="login-account-help">{copy.help}。登录遇到问题请联系任课教师。</small>
         </div>
       </form>

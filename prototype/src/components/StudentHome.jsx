@@ -1,13 +1,13 @@
-import { Play } from "@phosphor-icons/react";
+import { CaretDown, CaretRight, CheckCircle, Clock, Play } from "@phosphor-icons/react";
+import { useState } from "react";
 import { formatEstimatedMinutes } from "../courseRoute.js";
 import { buildStudentQuestModel, buildFirstUseSteps } from "../questExperience.js";
 import { buildStudentHomeEmptyState } from "../emptyStates.js";
 import { buildCompletionOverview } from "../completionOverview.js";
 import { CurrentMissionCard } from "./classroom/student/CurrentMissionCard.jsx";
 import { CurrentQuestPanel } from "./quest/CurrentQuestPanel.jsx";
-import { QuestMap } from "./quest/QuestMap.jsx";
 import { FirstUseGuide } from "./quest/FirstUseGuide.jsx";
-import { buildStudentProjectSummary } from "../courseWorkbenchState.js";
+import { buildProjectChapters, buildStudentProjectSummary } from "../courseWorkbenchState.js";
 
 function NextStepCard({ challenge, progress, onEnter }) {
   return (
@@ -35,6 +35,23 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
     completedCount: group.items.filter((item) => item.status === "completed").length,
   }));
   const projectSummary = buildStudentProjectSummary(projects);
+  const projectChapters = buildProjectChapters(projects);
+  const courseChapters = routeGroups.map((group) => ({
+    id: group.id,
+    title: group.title,
+    description: group.description,
+    teamName: "课程章节",
+    completedCount: group.items.filter((item) => item.status === "completed").length,
+    experiments: group.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      status: item.status === "completed" ? "reviewed" : item.status === "in-progress" ? "submitted" : "not-started",
+      challengeId: item.id,
+    })),
+  }));
+  const homepageChapters = projectChapters.length ? projectChapters : courseChapters;
+  const [expandedProjectChapters, setExpandedProjectChapters] = useState({});
 
   if (classroomViewModel?.active) {
     return (
@@ -155,16 +172,43 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
         </div>
       </section>
 
-      <section className="project-home-card" aria-label="小组项目">
-        <div><span className="eyebrow">小组项目</span><h2>{projectSummary.count ? `你有 ${projectSummary.count} 个进行中的协作项目` : "等待教师分配小组项目"}</h2><p>{projectSummary.nextMilestone?.title ? `下一里程碑：${projectSummary.nextMilestone.title}` : "发布并分组后，可在这里提交个人反思和查看评价。"}</p></div>
-        {projectSummary.count ? <button className="primary-button" onClick={onOpenProjects} type="button">打开项目</button> : null}
-      </section>
+      <section className="project-chapter-board" aria-labelledby="project-chapter-heading">
+        <header className="project-chapter-board-heading">
+          <div>
+            <span className="eyebrow">实践项目</span>
+            <h2 id="project-chapter-heading">{projectSummary.count ? "按章节完成协作实验" : "按章节完成课程实验"}</h2>
+            <p>{projectSummary.count ? "每个项目是一章；展开章节后，可进入对应的小实验并提交个人成果。" : "从章节进入小实验，完成后会同步更新你的课程进度。"}</p>
+          </div>
+          {projectSummary.count ? <button className="ghost-button" onClick={onOpenProjects} type="button">查看全部项目</button> : null}
+        </header>
 
-      <QuestMap
-        model={questModel}
-        onSelect={(id) => navigateToChallenge(id)}
-        allowSkipLocked={allowSkipLocked}
-      />
+        {homepageChapters.length ? <div className="project-chapter-list">
+          {homepageChapters.map((chapter, index) => {
+            const expanded = expandedProjectChapters[chapter.id] ?? index === 0;
+            return <article className="project-chapter" key={chapter.id}>
+              <button
+                aria-expanded={expanded}
+                className="project-chapter-toggle"
+                onClick={() => setExpandedProjectChapters((current) => ({ ...current, [chapter.id]: !expanded }))}
+                type="button"
+              >
+                <span className="project-chapter-index">第 {index + 1} 章</span>
+                <span className="project-chapter-title"><strong>{chapter.title}</strong><small>{chapter.teamName}</small></span>
+                <span className="project-chapter-progress">{chapter.completedCount} / {chapter.experiments.length} 已评价</span>
+                {expanded ? <CaretDown size={18} /> : <CaretRight size={18} />}
+              </button>
+              {expanded ? <div className="project-experiment-list">
+                <p className="project-chapter-description">{chapter.description}</p>
+                {chapter.experiments.map((experiment, experimentIndex) => <button className="project-experiment-row" key={experiment.id} onClick={() => experiment.challengeId ? navigateToChallenge(experiment.challengeId) : onOpenProjects()} type="button">
+                  <span className={`project-experiment-status ${experiment.status}`}>{experiment.status === "reviewed" ? <CheckCircle size={17} weight="fill" /> : <Clock size={17} />}</span>
+                  <span className="project-experiment-copy"><strong>{index + 1}-{experimentIndex + 1} {experiment.title}</strong><small>{experiment.description}</small></span>
+                  <span className={`project-experiment-state ${experiment.status}`}>{experiment.status === "reviewed" ? "已评价" : experiment.status === "submitted" ? "待评价" : "开始实验"}</span>
+                </button>)}
+              </div> : null}
+            </article>;
+          })}
+        </div> : null}
+      </section>
 
       <div className="quest-student-supplement">
         <aside className="quest-student-sidebar">
