@@ -11,6 +11,7 @@ import { TeacherQuestSection } from "./teacher/TeacherQuestSection.jsx";
 import { ClassroomCommandCenter } from "./teacher/ClassroomCommandCenter.jsx";
 import { TeacherAssignments } from "./TeacherAssignments.jsx";
 import { TeacherCourseWorkbench } from "./TeacherCourseWorkbench.jsx";
+import { TeacherAssemblyPractice } from './teacher/TeacherAssemblyPractice.jsx';
 
 const OVERVIEW_REFRESH_MS = 45_000;
 
@@ -76,7 +77,7 @@ export function TeacherStudioDashboard({
           <button type="button" aria-pressed={workspace === 'statistics'} onClick={() => setWorkspace('statistics')}>学情统计</button>
           {workspace === 'statistics' && (
             <nav className="statistics-nav" aria-label="统计分类">
-              {[['overview','学情洞察'],['monitor','学习监控'],['assistant','学情分析助手'],['students','学情明细']].map(([id,label]) => (
+              {[['overview','学情洞察'],['monitor','学习监控'],['assistant','学情分析助手'],['students','学情明细'],['practice','装机练习']].map(([id,label]) => (
                 <button key={id} type="button" aria-pressed={statistic === id} onClick={() => setStatistic(id)}>{label}</button>
               ))}
             </nav>
@@ -97,7 +98,8 @@ export function TeacherStudioDashboard({
         <section className="teacher-studio-main">
           <ClassroomCommandCenter teacherSession={teacherSession} statistics={workspace === 'statistics' && statistic === 'monitor'} showSetup={workspace === 'teaching'} />
 
-          {workspace === 'statistics' && <header className="statistics-heading"><span className="eyebrow">学情统计</span><h2>{({ overview: '章节完成度与班级概览', monitor: '课堂完成度与报告', assistant: 'AI 学情分析', students: '学生学习明细' })[statistic]}</h2><p>基于当前班级的真实学习记录，查看完成情况与教学反馈。</p></header>}
+          {workspace === 'statistics' && <header className="statistics-heading"><span className="eyebrow">学情统计</span><h2>{({ overview: '章节完成度与班级概览', monitor: '课堂完成度与报告', assistant: 'AI 学情分析', students: '学生学习明细', practice: '装机练习与操作复盘' })[statistic]}</h2><p>基于当前班级的真实学习记录，查看完成情况与教学反馈。</p></header>}
+          {workspace==='statistics'&&statistic==='practice'&&(selectedTeacherClassId?<TeacherAssemblyPractice key={selectedTeacherClassId} classId={selectedTeacherClassId}/>:<p>请先选择班级以查看装机练习。</p>)}
 
           <div hidden={workspace !== 'statistics' || statistic !== 'overview'}>
 

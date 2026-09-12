@@ -66,6 +66,7 @@ import { createCpuPracticeService } from "./cpuPracticeService.js";
 import { createCpuPracticeRouter } from "./cpuPracticeRoutes.js";
 import { createAssemblyPracticeRepository } from './assemblyPracticeRepository.js';
 import { createAssemblyPracticeRouter } from './assemblyPracticeRoutes.js';
+import { createTeacherAssemblyPracticeRouter } from './teacherAssemblyPractice.js';
 import { createCoursewareUploadRouter } from "./coursewareUploadRoutes.js";
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
@@ -167,6 +168,7 @@ export function createApp(options = {}) {
   app.use("/api", createLabRunRouter({ service: labRunService, requireRole, audit }));
   app.use("/api", createCpuPracticeRouter({ service: cpuPracticeService, requireRole, audit }));
   app.use('/api', createAssemblyPracticeRouter({ repository: createAssemblyPracticeRepository(db), requireRole }));
+  app.use('/api', createTeacherAssemblyPracticeRouter({ db, requireRole }));
   app.use("/api", createCoursewareUploadRouter({
     db,
     requireRole,

@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { openTeacherWorkspace, TEACHER_WORKSPACE } from "./lib/qaTeacherWorkspace.mjs";
 import { selectTeacherClass } from "./helpers/select-teacher-class.mjs";
+import { HARDWARE_GAME_CASES } from '../src/hardwareGame.js';
 
 /**
  * 教师看板定向回归：验证按功能拆分后的版块都能渲染，
@@ -58,6 +59,15 @@ await api(`/api/teacher/classes/${classId}/import-students`, {
   method: "POST", headers: jsonHeaders, body: JSON.stringify({ csv: `学号,姓名,初始密码\n${studentNo},${studentName},Student123!` }),
 });
 
+const emptyClassName=`空练习班 ${stamp}`;
+await api('/api/classes',{method:'POST',headers:jsonHeaders,body:JSON.stringify({name:emptyClassName})});
+await api('/api/auth/login',{method:'POST',headers:jsonHeaders,body:JSON.stringify({username:studentNo,password:'Student123!'})});
+const savedPractice=await api(`/api/student/assembly-practice/${HARDWARE_GAME_CASES[0].id}`,{method:'PUT',headers:jsonHeaders,body:JSON.stringify({
+  operationId:crypto.randomUUID(),baseRevision:0,document:{version:1,active:null,history:[{id:'teacher-browser-run',mode:'guided',fault:'power',completedAt:Date.now(),seconds:45,errorCount:1,hints:1,score:92,errors:['请先打开侧板']}]}
+})});
+assert.equal(savedPractice.status,200,'student fixture sync succeeds');
+await api('/api/auth/login',{method:'POST',headers:jsonHeaders,body:JSON.stringify({username:teacherUsername,password:teacherPassword})});
+
 const session = (await api(`/api/teacher/classes/${classId}/sessions`, {
   method: "POST",
   headers: jsonHeaders,
@@ -100,6 +110,33 @@ try {
   // 拆分后的各功能版块（教师看板为「教学活动 / 学情统计 → 子标签」结构）
   assert.equal(await page.locator(".teacher-studio-sidebar .teacher-class-select select").count(), 1, "class dropdown renders in its own sidebar");
   assert.equal(await selectTeacherClass(page, className), true, "class dropdown exposes the created class");
+
+  await openTeacherWorkspace(page,TEACHER_WORKSPACE.statistics,'装机练习');
+  const practice=page.getByRole('region',{name:'班级装机练习'});
+  await expect(practice.locator('tbody tr')).toHaveCount(1);
+  await expect(practice.locator('tbody')).toContainText('92');
+  await practice.getByRole('button',{name:`查看${studentName}的练习复盘`}).click();
+  const review=page.getByRole('region',{name:'学生装机练习复盘'});
+  await expect(review).toContainText('请先打开侧板');
+  await review.locator('summary').click();await expect(review).toContainText('用时 45 秒');
+  await practice.getByRole('textbox',{name:'查找练习学生'}).fill('不存在的学生');
+  await expect(practice.locator('tbody tr')).toHaveCount(0);
+  await practice.getByRole('textbox',{name:'查找练习学生'}).fill('');
+  await page.screenshot({path:path.join(artifactDir,'teacher-assembly-practice.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'practice narrow layout fits viewport');
+  await page.screenshot({path:path.join(artifactDir,'teacher-assembly-practice-mobile.png'),fullPage:true});
+  await page.setViewportSize({width:1440,height:1040});
+  const practiceRoute=`**/api/teacher/classes/${classId}/assembly-practice`;
+  await page.route(practiceRoute,route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'测试读取失败'})}));
+  await practice.getByRole('button',{name:'刷新练习记录',exact:true}).click();
+  await expect(practice.getByRole('alert')).toContainText('读取失败');
+  await page.unroute(practiceRoute);await practice.getByRole('button',{name:'刷新练习记录',exact:true}).click();
+  await expect(practice.getByRole('alert')).toHaveCount(0);
+  await selectTeacherClass(page,emptyClassName);await expect(practice).toContainText('没有符合条件的学生记录');
+  await expect(page.getByRole('region',{name:'学生装机练习复盘'})).toHaveCount(0);
+  await selectTeacherClass(page,className);await expect(practice.locator('tbody tr')).toHaveCount(1);
+  console.log('teacher practice: summary, review, filtering, empty class, isolation, retry and mobile passed');
 
   // 学情洞察：指标卡 + 硬件汇总 + 课程地图
   await openTeacherWorkspace(page, TEACHER_WORKSPACE.statistics, TEACHER_WORKSPACE.insight);
