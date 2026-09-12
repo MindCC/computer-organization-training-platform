@@ -71,6 +71,10 @@ const browser = await launchBrowser();
 const page = await browser.newPage({ viewport: { width: 1440, height: 1040 } });
 const pageErrors = [];
 page.on("pageerror", (error) => pageErrors.push(error.message));
+const consoleErrors = [];
+page.on("console", (message) => {
+  if (message.type() === "error") consoleErrors.push(message.text().slice(0, 800));
+});
 
 try {
   await page.goto(baseUrl, { waitUntil: "networkidle" });
@@ -139,6 +143,23 @@ try {
   assert.deepEqual(pageErrors, [], "no uncaught page errors during teacher dashboard verification");
   await page.screenshot({ path: path.join(artifactDir, "teacher-dashboard-refactor.png"), fullPage: true });
   console.log("teacher dashboard verification passed");
+} catch (error) {
+  // 失败时把未捕获的前端异常打出来，否则只能看到一个超时
+  console.error("teacher dashboard verification failed:", error?.message ?? error);
+  console.error("uncaught page errors:", JSON.stringify(pageErrors, null, 2));
+  console.error("console errors:", JSON.stringify(consoleErrors, null, 2));
+  console.error("final state:", JSON.stringify(await page.evaluate(() => ({
+    nav: [...document.querySelectorAll(".sidebar-nav .nav-item")].map((el) => el.textContent.trim()),
+    bodyText: document.body.innerText.replace(/\s+/g, " ").slice(0, 300),
+    viewSession: window.sessionStorage.getItem("zcyl:view-session"),
+    teacherStudioCount: document.querySelectorAll(".teacher-studio").length,
+    detailPanelCount: document.querySelectorAll(".teacher-detail-panel").length,
+    studentDetailText: document.body.innerText.includes("学生详情"),
+    recordRowCount: document.querySelectorAll(".teacher-student-table .record-row").length,
+    viewDetailButtonCount: [...document.querySelectorAll(".teacher-student-table button")].filter((b) => b.textContent.includes("查看详情")).length,
+  }))));
+  await page.screenshot({ path: path.join(artifactDir, "teacher-dashboard-failure.png"), fullPage: true }).catch(() => {});
+  throw error;
 } finally {
   await browser.close();
 }
