@@ -46,6 +46,16 @@ try {
     const { Vector2 } = await import('/node_modules/three/src/math/Vector2.js');
     const scene = window.qaScene, camera = window.qaCamera;
     const group = scene.children.find(n => n.userData.partId === 'cpu');
+    // 刚切到自由探索时零件还在爆炸动画里；先把基准位置等到稳定，
+    // 否则「选中部件归位」后对比的是动画中间值，断言会随机超时。
+    const position = () => group.position.toArray();
+    let stable = position();
+    for (let frame = 0; frame < 120; frame++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const current = position();
+      if (current.every((value, index) => Math.abs(value - stable[index]) < 1e-4)) break;
+      stable = current;
+    }
     const rect = document.querySelector('canvas[data-model-source="blender-glb"]').getBoundingClientRect();
     const ray = new Raycaster();
     const p = group.position.clone().project(camera);
@@ -53,7 +63,7 @@ try {
       const x = (p.x + 1) * rect.width / 2 + dx, y = (1 - p.y) * rect.height / 2 + dy;
       ray.setFromCamera(new Vector2(x / rect.width * 2 - 1, 1 - y / rect.height * 2), camera);
       const hit = ray.intersectObjects(scene.children.filter(n => n.visible && n.userData.partId), true)[0];
-      if (hit?.object.userData.partId === 'cpu') return { x: rect.left + x, y: rect.top + y, position: group.position.toArray() };
+      if (hit?.object.userData.partId === 'cpu') return { x: rect.left + x, y: rect.top + y, position: stable };
     }
     throw new Error('No visible CPU pick point');
   });
