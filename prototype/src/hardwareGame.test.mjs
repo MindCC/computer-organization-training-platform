@@ -9,12 +9,14 @@ import {
   hardwareCaseTitle,
 } from "./hardwareGame.js";
 
-test("hardware game ships six classroom cases split by overview and storage chapters", () => {
+test("hardware game ships six classroom cases split across the intro and storage chapters", () => {
   assert.equal(HARDWARE_GAME_CASES.length, 6);
+  // 章节归属统一走 chapterId（ch1 整机认知 / ch4 存储取舍），不再使用 overview、storage 旧标签。
   assert.deepEqual(
-    [...new Set(HARDWARE_GAME_CASES.map((item) => item.chapter))],
-    ["overview", "storage"],
+    [...new Set(HARDWARE_GAME_CASES.map((item) => item.chapterId))].sort(),
+    ["ch1", "ch4"],
   );
+  assert.equal(HARDWARE_GAME_CASES.every((item) => item.grading === "graded"), true);
 });
 
 test("hardware game scores a build by target completion", () => {

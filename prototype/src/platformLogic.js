@@ -4,6 +4,8 @@ import { HARDWARE_GAME_PROGRESS_ITEMS } from "./hardwareGame.js";
 export const CHALLENGES = [
   {
     id: "computer-components",
+    grading: "participation",
+    chapterId: "ch1",
     title: "认识计算机五大部件",
     shortTitle: "五大部件",
     goal: "把输入、存储、运算、控制和输出五类部件放到正确位置。",
@@ -29,6 +31,8 @@ export const CHALLENGES = [
   },
   {
     id: "program-flow",
+    grading: "participation",
+    chapterId: "ch1",
     title: "程序运行路线",
     shortTitle: "运行路线",
     goal: "按顺序连接一次 1+1 计算从输入到输出的流程。",
@@ -54,6 +58,8 @@ export const CHALLENGES = [
   },
   {
     id: "instruction-data",
+    grading: "participation",
+    chapterId: "ch5",
     title: "指令和数据",
     shortTitle: "指令/数据",
     goal: "区分同一片内存内容在 CPU 不同阶段中为什么会被当作指令或数据。",
@@ -82,6 +88,8 @@ export const CHALLENGES = [
   },
   {
     id: "memory-address",
+    grading: "participation",
+    chapterId: "ch4",
     title: "\u5b58\u50a8\u5668\u4e0e\u5730\u5740\u8bbf\u95ee",
     shortTitle: "\u8bbf\u5b58\u8def\u5f84",
     goal: "\u628a\u8bbf\u95ee\u5730\u5740\u9001\u5165 MAR\uff0c\u518d\u7ecf\u4e3b\u5b58\u3001MDR \u548c CPU \u6570\u636e\u603b\u7ebf\u5b8c\u6210\u4e00\u6b21\u8bfb\u6570\u8def\u5f84\u3002",
@@ -107,6 +115,8 @@ export const CHALLENGES = [
   },
   {
     id: "data-flow",
+    grading: "participation",
+    chapterId: "ch3",
     title: "认识数据流",
     shortTitle: "数据流",
     goal: "把输入、处理单元和输出端连成一条完整的数据路径。",
@@ -127,6 +137,8 @@ export const CHALLENGES = [
   },
   {
     id: "and-gate",
+    grading: "graded",
+    chapterId: "ch3",
     title: "与门",
     shortTitle: "与门",
     goal: "连接两个输入到与门，观察 A 和 B 都为 1 时输出 Y 才为 1。",
@@ -148,6 +160,8 @@ export const CHALLENGES = [
   },
   {
     id: "or-gate",
+    grading: "graded",
+    chapterId: "ch3",
     title: "或门",
     shortTitle: "或门",
     goal: "连接两个输入到或门，观察 A 或 B 至少一个为 1 时输出 Y 为 1。",
@@ -169,6 +183,8 @@ export const CHALLENGES = [
   },
   {
     id: "not-gate",
+    grading: "graded",
+    chapterId: "ch3",
     title: "非门",
     shortTitle: "非门",
     goal: "连接输入到非门，观察 0 变 1、1 变 0 的取反关系。",
@@ -189,6 +205,8 @@ export const CHALLENGES = [
   },
   {
     id: "xor-gate",
+    grading: "graded",
+    chapterId: "ch3",
     title: "异或门",
     shortTitle: "异或门",
     goal: "连接两个输入到异或门，观察 A 和 B 不同时输出 Y 为 1。",
@@ -210,6 +228,8 @@ export const CHALLENGES = [
   },
   {
     id: "half-adder",
+    grading: "graded",
+    chapterId: "ch3",
     title: "半加器",
     shortTitle: "半加器",
     goal: "连接异或门和与门，实现 1 位二进制加法。",
@@ -234,6 +254,8 @@ export const CHALLENGES = [
   },
   {
     id: "full-adder",
+    grading: "graded",
+    chapterId: "ch3",
     title: "全加器",
     shortTitle: "全加器",
     goal: "在半加器基础上加入输入进位，完成三输入加法。",
@@ -257,6 +279,8 @@ export const CHALLENGES = [
   },
   {
     id: "machine-number",
+    grading: "participation",
+    chapterId: "ch2",
     title: "机器数编码",
     shortTitle: "机器数",
     goal: "把十进制整数拆成符号位和数值位，再观察原码、反码、补码的转换关系。",
@@ -284,6 +308,8 @@ export const CHALLENGES = [
   },
   {
     id: "multi-adder",
+    grading: "graded",
+    chapterId: "ch3",
     title: "多位加法器",
     shortTitle: "多位加法器",
     goal: "把多个全加器串联起来，观察进位逐级传播。",
@@ -306,6 +332,8 @@ export const CHALLENGES = [
   },
   {
     id: "mux",
+    grading: "graded",
+    chapterId: "ch3",
     title: "多路选择器",
     shortTitle: "多路选择器",
     goal: "使用选择信号决定哪一路数据进入输出端。",
@@ -328,6 +356,8 @@ export const CHALLENGES = [
   },
   {
     id: "alu",
+    grading: "graded",
+    chapterId: "ch3",
     title: "简化 ALU",
     shortTitle: "简化 ALU",
     goal: "把加法、与、或和选择控制组合成一个简化运算器。",

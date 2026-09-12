@@ -2,11 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  REFERENCE_SLOT_LAYOUTS,
   buildPlacementBlueprint,
   findSnapTarget,
   scorePlacedComponents,
 } from "./labPlacement.js";
-
+import { LEARNING_ITEMS } from "./platformLogic.js";
 const fullAdderChallenge = {
   id: "full-adder",
   components: [
@@ -87,4 +88,34 @@ test("snap target returns the matching slot when a component is dropped close en
   assert.ok(slot);
   assert.equal(slot.sourceIndex, 1);
   assert.equal(slot.role, "第二层求和");
+});
+
+test("每个课程关卡都有专门的槽位布局，不再退回自动排布", () => {
+  // 退回 fallbackPosition 时 role 会变成「目标槽位 N」，学生看到的是等距排布的占位槽。
+  const missing = LEARNING_ITEMS
+    .filter((item) => item.components?.length)
+    .filter((item) => !REFERENCE_SLOT_LAYOUTS[item.id])
+    .map((item) => item.id);
+  assert.deepEqual(missing, [], `以下关卡缺少 REFERENCE_SLOT_LAYOUTS：${missing.join(", ")}`);
+});
+
+test("槽位布局与关卡部件数量、role 一一对应", () => {
+  for (const item of LEARNING_ITEMS.filter((entry) => entry.components?.length)) {
+    const slots = REFERENCE_SLOT_LAYOUTS[item.id];
+    assert.ok(slots, `${item.id} 缺少槽位布局`);
+    const blueprint = buildPlacementBlueprint(item);
+    assert.equal(
+      blueprint.length,
+      slots.length,
+      `${item.id} 槽位数 ${slots.length} 与部件数 ${blueprint.length} 不一致`,
+    );
+    for (const [index, slot] of blueprint.entries()) {
+      assert.equal(slot.x, slots[index].x, `${item.id} 槽位 ${index} 的 x 应来自布局表`);
+      assert.equal(slot.y, slots[index].y, `${item.id} 槽位 ${index} 的 y 应来自布局表`);
+      assert.equal(typeof slot.role, "string");
+      assert.notEqual(slot.role, `目标槽位 ${index + 1}`, `${item.id} 槽位 ${index} 缺少明确 role`);
+    }
+    const positions = new Set(blueprint.map((slot) => `${slot.x},${slot.y}`));
+    assert.equal(positions.size, blueprint.length, `${item.id} 的槽位坐标不应重叠`);
+  }
 });

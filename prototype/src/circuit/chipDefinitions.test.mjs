@@ -39,6 +39,103 @@ test("buildChipPalette creates palette entries from unlocked chips", () => {
   assert.equal(palette[0].isChip, true);
 });
 
+/**
+ * 每个芯片的端口 id 必须与仿真函数真正读取的入参一致（历史上 not-gate 端口叫 in、
+ * 仿真却读 inp，导致芯片恒输出 1）。这里用真值表从仿真函数本身出发覆盖：
+ * - 输入向量按端口 id 构造，覆盖 0/1 全组合；
+ * - 输出按端口 id 断言，任何一个输出未定义或算错都会失败。
+ */
+const CHIP_TRUTH_TABLES = {
+  "half-adder": {
+    inputs: ["a", "b"],
+    outputs: {
+      sum: (a, b) => ((a + b) & 1),
+      carry: (a, b) => (a + b > 1 ? 1 : 0),
+    },
+  },
+  "full-adder": {
+    inputs: ["a", "b", "cin"],
+    outputs: {
+      sum: (a, b, cin) => ((a + b + cin) & 1),
+      cout: (a, b, cin) => (a + b + cin > 1 ? 1 : 0),
+    },
+  },
+  "and-gate": { inputs: ["a", "b"], outputs: { c: (a, b) => a & b } },
+  "or-gate": { inputs: ["a", "b"], outputs: { out: (a, b) => a | b } },
+  "xor-gate": { inputs: ["a", "b"], outputs: { s: (a, b) => a ^ b } },
+  "not-gate": { inputs: ["in"], outputs: { out: (a) => (a ? 0 : 1) } },
+};
+
+function inputCombinations(ids) {
+  const combinations = [[]];
+  for (const id of ids) {
+    const next = [];
+    for (const prefix of combinations) {
+      for (const value of [0, 1]) next.push([...prefix, value]);
+    }
+    combinations.length = 0;
+    combinations.push(...next);
+  }
+  return combinations.map((values) => Object.fromEntries(ids.map((id, index) => [id, values[index]])));
+}
+
+test("每个芯片的仿真都对端口 id 对应的真值表成立", () => {
+  for (const [chipId, table] of Object.entries(CHIP_TRUTH_TABLES)) {
+    const chip = CHIP_DEFINITIONS[chipId];
+    assert.ok(chip, `${chipId} 芯片未定义`);
+
+    const inputPortIds = chip.ports.filter((port) => port.direction === "in").map((port) => port.id);
+    assert.deepEqual([...inputPortIds].sort(), [...table.inputs].sort(), `${chipId} 输入端口应与真值表一致`);
+
+    for (const inputs of inputCombinations(table.inputs)) {
+      const outputs = chip.simulation(inputs);
+      for (const [outId, expected] of Object.entries(table.outputs)) {
+        const expectedValue = expected(...table.inputs.map((id) => inputs[id]));
+        assert.equal(
+          outputs[outId],
+          expectedValue,
+          `${chipId} 在 ${JSON.stringify(inputs)} 下 ${outId} 应为 ${expectedValue}，实际 ${outputs[outId]}`,
+        );
+      }
+    }
+  }
+});
+
+test("芯片端口声明的输出与仿真返回值一一对应", () => {
+  for (const chip of Object.values(CHIP_DEFINITIONS)) {
+    const inputPortIds = chip.ports.filter((port) => port.direction === "in").map((port) => port.id);
+    const outputPortIds = chip.ports.filter((port) => port.direction === "out").map((port) => port.id);
+    const outputs = chip.simulation(Object.fromEntries(inputPortIds.map((id) => [id, 1])));
+    for (const outputId of outputPortIds) {
+      assert.notEqual(outputs[outputId], undefined, `${chip.id} 的 ${outputId} 没有仿真返回值`);
+      assert.equal(Number.isFinite(outputs[outputId]), true, `${chip.id} 的 ${outputId} 应为有限数值`);
+    }
+  }
+});
+
+test("非门芯片在电路里对输入取反", () => {
+  const circuit = {
+    id: "test-chip-not",
+    nodes: [
+      { id: "a", type: "input", label: "A", ports: [{ id: "out", label: "A", direction: "out", signal: "bit" }] },
+      { id: "not1", type: "chip:not-gate", label: "非门", ports: [
+        { id: "in", label: "A", direction: "in" },
+        { id: "out", label: "Y", direction: "out" },
+      ] },
+      { id: "y", type: "output", label: "Y", ports: [{ id: "in", label: "Y", direction: "in", signal: "bit" }] },
+    ],
+    requiredEdges: [],
+    testCases: [],
+  };
+  const edges = [
+    { from: { nodeId: "a", portId: "out" }, to: { nodeId: "not1", portId: "in" } },
+    { from: { nodeId: "not1", portId: "out" }, to: { nodeId: "y", portId: "in" } },
+  ];
+
+  assert.equal(simulateCircuit(circuit, edges, { "a.out": 0 }).values["y.in"], 1);
+  assert.equal(simulateCircuit(circuit, edges, { "a.out": 1 }).values["y.in"], 0);
+});
+
 test("chip node simulation works in a circuit", () => {
   // Build a simple circuit using a half-adder chip
   const circuit = {

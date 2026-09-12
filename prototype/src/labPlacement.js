@@ -68,6 +68,21 @@ export const REFERENCE_SLOT_LAYOUTS = {
     { x: 18, y: 74, role: "数据源 D1" },
     { x: 40, y: 84, role: "选择信号" },
   ],
+  "memory-address": [
+    { x: 12, y: 56, role: "本次访问地址" },
+    { x: 32, y: 56, role: "地址暂存" },
+    { x: 54, y: 56, role: "按地址取数" },
+    { x: 74, y: 56, role: "数据暂存" },
+    { x: 90, y: 56, role: "回送 CPU" },
+  ],
+  "machine-number": [
+    { x: 12, y: 56, role: "待编码的有符号数" },
+    { x: 34, y: 24, role: "判断正负" },
+    { x: 34, y: 76, role: "拆出数值位" },
+    { x: 58, y: 76, role: "数值位取反" },
+    { x: 80, y: 76, role: "反码加一" },
+    { x: 92, y: 24, role: "符号位观察" },
+  ],
   alu: [
     { x: 34, y: 28, role: "加法单元" },
     { x: 34, y: 78, role: "逻辑单元" },

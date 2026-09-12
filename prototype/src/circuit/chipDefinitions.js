@@ -84,7 +84,7 @@ export const CHIP_DEFINITIONS = Object.freeze({
       { id: "in", label: "A", direction: "in" },
       { id: "out", label: "Y", direction: "out" },
     ],
-    simulation: ({ inp }) => ({ out: (inp & 1) ^ 1 }),
+    simulation: ({ in: input }) => ({ out: (input & 1) ^ 1 }),
   },
 });
 
