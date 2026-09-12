@@ -180,6 +180,21 @@ export const api = {
     return apiRequest(`/api/teacher/audit-logs${query ? `?${query}` : ""}`);
   },
   setSkipLocked: (classId, allow) => apiRequest(`/api/teacher/classes/${classId}/skip-locked`, { method: "PUT", body: JSON.stringify({ allow }) }),
+  // 备份是二进制流，不能走 apiRequest 的 json/text 解析；需要本人口令二次确认。
+  downloadBackup: async (password) => {
+    const response = await fetch("/api/admin/backup", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+    if (!response.ok) {
+      const contentType = response.headers.get("content-type") ?? "";
+      const body = contentType.includes("application/json") ? await response.json() : await response.text();
+      throw new Error(typeof body?.error === "string" ? body.error : (body?.error?.message ?? `下载失败：${response.status}`));
+    }
+    return response.blob();
+  },
   sessions: () => apiRequest("/api/teacher/sessions"),
   revokeSession: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}`, { method: "DELETE" }),
   coursewareUploads: () => apiRequest("/api/courseware/uploads"),

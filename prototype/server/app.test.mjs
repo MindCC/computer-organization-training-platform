@@ -599,6 +599,10 @@ test("admin backup endpoints return db info and reject download for in-memory", 
     assert.equal(result.body.path, ":memory:");
 
     result = await request(baseUrl, "/api/admin/backup", {}, teacherJar);
+    assert.equal(result.response.status, 404, "GET backup endpoint is removed");
+    result = await request(baseUrl, "/api/admin/backup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: "WrongPassword123!" }) }, teacherJar);
+    assert.equal(result.response.status, 403, "backup requires the caller's own password");
+    result = await request(baseUrl, "/api/admin/backup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: "Teacher123!" }) }, teacherJar);
     assert.equal(result.response.status, 400);
     assert.match(result.body.error, /内存数据库/);
   } finally {
@@ -671,7 +675,9 @@ test("student import and backup never expose recoverable initial passwords", asy
     assert.match(changedProfile.passwordChangedAt, /^\d{4}-\d{2}-\d{2}T/);
 
     const backupResponse = await fetch(`${baseUrl}/api/admin/backup`, {
-      headers: { cookie: teacherJar.cookie },
+      method: "POST",
+      headers: { cookie: teacherJar.cookie, "content-type": "application/json" },
+      body: JSON.stringify({ password: "Teacher123!" }),
     });
     assert.equal(backupResponse.status, 200);
     const backupBytes = Buffer.from(await backupResponse.arrayBuffer());
@@ -873,8 +879,8 @@ test("audit logs record 8 operation types and are queryable without secrets", as
     assert.equal(result.response.status, 200);
     result = await request(baseUrl, `/api/teacher/classes/${classId}/assistant-report`, { method: "POST" }, teacherJar);
     assert.ok([200, 201].includes(result.response.status));
-    result = await request(baseUrl, "/api/admin/backup", {}, teacherJar);
-    assert.equal(result.response.status, 400); // 内存库不支持备份，但应已尝试（不落库）
+    result = await request(baseUrl, "/api/admin/backup", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ password: "Teacher123!" }) }, teacherJar);
+    assert.equal(result.response.status, 400); // 内存库不支持备份；口令确认已通过
 
     // 重置密码 + 停用/启用 + 归档
     const studentId = db.prepare("SELECT id FROM users WHERE username = 'a001'").get().id;

@@ -29,11 +29,15 @@ export function createLoginFailureTracker({
 
   function current(key) {
     const record = records.get(key);
-    if (record && now() - record.since >= windowMs) {
+    if (!record) return null;
+    if (now() - record.since >= windowMs) {
       records.delete(key);
       return null;
     }
-    return record ?? null;
+    // 触碰即视为“最近使用”，淘汰时优先丢弃最久未使用的记录。
+    records.delete(key);
+    records.set(key, record);
+    return record;
   }
 
   function trim() {

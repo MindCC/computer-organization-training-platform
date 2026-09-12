@@ -37,6 +37,7 @@ import {
   openDatabase,
   recordStudentAttempt,
   resetStudentPassword,
+  revokeOtherSessions,
   sanitizeUser,
   setClassAllowSkipLocked,
   teacherOwnsClass,
@@ -87,6 +88,11 @@ export function createApp(options = {}) {
   const sessionSecret = options.sessionSecret || process.env.SESSION_SECRET || "development-session-secret";
   migrate(db);
   const app = express();
+  // 仅在反向代理后面才启用：默认不信任 X-Forwarded-For，否则客户端可以伪造成源 IP，
+  // 从而绕过按 IP 的登录限流并污染审计记录。
+  if (["1", "true", "yes", "on"].includes(String(process.env.TRUST_PROXY ?? "").toLowerCase())) {
+    app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS ?? 1) || 1);
+  }
   app.locals.db = db;
   app.locals.dbPath = db.name;  // better-sqlite3 .name is the actual path or ":memory:"
 
@@ -219,11 +225,19 @@ export function createApp(options = {}) {
     });
   });
 
-  // Login rate limiter: 5 failures → 60s block per username
+  // 登录限流：用户名维度拦住针对单个账号的猜解（5 次/分钟），
+  // IP 维度拦住轮换用户名批量撞库（30 次/分钟）。两个维度任一命中即拒绝。
+  // 仅用户名维度在失败时回传剩余次数；成功登录会同时清除两个维度，避免共享出口 IP 的
+  // 教室因个别学生输错密码而被整体锁死。
   const MAX_LOGIN_FAILURES = 5;
+  const MAX_LOGIN_FAILURES_PER_IP = 30;
   const LOGIN_BLOCK_SECONDS = 60;
   const loginFailures = options.loginFailureTracker ?? createLoginFailureTracker({
     maxFailures: MAX_LOGIN_FAILURES,
+    windowMs: LOGIN_BLOCK_SECONDS * 1000,
+  });
+  const loginFailuresByIp = options.loginFailureTrackerByIp ?? createLoginFailureTracker({
+    maxFailures: MAX_LOGIN_FAILURES_PER_IP,
     windowMs: LOGIN_BLOCK_SECONDS * 1000,
   });
 
@@ -231,10 +245,12 @@ export function createApp(options = {}) {
     try {
       const { username, password } = req.body ?? {};
       const key = String(username ?? "").trim().toLowerCase();
+      const ipKey = req.ip ?? "unknown";
       // Check rate limit
       const throttle = loginFailures.check(key);
-      if (throttle.blocked) {
-        const remaining = Math.ceil(throttle.retryAfterMs / 1000);
+      const ipThrottle = loginFailuresByIp.check(ipKey);
+      if (throttle.blocked || ipThrottle.blocked) {
+        const remaining = Math.ceil(Math.max(throttle.retryAfterMs, ipThrottle.retryAfterMs) / 1000);
         return res.status(429).json({
           error: `登录尝试过多，请 ${remaining} 秒后重试`,
         });
@@ -243,6 +259,7 @@ export function createApp(options = {}) {
       const user = getUserByUsername(db, username ?? "");
       if (!user || user.status !== "active" || !(await verifyPassword(password ?? "", user.password_hash))) {
         const { remaining } = loginFailures.recordFailure(key);
+        loginFailuresByIp.recordFailure(ipKey);
         audit(req, "login_failure", { targetType: "user", targetId: key, metadata: { reason: "bad_credentials" } });
         return res.status(401).json({
           error: remaining > 0
@@ -253,6 +270,7 @@ export function createApp(options = {}) {
 
       // Success: clear failures
       loginFailures.clear(key);
+      loginFailuresByIp.clear(ipKey);
       deleteExpiredSessions(db);
       const token = createToken();
       const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
@@ -299,10 +317,13 @@ export function createApp(options = {}) {
       const user = getUserById(db, req.user.id);
       if (!(await verifyPassword(currentPassword ?? "", user.password_hash))) return res.status(400).json({ error: "当前密码不正确" });
       updateUserPassword(db, req.user.id, await hashPassword(nextPassword));
+      // 口令变更后立即踢掉其他设备：否则泄露的旧会话在 7 天有效期内依然可用。
+      const revokedSessions = revokeOtherSessions(db, req.user.id, req.sessionTokenHash ?? null);
       updateUserProfile(db, req.user.id, {
         profile: { mustChangePassword: false, passwordChangedAt: new Date().toISOString() },
       });
-      res.json({ ok: true });
+      audit(req, "change_password", { targetType: "user", targetId: req.user.id, metadata: { revokedSessions } });
+      res.json({ ok: true, revokedSessions });
     } catch (error) { next(error); }
   });
 
@@ -695,8 +716,10 @@ export function createApp(options = {}) {
     res.json({ user: sanitizeUser(user) });
   });
 
-  // Backup: create a compact logical SQLite snapshot before download.
-  app.get("/api/admin/backup", requireRole("teacher"), (req, res, next) => {
+  // 备份：生成整库快照供下载。
+  // 必须重新输入本人口令——快照包含全部口令散列与会话摘要，不能让一个被盗的会话
+  // cookie 直接拖走整库。GET 版本已移除，避免绕过这道确认。
+  app.post("/api/admin/backup", requireRole("teacher"), async (req, res, next) => {
     let tempDirectory = null;
     const cleanup = () => {
       if (!tempDirectory) return;
@@ -704,6 +727,12 @@ export function createApp(options = {}) {
       tempDirectory = null;
     };
     try {
+      const account = getUserById(db, req.user.id);
+      const confirmed = await verifyPassword(String(req.body?.password ?? ""), account?.password_hash ?? "");
+      if (!confirmed) {
+        audit(req, "backup_denied", { metadata: { reason: "bad_password" } });
+        return res.status(403).json({ error: "口令不正确，无法下载整库备份" });
+      }
       const dbPath = req.app.locals.dbPath;
       if (!dbPath || dbPath === ":memory:") {
         return res.status(400).json({ error: "内存数据库不支持备份" });
@@ -914,14 +943,24 @@ function parseCookies(header) {
     if (index === -1) return cookies;
     const key = part.slice(0, index).trim();
     const value = part.slice(index + 1).trim();
-    if (key) cookies[key] = decodeURIComponent(value);
+    if (key) {
+      try {
+        cookies[key] = decodeURIComponent(value);
+      } catch {
+        // 畸形百分号编码（如 "zcyl_session=%"）不应让整个请求 500：
+        // 忽略该 cookie，按未登录处理。
+      }
+    }
     return cookies;
   }, {});
 }
 
 function serializeCookie(name, value, options = {}) {
   const segments = [name + "=" + encodeURIComponent(value), "Path=/", "HttpOnly", "SameSite=Lax"];
-  if (process.env.COOKIE_SECURE) segments.push("Secure");
+  // 显式解析布尔值：COOKIE_SECURE=0 / false 不应被当成“开启”。
+  // 不要在生产模式强制 Secure：教室常见的 http://<局域网IP> 部署会因此无法写入 cookie。
+  const secureFlag = ["1", "true", "yes", "on"].includes(String(process.env.COOKIE_SECURE ?? "").toLowerCase());
+  if (secureFlag) segments.push("Secure");
   if (options.expires) segments.push("Expires=" + options.expires.toUTCString());
   if (options.maxAge !== undefined) segments.push("Max-Age=" + options.maxAge);
   return segments.join("; " );

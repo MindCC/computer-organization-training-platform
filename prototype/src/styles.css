@@ -8483,3 +8483,8 @@ body {
 .teacher-credential-row code { font:600 13px ui-monospace,SFMono-Regular,Consolas,monospace; color:#0f172a; }
 .teacher-import-credentials button { justify-self:start; }
 @media (max-width: 720px) { .teacher-credential-row { grid-template-columns:1fr; } }
+
+/* 备份下载需要二次口令确认 */
+.teacher-backup-confirm { display:grid; gap:8px; margin-top:10px; }
+.teacher-backup-confirm button { justify-self:start; }
+.teacher-backup-message { margin:0; font-size:13px; color:var(--ink-muted,#64748b); }

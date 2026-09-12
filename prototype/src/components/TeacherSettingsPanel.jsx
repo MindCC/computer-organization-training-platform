@@ -8,6 +8,7 @@ const AUDIT_ACTION_LABELS = {
   login_failure: "登录失败",
   import_students: "导入学生",
   reset_password: "重置密码",
+  change_password: "修改密码",
   export_csv: "导出 CSV",
   export_archive: "导出成绩包",
   ai_report: "生成 AI 报告",
@@ -42,6 +43,9 @@ export function SettingsModal({
   const [auditAction, setAuditAction] = useState("");
   const [sessions, setSessions] = useState(null);
   const [sessionError, setSessionError] = useState("");
+  const [backupPassword, setBackupPassword] = useState("");
+  const [backupMessage, setBackupMessage] = useState("");
+  const [backupBusy, setBackupBusy] = useState(false);
 
   useEffect(() => {
     if (!isTeacher) return;
@@ -77,6 +81,26 @@ export function SettingsModal({
       setSessions((current) => current.filter((s) => s.id !== sessionId));
     } catch (error) {
       setSessionError(error.message ?? "下线会话失败");
+    }
+  }
+
+  async function downloadBackup() {
+    setBackupMessage("");
+    setBackupBusy(true);
+    try {
+      const blob = await api.downloadBackup(backupPassword);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `classroom-backup-${new Date().toISOString().slice(0, 10)}.sqlite`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setBackupPassword("");
+      setBackupMessage("备份已开始下载。");
+    } catch (error) {
+      setBackupMessage(error.message ?? "备份下载失败");
+    } finally {
+      setBackupBusy(false);
     }
   }
 
@@ -199,10 +223,21 @@ export function SettingsModal({
                   <p className="empty-state">正在读取数据库信息...</p>
                 )}
               </div>
-              <div className="teacher-action-row">
-                <a className="ghost-button" href="/api/admin/backup">
-                  下载备份
-                </a>
+              <div className="teacher-backup-confirm">
+                <label className="form-row">
+                  <span>输入本人口令以确认</span>
+                  <input
+                    aria-label="备份确认口令"
+                    autoComplete="current-password"
+                    onChange={(event) => setBackupPassword(event.target.value)}
+                    type="password"
+                    value={backupPassword}
+                  />
+                </label>
+                <button className="ghost-button" disabled={backupBusy || !backupPassword} onClick={downloadBackup} type="button">
+                  {backupBusy ? "正在生成..." : "下载备份"}
+                </button>
+                {backupMessage ? <p className="teacher-backup-message">{backupMessage}</p> : null}
               </div>
               <details className="teacher-backup-help">
                 <summary>恢复备份怎么做？</summary>

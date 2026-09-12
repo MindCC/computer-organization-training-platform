@@ -763,9 +763,11 @@ export function createSession(db, userId, tokenHash, expiresAt, metadata = {}) {
 }
 
 export function getSessionUser(db, tokenHash) {
+  // expires_at 以 ISO8601（带 T/Z）存储，直接与 CURRENT_TIMESTAMP（空格分隔）做字符串比较
+  // 会在到期当天恒为真，等于把会话延长最多一天。统一用 datetime() 归一化后再比较。
   const row = db.prepare(`
     SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id
-    WHERE s.token_hash = ? AND s.expires_at > CURRENT_TIMESTAMP AND u.status = 'active'
+    WHERE s.token_hash = ? AND datetime(s.expires_at) > CURRENT_TIMESTAMP AND u.status = 'active'
   `).get(tokenHash);
   if (row) {
     db.prepare("UPDATE sessions SET last_active_at = CURRENT_TIMESTAMP WHERE token_hash = ?").run(tokenHash);
@@ -779,7 +781,7 @@ export function listUserSessions(db, userId) {
     SELECT id, ip_address AS ipAddress, user_agent AS userAgent,
            last_active_at AS lastActiveAt, created_at AS createdAt, expires_at AS expiresAt
     FROM sessions
-    WHERE user_id = ? AND expires_at > CURRENT_TIMESTAMP
+    WHERE user_id = ? AND datetime(expires_at) > CURRENT_TIMESTAMP
     ORDER BY last_active_at DESC
   `).all(userId);
 }
@@ -795,7 +797,17 @@ export function deleteSession(db, tokenHash) {
 }
 
 export function deleteExpiredSessions(db) {
-  db.prepare("DELETE FROM sessions WHERE expires_at <= CURRENT_TIMESTAMP").run();
+  db.prepare("DELETE FROM sessions WHERE datetime(expires_at) <= CURRENT_TIMESTAMP").run();
+}
+
+/**
+ * 吊销该用户除当前会话以外的所有会话，返回吊销数量。
+ * 用于改密后让其他设备立即失效：口令泄露后的补救必须能踢掉旧会话。
+ */
+export function revokeOtherSessions(db, userId, keepTokenHash = null) {
+  const result = db.prepare("DELETE FROM sessions WHERE user_id = ? AND (? IS NULL OR token_hash <> ?)")
+    .run(userId, keepTokenHash, keepTokenHash);
+  return result.changes;
 }
 
 /**

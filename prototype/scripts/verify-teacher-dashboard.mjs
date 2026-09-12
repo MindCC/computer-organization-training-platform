@@ -119,6 +119,17 @@ try {
   await page.getByRole("button", { name: "立即刷新" }).click();
   await page.locator(".teacher-studio-summary .metric-card").first().waitFor({ state: "visible", timeout: 10_000 });
 
+  // 课堂设置面板：备份改为二次口令确认，导入学生区块的初始口令清单可渲染
+  const settingsButton = page.getByRole("button", { name: "课堂设置" });
+  if (!(await settingsButton.isVisible().catch(() => false))) {
+    await page.locator(".profile-button").click();
+  }
+  await settingsButton.click();
+  await page.locator(".settings-overlay").waitFor({ state: "visible", timeout: 10_000 });
+  assert.equal(await page.getByLabel("备份确认口令").count(), 1, "backup download asks for the account password");
+  assert.equal(await page.getByLabel("学生导入 CSV").count(), 1, "student import block renders");
+  await page.getByRole("button", { name: "关闭" }).click();
+
   // 课件页：教师可选发布班级并上传
   await coursewareNav.click();
   await page.locator(".courseware-view").waitFor({ state: "visible", timeout: 10_000 });
