@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
+import { fillLoginForm } from "./lib/qaLogin.mjs";
 
 const APP_URL = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
 const API_URL = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:3001";
@@ -58,8 +59,7 @@ async function login(context, username, password, label, errors) {
   const page = await context.newPage();
   attachErrors(page, label, errors);
   await page.goto(APP_URL, { waitUntil: "domcontentloaded" });
-  await page.getByLabel(/\u8d26\u53f7/).fill(username);
-  await page.getByLabel(/\u5bc6\u7801/).fill(password);
+  await fillLoginForm(page, { username, password });
   const responsePromise = page.waitForResponse(
     (response) => response.url().endsWith("/api/auth/login")
       && response.request().method() === "POST",

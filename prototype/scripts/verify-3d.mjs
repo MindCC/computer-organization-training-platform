@@ -6,6 +6,8 @@ import { chromium } from "@playwright/test";
 import { verifyHardwareAssembly } from './verify-hardware-assembly-path.mjs';
 import { verifyAssemblyPractice } from './verify-assembly-practice.mjs';
 import { verifyAssemblyPracticeSync } from './verify-assembly-practice-sync.mjs';
+import { fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
+import { openChallengeFromHome } from './lib/qaHome.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const baseUrl = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
@@ -98,13 +100,12 @@ try {
 
   console.log("2. Login as student");
   await page.goto(baseUrl, { waitUntil: "networkidle" });
-  await page.getByLabel("账号").fill(studentUsername);
-  await page.getByLabel("密码").fill(studentPassword);
-  await page.getByRole("button", { name: "登录" }).click();
-  await page.getByRole("region", { name: "课程探索地图" }).first().waitFor({ state: "visible", timeout: 20_000 });
+  await fillLoginForm(page, { username: studentUsername, password: studentPassword });
+  await submitLoginForm(page);
+  await page.getByRole("main").first().waitFor({ state: "visible", timeout: 20_000 });
 
   console.log("3. Verify computer overview and assembly path");
-  await page.locator(".quest-stage").filter({ has: page.getByText("认识计算机五大部件", { exact: true }) }).first().click();
+  await openChallengeFromHome(page, "认识计算机五大部件");
   await page.waitForSelector(".computer-exploded", { timeout: 20_000 });
   const canvas = page.locator(".computer-exploded canvas");
   check("Overview canvas exists", await canvas.count() > 0);
@@ -154,7 +155,7 @@ try {
   await page.screenshot({ path: path.join(artifactDir, "3d-overview.png"), fullPage: true });
 
   await page.getByRole("button", { name: /返回课程首页/ }).click();
-  await page.locator(".quest-stage").filter({ has: page.getByText("认识计算机五大部件", { exact: true }) }).first().click();
+  await openChallengeFromHome(page, "认识计算机五大部件");
   await page.waitForSelector('.computer-exploded[data-renderer="native-three"]', { timeout: 20_000 });
   check("Re-entry creates one native canvas", await page.locator(".computer-exploded canvas").count() === 1);
   await page.locator(".computer-exploded canvas").evaluate((element) => {
@@ -189,11 +190,10 @@ try {
   const fallbackPage = await fallbackBrowser.newPage({ viewport: { width: 1366, height: 768 } });
   fallbackPage.on("pageerror", (error) => fallbackPageErrors.push(error.message));
   await fallbackPage.goto(baseUrl, { waitUntil: "networkidle" });
-  await fallbackPage.getByLabel("账号").fill(studentUsername);
-  await fallbackPage.getByLabel("密码").fill(studentPassword);
-  await fallbackPage.getByRole("button", { name: "登录" }).click();
-  await fallbackPage.getByRole("region", { name: "课程探索地图" }).first().waitFor({ state: "visible", timeout: 20_000 });
-  await fallbackPage.locator(".quest-stage").filter({ has: fallbackPage.getByText("认识计算机五大部件", { exact: true }) }).first().click();
+  await fillLoginForm(fallbackPage, { username: studentUsername, password: studentPassword });
+  await submitLoginForm(fallbackPage);
+  await fallbackPage.getByRole("main").first().waitFor({ state: "visible", timeout: 20_000 });
+  await openChallengeFromHome(fallbackPage, "认识计算机五大部件");
   await fallbackPage.waitForSelector(".computer-exploded-fallback", { timeout: 20_000 });
   check("Static fallback visible", await fallbackPage.locator(".computer-exploded-fallback").isVisible());
   check("Fallback creates no canvas", await fallbackPage.locator(".computer-exploded canvas").count() === 0);
@@ -206,7 +206,8 @@ try {
   await dismissQuestSettlement(fallbackPage);
 
   await fallbackPage.getByRole("button", { name: /返回课程首页/ }).click();
-  await fallbackPage.getByRole("region", { name: "课程探索地图" }).first().waitFor({ state: "visible", timeout: 20_000 });
+  // 首页已改为章节折叠布局，不再有「课程探索地图」区块；等首页渲染出来即可。
+  await fallbackPage.locator(".project-chapter-board, .mission-route-board").first().waitFor({ state: "visible", timeout: 20_000 });
   // 结算层可能在导航回首页时才渲染，先关掉再继续点击导航。
   await dismissQuestSettlement(fallbackPage);
   await fallbackPage.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
