@@ -113,16 +113,23 @@ final result: pending browser verification
 
 ## 2026-09-12 Gate status
 
-The 2026-07-19 entry above predates the retirement of the student-side `QuestMap` route component
-(the home route now lives in `CurrentQuestPanel` plus the chapter list). Its pending checklist is
-resolved on the committed revision of this file:
+The 2026-07-19 entry above predates several follow-up refactors: the student-side `QuestMap` route
+component was retired (the home route now lives in `CurrentQuestPanel` plus the chapter list), and
+the teacher dashboard was split into 教学活动 / 学情统计 workspaces with 学情洞察 / 学习监控 /
+学情分析助手 / 学情明细 statistics tabs, whose class picker is a `<select>` driven through
+`scripts/helpers/select-teacher-class.mjs`. Its pending checklist is resolved on the committed
+revision of this file:
 
 - Unit tests: `npm test` (79 test files) passes.
 - Build: `npm run build` and `npm run qa:build-budget` pass (first-screen JS under budget).
-- Browser gates: `npm run qa:ui`, `npm run qa:3d`, `npm run qa:classroom`, `npm run qa:teacher` and
-  `npm run qa:performance` pass.
+- Browser gates: `npm run qa:ui`, `npm run qa:3d`, `npm run qa:classroom`, `npm run qa:teacher`,
+  `npm run qa:performance`, `npm run qa:teacher-fixes`, `npm run qa:overview-exploration` and
+  `npm run qa:middle-pan` pass; the dashboard gates switch workspace tabs through
+  `scripts/lib/qaTeacherWorkspace.mjs` before asserting.
 - Deep scenarios: audit, sessions, completion, mistakes, empty-states, offline-env, xray and
-  skip-locked pass; completion, mistakes and empty-states sign in as the seeded demo students, so
-  they are run through `scripts/run-browser-qa.mjs` with `--seed-demo`.
+  skip-locked pass; completion, mistakes, empty-states and overview-exploration sign in as the
+  seeded demo students, so they are run through `scripts/run-browser-qa.mjs` with `--seed-demo`.
+- `qa:teacher-fixes` uploads `scripts/fixtures/sample-deck.pptx`: the fixture is tracked, because
+  `qa-artifacts/` is a local artifact directory and must not be a dependency.
 
 final result: passed
