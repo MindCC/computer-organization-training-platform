@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
+import { openChallengeFromHome } from "./lib/qaHome.mjs";
 
 // P1-E: 验证 3D 视图不请求任何外部网络资源（离线环境贴图）
-const appUrl = "http://127.0.0.1:8787";
-const apiUrl = "http://127.0.0.1:8787";
+const appUrl = process.env.PROTOTYPE_URL ?? process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:8787";
+const apiUrl = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:8787";
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -12,7 +14,9 @@ const externalRequests = [];
 const pageErrors = [];
 page.on("request", (req) => {
   const url = req.url();
-  if (!url.startsWith(appUrl) && !url.startsWith(apiUrl) && !url.startsWith("data:")) {
+  // blob:/filesystem: 是页面自己生成的对象 URL，不是外部网络请求
+  const localSchemes = ["data:", "blob:", "filesystem:"];
+  if (!url.startsWith(appUrl) && !url.startsWith(apiUrl) && !localSchemes.some((scheme) => url.startsWith(scheme))) {
     externalRequests.push(url);
   }
 });
@@ -39,19 +43,15 @@ await fetch(apiUrl + `/api/teacher/classes/${classId}/import-students`, {
   body: JSON.stringify({ csv: `${username},P1E测试学生,Student123!` }),
 });
 
-await page.goto(appUrl, { waitUntil: "networkidle" });
-await page.getByLabel("账号").waitFor({ state: "visible", timeout: 15_000 });
-await page.getByLabel("账号").fill(username);
-await page.getByLabel("密码").fill("Student123!");
-await page.getByRole("button", { name: "登录" }).click();
+await gotoApp(page, appUrl);
+await fillLoginForm(page, { username, password: "Student123!" });
+await submitLoginForm(page);
 await page.waitForTimeout(2500);
 
-await page.getByRole("button", { name: "开始第一个实验" }).first().click().catch(async () => {
-  await page.getByRole("button", { name: "进入当前关卡" }).first().click();
-});
-await page.waitForTimeout(4000); // 等待 3D 场景和 PMREM 环境生成
-
+await openChallengeFromHome(page, "认识计算机五大部件");
 const scene = page.locator(".computer-exploded canvas");
+// 首屏 chunk 与 WebGL 初始化都是异步的：等 canvas 真正挂载再断言，别用固定等待
+await scene.first().waitFor({ state: "visible", timeout: 60_000 });
 const canvasCount = await scene.count();
 console.log("3D canvas count:", canvasCount);
 assert.ok(canvasCount >= 1, "3D canvas should render");

@@ -12,6 +12,16 @@ const allowedVerifiers = new Set([
   "scripts/verify-classroom.mjs",
   "scripts/verify-production-modules.mjs",
   "scripts/verify-teacher-dashboard.mjs",
+  // 深度场景脚本：各自通过 API 造数，可用同一运行器执行
+  "scripts/verify-audit.mjs",
+  "scripts/verify-sessions.mjs",
+  "scripts/verify-skip-locked.mjs",
+  "scripts/verify-xray.mjs",
+  "scripts/verify-offline-env.mjs",
+  "scripts/verify-empty-states.mjs",
+  // 这两个依赖 npm run seed:demo 生成的演示数据，需先播种再运行
+  "scripts/verify-completion.mjs",
+  "scripts/verify-mistakes.mjs",
 ]);
 const verifier = String(process.argv[2] ?? "").replaceAll("\\", "/");
 const production = process.argv.includes('--production');
@@ -99,6 +109,17 @@ try {
     },
   });
   if (await waitForExit(seed) !== 0) throw new Error("Teacher seed failed");
+
+  // 需要演示数据的场景（完成度概览、错题本、空状态）用 --seed-demo 播种
+  if (process.argv.includes("--seed-demo")) {
+    const demoSeed = run(process.execPath, ["server/seedDemoClassroom.js"], {
+      env: {
+        DATABASE_PATH: databasePath,
+        TEACHER_USERNAME: teacherUsername,
+      },
+    });
+    if (await waitForExit(demoSeed) !== 0) throw new Error("Demo classroom seed failed");
+  }
 
   const apiProcess = run(process.execPath, ["server/server.js"], {
     env: {

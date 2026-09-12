@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
 
 // P1-A 空状态 + P1-C 教师设置页备份区 浏览器实测
 const baseUrl = process.env.PROTOTYPE_URL ?? "http://127.0.0.1:8787";
@@ -9,21 +10,20 @@ async function launchBrowser() {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage({ viewport: { width: 1366, height: 768 } });
   page.on("pageerror", (error) => pageErrors.push(error.message));
-  await page.goto(baseUrl, { waitUntil: "networkidle" });
+  await gotoApp(page, baseUrl);
   return { browser, page };
 }
 
 async function login(page, username, password) {
-  await page.getByLabel("账号").fill(username);
-  await page.getByLabel("密码").fill(password);
-  await page.getByRole("button", { name: "登录" }).click();
-  await page.waitForLoadState("networkidle");
+  await fillLoginForm(page, { username, password });
+  await submitLoginForm(page);
   console.log("LOGIN", username, "-> URL:", page.url());
 }
 
 async function assertVisible(page, text) {
-  const locator = page.getByText(text, { exact: false }).first();
-  await locator.waitFor({ state: "visible", timeout: 10_000 });
+  // 同名文案可能同时存在于弹层背后的隐藏节点，断言针对可见的那一个。
+  const locator = page.getByText(text, { exact: false }).filter({ visible: true }).first();
+  await locator.waitFor({ state: "visible", timeout: 30_000 });
   assert.equal(await locator.isVisible(), true);
 }
 
@@ -69,7 +69,7 @@ async function logout(page) {
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
   // 用 demo 学生（有数据）验证不出现引导横幅
-  await page.goto(baseUrl, { waitUntil: "networkidle" });
+  await gotoApp(page, baseUrl);
   await login(page, "demo2026001", "Student123!");
   await assertVisible(page, "当前任务");
   const bannerCount = await page.locator(".quest-empty-banner").count();

@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+import { CHALLENGES } from "../src/platformLogic.js";
+import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
+import { openChallengeFromHome } from "./lib/qaHome.mjs";
 
 // P2-C: 跳关开关 UI 实测
-const appUrl = "http://127.0.0.1:8787";
-const apiUrl = "http://127.0.0.1:8787";
+const appUrl = process.env.PROTOTYPE_URL ?? process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:8787";
+const apiUrl = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:8787";
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
@@ -33,11 +36,9 @@ await fetch(apiUrl + `/api/teacher/classes/${classId}/import-students`, {
 });
 
 // 2. 教师登录，打开设置页，切换跳关开关
-await page.goto(appUrl, { waitUntil: "networkidle" });
-await page.getByLabel("账号").waitFor({ state: "visible", timeout: 15_000 });
-await page.getByLabel("账号").fill("teacher");
-await page.getByLabel("密码").fill("ChangeMe123!");
-await page.getByRole("button", { name: "登录" }).click();
+await gotoApp(page, appUrl);
+await fillLoginForm(page, { username: "teacher", password: "ChangeMe123!" });
+await submitLoginForm(page);
 await page.waitForTimeout(2500);
 
 // 选择刚创建的班级
@@ -71,22 +72,18 @@ await page.getByRole("button", { name: "退出登录" }).click().catch(async () 
   await page.getByRole("button", { name: "退出登录" }).click();
 });
 await page.waitForTimeout(1000);
-await page.getByLabel("账号").fill(username);
-await page.getByLabel("密码").fill("Student123!");
-await page.getByRole("button", { name: "登录" }).click();
+await fillLoginForm(page, { username, password: "Student123!" });
+await submitLoginForm(page);
 await page.waitForTimeout(2500);
 
-// 课程地图上 locked 关卡应可点击（disabled=false）
-const lockedStages = page.locator(".quest-stage.locked");
-const lockedCount = await lockedStages.count();
-console.log("locked stage buttons:", lockedCount);
-if (lockedCount > 0) {
-  const disabledStates = await lockedStages.evaluateAll((els) => els.map((el) => el.disabled));
-  console.log("disabled states:", JSON.stringify(disabledStates));
-  assert.ok(disabledStates.every((d) => d === false), "locked stages clickable when skip enabled");
-} else {
-  console.log("no locked stages visible (student may have progressed)");
-}
+// 课程首页上默认锁定的关卡，在开启跳关后应能真正进入实验台。
+// 旧实现只有首页卡片放开了开关，实验台与步骤条仍会拦截，点进去只会闪一行文字。
+const lockedChallenge = CHALLENGES[1];
+console.log("probing locked challenge:", lockedChallenge.title);
+await openChallengeFromHome(page, lockedChallenge.title);
+await page.locator(".lab-studio").waitFor({ state: "visible", timeout: 20_000 });
+assert.ok(await page.locator(".lab-studio").count() >= 1, "locked challenge opens once skip is enabled");
+console.log("opened locked challenge with skip enabled:", lockedChallenge.title);
 
 assert.equal(pageErrors.length, 0, `page errors: ${pageErrors.join(" | ")}`);
 console.log("P2-C PASS: skip-locked toggle works end to end");

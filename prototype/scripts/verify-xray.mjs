@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
+import { openChallengeFromHome } from "./lib/qaHome.mjs";
 
 // P0-C: 3D X-ray 模式浏览器实测
-const appUrl = "http://127.0.0.1:8787"; // 直连 API（绕过 Vite proxy 的 CSRF Origin 校验）
-const apiUrl = "http://127.0.0.1:8787";
+const appUrl = process.env.PROTOTYPE_URL ?? process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:8787"; // 直连 API（绕过 Vite proxy 的 CSRF Origin 校验）
+const apiUrl = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:8787";
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
@@ -38,19 +40,15 @@ const importRes = await fetch(apiUrl + `/api/teacher/classes/${classId}/import-s
 assert.ok(importRes.ok);
 
 // 2. 登录学生，进入 3D 概览关卡（computer-components）
-await page.goto(appUrl, { waitUntil: "networkidle" });
-await page.getByLabel("账号").waitFor({ state: "visible", timeout: 15_000 });
-await page.getByLabel("账号").fill(username);
-await page.getByLabel("密码").fill("Student123!");
-await page.getByRole("button", { name: "登录" }).click();
+await gotoApp(page, appUrl);
+await fillLoginForm(page, { username, password: "Student123!" });
+await submitLoginForm(page);
 await page.waitForTimeout(2500);
 const bodyText = await page.locator("body").innerText().catch(() => "");
 console.log("POST-LOGIN BODY:", JSON.stringify(bodyText.slice(0, 300)));
 
 // 进入第一个挑战
-await page.getByRole("button", { name: "开始第一个实验" }).first().click().catch(async () => {
-  await page.getByRole("button", { name: "进入当前关卡" }).first().click();
-});
+await openChallengeFromHome(page, "认识计算机五大部件");
 await page.waitForLoadState("networkidle");
 
 // 3. 找到 3D 场景（computer-exploded 容器）
@@ -80,8 +78,10 @@ console.log("X-ray toggles off, screenshots saved");
 
 // 7. P1-D: X-ray 开启时显示总线标签牌（数据总线/地址总线/控制总线）
 await xrayButton.click();
+// 标签由原生 three 场景渲染，类名是 .native-bus-label；先等它出现再断言。
+const busLabels = page.locator(".native-bus-label");
+await busLabels.first().waitFor({ state: "visible", timeout: 20_000 }).catch(() => {});
 await page.waitForTimeout(800);
-const busLabels = page.locator(".bus-label");
 const labelCount = await busLabels.count();
 console.log("bus label count:", labelCount);
 assert.ok(labelCount >= 3, `expected >=3 bus labels, got ${labelCount}`);

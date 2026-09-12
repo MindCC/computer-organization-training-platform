@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
 
 // P2-D: 学生首页 已完成 x/y 关 + 预计剩余课时
-const appUrl = "http://127.0.0.1:8787";
+const appUrl = process.env.PROTOTYPE_URL ?? process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:8787";
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
@@ -11,12 +12,12 @@ const pageErrors = [];
 page.on("pageerror", (e) => pageErrors.push(e.message));
 
 // 登录有进度的学生
-await page.goto(appUrl, { waitUntil: "networkidle" });
-await page.getByLabel("账号").waitFor({ state: "visible", timeout: 15_000 });
-await page.getByLabel("账号").fill("demo2026001");
-await page.getByLabel("密码").fill("Student123!");
-await page.getByRole("button", { name: "登录" }).click();
-await page.waitForTimeout(3000);
+await gotoApp(page, appUrl);
+await fillLoginForm(page, { username: "demo2026001", password: "Student123!" });
+await submitLoginForm(page);
+// 首页是懒加载的：先等完成度卡片出现，再读文本，避免取到加载中的空页面
+await page.getByText("预计剩余课时", { exact: false }).first().waitFor({ state: "visible", timeout: 30_000 });
+await page.waitForTimeout(500);
 
 const body = await page.locator("body").innerText();
 const hasProgress = /已完成\s+\d+\s*\/\s*\d+\s*关/.test(body);

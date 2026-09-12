@@ -136,9 +136,9 @@ await assertVisible(page, "跳过引导");
 await assertVisible(page, "完成率");
 assert.equal(await page.locator(".quest-hero-stats .metric-card").count(), 4, "student overview uses four shared metric cards");
 await assertVisible(page, "学习状态");
-const lockedQuest = page.locator(".quest-stage.locked").first();
-if (await lockedQuest.isVisible().catch(() => false)) {
-  assert.equal(await lockedQuest.isDisabled(), true, "locked quest stage must not be enterable");
+const lockedCard = page.locator(".route-card.locked").first();
+if (await lockedCard.isVisible().catch(() => false)) {
+  assert.equal(await lockedCard.isDisabled(), true, "locked challenge card must not be enterable");
 }
 await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u9519\u9898\u672c" }).click();
 await page.locator(".mistakes-layout").waitFor({ state: "visible", timeout: 10_000 });

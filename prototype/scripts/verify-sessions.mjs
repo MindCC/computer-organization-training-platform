@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
+import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
 
 // P2-E: 活跃会话 + 密码强度提示
-const appUrl = "http://127.0.0.1:8787";
-const apiUrl = "http://127.0.0.1:8787";
+const appUrl = process.env.PROTOTYPE_URL ?? process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:8787";
+const apiUrl = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:8787";
 
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
@@ -12,11 +13,9 @@ const pageErrors = [];
 page.on("pageerror", (e) => pageErrors.push(e.message));
 
 // 1. 教师登录（两个会话，模拟多设备）
-await page.goto(appUrl, { waitUntil: "networkidle" });
-await page.getByLabel("账号").waitFor({ state: "visible", timeout: 15_000 });
-await page.getByLabel("账号").fill("teacher");
-await page.getByLabel("密码").fill("ChangeMe123!");
-await page.getByRole("button", { name: "登录" }).click();
+await gotoApp(page, appUrl);
+await fillLoginForm(page, { username: "teacher", password: "ChangeMe123!" });
+await submitLoginForm(page);
 await page.waitForTimeout(2500);
 
 // API 创建第二个教师会话（模拟另一设备）
@@ -32,10 +31,14 @@ if (!(await settingsButton.isVisible().catch(() => false))) {
   await page.locator(".profile-button").click();
 }
 await settingsButton.click();
-await page.waitForTimeout(1500);
+// 设置弹层是懒加载的：先等弹层出现
+const overlay = page.locator(".settings-overlay");
+await overlay.waitFor({ state: "visible", timeout: 30_000 });
 
-await page.getByText("活跃会话", { exact: true }).first().waitFor({ state: "visible", timeout: 10_000 });
+await overlay.getByText("活跃会话", { exact: true }).first().waitFor({ state: "visible", timeout: 30_000 });
 console.log("活跃会话 section visible");
+// 会话列表是异步取的：等首行真正渲染出来再计数
+await page.locator(".teacher-session-row").first().waitFor({ state: "visible", timeout: 30_000 });
 const sessionRows = await page.locator(".teacher-session-row").count();
 console.log("session rows:", sessionRows);
 assert.ok(sessionRows >= 1, "at least one active session shown");
@@ -69,10 +72,12 @@ await page.getByRole("button", { name: "退出登录" }).click().catch(async () 
   await page.locator(".profile-button").click();
   await page.getByRole("button", { name: "退出登录" }).click();
 });
-await page.waitForTimeout(800);
-await page.getByLabel("账号").fill(username);
-await page.getByLabel("密码").fill("Student123!");
-await page.getByRole("button", { name: "登录" }).click();
+// 退出教师，登录学生。退出后重新加载一次应用，确保弹层/菜单都已收起来，
+// 拿到干净的游客首屏再登录（否则残留浮层会让登录入口点不到）。
+await page.keyboard.press("Escape").catch(() => {});
+await gotoApp(page, appUrl);
+await fillLoginForm(page, { username, password: "Student123!" });
+await submitLoginForm(page);
 await page.waitForTimeout(2500);
 const postLogin = await page.locator("body").innerText().catch(() => "");
 console.log("STUDENT POST-LOGIN:", JSON.stringify(postLogin.slice(0, 200)));
