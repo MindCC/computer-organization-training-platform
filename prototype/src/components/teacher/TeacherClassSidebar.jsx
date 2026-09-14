@@ -34,7 +34,9 @@ export function TeacherClassSidebar({
         )}
       </div>
 
-      <div className="teacher-studio-card">
+      <details className="teacher-class-create">
+        <summary>创建新班级</summary>
+        <div className="teacher-studio-card">
         <div className="teacher-studio-card-heading"><strong>创建班级</strong></div>
         <div className="teacher-create-box">
           <label className="form-row">
@@ -44,7 +46,8 @@ export function TeacherClassSidebar({
           <button className="primary-button" onClick={createTeacherClass} type="button">创建班级</button>
         </div>
         {teacherMessage ? <p className="teacher-message">{teacherMessage}</p> : null}
-      </div>
+        </div>
+      </details>
     </aside>
   );
 }

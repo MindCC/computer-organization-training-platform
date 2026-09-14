@@ -16,6 +16,7 @@ Current durable prototype preferences (the scope map below resolves overlap):
 - Course progression should read like a circuit assembly route, closer to a Turing Complete style learning path than uniform lesson cards.
 - Responsive behavior must be deliberate; avoid squeezing desktop layouts into smaller widths without reflowing the information architecture.
 - Student and teacher experiences have equal product priority.
+- Approved 2026-09-14: the teacher dashboard follows the supplied light analytics reference—pale primary rail, white secondary navigation, a slim class/export toolbar, flat white data sections, thin dividers, and pale-blue selected states—while preserving the platform identity and existing teaching data and actions.
 - Performance acceptance targets ordinary classroom Windows 10/11 PCs: four-core x86-64 CPU, 8 GB memory, integrated graphics, 1366×768, and a supported stable Edge release.
 - Apply the approved specification for the affected module from the scope map below. New user decisions override earlier design guidance within their stated scope. Preserve unrelated user changes; use regression coverage appropriate to affected behavior and retain explicit acceptance gates.
 - Browser QA should use one headless Chromium instance and one worker unless a specific test requires otherwise.

@@ -51,6 +51,47 @@ patches made since the previous QA pass:
 
 final result: passed
 
+## 2026-09-14 Teacher analytics reference-style redesign
+
+source visual truth path: `C:\Users\SHAOLI~1\AppData\Local\Temp\codex-clipboard-082c1834-31ae-46cc-a3e6-2a9013e2fe31.png`
+implementation screenshot path: `D:\workspace\zcyl_training\prototype\qa-artifacts-current\teacher-reference-style.png`
+comparison image path: `D:\workspace\zcyl_training\prototype\qa-artifacts-current\teacher-reference-comparison.png`
+viewport: `1920 x 946 CSS px, deviceScaleFactor 1`
+source pixels: `1920 x 947`; implementation pixels: `1920 x 946`; density normalization: `both compared at 960 x 473 in the combined image`
+state: `teacher signed in, 学情统计 workspace, 学情洞察 selected, chapter coverage visible`
+
+full-view comparison evidence: `The combined image shows the supplied reference and implementation in one frame. Both use a narrow primary rail, a wider secondary analysis menu, a slim class-selection toolbar, white content surfaces, pale-blue selected states, thin gray dividers, compact sans-serif typography, and high information density without stacked floating cards.`
+
+focused region comparison evidence: `The top navigation and class filter were checked for alignment, border weight, selected-state color and control height. The statistics region was checked for title hierarchy, chapter-row spacing, progress visibility and the four-metric strip. These elements are readable in the full-width combined image, so no additional crop was required.`
+
+**Findings**
+- No actionable P0, P1 or P2 differences remain.
+- [P3] The implementation retains the platform's horizontal identity bar and domain-specific chapter progress instead of reproducing the reference product's chart data. This is intentional: it preserves existing navigation and real course functionality while applying the reference's visual system.
+
+**Required fidelity surfaces**
+- Fonts and typography: Manrope with Microsoft YaHei/PingFang fallbacks gives comparable compact hierarchy and Chinese legibility; wrapping and optical weights remain clear.
+- Spacing and layout rhythm: primary and secondary rails, 82 px toolbar, 28-36 px content padding, flat sections and one-pixel dividers match the reference's density.
+- Colors and visual tokens: white and pale-gray surfaces, #2563eb blue active states and restrained teal progress preserve the supplied light analytics character.
+- Image quality and asset fidelity: the reference introduces no content imagery required by this screen; the existing production logo and avatar assets were retained, with the existing Phosphor icon set used for controls.
+- Copy and content: labels remain specific to the computer-organization teaching product; class selection, export, refresh, workspaces and progress data remain functional.
+
+**Comparison history**
+- [P1 fixed] The prior teacher view retained dark outer chrome and a large status banner, visually conflicting with the reference. Teacher-only chrome is now light and the redundant banner is removed.
+- [P2 fixed] The prior layout used multiple rounded, shadowed cards. It now uses flat white sections separated by light rules.
+- [P2 fixed] Class selection and actions were split across cards. They now share one compact toolbar with refresh and one-click export.
+- Post-fix evidence: `teacher-reference-comparison.png` shows the corrected navigation, toolbar, white content plane and compact chapter rows in the same frame as the source.
+
+**Implementation Checklist**
+- Done: scoped the light visual treatment to the teacher dashboard so student screens are unchanged.
+- Done: preserved two-level teacher navigation and all existing tab behavior.
+- Done: preserved collapsible class creation, assignments, course construction and classroom reports.
+- Done: retained chapter completion, student detail, classroom monitoring, assistant and assembly-practice data flows.
+
+**Follow-up Polish**
+- [P3] A later iteration could add real time-series charts once the backend exposes day-level visit and study-frequency data.
+
+final result: passed
+
 ## 2026-07-19 Precision Workshop redesign
 
 Reference: `C:\Users\shaolijiang\.codex\generated_images\019f7516-3c10-7020-a8cf-9e38f0d43a5c\exec-7045b40c-41f5-459f-a366-cccb44d39cac.png`

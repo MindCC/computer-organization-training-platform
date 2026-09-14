@@ -1022,7 +1022,7 @@ export function App() {
 
   return (
     <ErrorBoundary>
-    <div className="app-shell">
+    <div className={activeView === "teacher" ? "app-shell teacher-reference-shell" : "app-shell"}>
       <header className="topbar">
         <button className="brand" onClick={() => changeView("home")} type="button">
           <span className="brand-mark"><Cpu size={30} /></span>
@@ -1111,10 +1111,12 @@ export function App() {
         <main className="dashboard">
           <Suspense fallback={<FeatureLoading label="正在加载当前功能..." />}>
           <ErrorBoundary key={activeView}>
-          <div className="status-banner">
-            <Sparkle size={18} />
-            <span>{statusMessage}</span>
-          </div>
+          {activeView !== "teacher" ? (
+            <div className="status-banner">
+              <Sparkle size={18} />
+              <span>{statusMessage}</span>
+            </div>
+          ) : null}
 
           {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} projects={studentProjects} onOpenProjects={() => changeView("projects")} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
           {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}

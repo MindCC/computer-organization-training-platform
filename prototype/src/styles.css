@@ -6366,11 +6366,57 @@ body {
 
 /* Teacher command surface */
 .teacher-studio {
-  gap: 14px;
+  gap: 0;
+}
+
+.teacher-studio-flat { margin: -2px; }
+
+/* Teacher analytics adopts the supplied light, flat data-workspace reference. */
+.teacher-reference-shell .topbar {
+  color: #182230;
+  border-bottom-color: #e5e9f0;
+  background: #fff;
+}
+.teacher-reference-shell .brand { color: #182230; }
+.teacher-reference-shell .brand-mark { background: #3978f6; }
+.teacher-reference-shell .brand small { color: #8a94a5; }
+.teacher-reference-shell .icon-button,
+.teacher-reference-shell .profile-button {
+  color: #344054;
+  border-color: #e5e9f0;
+  background: #fff;
+}
+.teacher-reference-shell .profile-button small { color: #8a94a5; }
+.teacher-reference-shell .sidebar {
+  color: #667085;
+  border-right: 1px solid #e5e9f0;
+  background: #f4f5f9;
+}
+.teacher-reference-shell .nav-item,
+.teacher-reference-shell .meta-item { color: #667085; }
+.teacher-reference-shell .nav-item:hover,
+.teacher-reference-shell .meta-item:hover {
+  color: #2563eb;
+  background: rgba(255, 255, 255, 0.72);
+}
+.teacher-reference-shell .nav-item.active {
+  color: #2563eb;
+  border-color: transparent;
+  background: #fff;
+  box-shadow: none;
+}
+.teacher-reference-shell .dashboard {
+  gap: 0;
+  padding: 18px 18px 0;
+  background: #fff;
 }
 
 .teacher-studio-header {
-  padding: 22px 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 20px 24px;
   border: 1px solid var(--line);
   border-radius: 14px;
   color: var(--ink);
@@ -6379,8 +6425,25 @@ body {
 }
 
 .teacher-studio-header h1 {
+  margin: 4px 0 5px;
+  color: var(--ink);
   font-size: clamp(1.6rem, 3vw, 2.2rem);
+  line-height: 1.2;
 }
+
+.teacher-studio-header p { margin: 0; color: var(--muted); }
+.teacher-studio-title { min-width: 0; }
+.teacher-studio-refresh {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-items: end;
+  gap: 2px 12px;
+  color: var(--ink);
+}
+.teacher-studio-refresh > span { font-size: 0.84rem; font-weight: 750; }
+.teacher-studio-refresh > small { color: var(--muted); font-size: 0.74rem; }
+.teacher-studio-refresh > button { grid-column: 2; grid-row: 1 / span 2; }
 
 .teacher-studio-layout {
   gap: 14px;
@@ -6406,6 +6469,11 @@ body {
 
 .teacher-studio-summary .metric-card {
   min-height: 110px;
+}
+
+@media (max-width: 720px) {
+  .teacher-studio-header { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .teacher-studio-refresh { justify-items: start; }
 }
 
 /* Hardware challenge */
