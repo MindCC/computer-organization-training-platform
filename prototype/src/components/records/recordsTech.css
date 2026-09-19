@@ -1,0 +1,551 @@
+/* 学习记录 · 蓝色科技大屏主题（2026-09-19 批准的方向）
+   深空蓝底 + 网格辉光；中央学习树画布，右侧统计图，下方保留章节明细。 */
+
+.records-screen {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  margin: -18px -20px -28px;
+  padding: 18px 22px 26px;
+  min-height: calc(100vh - 64px);
+  color: #e6f0ff;
+  background:
+    radial-gradient(1200px 520px at 82% -12%, rgba(56, 132, 255, 0.18), transparent 62%),
+    radial-gradient(900px 480px at 8% 112%, rgba(45, 212, 191, 0.10), transparent 56%),
+    linear-gradient(180deg, #050c22 0%, #081232 55%, #050c22 100%);
+  overflow-x: hidden;
+}
+
+.records-screen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(56, 132, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 132, 255, 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(ellipse at 50% 32%, black 30%, transparent 76%);
+}
+
+.records-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ── 顶部标题栏 ── */
+.records-screen-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 2px 0;
+}
+
+.records-screen-header h1 {
+  margin: 0;
+  font-size: 24px;
+  letter-spacing: 0.04em;
+  background: linear-gradient(90deg, #7dd3fc, #38bdf8 45%, #2dd4bf);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 26px rgba(56, 189, 248, 0.25);
+}
+
+.records-screen-header .records-subtitle {
+  margin: 4px 0 0;
+  color: #8ea3c8;
+  font-size: 13px;
+}
+
+.records-screen-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.records-screen-actions .ghost-button,
+.records-screen-actions .primary-button {
+  border-color: rgba(56, 132, 255, 0.45);
+  background: rgba(13, 30, 66, 0.65);
+  color: #bfe0ff;
+}
+
+.records-screen-actions .ghost-button:hover,
+.records-screen-actions .primary-button:hover {
+  border-color: rgba(125, 211, 252, 0.85);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.28);
+}
+
+/* ── KPI 条 ── */
+.records-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.records-kpi {
+  position: relative;
+  padding: 12px 14px 10px;
+  border: 1px solid rgba(56, 132, 255, 0.28);
+  border-radius: 12px;
+  background: rgba(10, 23, 56, 0.72);
+  box-shadow: inset 0 0 24px rgba(18, 42, 92, 0.45);
+  overflow: hidden;
+}
+
+.records-kpi::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.8), transparent);
+}
+
+.records-kpi span {
+  display: block;
+  color: #8ea3c8;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+.records-kpi strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 26px;
+  line-height: 1.15;
+  color: #eaf4ff;
+  text-shadow: 0 0 18px rgba(56, 189, 248, 0.4);
+}
+
+.records-kpi small {
+  color: #6b7fa6;
+  font-size: 11px;
+}
+
+.records-kpi.accent strong {
+  color: #5eead4;
+  text-shadow: 0 0 18px rgba(45, 212, 191, 0.45);
+}
+
+/* ── 主区：树画布 + 统计图 ── */
+.records-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 350px;
+  gap: 14px;
+  min-height: 620px;
+}
+
+.records-panel {
+  border: 1px solid rgba(56, 132, 255, 0.28);
+  border-radius: 14px;
+  background: rgba(8, 18, 46, 0.78);
+  box-shadow: inset 0 0 32px rgba(15, 36, 82, 0.5);
+  overflow: hidden;
+}
+
+.records-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid rgba(56, 132, 255, 0.18);
+}
+
+.records-panel-head strong {
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  color: #cfe6ff;
+}
+
+.records-panel-head small {
+  color: #6b7fa6;
+  font-size: 12px;
+}
+
+.records-tree-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.records-tree-panel .learning-tree-canvas {
+  flex: 1;
+  min-height: 660px;
+}
+
+.records-charts-column {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+/* ── 学习树画布 ── */
+.learning-tree-canvas {
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+}
+
+.learning-tree-canvas:active {
+  cursor: grabbing;
+}
+
+.organic-tree-svg {
+  display: block;
+  user-select: none;
+}
+
+.tree-zoom-controls {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.tree-zoom-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(56, 132, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(10, 23, 56, 0.92);
+  color: #7dd3fc;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.tree-zoom-btn:hover {
+  border-color: rgba(125, 211, 252, 0.85);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.35);
+}
+
+.learning-tree-legend {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  border: 1px solid rgba(56, 132, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(8, 18, 46, 0.82);
+  font-size: 11px;
+  color: #8ea3c8;
+}
+
+.learning-tree-legend .legend-item::before {
+  content: "";
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 50%;
+}
+
+.learning-tree-legend .legend-item.lit::before { background: #22d3ee; box-shadow: 0 0 8px #22d3ee; }
+.learning-tree-legend .legend-item.active::before { background: #fbbf24; box-shadow: 0 0 8px #fbbf24; }
+.learning-tree-legend .legend-item.dim::before { background: #3b4a6b; }
+.learning-tree-legend .legend-hint { color: #5d7099; }
+
+/* 有机树：地面、树干、主枝、细枝、叶子 */
+.tree-ground {
+  fill: url(#treeGroundGrad);
+}
+
+.tree-trunk {
+  fill: url(#treeTrunkGrad);
+  filter: drop-shadow(0 0 10px rgba(59, 116, 214, 0.45));
+}
+
+.tree-branch {
+  fill: #1b3570;
+  transition: filter 240ms ease;
+}
+
+.tree-branch.active {
+  fill: #2a5cb0;
+  filter: drop-shadow(0 0 8px rgba(56, 132, 255, 0.5));
+}
+
+.tree-branch.lit {
+  fill: #1e7d8c;
+  filter: drop-shadow(0 0 10px rgba(45, 212, 191, 0.55));
+}
+
+.tree-twig {
+  fill: #23417c;
+}
+
+.tree-twig.lit {
+  fill: #25b7d4;
+  filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.6));
+}
+
+.tree-twig.active {
+  fill: #c98f2b;
+}
+
+/* 章节标签（主枝根部） */
+.tree-chapter-name {
+  fill: #cfe6ff;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.tree-chapter-count {
+  fill: #67e8f9;
+  font-size: 17px;
+  pointer-events: none;
+}
+
+/* 叶子（枝头实验） */
+.tree-leaf {
+  cursor: pointer;
+}
+
+.tree-leaf .leaf-hit {
+  fill: transparent;
+}
+
+.tree-leaf .leaf-dot {
+  transition: r 150ms ease;
+}
+
+.tree-leaf.lit .leaf-dot {
+  fill: #9df3ff;
+  filter: drop-shadow(0 0 7px rgba(34, 211, 238, 0.95));
+}
+
+.tree-leaf.lit .leaf-halo {
+  fill: rgba(34, 211, 238, 0.2);
+  animation: leafPulse 2.6s ease-in-out infinite;
+}
+
+.tree-leaf.active .leaf-dot {
+  fill: #fcd34d;
+  filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.85));
+}
+
+.tree-leaf.active .leaf-halo {
+  fill: rgba(251, 191, 36, 0.16);
+  animation: leafPulse 2.1s ease-in-out infinite;
+}
+
+.tree-leaf.dim .leaf-dot {
+  fill: #3b4a6b;
+}
+
+.tree-leaf:hover .leaf-dot {
+  r: 14;
+}
+
+.tree-leaf .tree-leaf-label {
+  fill: #7c8fb5;
+  font-size: 15px;
+  pointer-events: none;
+}
+
+.tree-leaf.lit .tree-leaf-label {
+  fill: #a5ecff;
+}
+
+.tree-leaf.active .tree-leaf-label {
+  fill: #fcd34d;
+}
+
+@keyframes leafPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+/* ── 统计图 ── */
+.tech-chart {
+  padding: 12px 14px 14px;
+  border: 1px solid rgba(56, 132, 255, 0.28);
+  border-radius: 14px;
+  background: rgba(8, 18, 46, 0.78);
+  box-shadow: inset 0 0 32px rgba(15, 36, 82, 0.5);
+}
+
+.tech-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tech-chart-head strong { font-size: 13px; letter-spacing: 0.06em; color: #cfe6ff; }
+.tech-chart-head small { color: #6b7fa6; font-size: 11px; }
+
+.tech-donut-body {
+  display: grid;
+  grid-template-columns: 118px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.donut-segment { transition: opacity 160ms ease; }
+.donut-segment:hover { opacity: 1; }
+
+.donut-center-value {
+  fill: #eaf4ff;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.donut-center-label {
+  fill: #8ea3c8;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+}
+
+.tech-legend {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: #a9bce0;
+}
+
+.tech-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tech-legend li strong { margin-left: auto; color: #eaf4ff; }
+
+.tech-legend.inline {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+
+.legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 5px;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.tech-line svg { width: 100%; height: 132px; display: block; }
+
+.line-score { stroke: #38bdf8; stroke-width: 2.2; filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.6)); }
+.line-rate { stroke: #a78bfa; stroke-width: 1.8; stroke-dasharray: 5 4; }
+.line-dot.score { fill: #7dd3fc; }
+.line-dot.rate { fill: #c4b5fd; }
+.line-tick { fill: #5d7099; font-size: 8px; }
+.line-x-label { fill: #6b7fa6; font-size: 8px; }
+
+.tech-bars-list {
+  display: grid;
+  gap: 7px;
+}
+
+.tech-bar-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #8ea3c8;
+}
+
+.tech-bar-track {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(41, 64, 95, 0.55);
+  overflow: hidden;
+}
+
+.tech-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #2563eb, #38bdf8);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.5);
+  transition: width 420ms ease;
+}
+
+.tech-bar-fill.full { background: linear-gradient(90deg, #0d9488, #2dd4bf); }
+.tech-bar-fill.empty { background: rgba(59, 74, 107, 0.8); box-shadow: none; }
+.tech-bar-value { text-align: right; color: #bfe0ff; }
+
+/* ── 下方明细与侧栏面板（深色化，保留既有 class 契约） ── */
+.records-screen .section-panel {
+  border: 1px solid rgba(56, 132, 255, 0.28);
+  border-radius: 14px;
+  background: rgba(8, 18, 46, 0.78);
+  box-shadow: inset 0 0 32px rgba(15, 36, 82, 0.5);
+  color: #dbe7ff;
+}
+
+.records-screen .section-panel h1,
+.records-screen .section-panel h2,
+.records-screen .section-panel h3 {
+  color: #cfe6ff;
+}
+
+.records-screen .section-heading p,
+.records-screen .large-copy { color: #8ea3c8; }
+
+.records-screen .record-chapter-title { color: #7dd3fc; }
+
+.records-screen .record-row {
+  border: 1px solid rgba(51, 65, 100, 0.8);
+  background: rgba(9, 18, 44, 0.85);
+  color: #c6d8f5;
+}
+
+.records-screen .record-row:hover:not(:disabled) {
+  border-color: rgba(125, 211, 252, 0.7);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.2);
+}
+
+.records-screen .record-row:disabled { opacity: 0.45; }
+.records-screen .record-row small { color: #6b7fa6; }
+
+.records-screen .activity-item { color: #a9bce0; }
+.records-screen .activity-item svg { color: #2dd4bf; }
+
+.records-screen .empty-state { color: #8ea3c8; }
+.records-screen .empty-state svg { color: #38bdf8; }
+
+.records-screen .primary-button {
+  background: linear-gradient(90deg, #1d4ed8, #2563eb);
+  border: 1px solid rgba(125, 211, 252, 0.5);
+  color: #eaf4ff;
+}
+
+.records-screen .primary-button:hover {
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.45);
+}
+
+/* ── 响应式 ── */
+@media (max-width: 1180px) {
+  .records-main-grid { grid-template-columns: 1fr; }
+  .records-charts-column { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .records-kpi-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 860px) {
+  .records-screen { margin: -18px -20px -28px; padding: 14px 14px 22px; }
+  .records-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .records-charts-column { grid-template-columns: 1fr; }
+  .records-screen-header { flex-direction: column; align-items: flex-start; }
+  .records-tree-panel .learning-tree-canvas { min-height: 460px; }
+}
