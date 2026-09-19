@@ -379,6 +379,96 @@ export const CHALLENGES = [
     summary: "你已完成一个简化 ALU，能通过控制位选择不同运算。",
     principle: "ALU 的核心不是只会加法，而是能在控制信号驱动下选择多种运算路径并输出标志位。",
   },
+  {
+    id: "cpu-datapath",
+    grading: "graded",
+    chapterId: "ch6",
+    title: "CPU 数据通路",
+    shortTitle: "数据通路",
+    goal: "把程序计数器、指令存储器、指令寄存器、控制器、寄存器堆和 ALU 连成一条从取指到写回的完整通路。",
+    objective: "理解一条指令在 CPU 内部经历取指、译码、读操作数、执行和写回五个阶段，各部件在控制信号协调下接力工作。",
+    estimatedMinutes: 18,
+    requiredConnections: ["程序计数器PC->指令存储器", "指令存储器->指令寄存器IR", "指令寄存器IR->控制器", "控制器->寄存器堆", "寄存器堆->ALU运算器", "ALU运算器->结果写回寄存器"],
+    components: [
+      { name: "程序计数器PC", pins: "out", description: "保存下一条要执行指令的地址，取指后自动加一。" },
+      { name: "指令存储器", pins: "in/out", description: "按 PC 给出的地址读出指令。" },
+      { name: "指令寄存器IR", pins: "in/out", description: "保存当前正在执行的指令，供控制器译码。" },
+      { name: "控制器", pins: "in/out", description: "译码指令并发出读寄存器、运算、写回等控制信号。" },
+      { name: "寄存器堆", pins: "in/out", description: "按控制器要求读出源操作数，也是写回的目的地。" },
+      { name: "ALU运算器", pins: "in/out", description: "对两个操作数完成指令指定的算术或逻辑运算。" },
+      { name: "结果写回寄存器", pins: "in", description: "接收 ALU 结果，完成本条指令的写回阶段。" },
+    ],
+    hints: {
+      "程序计数器PC->指令存储器": { type: "取指地址缺失", message: "PC 需要把指令地址送到指令存储器，才能取出指令。" },
+      "指令存储器->指令寄存器IR": { type: "取指路径缺失", message: "取出的指令要先进入 IR，CPU 才能开始译码。" },
+      "指令寄存器IR->控制器": { type: "译码路径缺失", message: "控制器需要读取 IR 中的指令，才能发出正确的控制信号。" },
+      "控制器->寄存器堆": { type: "读数控制缺失", message: "寄存器堆需要控制器的读控制信号，才能送出源操作数。" },
+      "寄存器堆->ALU运算器": { type: "操作数通路缺失", message: "ALU 需要从寄存器堆拿到两个源操作数才能运算。" },
+      "ALU运算器->结果写回寄存器": { type: "写回路径缺失", message: "运算结果要写回寄存器，这条指令才算执行完成。" },
+    },
+    summary: "你已经连通一条完整的 CPU 数据通路，看清了指令执行的五个阶段。",
+    principle: "CPU 的本质是数据通路加控制：PC 指路、IR 存指令、控制器发令、寄存器堆供数、ALU 运算、结果写回，周而复始。",
+  },
+  {
+    id: "system-bus",
+    grading: "graded",
+    chapterId: "ch7",
+    title: "三总线协作",
+    shortTitle: "三总线",
+    goal: "把 CPU 地址输出、读写控制和主存通过地址总线、控制总线、数据总线连接起来，完成一次总线读周期。",
+    objective: "理解地址总线负责“去哪里”、数据总线负责“传什么”、控制总线负责“怎么传”的分工。",
+    estimatedMinutes: 14,
+    requiredConnections: ["CPU地址输出->地址总线", "地址总线->主存", "读写控制->控制总线", "控制总线->读使能观察", "主存->数据总线", "数据总线->CPU数据输入"],
+    components: [
+      { name: "CPU地址输出", pins: "out", description: "CPU 给出本次要访问的主存地址。" },
+      { name: "地址总线", pins: "in/out", description: "单向传送地址，从 CPU 指向主存或 I/O 接口。" },
+      { name: "读写控制", pins: "out", description: "CPU 发出的读/写命令，决定本次总线周期类型。" },
+      { name: "控制总线", pins: "in/out", description: "传送读、写、中断等控制与状态信号。" },
+      { name: "主存", pins: "in/out", description: "按地址总线选中的单元读出数据。" },
+      { name: "读使能观察", pins: "in", description: "确认本次总线周期是读操作。" },
+      { name: "数据总线", pins: "in/out", description: "双向传送数据，读周期时把主存数据送回 CPU。" },
+      { name: "CPU数据输入", pins: "in", description: "接收经数据总线送回的数据。" },
+    ],
+    hints: {
+      "CPU地址输出->地址总线": { type: "地址上线缺失", message: "CPU 地址需要先送上地址总线，主存才知道访问哪里。" },
+      "地址总线->主存": { type: "地址送达缺失", message: "地址总线要接到主存，才能选中目标存储单元。" },
+      "读写控制->控制总线": { type: "控制上线缺失", message: "读/写命令需要送上控制总线，各部件才知道周期类型。" },
+      "控制总线->读使能观察": { type: "读使能缺失", message: "请把控制总线的读信号接到观察端，确认这是一次读周期。" },
+      "主存->数据总线": { type: "数据上线缺失", message: "主存读出的数据要放上数据总线，才能传回 CPU。" },
+      "数据总线->CPU数据输入": { type: "数据回送缺失", message: "数据总线要接回 CPU 数据输入，读周期才算完成。" },
+    },
+    summary: "你已完成一次三总线协作的读周期，能分清三条总线各自的职责。",
+    principle: "系统总线按职能分为地址、数据、控制三族：地址总线选定位置，控制总线声明操作，数据总线完成传送。",
+  },
+  {
+    id: "io-transfer",
+    grading: "graded",
+    chapterId: "ch8",
+    title: "I/O 数据传送",
+    shortTitle: "I/O 传送",
+    goal: "把输入设备、I/O 接口、数据缓冲寄存器和 CPU 数据总线连接起来，完成一次程序查询方式的输入传送。",
+    objective: "理解外设不直接挂到 CPU 总线上：数据先经 I/O 接口缓冲，CPU 查询状态就绪后再读入并写入主存。",
+    estimatedMinutes: 14,
+    requiredConnections: ["输入设备->I/O接口", "I/O接口->数据缓冲寄存器", "I/O状态标志->CPU查询观察", "数据缓冲寄存器->CPU数据总线", "CPU数据总线->主存缓冲区"],
+    components: [
+      { name: "输入设备", pins: "out", description: "键盘等外设，按自己的节奏产生数据。" },
+      { name: "I/O接口", pins: "in/out", description: "协调外设与主机的速度差异，暂存数据并记录状态。" },
+      { name: "I/O状态标志", pins: "out", description: "数据就绪时置位，供 CPU 程序查询。" },
+      { name: "数据缓冲寄存器", pins: "in/out", description: "I/O 接口中暂存输入数据的寄存器。" },
+      { name: "CPU查询观察", pins: "in", description: "确认 CPU 查询到状态就绪，可以读取数据。" },
+      { name: "CPU数据总线", pins: "in/out", description: "CPU 从接口读走数据后送往主存。" },
+      { name: "主存缓冲区", pins: "in", description: "保存本次输入数据的主存区域。" },
+    ],
+    hints: {
+      "输入设备->I/O接口": { type: "设备入接口缺失", message: "外设数据必须先进入 I/O 接口，不能直接送上 CPU 总线。" },
+      "I/O接口->数据缓冲寄存器": { type: "缓冲路径缺失", message: "接口收到的数据要先放入数据缓冲寄存器暂存。" },
+      "I/O状态标志->CPU查询观察": { type: "状态查询缺失", message: "CPU 需要查询状态标志，确认数据就绪后才能读取。" },
+      "数据缓冲寄存器->CPU数据总线": { type: "读数路径缺失", message: "确认就绪后，缓冲寄存器的数据经数据总线被 CPU 读走。" },
+      "CPU数据总线->主存缓冲区": { type: "写入主存缺失", message: "CPU 读到的数据要写入主存缓冲区，本次输入才完成。" },
+    },
+    summary: "你已完成一次程序查询方式的 I/O 输入传送。",
+    principle: "程序查询方式下，CPU 反复查询 I/O 接口的状态标志，就绪后才从数据缓冲寄存器读数；接口是外设与主机之间的速度缓冲带。",
+  },
 ];
 
 export const LEARNING_ITEMS = [...CHALLENGES, ...HARDWARE_GAME_PROGRESS_ITEMS];
@@ -577,6 +667,59 @@ export function simulateChallenge(challengeId, inputs = {}) {
       `控制位=${operation} 进入结果选择器。`,
       `加法单元和逻辑单元并行准备候选结果。`,
       `选择器输出 F=${result}，零标志=${result === 0 ? 1 : 0}，进位标志=${operation === 0 && add > 1 ? 1 : 0}。`,
+    ]);
+  }
+
+  if (challengeId === "cpu-datapath") {
+    const operation = values.op % 4;
+    const instructionNames = ["ADD", "SUB", "AND", "OR"];
+    const resultMap = [
+      (values.a + values.b) & 1,
+      (values.a - values.b + 2) & 1,
+      values.a & values.b,
+      values.a | values.b,
+    ];
+    const instruction = instructionNames[operation];
+    const result = resultMap[operation];
+    return buildSimulation({ instruction, result, stage: "写回完成" }, [
+      `取指：PC 把地址送到指令存储器，取出指令 ${instruction} R1,R2 放入 IR。`,
+      `译码：控制器解读 IR 中的 ${instruction}，发出读寄存器和 ALU 运算控制信号。`,
+      `读操作数：寄存器堆送出 R1=${values.a}、R2=${values.b} 到 ALU 输入端。`,
+      `执行：ALU 按 ${instruction} 运算，得到结果 ${result}。`,
+      `写回：结果 ${result} 经数据通路写回结果寄存器，PC 加一进入下一条指令。`,
+    ]);
+  }
+
+  if (challengeId === "system-bus") {
+    const memory = { 100: 42, 101: 5, 102: 7, 103: 13 };
+    const isRead = values.select === 0;
+    const data = memory[values.address] ?? 0;
+    return buildSimulation({ address: values.address, data: isRead ? data : 0, read: isRead ? 1 : 0 }, [
+      `CPU 把地址 ${values.address} 放上地址总线，地址总线把地址送达主存。`,
+      isRead
+        ? "读写控制为“读”，控制总线向主存声明这是一次读周期。"
+        : "读写控制为“写”，控制总线声明写周期；本关先观察读路径，数据输出保持 0。",
+      isRead
+        ? `主存按地址读出数据 ${data}，放上数据总线。`
+        : "主存等待写数据，数据总线本次不向 CPU 回送数据。",
+      `数据总线把数据 ${isRead ? data : 0} 送回 CPU 数据输入端，总线周期结束。`,
+    ]);
+  }
+
+  if (challengeId === "io-transfer") {
+    const ready = values.a;
+    const data = ready === 1 ? 1 : 0;
+    return buildSimulation({ ready, data }, [
+      "输入设备把数据送入 I/O 接口。",
+      ready === 1
+        ? "接口把数据放入数据缓冲寄存器，并把状态标志置为就绪。"
+        : "数据尚未就绪，状态标志保持未就绪。",
+      ready === 1
+        ? "CPU 程序查询到状态就绪，决定读取数据。"
+        : "CPU 查询后得知未就绪，继续循环查询等待。",
+      ready === 1
+        ? "CPU 经数据总线读走缓冲寄存器中的数据，并写入主存缓冲区。"
+        : "本次没有数据被读走，主存缓冲区保持不变。",
     ]);
   }
 

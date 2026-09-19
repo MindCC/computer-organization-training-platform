@@ -15,22 +15,25 @@ test("course route groups every challenge and keeps hardware routes", () => {
     [...new Set(groupedIds)].sort(),
     [...CHALLENGES.map((item) => item.id), ...HARDWARE_ROUTE_IDS].sort(),
   );
-  assert.ok(groups.some((group) => group.id === "overview"));
-  assert.ok(groups.some((group) => group.id === "logic"));
-  assert.ok(groups.some((group) => group.id === "storage"));
+  // 路线分组与教材八章一一对应，顺序稳定。
+  assert.deepEqual(groups.map((group) => group.id), ["ch1", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7", "ch8"]);
+  assert.deepEqual(groups.map((group) => group.number), [1, 2, 3, 4, 5, 6, 7, 8]);
 
-  const hardwareGroup = groups.find((group) => group.id === "hardware");
-  assert.deepEqual(hardwareGroup.items.map((item) => item.id), HARDWARE_ROUTE_IDS);
+  // 硬件配置挑战按自身 chapterId 归入第一章与第四章，不再有独立的 hardware 组。
+  assert.equal(groups.some((group) => group.id === "hardware"), false);
+  const ch1Items = groups.find((group) => group.id === "ch1").items.map((item) => item.id);
+  const ch4Items = groups.find((group) => group.id === "ch4").items.map((item) => item.id);
+  assert.deepEqual([...ch1Items, ...ch4Items].filter((id) => HARDWARE_ROUTE_IDS.includes(id)).sort(), [...HARDWARE_ROUTE_IDS].sort());
 });
 
 test("hardware route items fall back when the challenge record is missing", () => {
   const progress = buildInitialLearningProgress();
   const groups = buildCourseRouteGroups(CHALLENGES, progress);
-  const hardwareGroup = groups.find((group) => group.id === "hardware");
-  const item = hardwareGroup.items.find((route) => route.id === "game-office-pc");
+  const ch1Group = groups.find((group) => group.id === "ch1");
+  const item = ch1Group.items.find((route) => route.id === "game-office-pc");
 
   assert.equal(item.title, "办公电脑");
-  assert.equal(item.description, hardwareGroup.description);
+  assert.equal(item.description, ch1Group.description);
   assert.equal(item.estimatedMinutes, 6);
 });
 
@@ -46,10 +49,12 @@ test("course route recommends the first in-progress or unlocked challenge", () =
 });
 test("course route tolerates missing challenge input without exposing internal ids", () => {
   const groups = buildCourseRouteGroups(null, {});
-  const hardware = groups.find((group) => group.id === "hardware");
+  const ch1 = groups.find((group) => group.id === "ch1");
+  const ch4 = groups.find((group) => group.id === "ch4");
+  const hardware = [...ch1.items, ...ch4.items].filter((item) => HARDWARE_ROUTE_IDS.includes(item.id));
 
-  assert.deepEqual(hardware.items.map((item) => item.id), HARDWARE_ROUTE_IDS);
-  assert.ok(hardware.items.every((item) => item.title && item.title !== item.id));
+  assert.deepEqual(hardware.map((item) => item.id).sort(), [...HARDWARE_ROUTE_IDS].sort());
+  assert.ok(hardware.every((item) => item.title && item.title !== item.id));
 });
 
 test("recommended challenge contains all fields required by the home screen", () => {
@@ -72,19 +77,22 @@ test("estimated time never renders a negative or placeholder minute count", () =
 
 test("course route items expose normalized status labels and stable display metadata", () => {
   const progress = buildInitialLearningProgress();
-  progress["computer-components"].status = "completed";
-  progress["program-flow"].status = "in-progress";
+  progress["data-flow"].status = "completed";
+  progress["and-gate"].status = "in-progress";
   const groups = buildCourseRouteGroups(CHALLENGES, progress);
-  const overview = groups.find((group) => group.id === "overview");
+  const ch3 = groups.find((group) => group.id === "ch3");
+  const ch3Length = ch3.items.length;
 
-  assert.deepEqual(overview.items.map((item) => item.sequence), [0, 1, 2]);
-  assert.equal(overview.items[0].status, "completed");
-  assert.equal(overview.items[0].statusLabel, "已完成");
-  assert.equal(overview.items[0].estimatedLabel, "8 分钟");
-  assert.equal(overview.items[1].status, "in-progress");
-  assert.equal(overview.items[1].statusLabel, "进行中");
-  assert.equal(overview.items[2].status, "locked");
-  assert.equal(overview.items[2].statusLabel, "未解锁");
+  assert.deepEqual(ch3.items.map((item) => item.sequence), Array.from({ length: ch3Length }, (_, index) => index));
+  assert.equal(ch3.items[0].id, "data-flow");
+  assert.equal(ch3.items[0].status, "completed");
+  assert.equal(ch3.items[0].statusLabel, "已完成");
+  assert.equal(ch3.items[0].estimatedLabel, "8 分钟");
+  assert.equal(ch3.items[1].id, "and-gate");
+  assert.equal(ch3.items[1].status, "in-progress");
+  assert.equal(ch3.items[1].statusLabel, "进行中");
+  assert.equal(ch3.items[2].status, "locked");
+  assert.equal(ch3.items[2].statusLabel, "未解锁");
 });
 
 test("course route items normalize missing progress to not-started", () => {
@@ -95,4 +103,14 @@ test("course route items normalize missing progress to not-started", () => {
   assert.equal(first.statusLabel, "未开始");
   assert.equal(first.sequence, 0);
   assert.equal(first.estimatedLabel, "8 分钟");
+});
+
+test("第六、七、八章在学习路线中各有实验", () => {
+  const groups = buildCourseRouteGroups(CHALLENGES, buildInitialLearningProgress());
+  const byId = new Map(groups.map((group) => [group.id, group.items.map((item) => item.id)]));
+
+  assert.ok(byId.get("ch6").includes("cpu-datapath"), "ch6 应包含 CPU 数据通路实验");
+  assert.ok(byId.get("ch7").includes("system-bus"), "ch7 应包含三总线实验");
+  assert.ok(byId.get("ch8").includes("io-transfer"), "ch8 应包含 I/O 传送实验");
+  assert.equal(groups.every((group) => group.items.length > 0), true, "八章每章至少一个路线项目");
 });

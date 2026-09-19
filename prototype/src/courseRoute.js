@@ -1,44 +1,33 @@
 import { LEARNING_ITEMS } from "./platformLogic.js";
-import { HARDWARE_GAME_PROGRESS_ITEMS } from "./hardwareGame.js";
+import { COURSE_CHAPTERS, buildChapterChallengeIds } from "./courseChapters.js";
 
-const ROUTE_GROUP_DEFINITIONS = [
-  {
-    id: "overview",
-    title: "计算机概览",
-    description: "先建立整机、程序、指令与数据流的整体图景。",
-    challengeIds: ["computer-components", "program-flow", "instruction-data"],
-  },
-  {
-    id: "logic",
-    title: "基础逻辑门",
-    description: "从数据流出发，理解基本逻辑门如何形成判断。",
-    challengeIds: ["data-flow", "and-gate", "or-gate", "not-gate", "xor-gate"],
-  },
-  {
-    id: "adder",
-    title: "加法器与 ALU",
-    description: "从半加器一路搭到多位加法器与算术逻辑单元。",
-    challengeIds: ["half-adder", "full-adder", "machine-number", "multi-adder", "mux", "alu"],
-  },
-  {
-    id: "storage",
-    title: "存储系统",
-    description: "观察地址、主存、MDR 和 CPU 总线之间的协作。",
-    challengeIds: ["memory-address"],
-  },
-  {
-    id: "hardware",
-    title: "硬件配置挑战",
-    description: "在预算、速度与容量之间做真实取舍。",
-    challengeIds: HARDWARE_GAME_PROGRESS_ITEMS.map((item) => item.id),
-  },
-];
+/**
+ * 课程路线的单一分组方式：严格按教材八章划分。
+ *
+ * 章节清单与顺序来自 courseChapters.js 的 COURSE_CHAPTERS；
+ * 每章包含哪些实验由实验自身的 chapterId 派生（buildChapterChallengeIds），
+ * 不再维护一份与章节映射可能互相矛盾的手工分组。
+ */
+const CHAPTER_ROUTE_DESCRIPTIONS = {
+  ch1: "建立整机概念：五大部件、程序运行流程与整机配置入门。",
+  ch2: "理解计算机中数的表示：符号位、原码、反码与补码。",
+  ch3: "从数据流与基础逻辑门出发，逐级搭建加法器与 ALU。",
+  ch4: "观察地址与数据两条访存路径，理解主存读写与存储配置。",
+  ch5: "区分指令与数据，理解 CPU 如何按阶段解释内存内容。",
+  ch6: "贯通取指、译码、执行与写回，看清 CPU 内部数据通路。",
+  ch7: "分清地址总线、数据总线与控制总线的分工与协作。",
+  ch8: "理解外设经 I/O 接口与 CPU、主存之间的数据传送过程。",
+};
 
-export const COURSE_ROUTE_GROUPS = ROUTE_GROUP_DEFINITIONS.map((group) => ({
-  id: group.id,
-  title: group.title,
-  description: group.description,
-  challengeIds: [...group.challengeIds],
+const challengeIdsByChapter = buildChapterChallengeIds(LEARNING_ITEMS);
+
+export const COURSE_ROUTE_GROUPS = COURSE_CHAPTERS.map((chapter) => ({
+  id: chapter.id,
+  number: chapter.number,
+  title: chapter.title,
+  shortTitle: chapter.title.replace(/^第.+章\s*/, ""),
+  description: CHAPTER_ROUTE_DESCRIPTIONS[chapter.id] ?? "",
+  challengeIds: [...(challengeIdsByChapter.get(chapter.id) ?? [])],
 }));
 
 const LEARNING_ITEM_MAP = new Map(LEARNING_ITEMS.map((item) => [item.id, item]));
@@ -48,7 +37,9 @@ export function buildCourseRouteGroups(challenges = [], progress = {}) {
 
   return COURSE_ROUTE_GROUPS.map((group) => ({
     id: group.id,
+    number: group.number,
     title: group.title,
+    shortTitle: group.shortTitle,
     description: group.description,
     items: group.challengeIds.map((id, sequence) => (
       buildRouteItem(id, challengeMap.get(id), progress[id], group.description, sequence)

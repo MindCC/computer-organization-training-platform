@@ -9,7 +9,6 @@ import {
   ClockCountdown,
   Cpu,
   Flame,
-  Flask,
   GearSix,
   House,
   Lifebuoy,
@@ -105,9 +104,10 @@ const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
 const LabPage = lazy(() => import("./components/LabPage.jsx")
   .then((module) => ({ default: module.LabPage })));
 
+// 「关卡实验」不再出现在学生导航里：实验一律从课程首页的章节卡片进入，
+// 刷新恢复与课堂任务等场景仍可直接落在实验台视图。
 const navItems = [
   { id: "home", label: "课程首页", icon: House },
-  { id: "lab", label: "关卡实验", icon: Flask },
   { id: "hardware-game", label: "\u786c\u4ef6\u914d\u7f6e\u6311\u6218", icon: Cpu },
   { id: "records", label: "学习记录", icon: ChartPieSlice },
   { id: "mistakes", label: "错题本", icon: BookOpen },
@@ -1033,13 +1033,6 @@ export function App() {
         </button>
 
         <div className="topbar-actions">
-          {auth.user?.role === "student" ? (<button className="continue-pill" onClick={() => navigateToChallenge(lab.selectedChallengeId)} type="button">
-            <Play size={16} weight="fill" />
-            <span>
-              <strong>继续实验</strong>
-              <small>{lab.currentChallenge.title} · {lab.currentRecord?.bestScore ?? 0} 分</small>
-            </span>
-          </button>) : null}
           <button
             aria-label="通知"
             className="icon-button"

@@ -88,6 +88,34 @@ export const REFERENCE_SLOT_LAYOUTS = {
     { x: 34, y: 78, role: "逻辑单元" },
     { x: 68, y: 54, role: "结果选择" },
   ],
+  "cpu-datapath": [
+    { x: 10, y: 54, role: "指令地址" },
+    { x: 26, y: 54, role: "取出指令" },
+    { x: 42, y: 54, role: "暂存指令" },
+    { x: 58, y: 28, role: "译码发令" },
+    { x: 58, y: 78, role: "读出操作数" },
+    { x: 76, y: 78, role: "执行运算" },
+    { x: 92, y: 78, role: "结果写回" },
+  ],
+  "system-bus": [
+    { x: 10, y: 30, role: "CPU 地址" },
+    { x: 28, y: 30, role: "地址传送" },
+    { x: 48, y: 30, role: "按址取数" },
+    { x: 10, y: 76, role: "读写命令" },
+    { x: 28, y: 76, role: "命令传送" },
+    { x: 48, y: 76, role: "读周期确认" },
+    { x: 68, y: 30, role: "数据传送" },
+    { x: 88, y: 30, role: "回送 CPU" },
+  ],
+  "io-transfer": [
+    { x: 10, y: 42, role: "外设数据" },
+    { x: 28, y: 42, role: "接口缓冲" },
+    { x: 28, y: 78, role: "就绪标志" },
+    { x: 46, y: 42, role: "数据暂存" },
+    { x: 48, y: 78, role: "查询确认" },
+    { x: 66, y: 42, role: "数据上线" },
+    { x: 88, y: 42, role: "写入主存" },
+  ],
 };
 
 function fallbackPosition(index) {

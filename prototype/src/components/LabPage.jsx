@@ -1,7 +1,14 @@
 import { lazy, Suspense, useEffect } from "react";
 import { ArrowLeft, Cpu, Flame, GearSix, Play, SealCheck, Sparkle, Target, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES } from "../platformLogic.js";
+import { COURSE_CHAPTERS } from "../courseChapters.js";
 import { getJourneyStepsForChallenge } from "../dataJourney.js";
+
+// 挑战路径与课程首页保持同一种划分：按教材章节分组展示关卡。
+const LAB_STEP_CHAPTERS = COURSE_CHAPTERS.map((chapter) => ({
+  chapter,
+  items: CHALLENGES.filter((challenge) => challenge.chapterId === chapter.id),
+})).filter((group) => group.items.length > 0);
 import { challengeRouteMeta, challengeControlMeta, labDescription } from "./labPageData.js";
 import { MobileLabFallback } from "./MobileLabFallback.jsx";
 import { MachineNumberPanel } from "./MachineNumberPanel.jsx";
@@ -121,7 +128,12 @@ export function LabPage({
         <main className="lab-studio-grid">
           <aside className="lab-studio-route" aria-label="挑战路径">
             <div className="lab-studio-route-title"><strong>挑战路径</strong><span>共 {CHALLENGES.length} 关</span></div>
-            <div className="lab-studio-stepper">{CHALLENGES.map((c, i) => { const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} disabled={!l.allowSkipLocked && r?.status === "locked"} key={c.id} onClick={() => l.selectChallenge(c.id)} type="button"><span className="lab-studio-step-number">{i + 1}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{r?.bestScore ?? 0} / 100</span></button>); })}</div>
+            <div className="lab-studio-stepper">{LAB_STEP_CHAPTERS.map((group) => (
+              <div className="lab-studio-step-chapter-group" key={group.chapter.id}>
+                <div className="lab-studio-step-chapter">{group.chapter.title}</div>
+                {group.items.map((c) => { const i = CHALLENGES.findIndex((item) => item.id === c.id); const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} disabled={!l.allowSkipLocked && r?.status === "locked"} key={c.id} onClick={() => l.selectChallenge(c.id)} type="button"><span className="lab-studio-step-number">{i + 1}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{r?.bestScore ?? 0} / 100</span></button>); })}
+              </div>
+            ))}</div>
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
           </aside>
           <section className="lab-studio-workspace">

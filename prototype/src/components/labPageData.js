@@ -14,6 +14,9 @@ export const challengeRouteMeta = {
   "multi-adder": { eyebrow: "级联传播", summary: "低位进位会一路推着高位往前算。", detail: "你会第一次看到多个模块串起来后的计算节奏。", preview: "chain", focus: "逐级传递" },
   mux: { eyebrow: "路径切换", summary: "同一条线，什么时候走哪一路由控制信号决定。", detail: "选择器会把'连线'变成'有条件地连线'。", preview: "mux", focus: "选择信号" },
   alu: { eyebrow: "终点核心", summary: "把加法、逻辑和选择控制拼成最小 ALU。", detail: "这一关会把前面的模块全部收束成一个运算核心。", preview: "alu", focus: "结果选择" },
+  "cpu-datapath": { eyebrow: "指令之旅", summary: "PC 指路、IR 存指令、控制器发令、寄存器堆供数、ALU 运算、结果写回。", detail: "这一关把一条指令在 CPU 内部的五个阶段连成一条完整数据通路。", preview: "chain", focus: "五阶段接力" },
+  "system-bus": { eyebrow: "总线分工", summary: "地址总线选位置、控制总线发命令、数据总线传数据。", detail: "这一关把一次总线读周期拆到三条总线上，看清它们各自的方向与职责。", preview: "memory", focus: "地址 / 数据 / 控制" },
+  "io-transfer": { eyebrow: "外设接力", summary: "外设数据先进 I/O 接口缓冲，CPU 查询就绪后再读走。", detail: "这一关演示程序查询方式：状态标志先就绪，数据才允许踏上总线。", preview: "flow", focus: "查询 / 缓冲" },
 };
 
 export const challengeControlMeta = {
@@ -32,6 +35,9 @@ export const challengeControlMeta = {
   "multi-adder": [{ key: "aNumber", label: "输入组A", type: "stepper", max: 7 }, { key: "bNumber", label: "输入组B", type: "stepper", max: 7 }, { key: "cin", label: "初始进位", type: "bit" }],
   mux: [{ key: "a", label: "数据源0", type: "bit" }, { key: "b", label: "数据源1", type: "bit" }, { key: "select", label: "选择信号", type: "stepper", max: 1 }],
   alu: [{ key: "a", label: "输入A", type: "bit" }, { key: "b", label: "输入B", type: "bit" }, { key: "cin", label: "进位Cin", type: "bit" }, { key: "op", label: "ALU控制位", type: "stepper", max: 3 }],
+  "cpu-datapath": [{ key: "a", label: "R1 数据", type: "bit" }, { key: "b", label: "R2 数据", type: "bit" }, { key: "op", label: "指令选择", type: "stepper", max: 3 }],
+  "system-bus": [{ key: "address", label: "访问地址", type: "stepper", min: 100, max: 103 }, { key: "select", label: "读写选择", type: "stepper", max: 1 }],
+  "io-transfer": [{ key: "a", label: "设备就绪", type: "bit" }],
 };
 
 export function labDescription(challengeId) {
@@ -51,6 +57,9 @@ export function labDescription(challengeId) {
     "multi-adder": "这一关不再是一个模块，而是多个全加器首尾相接，重点观察进位逐级传播。",
     mux: "这一关的重点是路径选择，同一时刻两路数据都在，但只有被选择的一路会真正通过。",
     alu: "这一关会把加法、逻辑和选择控制汇总到同一块运算核心里，画布结构也会比前几关更复杂。",
+    "cpu-datapath": "这一关把一条指令在 CPU 内部的旅程连成通路：PC 给出地址，指令存储器读出指令进 IR，控制器译码后指挥寄存器堆供数，ALU 运算，结果写回。",
+    "system-bus": "这一关把一次总线读周期拆到三条总线上：地址总线把 CPU 地址送到主存，控制总线声明读命令，数据总线把主存数据送回 CPU。",
+    "io-transfer": "这一关演示程序查询方式的输入传送：外设数据先进入 I/O 接口缓冲，CPU 查询状态标志就绪后，才把数据读上总线并写入主存。",
   };
   return d[challengeId] ?? "观察这一关独有的电路骨架，再运行信号演示。";
 }

@@ -47,14 +47,14 @@ test("课件章节与实验自身的 chapterId 保持一致", () => {
       `${chapter.id} 的 linkedChallenges 应由实验的 chapterId 派生`,
     );
   }
-  // 已达标的章节：一至五章各有实验。六、七、八章目前为空，是待补的实验缺口
-  // （见 docs/chapter-labs-review-2026-09-12.md 阶段 2），补上后应把清单收紧为全部八章。
-  for (const chapterId of ["ch1", "ch2", "ch3", "ch4", "ch5"]) {
+  // 全部八章都已有实验：六、七、八章的缺口（docs/chapter-labs-review-2026-09-12.md 阶段 2）
+  // 已由 cpu-datapath、system-bus、io-transfer 补齐，本断言收紧为八章全覆盖。
+  for (const chapterId of ["ch1", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7", "ch8"]) {
     assert.equal(getChallengesByChapterId(chapterId).length > 0, true, `${chapterId} 应至少有一个实验`);
   }
   assert.deepEqual(
     COURSEWARE.chapters.filter((chapter) => chapter.linkedChallenges.length === 0).map((chapter) => chapter.id),
-    ["ch6", "ch7", "ch8"],
+    [],
     "空章节清单发生变化时，请同步更新 docs/chapter-labs-review-2026-09-12.md",
   );
 });
@@ -90,7 +90,7 @@ test("参与型活动与评分型实验被明确区分", () => {
   }
 
   // 有结构化判定证据的关卡与全部硬件配置挑战必须是评分型。
-  for (const id of ["and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "multi-adder", "mux", "alu"]) {
+  for (const id of ["and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "multi-adder", "mux", "alu", "cpu-datapath", "system-bus", "io-transfer"]) {
     const item = LEARNING_ITEMS.find((entry) => entry.id === id);
     assert.equal(isGradedChallenge(item), true, `${id} 应为评分型实验`);
   }

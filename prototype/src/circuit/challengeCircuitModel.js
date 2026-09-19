@@ -1,4 +1,4 @@
-﻿const signal = "bit";
+const signal = "bit";
 
 function inputNode(id, label, x, y, portLabel = label) {
   return { id, type: "input", label, position: { x, y }, ports: [{ id: "out", label: portLabel, direction: "out", signal }] };
@@ -397,6 +397,87 @@ export const ALU_CIRCUIT = {
   ],
 };
 
+export const CPU_DATAPATH_CIRCUIT = {
+  id: "cpu-datapath",
+  title: "CPU 数据通路",
+  goal: "连接 PC、指令存储器、IR、控制器、寄存器堆和 ALU，打通一条指令从取指到写回的完整通路。",
+  nodes: [
+    inputNode("pc", "程序计数器PC", 50, 170, "地址"),
+    componentNode("instr-memory", "buffer", "指令存储器", 240, 170, [inPort("in", "地址"), outPort("out", "指令")]),
+    componentNode("ir", "buffer", "指令寄存器IR", 440, 170, [inPort("in", "指令"), outPort("out", "操作码")]),
+    componentNode("controller", "buffer", "控制器", 640, 90, [inPort("in", "指令"), outPort("out", "控制信号")]),
+    componentNode("regfile", "buffer", "寄存器堆", 640, 260, [inPort("in", "读控制"), outPort("out", "操作数")]),
+    componentNode("alu-unit", "buffer", "ALU运算器", 840, 260, [inPort("in", "操作数"), outPort("out", "结果")]),
+    outputNode("writeback", "结果写回寄存器", 1050, 260, "写回"),
+  ],
+  requiredEdges: [
+    edge("pc-to-instr-memory", "pc", "out", "instr-memory", "in", "取指地址缺失", "PC 需要把指令地址送到指令存储器。"),
+    edge("instr-memory-to-ir", "instr-memory", "out", "ir", "in", "取指路径缺失", "取出的指令要先进入指令寄存器 IR。"),
+    edge("ir-to-controller", "ir", "out", "controller", "in", "译码路径缺失", "控制器需要读取 IR 中的指令才能译码。"),
+    edge("controller-to-regfile", "controller", "out", "regfile", "in", "读数控制缺失", "寄存器堆需要控制信号才能读出源操作数。"),
+    edge("regfile-to-alu", "regfile", "out", "alu-unit", "in", "操作数通路缺失", "ALU 需要寄存器堆提供的操作数。"),
+    edge("alu-to-writeback", "alu-unit", "out", "writeback", "in", "写回路径缺失", "ALU 结果要写回寄存器，指令才算完成。"),
+  ],
+  testCases: [
+    { name: "执行信号 1", inputs: { "pc.out": 1 }, expected: { "writeback.in": 1 } },
+    { name: "执行信号 0", inputs: { "pc.out": 0 }, expected: { "writeback.in": 0 } },
+  ],
+};
+
+export const SYSTEM_BUS_CIRCUIT = {
+  id: "system-bus",
+  title: "三总线协作",
+  goal: "连接 CPU 地址输出、读写控制、主存与三条总线，完成一次总线读周期。",
+  nodes: [
+    inputNode("cpu-address", "CPU地址输出", 50, 110, "地址"),
+    componentNode("address-bus", "buffer", "地址总线", 260, 110, [inPort("in", "地址"), outPort("out", "地址")]),
+    componentNode("main-memory", "buffer", "主存", 480, 110, [inPort("in", "地址"), outPort("out", "数据")]),
+    inputNode("rw-control", "读写控制", 50, 300, "R/W"),
+    componentNode("control-bus", "buffer", "控制总线", 260, 300, [inPort("in", "命令"), outPort("out", "读使能")]),
+    outputNode("read-observe", "读使能观察", 480, 300, "Read"),
+    componentNode("data-bus", "buffer", "数据总线", 700, 110, [inPort("in", "数据"), outPort("out", "数据")]),
+    outputNode("cpu-data-in", "CPU数据输入", 910, 110, "数据"),
+  ],
+  requiredEdges: [
+    edge("cpu-to-address-bus", "cpu-address", "out", "address-bus", "in", "地址上线缺失", "CPU 地址需要先送上地址总线。"),
+    edge("address-bus-to-memory", "address-bus", "out", "main-memory", "in", "地址送达缺失", "地址总线要接到主存才能选中存储单元。"),
+    edge("rw-to-control-bus", "rw-control", "out", "control-bus", "in", "控制上线缺失", "读/写命令需要送上控制总线。"),
+    edge("control-bus-to-observe", "control-bus", "out", "read-observe", "in", "读使能缺失", "请把控制总线的读信号接到观察端。"),
+    edge("memory-to-data-bus", "main-memory", "out", "data-bus", "in", "数据上线缺失", "主存读出的数据要放上数据总线。"),
+    edge("data-bus-to-cpu", "data-bus", "out", "cpu-data-in", "in", "数据回送缺失", "数据总线要接回 CPU 数据输入端。"),
+  ],
+  testCases: [
+    { name: "读周期", inputs: { "cpu-address.out": 1, "rw-control.out": 1 }, expected: { "cpu-data-in.in": 1, "read-observe.in": 1 } },
+    { name: "未发读命令", inputs: { "cpu-address.out": 1, "rw-control.out": 0 }, expected: { "cpu-data-in.in": 1, "read-observe.in": 0 } },
+  ],
+};
+
+export const IO_TRANSFER_CIRCUIT = {
+  id: "io-transfer",
+  title: "I/O 数据传送",
+  goal: "连接输入设备、I/O 接口、数据缓冲寄存器和 CPU 数据总线，完成一次程序查询方式的输入传送。",
+  nodes: [
+    inputNode("input-device", "输入设备", 50, 130, "数据"),
+    componentNode("io-interface", "buffer", "I/O接口", 250, 130, [inPort("in", "数据"), outPort("out", "数据")]),
+    componentNode("data-buffer", "buffer", "数据缓冲寄存器", 470, 130, [inPort("in", "数据"), outPort("out", "数据")]),
+    componentNode("cpu-data-bus", "buffer", "CPU数据总线", 690, 130, [inPort("in", "数据"), outPort("out", "数据")]),
+    outputNode("memory-buffer", "主存缓冲区", 900, 130, "写入"),
+    inputNode("io-status", "I/O状态标志", 250, 310, "Ready"),
+    outputNode("poll-observe", "CPU查询观察", 470, 310, "查询"),
+  ],
+  requiredEdges: [
+    edge("device-to-interface", "input-device", "out", "io-interface", "in", "设备入接口缺失", "外设数据必须先进入 I/O 接口。"),
+    edge("interface-to-buffer", "io-interface", "out", "data-buffer", "in", "缓冲路径缺失", "接口收到的数据要先放入数据缓冲寄存器。"),
+    edge("status-to-poll", "io-status", "out", "poll-observe", "in", "状态查询缺失", "CPU 需要查询状态标志确认数据就绪。"),
+    edge("buffer-to-bus", "data-buffer", "out", "cpu-data-bus", "in", "读数路径缺失", "就绪后缓冲寄存器的数据经数据总线被 CPU 读走。"),
+    edge("bus-to-memory", "cpu-data-bus", "out", "memory-buffer", "in", "写入主存缺失", "CPU 读到的数据要写入主存缓冲区。"),
+  ],
+  testCases: [
+    { name: "就绪并传送", inputs: { "input-device.out": 1, "io-status.out": 1 }, expected: { "memory-buffer.in": 1, "poll-observe.in": 1 } },
+    { name: "未就绪等待", inputs: { "input-device.out": 1, "io-status.out": 0 }, expected: { "memory-buffer.in": 1, "poll-observe.in": 0 } },
+  ],
+};
+
 export const CIRCUIT_CHALLENGES = [
   COMPUTER_COMPONENTS_CIRCUIT,
   PROGRAM_FLOW_CIRCUIT,
@@ -413,6 +494,9 @@ export const CIRCUIT_CHALLENGES = [
   MULTI_ADDER_CIRCUIT,
   MUX_CIRCUIT,
   ALU_CIRCUIT,
+  CPU_DATAPATH_CIRCUIT,
+  SYSTEM_BUS_CIRCUIT,
+  IO_TRANSFER_CIRCUIT,
 ];
 
 export function getCircuitChallenge(id) {

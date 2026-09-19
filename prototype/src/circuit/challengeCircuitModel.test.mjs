@@ -18,7 +18,7 @@ import {
   getCircuitChallenge,
 } from "./challengeCircuitModel.js";
 
-const expectedIds = ["computer-components", "program-flow", "instruction-data", "memory-address", "data-flow", "and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "machine-number", "multi-adder", "mux", "alu"];
+const expectedIds = ["computer-components", "program-flow", "instruction-data", "memory-address", "data-flow", "and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "machine-number", "multi-adder", "mux", "alu", "cpu-datapath", "system-bus", "io-transfer"];
 
 test("结构化模型覆盖基础门到运算器路线关卡", () => {
   assert.deepEqual(CIRCUIT_CHALLENGES.map((challenge) => challenge.id), expectedIds);

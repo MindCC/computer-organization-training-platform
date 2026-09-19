@@ -1565,6 +1565,35 @@ textarea:focus-visible {
   gap: 10px;
 }
 
+.lab-studio-step-chapter-group {
+  display: grid;
+  gap: 10px;
+}
+
+.lab-studio-step-chapter-group + .lab-studio-step-chapter-group {
+  margin-top: 6px;
+}
+
+.lab-studio-step-chapter {
+  color: var(--studio-muted, #5d6b82);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 4px 10px 0;
+}
+
+.record-chapter + .record-chapter {
+  margin-top: 18px;
+}
+
+.record-chapter-title {
+  color: var(--studio-muted, #5d6b82);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  margin: 0 0 8px;
+}
+
 .lab-studio-step {
   align-items: center;
   background: transparent;

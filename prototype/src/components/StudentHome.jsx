@@ -38,7 +38,8 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
   const projectChapters = buildProjectChapters(projects);
   const courseChapters = routeGroups.map((group) => ({
     id: group.id,
-    title: group.title,
+    number: group.number,
+    title: group.shortTitle ?? group.title,
     description: group.description,
     teamName: "课程章节",
     completedCount: group.items.filter((item) => item.status === "completed").length,
@@ -192,7 +193,7 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
                 onClick={() => setExpandedProjectChapters((current) => ({ ...current, [chapter.id]: !expanded }))}
                 type="button"
               >
-                <span className="project-chapter-index">第 {index + 1} 章</span>
+                <span className="project-chapter-index">第 {chapter.number ?? index + 1} 章</span>
                 <span className="project-chapter-title"><strong>{chapter.title}</strong><small>{chapter.teamName}</small></span>
                 <span className="project-chapter-progress">{chapter.completedCount} / {chapter.experiments.length} 已评价</span>
                 {expanded ? <CaretDown size={18} /> : <CaretRight size={18} />}

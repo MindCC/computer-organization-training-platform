@@ -34,7 +34,7 @@ export function buildTeacherQuestModel(routeGroups = [], students = []) {
       const items = stages.filter(stage => group.items.some(item => item.id === stage.id));
       const completed = items.reduce((sum, item) => sum + item.completed, 0);
       const total = totalStudents * items.length;
-      return { id: group.id, title: `第${index + 1}章 ${group.title}`, completed, total, experimentCount: items.length, completionRate: total ? Math.round(completed / total * 100) : 0, items };
+      return { id: group.id, title: `第${group.number ?? index + 1}章 ${group.shortTitle ?? group.title}`, completed, total, experimentCount: items.length, completionRate: total ? Math.round(completed / total * 100) : 0, items };
     }),
     totalStudents,
   };

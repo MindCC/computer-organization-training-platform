@@ -108,7 +108,7 @@ test("学习概览能统计完成率、尝试次数和高频错误", () => {
 
   const summary = summarizeLearning(CHALLENGES, progress);
 
-  assert.equal(summary.totalChallenges, 15);
+  assert.equal(summary.totalChallenges, 18);
   assert.equal(summary.totalAttempts, 1);
   assert.equal(summary.weakSpot, "缺少进位输入");
 });
@@ -121,4 +121,41 @@ test("\u5b58\u50a8\u5668\u8bbf\u95ee\u4eff\u771f\u80fd\u663e\u793a\u5730\u5740\u
   assert.equal(result.outputs.data, 42);
   assert.equal(result.steps.some((step) => step.text.includes("\u5730\u5740\u5bc4\u5b58\u5668MAR")), true);
   assert.equal(result.steps.some((step) => step.text.includes("\u6570\u636e\u5bc4\u5b58\u5668MDR")), true);
+});
+test("CPU 数据通路仿真按五阶段执行所选指令", () => {
+  const result = simulateChallenge("cpu-datapath", { a: 1, b: 1, op: 0 });
+
+  assert.equal(result.outputs.instruction, "ADD");
+  assert.equal(result.outputs.result, 0);
+  for (const stage of ["取指", "译码", "读操作数", "执行", "写回"]) {
+    assert.equal(result.steps.some((step) => step.text.includes(stage)), true, `缺少阶段：${stage}`);
+  }
+
+  const andResult = simulateChallenge("cpu-datapath", { a: 1, b: 1, op: 2 });
+  assert.equal(andResult.outputs.instruction, "AND");
+  assert.equal(andResult.outputs.result, 1);
+});
+
+test("三总线仿真区分读周期与写周期的数据回送", () => {
+  const readResult = simulateChallenge("system-bus", { address: 101, select: 0 });
+  assert.equal(readResult.outputs.data, 5);
+  assert.equal(readResult.outputs.read, 1);
+  assert.equal(readResult.steps.some((step) => step.text.includes("地址总线")), true);
+  assert.equal(readResult.steps.some((step) => step.text.includes("数据总线")), true);
+
+  const writeResult = simulateChallenge("system-bus", { address: 101, select: 1 });
+  assert.equal(writeResult.outputs.data, 0);
+  assert.equal(writeResult.outputs.read, 0);
+});
+
+test("I/O 传送仿真体现程序查询的就绪等待", () => {
+  const readyResult = simulateChallenge("io-transfer", { a: 1 });
+  assert.equal(readyResult.outputs.ready, 1);
+  assert.equal(readyResult.outputs.data, 1);
+  assert.equal(readyResult.steps.some((step) => step.text.includes("主存缓冲区")), true);
+
+  const waitingResult = simulateChallenge("io-transfer", { a: 0 });
+  assert.equal(waitingResult.outputs.ready, 0);
+  assert.equal(waitingResult.outputs.data, 0);
+  assert.equal(waitingResult.steps.some((step) => step.text.includes("继续循环查询")), true);
 });
