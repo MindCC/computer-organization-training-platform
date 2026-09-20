@@ -32,7 +32,9 @@ export default defineConfig({
       allow: [searchForWorkspaceRoot(process.cwd()), realpathSync(path.resolve("node_modules"))],
     },
     proxy: {
-      "/api": apiProxyTarget,
+      // changeOrigin: false 保留浏览器原始 Host（5173），
+      // 让后端 CSRF 的 Origin 校验能匹配前端地址，避免"跨站请求被拒绝"。
+      "/api": { target: apiProxyTarget, changeOrigin: false },
     },
     warmup: {
       clientFiles: ["./src/main.jsx"],

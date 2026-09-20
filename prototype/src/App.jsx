@@ -106,16 +106,40 @@ const LabPage = lazy(() => import("./components/LabPage.jsx")
 
 // 「关卡实验」不再出现在学生导航里：实验一律从课程首页的章节卡片进入，
 // 刷新恢复与课堂任务等场景仍可直接落在实验台视图。
-const navItems = [
-  { id: "home", label: "课程首页", icon: House },
-  { id: "hardware-game", label: "\u786c\u4ef6\u914d\u7f6e\u6311\u6218", icon: Cpu },
-  { id: "records", label: "学习记录", icon: ChartPieSlice },
-  { id: "mistakes", label: "错题本", icon: BookOpen },
-  { id: "notes", label: "学习笔记", icon: Notebook },
-  { id: "assignments", label: "课后作业", icon: Notebook },
-  { id: "projects", label: "小组项目", icon: Target },
-  { id: "courseware", label: "课程课件", icon: BookOpen },
-  { id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" },
+const navGroups = [
+  {
+    id: "learn",
+    label: "课程学习",
+    items: [
+      { id: "home", label: "课程首页", icon: House },
+      { id: "hardware-game", label: "硬件配置挑战", icon: Cpu },
+      { id: "courseware", label: "课程课件", icon: BookOpen },
+    ],
+  },
+  {
+    id: "review",
+    label: "学习复盘",
+    items: [
+      { id: "records", label: "学习记录", icon: ChartPieSlice },
+      { id: "mistakes", label: "错题本", icon: BookOpen },
+      { id: "notes", label: "学习笔记", icon: Notebook },
+    ],
+  },
+  {
+    id: "extend",
+    label: "拓展协作",
+    items: [
+      { id: "assignments", label: "课后作业", icon: Notebook },
+      { id: "projects", label: "小组项目", icon: Target },
+    ],
+  },
+  {
+    id: "manage",
+    label: "教学管理",
+    items: [
+      { id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" },
+    ],
+  },
 ];
 function FeatureLoading({ label }) {
   return <div className="flow-loading">{label}</div>;
@@ -759,7 +783,7 @@ export function App() {
     }
     setShowUserPanel(false);
     setActiveView(view);
-    setStatusMessage(`已切换到${navItems.find((item) => item.id === view)?.label ?? "当前页面"}。`);
+    setStatusMessage(`已切换到${navGroups.flatMap((group) => group.items).find((item) => item.id === view)?.label ?? "当前页面"}。`);
   }
 
   function navigateToChallenge(challengeId) {
@@ -1022,15 +1046,26 @@ export function App() {
 
   return (
     <ErrorBoundary>
-    <div className={activeView === "teacher" ? "app-shell teacher-reference-shell" : "app-shell"}>
+    <div className={activeView === "teacher" ? "app-shell teacher-reference-shell" : activeView === "home" ? "app-shell home-shell" : "app-shell"}>
       <header className="topbar">
         <button className="brand" onClick={() => changeView("home")} type="button">
-          <span className="brand-mark"><Cpu size={30} /></span>
-          <span>
-            <strong>组成原理实训平台</strong>
-            <small>运算器闯关 · 动态信号演示 · 自动纠错</small>
-          </span>
+          <img className="brand-wordmark" src="/home/wordmark.png" alt="芯游记" />
+          <img className="brand-logo" src="/home/logo.png" alt="芯游记" />
         </button>
+
+        <nav className="topbar-nav" aria-label="主导航">
+          {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["home", "teacher", "courseware"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware"].includes(item.id)).map(({ id, icon: Icon, label }) => (
+            <button
+              className={activeView === id ? "topbar-nav-item active" : "topbar-nav-item"}
+              key={id}
+              onClick={() => changeView(id)}
+              type="button"
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
 
         <div className="topbar-actions">
           <button
@@ -1056,6 +1091,7 @@ export function App() {
                 <button onClick={() => setShowSettings(true)} type="button">{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</button>
                 {auth.user?.role === "student" ? <button onClick={() => changeView("records")} type="button">查看学情</button> : null}
                 {auth.user?.role === "student" ? <button onClick={() => changeView("notes")} type="button">打开笔记</button> : null}
+                <button onClick={() => setStatusMessage("帮助中心已准备好：建议先看“如何读懂端口”。")} type="button">帮助支持</button>
                 <button onClick={handleLogout} type="button">退出登录</button>
               </div>
             ) : null}
@@ -1064,43 +1100,6 @@ export function App() {
       </header>
 
       <div className="workspace">
-        <aside className="sidebar">
-          <nav className="sidebar-nav" aria-label="主导航">
-            {navItems.filter((item) => auth.user?.role === "teacher" ? ["home", "teacher", "courseware"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware"].includes(item.id)).map(({ id, icon: Icon, label }) => (
-              <button
-                className={activeView === id ? "nav-item active" : "nav-item"}
-                key={id}
-                onClick={() => changeView(id)}
-                type="button"
-              >
-                <Icon size={22} />
-                <span>{label}</span>
-              </button>
-            ))}
-          </nav>
-
-          {auth.user?.role === "student" ? (
-            <>
-              <section className="sidebar-promo">
-                <img alt="实验插图" src={labIllustration} />
-                <h2>边搭边学，先看懂再通关。</h2>
-                <p>每一关都围绕一个关键概念展开，系统会记录尝试、错误和复盘建议。</p>
-              </section>
-
-              <div className="sidebar-meta">
-                <button className="meta-item" onClick={() => setShowSettings(true)} type="button">
-                  <GearSix size={20} />
-                  <span>学习设置</span>
-                </button>
-                <button className="meta-item" onClick={() => setStatusMessage("帮助中心已准备好：建议先看“如何读懂端口”。")} type="button">
-                  <Lifebuoy size={20} />
-                  <span>帮助支持</span>
-                </button>
-              </div>
-            </>
-          ) : null}
-        </aside>
-
         <main className="dashboard">
           <Suspense fallback={<FeatureLoading label="正在加载当前功能..." />}>
           <ErrorBoundary key={activeView}>
