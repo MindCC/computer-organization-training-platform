@@ -742,6 +742,19 @@ export function App() {
     }
   }
 
+  async function completeLogin(user, destination) {
+    setAuth({ status: "authenticated", user });
+    await loadRoleData(user);
+    setShowLogin(false);
+    if (user.role === "teacher") {
+      setActiveView("teacher");
+    } else if (destination?.type === "challenge") {
+      openChallenge(destination.challengeId);
+    } else {
+      setActiveView(destination?.view ?? "home");
+    }
+  }
+
   async function handleLogin(event) {
     event.preventDefault();
     setLoginError("");
@@ -749,18 +762,22 @@ export function App() {
       const { user } = await api.login(loginForm);
       const destination = pendingDestinationRef.current;
       pendingDestinationRef.current = null;
-      setAuth({ status: "authenticated", user });
-      await loadRoleData(user);
-      setShowLogin(false);
-      if (user.role === "teacher") {
-        setActiveView("teacher");
-      } else if (destination?.type === "challenge") {
-        openChallenge(destination.challengeId);
-      } else {
-        setActiveView(destination?.view ?? "home");
-      }
+      await completeLogin(user, destination);
     } catch (error) {
       setLoginError(error.message);
+    }
+  }
+
+  // 一键演示登录：直接使用演示学生账号进入（含演示班级学情数据）
+  async function handleDemoLogin() {
+    setLoginError("");
+    try {
+      const { user } = await api.login({ username: "demo2026001", password: "Student123!" });
+      const destination = pendingDestinationRef.current;
+      pendingDestinationRef.current = null;
+      await completeLogin(user, destination);
+    } catch (error) {
+      setLoginError("演示账号登录失败：" + error.message);
     }
   }
 
@@ -1182,6 +1199,7 @@ export function App() {
         loginError={loginError}
         onSubmit={handleLogin}
         onBack={returnToGuestHome}
+        onDemoLogin={handleDemoLogin}
       />
     );
   }

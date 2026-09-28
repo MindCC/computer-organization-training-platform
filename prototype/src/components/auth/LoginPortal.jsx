@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Cpu,
   GraduationCap,
+  Lightning,
   PresentationChart,
   Signpost,
 } from "@phosphor-icons/react";
@@ -17,7 +18,7 @@ const routeSteps = [
   { id: "verify", icon: PresentationChart, label: "验证并提交成果" },
 ];
 
-export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onBack }) {
+export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onBack, onDemoLogin }) {
   const [role, setRole] = useState("student");
   const rootRef = useRef(null);
   const copy = buildRoleEntryCopy(role);
@@ -156,6 +157,15 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
             <span>{copy.submitLabel}</span>
             <ArrowRight aria-hidden="true" size={20} weight="bold" />
           </button>
+          {onDemoLogin ? (
+            <button className="demo-login-button" onClick={onDemoLogin} type="button">
+              <Lightning aria-hidden="true" size={19} weight="fill" />
+              <span>
+                <strong>一键体验演示账号</strong>
+                <small>免输入 · 含演示班级学情数据</small>
+              </span>
+            </button>
+          ) : null}
           {onBack ? <button className="ghost-button login-back" onClick={onBack} type="button">先浏览课程</button> : null}
           <small id="login-account-help">{copy.help}。登录遇到问题请联系任课教师。</small>
         </div>

@@ -294,14 +294,57 @@
   transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
+/* 演示账号一键登录：次于主提交按钮的青色描边样式 */
+.login-portal .demo-login-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  border: 1px solid rgba(94, 234, 212, 0.5);
+  border-radius: 9px;
+  color: #a7f3d0;
+  background: rgba(45, 212, 191, 0.09);
+  font-weight: 800;
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.login-portal .demo-login-button > span {
+  display: grid;
+  gap: 1px;
+  text-align: left;
+}
+
+.login-portal .demo-login-button small {
+  color: #6ee7b7;
+  font-weight: 400;
+  opacity: 0.85;
+}
+
+.login-portal .demo-login-button:hover {
+  border-color: rgba(94, 234, 212, 0.9);
+  background: rgba(45, 212, 191, 0.16);
+  box-shadow: 0 0 14px rgba(45, 212, 191, 0.25);
+}
+
+/* 「先浏览课程」此前与面板背景对比过低：补描边、提亮文字、给轻微底色 */
 .login-portal .login-back {
   justify-self: start;
-  padding: 0;
-  color: var(--login-muted);
+  padding: 8px 18px;
+  border: 1px solid var(--login-border-strong);
+  border-radius: 9px;
+  color: var(--login-text);
+  background: rgba(243, 238, 245, 0.07);
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
 }
 
 .login-portal .login-back:hover {
-  color: var(--login-text);
+  color: #ffffff;
+  border-color: var(--login-accent-strong);
+  background: rgba(243, 238, 245, 0.12);
 }
 
 .login-portal .login-submit:hover {
