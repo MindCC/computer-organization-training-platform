@@ -64,6 +64,18 @@ const CHAPTER_CONTENT = {
     discussionQuestions: [
       '"在计算机中，原码和反码不能表示-1。"这种说法是否正确，为什么？',
     ],
+    demos: [
+      {
+        title: "补码的运算 · 课堂互动演示",
+        href: "/demos/twos-complement.html",
+        note: "原码/反码/补码/移码对比、加减竖式动画、门电路视角、随堂练习",
+      },
+      {
+        title: "运算基础（补码与移位）· 合订演示",
+        href: "/demos/arithmetic-basics.html",
+        note: "补码+移位合订：四码对比、补码加减、八种移位、门电路视角",
+      },
+    ],
   },
   ch3: {
     slides: 85,
@@ -122,6 +134,13 @@ const CHAPTER_CONTENT = {
       "DRAM存储器为什么要刷新？有哪几种常用的刷新方法？",
       "计算机存储系统分那几个层次？每一层次主要采用什么存储介质？",
     ],
+    demos: [
+      {
+        title: "存储器系统 · 课堂互动演示",
+        href: "/demos/memory-system.html",
+        note: "层次金字塔、主存读周期、Cache 三种映像模拟器、页式虚拟存储",
+      },
+    ],
   },
   ch5: {
     slides: 52,
@@ -151,6 +170,13 @@ const CHAPTER_CONTENT = {
       "什么是RISC？请简述它的主要特点。",
       "什么是指令周期？什么是机器周期？什么是时钟周期？",
     ],
+    demos: [
+      {
+        title: "指令系统与寻址方式 · 课堂互动演示",
+        href: "/demos/addressing.html",
+        note: "指令格式拆分、八种寻址方式计算器、RISC vs CISC 归类",
+      },
+    ],
   },
   ch6: {
     slides: 106,
@@ -178,6 +204,13 @@ const CHAPTER_CONTENT = {
       "指令和数据都是二进制，CPU如何区分它们？",
       "什么是指令周期？什么是机器周期？什么是时钟周期？三者有什么关系？",
     ],
+    demos: [
+      {
+        title: "CPU 的结构与设计 · 课堂互动演示",
+        href: "/demos/cpu.html",
+        note: "数据通路五阶段动画、多级时序嵌套、节拍控制信号矩阵、中断流程",
+      },
+    ],
   },
   ch7: {
     slides: 67,
@@ -204,6 +237,13 @@ const CHAPTER_CONTENT = {
     discussionQuestions: [
       "比较单总线、双总线和多总线结构的性能特点。",
       "为什么要设置总线判优控制？常见的集中式总线控制有几种？",
+    ],
+    demos: [
+      {
+        title: "系统总线 · 课堂互动演示",
+        href: "/demos/bus.html",
+        note: "三总线读写周期、判优三法动画（链式/计数器/独立请求）、异步握手",
+      },
     ],
   },
   ch8: {
@@ -234,6 +274,13 @@ const CHAPTER_CONTENT = {
     discussionQuestions: [
       "什么是中断？中断技术给计算机系统带来了什么作用？",
       "DMA方式与程序中断方式的主要区别是什么？",
+    ],
+    demos: [
+      {
+        title: "输入输出系统 · 课堂互动演示",
+        href: "/demos/io.html",
+        note: "程序查询空转统计、中断时间线对比、DMA 三阶段与周期挪用",
+      },
     ],
   },
 };

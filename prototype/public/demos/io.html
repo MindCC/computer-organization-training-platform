@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>输入输出系统 · 课堂互动演示</title>
+<style>
+  :root {
+    --bg0: #050c22; --bg1: #0a1738;
+    --panel: rgba(10, 23, 56, 0.82);
+    --line: rgba(56, 132, 255, 0.28);
+    --text: #e6f0ff; --muted: #8ea3c8; --dim: #5d7099;
+    --cyan: #38bdf8; --cyan-soft: #7dd3fc; --teal: #2dd4bf;
+    --violet: #a78bfa; --amber: #fbbf24; --red: #f87171; --green: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 520px at 85% -10%, rgba(56, 132, 255, 0.16), transparent 62%),
+      radial-gradient(800px 480px at 5% 112%, rgba(45, 212, 191, 0.10), transparent 55%),
+      linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 55%, var(--bg0) 100%);
+    min-height: 100vh; overflow-x: hidden;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(56,132,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(56,132,255,0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 78%);
+  }
+  .app { position: relative; max-width: 1440px; margin: 0 auto; padding: 18px 24px 26px; }
+
+  header { text-align: center; padding: 6px 0 14px; }
+  .kicker { display: inline-block; font-size: 13px; letter-spacing: 0.22em; color: var(--cyan-soft); border: 1px solid rgba(125,211,252,0.4); border-radius: 999px; padding: 4px 16px; background: rgba(56,132,255,0.08); }
+  h1 { margin-top: 10px; font-size: 40px; letter-spacing: 0.08em; background: linear-gradient(90deg, #7dd3fc, #38bdf8 45%, #2dd4bf); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 34px rgba(56,189,248,0.3); }
+  .subtitle { margin-top: 6px; color: var(--muted); font-size: 15px; letter-spacing: 0.05em; }
+  .mode-tabs { margin-top: 14px; display: inline-flex; gap: 6px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: rgba(8,18,46,0.75); flex-wrap: wrap; justify-content: center; }
+  .mode-tabs button { border: none; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 700; letter-spacing: 0.03em; color: var(--muted); background: transparent; cursor: pointer; transition: all 160ms ease; }
+  .mode-tabs button:hover { color: var(--text); }
+  .mode-tabs button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); box-shadow: 0 0 20px rgba(56,189,248,0.45); }
+
+  main { display: grid; grid-template-columns: 290px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: inset 0 0 32px rgba(15,36,82,0.45), 0 10px 34px rgba(2,8,26,0.4); }
+  .panel h2 { font-size: 16px; letter-spacing: 0.08em; color: #cfe6ff; }
+  .panel h2 small { color: var(--dim); font-size: 12px; font-weight: 400; margin-left: 8px; }
+
+  .side { padding: 16px; display: grid; gap: 14px; }
+  .presets h3 { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .preset-list { display: grid; gap: 6px; }
+  .preset-btn { text-align: left; border: 1px solid rgba(56,132,255,0.3); border-radius: 10px; padding: 8px 12px; background: rgba(13,30,66,0.6); color: #bfe0ff; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
+  .preset-btn:hover { border-color: rgba(125,211,252,0.8); box-shadow: 0 0 14px rgba(56,189,248,0.25); transform: translateX(3px); }
+  .preset-btn small { display: block; color: var(--dim); font-weight: 400; margin-top: 1px; }
+  .preset-btn.warn { border-color: rgba(248,113,113,0.45); color: #fecaca; }
+  .side-note { font-size: 12.5px; color: var(--dim); line-height: 1.75; }
+
+  .stage { padding: 18px 20px 22px; min-height: 560px; display: grid; gap: 14px; align-content: start; }
+  .stage-title { display: flex; align-items: baseline; justify-content: space-between; }
+  .stage-title h2 { font-size: 17px; }
+  .stage-title .st-sub { color: var(--dim); font-size: 12.5px; }
+  .zone { display: grid; gap: 10px; border: 1px dashed rgba(56,132,255,0.3); border-radius: 12px; padding: 12px 14px; transition: border-color 300ms ease, box-shadow 300ms ease; }
+  .zone-title { font-size: 13px; font-weight: 700; color: var(--cyan-soft); letter-spacing: 0.08em; }
+  .zone.zone-current { border-color: rgba(125,211,252,0.7); box-shadow: 0 0 18px rgba(56,189,248,0.25); }
+  .enc-note { text-align: center; font-size: 12.5px; color: var(--dim); }
+  .formula-strip { min-height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(56,132,255,0.08); border: 1px solid rgba(56,132,255,0.22); font-family: "Consolas", monospace; font-size: 15.5px; color: var(--cyan-soft); padding: 6px 12px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  .narrator { padding: 16px; display: grid; gap: 12px; position: sticky; top: 14px; }
+  .step-card { border: 1px solid rgba(125,211,252,0.35); border-radius: 12px; padding: 14px; background: rgba(56,132,255,0.07); min-height: 120px; }
+  .step-count { font-size: 12px; color: var(--dim); letter-spacing: 0.14em; }
+  .step-text { margin-top: 8px; font-size: 15.5px; line-height: 1.65; color: #dbeafe; }
+  .step-text b { color: var(--amber); }
+  .banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.6; display: none; }
+  .banner.show { display: block; animation: popIn 320ms ease; }
+  .banner.hit { border: 1px solid rgba(52,211,153,0.6); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .banner.miss { border: 1px solid rgba(248,113,113,0.6); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .banner.evict { border: 1px solid rgba(251,191,36,0.6); background: rgba(60,45,8,0.45); color: #fde68a; }
+  @keyframes popIn { 0% { transform: scale(0.92); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .controls button { border: 1px solid rgba(56,132,255,0.4); border-radius: 10px; padding: 11px 8px; background: rgba(13,30,66,0.7); color: #bfe0ff; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .controls button:hover:not(:disabled) { border-color: rgba(125,211,252,0.85); box-shadow: 0 0 14px rgba(56,189,248,0.3); }
+  .controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .controls .play-btn { grid-column: span 2; background: linear-gradient(90deg, rgba(29,78,216,0.8), rgba(37,99,235,0.8)); font-size: 15px; }
+  .speed { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .speed input { flex: 1; accent-color: var(--cyan); }
+  .kbd-hints { font-size: 11.5px; color: var(--dim); text-align: center; line-height: 1.7; }
+  .insight button { width: 100%; border: 1px solid rgba(251,191,36,0.4); border-radius: 10px; padding: 10px; background: rgba(251,191,36,0.08); color: #fde68a; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .insight-body { margin-top: 8px; font-size: 13.5px; line-height: 1.75; color: #d8c9a3; border-top: 1px dashed rgba(251,191,36,0.3); padding-top: 8px; }
+  .insight-body b { color: var(--amber); }
+  body.quiz-active .controls, body.quiz-active .speed { display: none; }
+
+  .toggle-row { display: flex; justify-content: center; gap: 7px; flex-wrap: wrap; }
+  .toggle-row button { border: 1px solid rgba(56,132,255,0.4); border-radius: 999px; padding: 6px 13px; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .toggle-row button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); }
+  .inline-steps { display: flex; justify-content: center; gap: 10px; padding: 2px 0; flex-wrap: wrap; }
+  .inline-steps button { border: 1px solid rgba(56,132,255,0.45); border-radius: 999px; padding: 8px 18px; background: rgba(13,30,66,0.85); color: #bfe0ff; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .inline-steps button:hover:not(:disabled) { border-color: rgba(125,211,252,0.9); box-shadow: 0 0 14px rgba(56,189,248,0.35); }
+  .inline-steps button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── 流程/时间线 ── */
+  .flow-diagram { display: grid; grid-template-columns: repeat(4, auto); justify-content: center; gap: 10px; align-items: center; }
+  .flow-node { border: 1px solid rgba(56,132,255,0.4); border-radius: 10px; padding: 9px 14px; background: rgba(13,30,66,0.7); text-align: center; font-size: 13px; font-weight: 700; color: #dbeafe; transition: all 200ms ease; }
+  .flow-node small { display: block; font-size: 10px; font-weight: 400; color: var(--dim); margin-top: 2px; }
+  .flow-node.active { border-color: var(--amber); color: #fde68a; box-shadow: 0 0 14px rgba(251,191,36,0.45); }
+  .flow-node.done { border-color: rgba(52,211,153,0.6); color: #a7f3d0; }
+  .flow-arrow { color: var(--dim); font-size: 18px; text-align: center; }
+  .flow-arrow.active { color: var(--amber); animation: arrowNudge 800ms ease-in-out infinite; }
+  @keyframes arrowNudge { 0%,100% { transform: translateX(0); opacity: 0.5; } 50% { transform: translateX(4px); opacity: 1; } }
+  .flow-loop { grid-column: 1 / -1; text-align: center; font-size: 12px; color: var(--dim); }
+  .flow-loop.active { color: var(--amber); font-weight: 800; }
+
+  .timeline { display: grid; gap: 5px; }
+  .tl-bar-row { display: grid; grid-template-columns: 88px 1fr; align-items: center; gap: 8px; font-size: 11.5px; color: var(--dim); }
+  .tl-bar { display: flex; gap: 2px; height: 24px; }
+  .tl-seg { border-radius: 4px; flex: 1; display: grid; place-items: center; font-size: 9px; color: rgba(255,255,255,0.75); transition: all 200ms ease; }
+  .tl-seg.work { background: rgba(34,211,238,0.35); border: 1px solid rgba(34,211,238,0.6); }
+  .tl-seg.waste { background: rgba(251,191,36,0.25); border: 1px solid rgba(251,191,36,0.55); }
+  .tl-seg.isr { background: rgba(167,139,250,0.3); border: 1px solid rgba(167,139,250,0.6); }
+  .tl-seg.dma { background: rgba(52,211,153,0.25); border: 1px solid rgba(52,211,153,0.55); }
+  .tl-seg.now { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .util-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .util-card { border: 1px solid rgba(56,132,255,0.3); border-radius: 12px; padding: 10px; text-align: center; background: rgba(13,30,66,0.55); }
+  .util-card h4 { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .util-card strong { font-size: 24px; font-variant-numeric: tabular-nums; }
+  .util-card small { display: block; color: var(--dim); font-size: 11px; margin-top: 3px; }
+
+  /* ── DMA ── */
+  .dma-flow { display: grid; grid-template-columns: 110px 26px 130px 26px 130px 26px 110px; align-items: center; justify-content: center; gap: 6px; }
+  .dma-block { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; }
+  .dma-chunk { width: 18px; height: 24px; border-radius: 4px; border: 1px solid rgba(56,132,255,0.5); background: rgba(13,30,66,0.8); transition: all 300ms ease; }
+  .dma-chunk.moving { border-color: var(--amber); background: rgba(251,191,36,0.4); box-shadow: 0 0 10px rgba(251,191,36,0.6); }
+  .dma-chunk.done { border-color: var(--green); background: rgba(52,211,153,0.3); }
+  .dmac-reg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .dmac-card { border: 1px solid rgba(167,139,250,0.4); border-radius: 10px; padding: 8px; text-align: center; background: rgba(167,139,250,0.07); }
+  .dmac-card span { display: block; font-size: 11px; color: var(--dim); }
+  .dmac-card strong { font-size: 18px; color: #e9e2ff; font-variant-numeric: tabular-nums; }
+
+  /* ── 练习 ── */
+  .quiz-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
+  .quiz-head strong { color: var(--cyan-soft); font-size: 16px; }
+  .quiz-streak { color: var(--amber); font-weight: 700; }
+  .quiz-q { font-size: 19px; font-weight: 700; line-height: 1.6; color: #eaf4ff; }
+  .quiz-q code { font-family: "Consolas", monospace; font-size: 19px; color: var(--amber); background: rgba(251,191,36,0.1); padding: 2px 10px; border-radius: 8px; }
+  .quiz-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .quiz-choice { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(56,132,255,0.35); border-radius: 12px; padding: 11px 13px; background: rgba(13,30,66,0.6); color: #dbeafe; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 140ms ease; text-align: left; }
+  .quiz-choice .qc-key { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(125,211,252,0.5); color: var(--cyan-soft); font-size: 13px; font-weight: 800; flex: none; }
+  .quiz-choice:hover { border-color: rgba(125,211,252,0.8); }
+  .quiz-choice.selected { border-color: var(--cyan-soft); background: rgba(56,132,255,0.16); }
+  .quiz-choice.correct { border-color: var(--green); background: rgba(52,211,153,0.14); color: #d1fae5; }
+  .quiz-choice.wrong { border-color: var(--red); background: rgba(248,113,113,0.12); color: #fecaca; }
+  .quiz-choice:disabled { cursor: default; }
+  .quiz-feedback { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.65; display: none; }
+  .quiz-feedback.show { display: block; animation: popIn 320ms ease; }
+  .quiz-feedback.ok { border: 1px solid rgba(52,211,153,0.55); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .quiz-feedback.bad { border: 1px solid rgba(248,113,113,0.55); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .quiz-actions { display: flex; justify-content: center; gap: 10px; }
+  .quiz-actions button { border: 1px solid rgba(56,132,255,0.5); border-radius: 999px; padding: 10px 28px; background: linear-gradient(90deg, rgba(29,78,216,0.85), rgba(37,99,235,0.85)); color: #eaf4ff; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .quiz-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .quiz-actions .ghost-action { background: rgba(13,30,66,0.7); }
+
+  @media (max-width: 1180px) {
+    main { grid-template-columns: 1fr; }
+    .narrator { position: static; }
+    .dma-flow { grid-template-columns: 1fr; }
+    h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="kicker">第八章 · 输入输出系统</span>
+    <h1>输入输出系统</h1>
+    <p class="subtitle">I/O System —— 程序查询 · 程序中断 · DMA 传送</p>
+    <nav class="mode-tabs" id="modeTabs">
+      <button data-mode="polling" class="active">程序查询</button>
+      <button data-mode="interrupt">程序中断</button>
+      <button data-mode="dma">DMA 传送</button>
+      <button data-mode="compare">三方式对比</button>
+      <button data-mode="quiz">课堂练习</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="side panel" aria-label="场景面板">
+      <h2>场景与动线<small></small></h2>
+      <div class="presets"><div class="preset-list" id="presetList"></div></div>
+      <div class="side-note" id="sideNote"></div>
+    </section>
+
+    <section class="stage panel" aria-label="演示舞台" id="stage"></section>
+
+    <aside class="narrator panel" aria-label="讲解与控制">
+      <div class="step-card">
+        <div class="step-count" id="stepCount"></div>
+        <div class="step-text" id="stepText"></div>
+      </div>
+      <div class="banner" id="banner"></div>
+      <div class="controls">
+        <button class="play-btn" id="playBtn">▶ 自动播放</button>
+        <button id="prevBtn">← 上一步</button>
+        <button id="nextBtn">下一步 →</button>
+        <button id="resetBtn" style="grid-column: span 2;">↺ 重置本模式</button>
+      </div>
+      <div class="speed">
+        <span>速度</span>
+        <input type="range" id="speedRange" min="0.5" max="2.5" step="0.25" value="1">
+        <span id="speedLabel">1×</span>
+      </div>
+      <div class="kbd-hints">空格 播放/暂停 · ← / → 步进 · 1 ~ 5 切换模式 · R 重置</div>
+      <div class="insight">
+        <button id="insightToggle">💡 三种方式的本质区别是什么？</button>
+        <div class="insight-body" id="insightBody" hidden>
+          都在回答同一个问题：<b>CPU 什么时候、以什么代价把数据搬进/搬出主存</b>。<br>
+          · <b>程序查询</b>：CPU 死等，反复问「好了没」——最简单，CPU 时间全浪费在等待上；<br>
+          · <b>程序中断</b>：CPU 先忙别的，设备好了主动「按门铃」——省出等待时间，但每传一个数据都要中断一次（保护/恢复现场有开销）；<br>
+          · <b>DMA</b>：雇个搬运工（DMAC）整包代劳——CPU 只做开头布置和结尾验收，中间整块传送不插手，还能被「周期挪用」悄悄借用主存。
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ───────────────────────── 基础工具 ───────────────────────── */
+function randomInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function shuffled(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/* ───────────────────────── 全局状态 ───────────────────────── */
+const state = { mode: "polling", stepIndex: 0, playing: false, speed: 1, timer: null };
+const pollState = { readyAt: 6, poll: 0, phase: "idle", running: false };
+const irqIoState = { step: -1, running: false };
+const dmaState = { phase: 0, block: 0, running: false, count: 8 };
+const quizState = { total: 0, correct: 0, streak: 0, best: 0, current: null, answered: false, selected: -1 };
+
+const DMA_TOTAL = 8;
+
+/* ───────────────────────── 场景面板 ───────────────────────── */
+const presetList = document.getElementById("presetList");
+const sideNote = document.getElementById("sideNote");
+
+function renderPresets() {
+  presetList.innerHTML = "";
+  sideNote.textContent = "";
+  const addBtn = (label, note, warn, onClick) => {
+    const btn = document.createElement("button");
+    btn.className = "preset-btn" + (warn ? " warn" : "");
+    btn.innerHTML = `${label}<small>${note}</small>`;
+    btn.addEventListener("click", onClick);
+    presetList.appendChild(btn);
+  };
+  if (state.mode === "polling") {
+    addBtn("设备第 3 次就绪", "查 3 次就看到数据", false, () => pollSet(3));
+    addBtn("设备第 6 次就绪", "过半时间都在空等", true, () => pollSet(6));
+    addBtn("设备第 10 次就绪", "CPU 几乎全在空转！", true, () => pollSet(10));
+    addBtn("▶ 运行查询循环", "看 CPU 空转多少次", false, () => pollRun());
+    sideNote.innerHTML = "同屏动线：① 选设备第几次就绪 ② 运行查询循环 ③ 看琥珀色空转段与「有效工作率」。";
+  } else if (state.mode === "interrupt") {
+    addBtn("▶ 演示中断传送", "主程序被打断一次再继续", false, () => irqIoRun());
+    addBtn("和查询比一比", "同样的设备，CPU 时间差多少", false, () => { state.mode = "compare"; syncTabs(); refreshScenario(0); });
+    sideNote.innerHTML = "CPU 先跑主程序；设备就绪后按门铃（IRQ），CPU 暂停→服务→返回。注意时间线上浪费只有一小段。";
+  } else if (state.mode === "dma") {
+    addBtn("▶ 运行 DMA 三阶段", "预处理→传送→后处理", false, () => dmaRun());
+    addBtn("单步看阶段", "逐阶段推进", false, () => dmaStep());
+    sideNote.innerHTML = "预处理由 CPU 布置 DMAC；传送阶段 DMAC 接管总线（CPU 并行干活）；计数归零后中断通知 CPU 收尾。";
+  } else if (state.mode === "compare") {
+    addBtn("▶ 并排播放三条时间线", "同一任务三种方式的 CPU 开销", false, () => compareRun());
+    sideNote.innerHTML = "同一份 I/O 任务：查询满屏琥珀（空等）、中断只有一小段服务、DMA 只剩首尾——结论自己看。";
+  } else if (state.mode === "quiz") {
+    presetList.innerHTML = `<div class="side-note" style="text-align:left">题型：方式识别 · DMA 阶段 · 周期挪用 · 效率排序 · 概念题<br><br>答对立即解析，连对有 🔥 标记。</div>`;
+  }
+}
+
+/* ───────────────────────── 程序查询模式 ───────────────────────── */
+function buildPollingScenario() {
+  const steps = [
+    { zone: 0, text: `程序查询：CPU 主动循环问设备「好了没」。<b>读状态口 → 就绪？ → 没好就接着问 → 好了才读数据口</b>。设备第 N 次才就绪时，前 N−1 次查询全是空转。`, formula: `循环查询 = CPU 死等` },
+    { zone: 0, text: `看「有效工作率」：就绪越晚，琥珀色空转段越长。这就是程序查询的致命伤——<b>CPU 把大量时间花在「等」而不是「算」上</b>。`, formula: `有效工作率 = 1 / (查询次数)` },
+  ];
+  return { kind: "polling", zoneBased: true, steps };
+}
+
+function pollSet(n) {
+  pollState.readyAt = n;
+  pollState.poll = 0;
+  pollState.phase = "idle";
+  renderPollingStage();
+}
+
+function pollRun() {
+  if (pollState.running) return;
+  pollState.running = true;
+  pollState.poll = 0;
+  pollState.phase = "polling";
+  renderPollingStage();
+  const tick = () => {
+    pollState.poll += 1;
+    renderPollingStage();
+    if (pollState.poll < pollState.readyAt) {
+      setTimeout(tick, 700 / state.speed);
+    } else {
+      pollState.phase = "transfer";
+      pollState.running = false;
+      renderPollingStage();
+      setBanner(`第 ${pollState.poll} 次查询终于就绪，读出数据。CPU 有效工作率仅 <b>1/${pollState.poll} ≈ ${Math.round(100 / pollState.poll)}%</b>——其余全在空转。`, "evict");
+    }
+  };
+  setTimeout(tick, 500 / state.speed);
+}
+
+function renderPollingStage() {
+  const { readyAt, poll, phase } = pollState;
+  const nodes = [
+    { key: "read-status", name: "读状态口", sub: "查 Ready 标志" },
+    { key: "check", name: "就绪？", sub: "判断标志位" },
+    { key: "read-data", name: "读数据口", sub: "取走数据" },
+    { key: "done", name: "完成", sub: "交给 CPU 使用" },
+  ];
+  const activeNode = phase === "polling" ? (poll % 2 === 0 ? 1 : 0) : phase === "transfer" ? (poll >= readyAt ? 2 : 2) : -1;
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>程序查询方式</h2><span class="st-sub">设备第 ${readyAt} 次查询就绪 · 已查 ${poll} 次</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">① 设备就绪时机（区内选择）</div>
+      <div class="toggle-row" id="pollReadyRow">
+        ${[1, 3, 6, 10].map((n) => `<button data-ready="${n}" class="${readyAt === n ? "active" : ""}">第 ${n} 次就绪</button>`).join("")}
+      </div>
+      <div class="zone-title">② 查询循环</div>
+      <div class="flow-diagram">
+        <div class="flow-node ${activeNode === 0 ? "active" : poll > readyAt ? "done" : ""}">读状态口<small>读 Ready 标志</small></div>
+        <div class="flow-arrow ${phase === "polling" ? "active" : ""}">→</div>
+        <div class="flow-node ${activeNode === 1 ? "active" : ""}">就绪？<small>检查标志位</small></div>
+        <div class="flow-arrow ${phase === "polling" ? "active" : ""}">→</div>
+        <div class="flow-node ${activeNode === 2 ? "active" : phase === "transfer" ? "active" : ""}">读数据口<small>取走数据</small></div>
+        <div class="flow-arrow">→</div>
+        <div class="flow-node ${phase === "transfer" ? "active" : ""}">完成<small>交给 CPU</small></div>
+        <div class="flow-loop ${phase === "polling" ? "active" : ""}">↺ 未就绪：返回继续查询（已循环 ${Math.max(0, poll - (phase === "transfer" ? 1 : 0))} 次）</div>
+      </div>
+      <div class="inline-steps">
+        <button id="pollRunBtn" ${pollState.running ? "disabled" : ""}>▶ 运行查询循环</button>
+        <button id="pollResetBtn">↺ 重置</button>
+      </div>
+      <div class="zone-title">③ CPU 时间账单</div>
+      <div class="timeline">
+        <div class="tl-bar-row"><span>时间线</span>
+          <div class="tl-bar">
+            ${Array.from({ length: readyAt }, (_, i) => `<div class="tl-seg ${i < poll - (phase === "transfer" ? 1 : 0) || (phase === "transfer" && i < readyAt - 1) ? "waste" : i === poll - 1 ? "now waste" : ""}" style="flex:${i === readyAt - 1 ? 1.6 : 1}">${i === readyAt - 1 ? (phase === "transfer" ? "读数据" : "…") : "查询"}</div>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="util-grid">
+        <div class="util-card"><h4>查询次数</h4><strong>${poll}</strong><small>就绪于第 ${readyAt} 次</small></div>
+        <div class="util-card"><h4>空转占比</h4><strong style="color:var(--amber)">${poll ? Math.round(((Math.max(0, poll - 1)) / poll) * 100) : 0}%</strong><small>琥珀段全是浪费</small></div>
+        <div class="util-card"><h4>有效工作率</h4><strong style="color:var(--green)">${poll ? Math.round(100 / poll) : 100}%</strong><small>只有最后一次在干活</small></div>
+      </div>
+    </div>`;
+
+  document.getElementById("pollReadyRow").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-ready]");
+    if (btn) pollSet(Number(btn.dataset.ready));
+  });
+  document.getElementById("pollRunBtn").addEventListener("click", pollRun);
+  document.getElementById("pollResetBtn").addEventListener("click", () => pollSet(pollState.readyAt));
+}
+
+/* ───────────────────────── 程序中断模式 ───────────────────────── */
+function buildInterruptIoScenario() {
+  const steps = [
+    { zone: 0, text: `程序中断：CPU 不傻等——<b>先跑主程序，设备就绪后主动发中断请求（IRQ）</b>。CPU 暂停当前程序，按中断流程（关中断→保存断点→服务→恢复→返回）读完数据，再接着跑。`, formula: `设备按门铃 · CPU 随叫随到` },
+    { zone: 0, text: `和查询比：同样第 6 个时刻就绪，<b>查询把 6 段全耗在空转，中断只花 1 小段在服务上</b>——时间线上的琥珀面积就是省下的 CPU 时间。`, formula: `等待时间 ≈ 0 · 开销 = 中断服务一次` },
+  ];
+  return { kind: "interrupt", zoneBased: true, steps };
+}
+
+const IRQ_STEPS_LOCAL = [
+  { key: "work1", text: "CPU 运行主程序（设备后台准备数据）", seg: "work" },
+  { key: "irq", text: "设备就绪 → 发 IRQ 中断请求", seg: "irq" },
+  { key: "respond", text: "关中断、保存断点，转入服务程序", seg: "isr" },
+  { key: "service", text: "中断服务：读数据口取数据", seg: "isr" },
+  { key: "return", text: "恢复现场、开中断，返回断点继续", seg: "work" },
+];
+
+function irqIoRun() {
+  if (irqIoState.running) return;
+  irqIoState.running = true;
+  irqIoState.step = 0;
+  renderInterruptIoStage();
+  const tick = () => {
+    irqIoState.step += 1;
+    renderInterruptIoStage();
+    if (irqIoState.step < IRQ_STEPS_LOCAL.length) {
+      setTimeout(tick, 1200 / state.speed);
+    } else {
+      irqIoState.running = false;
+      renderInterruptIoStage();
+      setBanner(`中断传送完成：主程序几乎没停——<b>CPU 浪费 ≈ 一段中断服务的时间</b>，其余时间都在干正事。`, "hit");
+    }
+  };
+  setTimeout(tick, 700 / state.speed);
+}
+
+function renderInterruptIoStage() {
+  const step = irqIoState.step;
+  stage.innerHTML = `
+    <div class="stage-title"><h2>程序中断方式</h2><span class="st-sub">设备就绪主动按门铃 · CPU 不空等</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">中断传送流程</div>
+      <div class="flow-diagram" style="grid-template-columns:repeat(5,auto)">
+        ${IRQ_STEPS_LOCAL.map((s, i) => `
+          <div class="flow-node ${i === step ? "active" : i < step ? "done" : ""}">${s.text.split("（")[0].split("，")[0]}<small>${s.text}</small></div>
+          ${i < IRQ_STEPS_LOCAL.length - 1 ? `<div class="flow-arrow ${i === step - 1 ? "active" : ""}">→</div>` : ""}`).join("")}
+      </div>
+      <div class="inline-steps">
+        <button id="irqIoRunBtn" ${irqIoState.running ? "disabled" : ""}>▶ 演示中断传送</button>
+        <button id="irqIoResetBtn">↺ 重置</button>
+      </div>
+      <div class="zone-title">CPU 时间线（与查询同场景：第 6 段就绪）</div>
+      <div class="timeline">
+        <div class="tl-bar-row"><span>程序中断</span>
+          <div class="tl-bar">
+            ${Array.from({ length: 7 }, (_, i) => {
+              const cls = i < 5 ? "work" : i === 5 ? "isr" : "work";
+              const now = (step <= 1 && i < 5) || (step >= 2 && step <= 3 && i === 5) || (step >= 4 && i === 6);
+              return `<div class="tl-seg ${cls} ${now ? "now" : ""}" style="flex:${i === 5 ? 1 : 2}">${i === 5 ? "ISR" : "主程序"}</div>`;
+            }).join("")}
+          </div>
+        </div>
+        <div class="tl-bar-row"><span>程序查询</span>
+          <div class="tl-bar">
+            ${Array.from({ length: 7 }, (_, i) => `<div class="tl-seg ${i < 5 ? "waste" : i === 5 ? "waste" : "work"}" style="flex:${i === 6 ? 1.6 : 1}">${i === 6 ? "读数据" : "查询"}</div>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="util-grid">
+        <div class="util-card"><h4>中断浪费</h4><strong style="color:var(--violet)">≈ 1 段</strong><small>仅中断服务一次</small></div>
+        <div class="util-card"><h4>查询浪费</h4><strong style="color:var(--amber)">≈ 5 段</strong><small>全程空转</small></div>
+        <div class="util-card"><h4>中断适合</h4><strong style="font-size:14px;color:var(--cyan-soft)">低速字符设备</strong><small>键盘/鼠标/串口</small></div>
+      </div>
+    </div>`;
+  document.getElementById("irqIoRunBtn").addEventListener("click", irqIoRun);
+  document.getElementById("irqIoResetBtn").addEventListener("click", () => { irqIoState.step = -1; irqIoState.running = false; renderInterruptIoStage(); });
+}
+
+/* ───────────────────────── DMA 传送模式 ───────────────────────── */
+function buildDmaScenario() {
+  const steps = [
+    { zone: 0, text: `DMA（直接存储器访问）：雇个搬运工。<b>预处理</b>：CPU 把源、目的、字数告诉 DMAC；<b>数据传送</b>：DMAC 接管总线，外设↔主存直传，<b>CPU 同时干别的</b>；<b>后处理</b>：计数归零，DMAC 中断通知 CPU 收尾。`, formula: `预处理 → 传送 → 后处理` },
+    { zone: 0, text: `<b>周期挪用</b>：传送中 DMAC 每传一个字只「偷」一个主存周期——<b>CPU 不当场需要使用主存时全速照跑</b>；撞上了才让一拍。这就是 DMA 比中断还快的原因：连服务程序都不用跑。`, formula: `周期挪用 = 偷一拍，不停机` },
+  ];
+  return { kind: "dma", zoneBased: true, steps };
+}
+
+function dmaStep() {
+  dmaState.phase = Math.min(dmaState.phase + 1, 2);
+  if (dmaState.phase === 1) dmaState.block = 0;
+  renderDmaStage();
+  if (dmaState.phase === 1) dmaTransferPlay();
+}
+
+function dmaTransferPlay() {
+  const tick = () => {
+    if (dmaState.phase !== 1) return;
+    dmaState.block += 1;
+    renderDmaStage();
+    if (dmaState.block < DMA_TOTAL) {
+      setTimeout(tick, 600 / state.speed);
+    } else {
+      dmaState.phase = 2;
+      renderDmaStage();
+      setBanner(`<b>DMA 完成</b>：${DMA_TOTAL} 块数据全部直达主存。CPU 全程只做：预处理布置 + 后处理验收——中间 ${DMA_TOTAL} 块传送零参与。`, "hit");
+    }
+  };
+  setTimeout(tick, 500 / state.speed);
+}
+
+function dmaRun() {
+  dmaState.phase = 0;
+  dmaState.block = 0;
+  renderDmaStage();
+  setTimeout(() => dmaStep(), 1200 / state.speed);
+}
+
+function renderDmaStage() {
+  const { phase, block } = dmaState;
+  const phases = ["预处理", "数据传送", "后处理"];
+  stage.innerHTML = `
+    <div class="stage-title"><h2>DMA 传送方式</h2><span class="st-sub">阶段：${phases[phase]}${phase === 1 ? ` · 已传 ${block}/${DMA_TOTAL} 块` : ""}</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">三阶段流程</div>
+      <div class="flow-diagram" style="grid-template-columns:repeat(5,auto)">
+        ${phases.map((p, i) => `
+          <div class="flow-node ${i === phase ? "active" : i < phase ? "done" : ""}">${p}<small>${["CPU 布置 DMAC", "DMAC 接管直传", "中断通知收尾"][i]}</small></div>
+          ${i < 2 ? `<div class="flow-arrow ${i === phase - 1 ? "active" : ""}">→</div>` : ""}`).join("")}
+      </div>
+      <div class="inline-steps">
+        <button id="dmaRunBtn" ${phase === 1 && block < DMA_TOTAL ? "disabled" : ""}>▶ 运行三阶段</button>
+        <button id="dmaResetBtn">↺ 重置</button>
+      </div>
+      <div class="dmac-reg">
+        <div class="dmac-card"><span>源地址（外设）</span><strong>DEV#0</strong></div>
+        <div class="dmac-card"><span>目的地址（主存）</span><strong>0x2000</strong></div>
+        <div class="dmac-card"><span>剩余字数</span><strong>${DMA_TOTAL - block}</strong></div>
+      </div>
+      <div class="zone-title">传送实况（块流 + CPU 状态）</div>
+      <div class="dma-flow">
+        <div class="flow-node ${phase === 1 ? "active" : ""}">外设缓冲<small>磁盘/网卡</small></div>
+        <div class="flow-arrow ${phase === 1 ? "active" : ""}">→</div>
+        <div class="flow-node ${phase === 1 ? "active" : ""}">DMAC<small>地址+计数</small></div>
+        <div class="flow-arrow ${phase === 1 ? "active" : ""}">→</div>
+        <div class="flow-node ${phase === 1 ? "active" : phase === 2 ? "done" : ""}">主存 0x2000~<small>周期挪用写入</small></div>
+        <div class="flow-arrow" style="opacity:0.4"></div>
+        <div class="flow-node ${phase >= 1 ? "done" : ""}">CPU<small>${phase === 1 ? "并行干别的活" : phase === 2 ? "中断收尾" : "布置 DMAC"}</small></div>
+      </div>
+      <div class="dma-block">
+        ${Array.from({ length: DMA_TOTAL }, (_, i) => `<div class="dma-chunk ${phase === 1 && i === block - 1 ? "moving" : i < block || phase === 2 ? "done" : ""}"></div>`).join("")}
+      </div>
+      <div class="timeline">
+        <div class="tl-bar-row"><span>CPU</span>
+          <div class="tl-bar">
+            <div class="tl-seg work" style="flex:1.2">预处理</div>
+            ${Array.from({ length: DMA_TOTAL }, (_, i) => `<div class="tl-seg ${i < block || phase === 2 ? "work" : ""} ${phase === 1 && i === block - 1 ? "now" : ""}" style="flex:1">干活</div>`).join("")}
+            <div class="tl-seg isr" style="flex:1.2">后处理</div>
+          </div>
+        </div>
+        <div class="tl-bar-row"><span>主存占用</span>
+          <div class="tl-bar">
+            <div class="tl-seg" style="flex:1.2;opacity:0.3">—</div>
+            ${Array.from({ length: DMA_TOTAL }, (_, i) => `<div class="tl-seg ${i < block || phase === 2 ? "dma" : ""}" style="flex:1">挪用1拍</div>`).join("")}
+            <div class="tl-seg" style="flex:1.2;opacity:0.3">—</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById("dmaRunBtn").addEventListener("click", dmaRun);
+  document.getElementById("dmaResetBtn").addEventListener("click", () => { dmaState.phase = 0; dmaState.block = 0; renderDmaStage(); });
+}
+
+/* ───────────────────────── 三方式对比模式 ───────────────────────── */
+function buildCompareScenario() {
+  const steps = [
+    { zone: 0, text: `同一份 I/O 任务，三种方式的 CPU 开销一目了然：<b>查询满屏空转、中断一小段服务、DMA 只剩首尾</b>。点「并排播放」再看一遍。`, formula: `查询 ≪ 中断 ≪ DMA（CPU 代价）` },
+    { zone: 0, text: `选型口诀：<b>低速字符用中断（键盘鼠标）、高速块传送用 DMA（磁盘网卡）、极简设备无条件/查询（LED 灯）</b>。方式没有绝对优劣，只有场景匹配。`, formula: `低速中断 · 高速 DMA · 极简查询` },
+  ];
+  return { kind: "compare", zoneBased: true, steps };
+}
+
+let comparePlayed = false;
+function compareRun() {
+  comparePlayed = true;
+  renderCompareStage();
+}
+
+function renderCompareStage() {
+  const mkSegs = (work, waste, wasteLabel, wasteCls) =>
+    Array.from({ length: 10 }, (_, i) => {
+      const isWaste = i < waste;
+      const cls = isWaste ? wasteCls : "work";
+      const label = isWaste ? wasteLabel : (i === waste ? "完成" : "干活");
+      return `<div class="tl-seg ${cls} ${comparePlayed ? "now" : ""}" style="flex:${isWaste ? 1 : 1.4};transition-delay:${i * 90}ms">${label}</div>`;
+    }).join("");
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>三种传送方式对比</h2><span class="st-sub">同一 I/O 任务 · CPU 时间花在哪</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">CPU 时间线并排</div>
+      <div class="timeline">
+        <div class="tl-bar-row"><span>程序查询</span><div class="tl-bar">${mkSegs(10, 7, "查询", "waste")}</div></div>
+        <div class="tl-bar-row"><span>程序中断</span><div class="tl-bar">${mkSegs(10, 2, "ISR", "isr")}</div></div>
+        <div class="tl-bar-row"><span>DMA</span><div class="tl-bar">${mkSegs(10, 1, "首尾", "dma")}</div></div>
+      </div>
+      <div class="inline-steps"><button id="compareRunBtn">▶ 并排播放</button></div>
+      <div class="util-grid">
+        <div class="util-card"><h4>程序查询</h4><strong style="color:var(--amber)">≈14%</strong><small>CPU 有效工作率最低</small></div>
+        <div class="util-card"><h4>程序中断</h4><strong style="color:var(--violet)">≈80%</strong><small>等待为零，服务有开销</small></div>
+        <div class="util-card"><h4>DMA</h4><strong style="color:var(--green)">≈95%+</strong><small>只剩首尾，传送零参与</small></div>
+      </div>
+      <div class="util-grid">
+        <div class="util-card"><h4>低速字符设备</h4><strong style="font-size:14px;color:var(--cyan-soft)">程序中断</strong><small>键盘 / 鼠标 / 串口</small></div>
+        <div class="util-card"><h4>高速块设备</h4><strong style="font-size:14px;color:var(--cyan-soft)">DMA</strong><small>磁盘 / 网卡 / 显卡</small></div>
+        <div class="util-card"><h4>极简设备</h4><strong style="font-size:14px;color:var(--cyan-soft)">无条件 / 查询</strong><small>LED / 数码管 / 开关</small></div>
+      </div>
+    </div>`;
+  document.getElementById("compareRunBtn").addEventListener("click", compareRun);
+}
+
+/* ───────────────────────── 练习模式 ───────────────────────── */
+const QUIZ_CONCEPTS = [
+  { q: "程序查询方式的最大缺点是？", choices: ["硬件复杂", "CPU 大量时间空等", "不能传大数据", "容易丢数据"], answer: 1, why: "CPU 反复读状态口死等就绪，等待期间一无所获——有效工作率可能只有百分之十几。" },
+  { q: "程序中断方式中，发起数据传送时机通知的是？", choices: ["CPU 定时查询", "设备主动向 CPU 发中断请求", "DMAC", "操作系统轮询"], answer: 1, why: "中断 = 设备就绪后主动「按门铃」，CPU 在此之前可以干别的活。" },
+  { q: "DMA 传送的三个阶段依次是？", choices: ["取指→执行→写回", "预处理→数据传送→后处理", "请求→应答→完成", "查询→服务→返回"], answer: 1, why: "预处理（CPU 布置 DMAC）→ 数据传送（DMAC 直传）→ 后处理（中断通知 CPU 验收）。" },
+  { q: "DMA 数据传送阶段，CPU 在做什么？", choices: ["停机等待", "逐条执行传送指令", "继续做不需要主存的工作", "反复查询状态"], answer: 2, why: "DMAC 接管总线直传，CPU 并行执行其他指令；只有同一拍都要用主存时，CPU 才让一拍（周期挪用）。" },
+  { q: "「周期挪用」指的是？", choices: ["CPU 定期让出全部总线", "DMAC 每传一字借用一个主存周期而 CPU 不停机", "设备定期中断 CPU", "主存定期刷新"], answer: 1, why: "周期挪用（周期窃取）：DMAC 偷用一个主存周期完成一次传送，CPU 几乎无感。" },
+  { q: "高速磁盘的大批量数据传送最适合用？", choices: ["程序查询", "程序中断", "DMA", "无条件传送"], answer: 2, why: "DMA 为高速块传送而生：整包直达主存，CPU 只做首尾；中断逐字节服务跟不上磁盘速度。" },
+  { q: "键盘这类低速字符设备最适合用？", choices: ["DMA", "程序中断", "程序查询", "通道方式"], answer: 1, why: "键盘输入慢而稀疏：中断让 CPU 平时全速工作，有键才服务一次，性价比最高。" },
+  { q: "三种方式按 CPU 参与程度（代价）从高到低排序是？", choices: ["DMA > 中断 > 查询", "查询 > 中断 > DMA", "中断 > 查询 > DMA", "查询 > DMA > 中断"], answer: 1, why: "查询全程空等（最高）、中断只需服务程序（中）、DMA 只剩首尾（最低）。" },
+];
+
+function generateQuestion(forceType = null) {
+  const types = ["method", "dmaphase", "steal", "rank", "concept"];
+  const type = forceType ?? types[randomInt(0, types.length - 1)];
+
+  if (type === "method") {
+    const cases = [
+      { desc: "CPU 反复读状态口，直到设备就绪才读数据", answer: "程序查询" },
+      { desc: "设备就绪后主动向 CPU 发请求，CPU 暂停当前程序来服务", answer: "程序中断" },
+      { desc: "DMAC 接管总线，外设与主存直接传送不经过 CPU", answer: "DMA" },
+    ];
+    const picked = cases[randomInt(0, cases.length - 1)];
+    const choices = shuffled(cases.map((c) => c.answer));
+    return {
+      type, mode: "choice",
+      prompt: `「${picked.desc}」是哪种 I/O 传送方式？`,
+      choices, answer: choices.indexOf(picked.answer),
+      explain: `${picked.answer}：${picked.desc}。`,
+    };
+  }
+  if (type === "dmaphase") {
+    const cases = [
+      { desc: "CPU 把源地址、目的地址、传送字数设置进 DMAC", answer: "预处理" },
+      { desc: "DMAC 接管总线，数据块在外设与主存间直传", answer: "数据传送" },
+      { desc: "计数归零后 DMAC 发中断，CPU 做收尾验收", answer: "后处理" },
+    ];
+    const picked = cases[randomInt(0, cases.length - 1)];
+    const choices = shuffled(cases.map((c) => c.answer));
+    return {
+      type, mode: "choice",
+      prompt: `「${picked.desc}」属于 DMA 的哪个阶段？`,
+      choices, answer: choices.indexOf(picked.answer),
+      explain: `${picked.answer}：${picked.desc}。DMA 三阶段：预处理→数据传送→后处理。`,
+    };
+  }
+  if (type === "steal") {
+    const correct = "DMAC 借用 1 个主存周期，CPU 不停机";
+    const wrongs = ["CPU 停机 1 秒等待", "DMAC 永久占用总线", "CPU 放弃全部指令"];
+    const choices = shuffled([correct, ...wrongs]);
+    return {
+      type, mode: "choice",
+      prompt: "DMA 传送中的「周期挪用」是指什么？",
+      choices, answer: choices.indexOf(correct),
+      explain: "周期挪用 = 每传一个字，DMAC 偷用一个主存周期；CPU 若无访存需求则全速照跑，撞上才停一拍。",
+    };
+  }
+  if (type === "rank") {
+    const correct = "查询 > 中断 > DMA";
+    const wrongs = ["DMA > 中断 > 查询", "中断 > 查询 > DMA", "查询 > DMA > 中断"];
+    const choices = shuffled([correct, ...wrongs]);
+    return {
+      type, mode: "choice",
+      prompt: "三种 I/O 方式按 <b>CPU 代价从高到低</b>排序是？",
+      choices, answer: choices.indexOf(correct),
+      explain: "查询全程空等（最高）、中断只需服务程序（中）、DMA 只剩首尾（最低）。",
+    };
+  }
+  const concept = QUIZ_CONCEPTS[randomInt(0, QUIZ_CONCEPTS.length - 1)];
+  return { type: "concept", mode: "choice", prompt: concept.q, choices: concept.choices, answer: concept.answer, explain: concept.why };
+}
+
+function startQuizRound() {
+  quizState.current = generateQuestion(window.__forceQuizType ?? null);
+  quizState.answered = false;
+  quizState.selected = -1;
+  renderQuizQuestion();
+  updateQuizNarrator();
+}
+function updateQuizNarrator() {
+  stepCountEl.textContent = `答对 ${quizState.correct} / ${quizState.total} · 连对 ${quizState.streak}`;
+  stepTextEl.innerHTML = `题型随机：<b>方式识别 / DMA 阶段 / 周期挪用 / 效率 / 概念</b>。<br>A / B / C / D 作答，Enter 提交。`;
+}
+function renderQuizQuestion() {
+  const q = quizState.current;
+  document.getElementById("quizPrompt").innerHTML = q.prompt;
+  const answerEl = document.getElementById("quizAnswer");
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = "quiz-feedback";
+  feedback.innerHTML = "";
+  document.getElementById("quizSubmit").hidden = false;
+  document.getElementById("quizNext").hidden = true;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  answerEl.innerHTML = `<div class="quiz-choices">${q.choices.map((choice, i) => `
+    <button class="quiz-choice" data-idx="${i}" type="button"><span class="qc-key">${"ABCD"[i]}</span><span>${choice}</span></button>`).join("")}</div>`;
+  answerEl.querySelectorAll(".quiz-choice").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (quizState.answered) return;
+      quizState.selected = Number(btn.dataset.idx);
+      answerEl.querySelectorAll(".quiz-choice").forEach((b) => b.classList.toggle("selected", b === btn));
+    });
+  });
+}
+function submitQuizAnswer() {
+  if (quizState.answered || quizState.selected < 0) return;
+  const q = quizState.current;
+  const isCorrect = quizState.selected === q.answer;
+  document.querySelectorAll(".quiz-choice").forEach((btn) => {
+    const idx = Number(btn.dataset.idx);
+    btn.disabled = true;
+    if (idx === q.answer) btn.classList.add("correct");
+    else if (idx === quizState.selected) btn.classList.add("wrong");
+  });
+  quizState.answered = true;
+  window.__platformLink?.recordQuizAnswer(isCorrect);
+  quizState.total += 1;
+  if (isCorrect) {
+    quizState.correct += 1;
+    quizState.streak += 1;
+    quizState.best = Math.max(quizState.best, quizState.streak);
+  } else {
+    quizState.streak = 0;
+  }
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = `quiz-feedback show ${isCorrect ? "ok" : "bad"}`;
+  feedback.innerHTML = `${isCorrect ? "✅ <b>答对了！</b>" : "❌ <b>不对哦。</b>"} ${q.explain}`;
+  document.getElementById("quizSubmit").hidden = true;
+  document.getElementById("quizNext").hidden = false;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  updateQuizNarrator();
+}
+
+/* ───────────────────────── 舞台渲染 ───────────────────────── */
+const stage = document.getElementById("stage");
+const stepCountEl = document.getElementById("stepCount");
+const stepTextEl = document.getElementById("stepText");
+const bannerEl = document.getElementById("banner");
+const playBtn = document.getElementById("playBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+let scenario = { steps: [], zoneBased: false };
+
+function renderStageShell() {
+  if (scenario.kind === "polling") { renderPollingStage(); return; }
+  if (scenario.kind === "interrupt") { renderInterruptIoStage(); return; }
+  if (scenario.kind === "dma") { renderDmaStage(); return; }
+  if (scenario.kind === "compare") { renderCompareStage(); return; }
+  if (scenario.kind === "quiz") {
+    stage.innerHTML = `
+      <div class="stage-title"><h2>课堂练习 · 随机出题</h2><span class="st-sub">方式 / DMA / 挪用 / 效率 / 概念</span></div>
+      <div class="zone"><div class="quiz-head">
+        <span>得分 <strong id="quizScore">0 / 0</strong></span>
+        <span class="quiz-streak" id="quizStreak"></span>
+        <span>A / B / C / D 键作答 · Enter 提交</span>
+      </div></div>
+      <div class="zone quiz-card" style="gap:14px">
+        <div class="quiz-q" id="quizPrompt"></div>
+        <div id="quizAnswer"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+      </div>
+      <div class="quiz-actions">
+        <button id="quizSubmit" type="button">提交答案</button>
+        <button id="quizNext" class="ghost-action" type="button" hidden>下一题 →</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">独立练习模式：题目随机生成，做完一题点「下一题」</div>`;
+    document.getElementById("quizSubmit").addEventListener("click", submitQuizAnswer);
+    document.getElementById("quizNext").addEventListener("click", startQuizRound);
+  }
+}
+
+function refreshScenario(targetStep = 0) {
+  if (state.mode === "quiz") stopPlaying();
+  document.body.classList.toggle("quiz-active", state.mode === "quiz");
+  scenario = state.mode === "polling" ? buildPollingScenario()
+    : state.mode === "interrupt" ? buildInterruptIoScenario()
+    : state.mode === "dma" ? buildDmaScenario()
+    : state.mode === "compare" ? buildCompareScenario()
+    : { kind: "quiz", steps: [{ text: "", formula: "独立练习模式：题目随机，做完一题点「下一题」" }] };
+  renderStageShell();
+  renderPresets();
+  goToStep(Math.min(targetStep, scenario.steps.length - 1));
+  if (state.mode === "quiz") startQuizRound();
+}
+
+function goToStep(index) {
+  state.stepIndex = Math.max(0, Math.min(index, scenario.steps.length - 1));
+  const step = scenario.steps[state.stepIndex];
+  if (scenario.kind === "quiz") {
+    // 练习自管理
+  } else if (scenario.zoneBased) {
+    stage.querySelectorAll(".logic-zone").forEach((zoneEl, i) => {
+      zoneEl.classList.toggle("zone-current", i === step.zone);
+    });
+  }
+  const formulaEl = document.getElementById("formulaStrip");
+  if (formulaEl && step.formula) formulaEl.textContent = step.formula;
+  if (step.text) stepTextEl.innerHTML = step.text;
+  stepCountEl.textContent = `第 ${state.stepIndex + 1} / ${scenario.steps.length} 步`;
+  prevBtn.disabled = state.stepIndex === 0;
+  nextBtn.disabled = state.stepIndex === scenario.steps.length - 1;
+  if (state.stepIndex === scenario.steps.length - 1) stopPlaying();
+}
+
+function setBanner(html, kind) {
+  if (!kind) { bannerEl.className = "banner"; bannerEl.innerHTML = ""; return; }
+  bannerEl.className = `banner show ${kind}`;
+  bannerEl.innerHTML = html;
+}
+
+function syncTabs() {
+  document.querySelectorAll("#modeTabs button").forEach((b) => b.classList.toggle("active", b.dataset.mode === state.mode));
+}
+
+/* ───────────────────────── 播放控制 ───────────────────────── */
+function setPlayUI(playing) { playBtn.textContent = playing ? "⏸ 暂停" : "▶ 自动播放"; }
+function stopPlaying() { state.playing = false; clearTimeout(state.timer); setPlayUI(false); }
+function scheduleNext() {
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => {
+    if (!state.playing) return;
+    if (state.stepIndex >= scenario.steps.length - 1) { stopPlaying(); return; }
+    goToStep(state.stepIndex + 1);
+    scheduleNext();
+  }, 1800 / state.speed);
+}
+playBtn.addEventListener("click", () => {
+  if (state.playing) { stopPlaying(); return; }
+  state.playing = true;
+  setPlayUI(true);
+  if (state.stepIndex >= scenario.steps.length - 1) goToStep(0);
+  scheduleNext();
+});
+prevBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex - 1); });
+nextBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex + 1); });
+document.getElementById("resetBtn").addEventListener("click", () => { stopPlaying(); refreshScenario(0); });
+
+const speedRange = document.getElementById("speedRange");
+speedRange.addEventListener("input", () => {
+  state.speed = Number(speedRange.value);
+  document.getElementById("speedLabel").textContent = `${state.speed}×`;
+});
+
+document.getElementById("modeTabs").addEventListener("click", (event) => {
+  const btn = event.target.closest("button[data-mode]");
+  if (!btn) return;
+  stopPlaying();
+  state.mode = btn.dataset.mode;
+  syncTabs();
+  refreshScenario(0);
+});
+
+document.getElementById("insightToggle").addEventListener("click", () => {
+  const body = document.getElementById("insightBody");
+  body.hidden = !body.hidden;
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.target.tagName === "INPUT") return;
+  if (event.code === "Space") { event.preventDefault(); playBtn.click(); }
+  if (event.key === "ArrowLeft") prevBtn.click();
+  if (event.key === "ArrowRight") nextBtn.click();
+  if (event.key === "1") document.querySelector('[data-mode="polling"]').click();
+  if (event.key === "2") document.querySelector('[data-mode="interrupt"]').click();
+  if (event.key === "3") document.querySelector('[data-mode="dma"]').click();
+  if (event.key === "4") document.querySelector('[data-mode="compare"]').click();
+  if (event.key === "5") document.querySelector('[data-mode="quiz"]').click();
+  if (state.mode === "quiz" && /^[a-dA-D]$/.test(event.key) && !quizState.answered) {
+    const idx = "abcd".indexOf(event.key.toLowerCase());
+    document.querySelector(`.quiz-choice[data-idx="${idx}"]`)?.click();
+  }
+  if (state.mode === "quiz" && event.key === "Enter") {
+    event.preventDefault();
+    if (quizState.answered) startQuizRound();
+    else submitQuizAnswer();
+  }
+  if (event.key.toLowerCase() === "r") document.getElementById("resetBtn").click();
+});
+
+/* ───────────────────────── 启动 ───────────────────────── */
+refreshScenario(0);
+
+/* 供自动化验收读取（verify.mjs 使用），页面逻辑不依赖 */
+window.__quizState = quizState;
+window.__pollState = pollState;
+window.__irqIoState = irqIoState;
+window.__dmaState = dmaState;
+</script>
+<script src="./platform-link.js"></script>
+</body>
+</html>

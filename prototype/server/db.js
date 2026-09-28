@@ -404,6 +404,20 @@ export function migrate(db) {
       ON project_milestone_submissions(student_id, client_submission_id)
       WHERE client_submission_id IS NOT NULL;
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS demo_attempts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      demo_id TEXT NOT NULL,
+      score INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      correct INTEGER NOT NULL DEFAULT 0,
+      errors_json TEXT NOT NULL DEFAULT '[]',
+      elapsed_minutes INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_demo_attempts_student ON demo_attempts(student_id, demo_id, created_at DESC);
+  `);
   ensureColumn(db, "notes", "challenge_id", "TEXT");
   ensureColumn(db, "notes", "updated_at", "TEXT");
   ensureColumn(db, "classes", "status", "TEXT NOT NULL DEFAULT 'active'");
@@ -643,6 +657,76 @@ export function recordStudentAttempt(db, studentId, challengeId, result, options
     return next;
   };
   return options.inTransaction ? run() : db.transaction(run)();
+}
+
+export function recordDemoAttempt(db, studentId, demoId, result) {
+  const errors = (result.errors ?? []).map((error) => (typeof error === "string" ? error : (error?.message ?? error?.type ?? String(error))));
+  db.prepare(`
+    INSERT INTO demo_attempts (student_id, demo_id, score, total, correct, errors_json, elapsed_minutes)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    studentId,
+    String(demoId),
+    Number(result.score ?? 0),
+    Number(result.total ?? 0),
+    Number(result.correct ?? 0),
+    JSON.stringify(errors),
+    Number(result.elapsedMinutes ?? 0),
+  );
+}
+
+export function listDemoAttempts(db, studentId, demoId = null) {
+  const where = ["student_id = ?"];
+  const params = [studentId];
+  if (demoId) {
+    where.push("demo_id = ?");
+    params.push(String(demoId));
+  }
+  return db.prepare(`
+    SELECT id, demo_id AS demoId, score, total, correct, errors_json AS errorsJson, elapsed_minutes AS elapsedMinutes, created_at AS createdAt
+    FROM demo_attempts
+    WHERE ${where.join(" AND ")}
+    ORDER BY id DESC
+    LIMIT 200
+  `).all(...params);
+}
+
+/** 按演示页聚合：批次、题数、答对、正确率、最近成绩、最近时间。 */
+export function summarizeDemoAttempts(db, studentId) {
+  const rows = db.prepare(`
+    SELECT demo_id AS demoId,
+      COUNT(*) AS batches,
+      SUM(total) AS totalQuestions,
+      SUM(correct) AS totalCorrect,
+      MAX(score) AS bestScore
+    FROM demo_attempts
+    WHERE student_id = ?
+    GROUP BY demo_id
+  `).all(studentId);
+  const latestRows = db.prepare(`
+    SELECT demo_id AS demoId, score, total, correct, created_at AS createdAt
+    FROM demo_attempts
+    WHERE student_id = ?
+    ORDER BY id DESC
+    LIMIT 100
+  `).all(studentId);
+  const latestByDemo = new Map();
+  for (const row of latestRows) {
+    if (!latestByDemo.has(row.demoId)) latestByDemo.set(row.demoId, row);
+  }
+  return rows.map((row) => {
+    const latest = latestByDemo.get(row.demoId);
+    return {
+      demoId: row.demoId,
+      batches: row.batches,
+      totalQuestions: row.totalQuestions ?? 0,
+      totalCorrect: row.totalCorrect ?? 0,
+      accuracy: row.totalQuestions > 0 ? Math.round((row.totalCorrect / row.totalQuestions) * 100) : 0,
+      bestScore: row.bestScore ?? 0,
+      latestScore: latest?.score ?? 0,
+      latestAt: latest?.createdAt ?? null,
+    };
+  });
 }
 
 export function listNotes(db, studentId, filters = {}) {

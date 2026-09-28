@@ -9,6 +9,7 @@ import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js"
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
 import { generateLabAssistantHint } from "./labAssistant.js";
 import { normalizeStudentAttemptPayload } from "./submissionValidation.js";
+import { normalizeDemoAttemptPayload, demoTitleOf } from "./demoValidation.js";
 import { buildStudentMarkdownReport } from "./studentReport.js";
 import {
   addStudentToClass,
@@ -30,12 +31,15 @@ import {
   getUserById,
   getUserByUsername,
   listAuditLogs,
+  listDemoAttempts,
   listNotes,
   listTeacherClasses,
   listUserSessions,
   migrate,
   openDatabase,
+  recordDemoAttempt,
   recordStudentAttempt,
+  summarizeDemoAttempts,
   resetStudentPassword,
   revokeOtherSessions,
   sanitizeUser,
@@ -644,13 +648,45 @@ export function createApp(options = {}) {
     res.json(book);
   });
 
+  // 课堂演示页练习成绩（独立静态页，成绩独立存储，不与关卡提交互冒充）
+  app.post("/api/student/demo-attempts", requireRole("student"), (req, res, next) => {
+    try {
+      const normalized = normalizeDemoAttemptPayload(req.body ?? {});
+      if (!normalized.ok) return res.status(normalized.status).json({ error: normalized.error });
+      recordDemoAttempt(db, req.user.id, normalized.demoId, normalized.result);
+      writeAuditLog(db, {
+        actorUserId: req.user.id,
+        actorRole: "student",
+        action: "demo-attempt",
+        targetType: "demo",
+        targetId: normalized.demoId,
+        metadata: { score: normalized.result.score, total: normalized.result.total, correct: normalized.result.correct },
+        ipAddress: req.ip,
+      });
+      res.status(201).json({ demos: summarizeDemoAttempts(db, req.user.id) });
+    } catch (error) { next(error); }
+  });
+
+  app.get("/api/student/demo-attempts", requireRole("student"), (req, res) => {
+    const demos = summarizeDemoAttempts(db, req.user.id).map((item) => ({
+      ...item,
+      title: demoTitleOf(item.demoId),
+    }));
+    res.json({ demos });
+  });
+
   app.get("/api/student/report.md", requireRole("student"), (req, res) => {
     const progress = getStudentProgress(db, req.user.id);
+    const demoAttempts = summarizeDemoAttempts(db, req.user.id).map((item) => ({
+      ...item,
+      title: demoTitleOf(item.demoId),
+    }));
     const markdown = buildStudentMarkdownReport({
       user: sanitizeUser(req.user),
       progress,
       summary: summarizeLearning(LEARNING_ITEMS, progress),
       notes: listNotes(db, req.user.id),
+      demoAttempts,
     });
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename=${req.user.username}-experiment-report.md`);

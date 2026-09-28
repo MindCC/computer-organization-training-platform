@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>存储器系统 · 课堂互动演示</title>
+<style>
+  :root {
+    --bg0: #050c22; --bg1: #0a1738;
+    --panel: rgba(10, 23, 56, 0.82);
+    --line: rgba(56, 132, 255, 0.28);
+    --text: #e6f0ff; --muted: #8ea3c8; --dim: #5d7099;
+    --cyan: #38bdf8; --cyan-soft: #7dd3fc; --teal: #2dd4bf;
+    --violet: #a78bfa; --amber: #fbbf24; --red: #f87171; --green: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 520px at 85% -10%, rgba(56, 132, 255, 0.16), transparent 62%),
+      radial-gradient(800px 480px at 5% 112%, rgba(45, 212, 191, 0.10), transparent 55%),
+      linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 55%, var(--bg0) 100%);
+    min-height: 100vh; overflow-x: hidden;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(56,132,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(56,132,255,0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 78%);
+  }
+  .app { position: relative; max-width: 1440px; margin: 0 auto; padding: 18px 24px 26px; }
+
+  header { text-align: center; padding: 6px 0 14px; }
+  .kicker { display: inline-block; font-size: 13px; letter-spacing: 0.22em; color: var(--cyan-soft); border: 1px solid rgba(125,211,252,0.4); border-radius: 999px; padding: 4px 16px; background: rgba(56,132,255,0.08); }
+  h1 { margin-top: 10px; font-size: 42px; letter-spacing: 0.1em; background: linear-gradient(90deg, #7dd3fc, #38bdf8 45%, #2dd4bf); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 34px rgba(56,189,248,0.3); }
+  .subtitle { margin-top: 6px; color: var(--muted); font-size: 15px; letter-spacing: 0.06em; }
+  .mode-tabs { margin-top: 14px; display: inline-flex; gap: 6px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: rgba(8,18,46,0.75); flex-wrap: wrap; justify-content: center; }
+  .mode-tabs button { border: none; border-radius: 999px; padding: 9px 18px; font-size: 14.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--muted); background: transparent; cursor: pointer; transition: all 160ms ease; }
+  .mode-tabs button:hover { color: var(--text); }
+  .mode-tabs button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); box-shadow: 0 0 20px rgba(56,189,248,0.45); }
+
+  main { display: grid; grid-template-columns: 290px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: inset 0 0 32px rgba(15,36,82,0.45), 0 10px 34px rgba(2,8,26,0.4); }
+  .panel h2 { font-size: 16px; letter-spacing: 0.08em; color: #cfe6ff; }
+  .panel h2 small { color: var(--dim); font-size: 12px; font-weight: 400; margin-left: 8px; }
+
+  .side { padding: 16px; display: grid; gap: 14px; }
+  .presets h3 { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .preset-list { display: grid; gap: 6px; }
+  .preset-btn { text-align: left; border: 1px solid rgba(56,132,255,0.3); border-radius: 10px; padding: 8px 12px; background: rgba(13,30,66,0.6); color: #bfe0ff; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
+  .preset-btn:hover { border-color: rgba(125,211,252,0.8); box-shadow: 0 0 14px rgba(56,189,248,0.25); transform: translateX(3px); }
+  .preset-btn small { display: block; color: var(--dim); font-weight: 400; margin-top: 1px; }
+  .preset-btn.warn { border-color: rgba(248,113,113,0.45); color: #fecaca; }
+  .side-note { font-size: 12.5px; color: var(--dim); line-height: 1.7; }
+
+  .stage { padding: 18px 20px 22px; min-height: 560px; display: grid; gap: 14px; align-content: start; }
+  .stage-title { display: flex; align-items: baseline; justify-content: space-between; }
+  .stage-title h2 { font-size: 17px; }
+  .stage-title .st-sub { color: var(--dim); font-size: 12.5px; }
+  .zone { display: grid; gap: 10px; border: 1px dashed rgba(56,132,255,0.3); border-radius: 12px; padding: 12px 14px; transition: border-color 300ms ease, box-shadow 300ms ease; }
+  .zone-title { font-size: 13px; font-weight: 700; color: var(--cyan-soft); letter-spacing: 0.08em; }
+  .zone.zone-current { border-color: rgba(125,211,252,0.7); box-shadow: 0 0 18px rgba(56,189,248,0.25); }
+  .zone.pulse { animation: zonePulse 1.2s ease; }
+  @keyframes zonePulse {
+    0%, 100% { border-color: rgba(56,132,255,0.3); box-shadow: none; }
+    30% { border-color: rgba(125,211,252,0.95); box-shadow: 0 0 26px rgba(56,189,248,0.5); }
+  }
+  .enc-note { text-align: center; font-size: 12.5px; color: var(--dim); }
+  .formula-strip { min-height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(56,132,255,0.08); border: 1px solid rgba(56,132,255,0.22); font-family: "Consolas", monospace; font-size: 16px; color: var(--cyan-soft); padding: 6px 12px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  .narrator { padding: 16px; display: grid; gap: 12px; position: sticky; top: 14px; }
+  .step-card { border: 1px solid rgba(125,211,252,0.35); border-radius: 12px; padding: 14px; background: rgba(56,132,255,0.07); min-height: 120px; }
+  .step-count { font-size: 12px; color: var(--dim); letter-spacing: 0.14em; }
+  .step-text { margin-top: 8px; font-size: 15.5px; line-height: 1.65; color: #dbeafe; }
+  .step-text b { color: var(--amber); }
+  .banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.6; display: none; }
+  .banner.show { display: block; animation: popIn 320ms ease; }
+  .banner.hit { border: 1px solid rgba(52,211,153,0.6); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .banner.miss { border: 1px solid rgba(248,113,113,0.6); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .banner.evict { border: 1px solid rgba(251,191,36,0.6); background: rgba(60,45,8,0.45); color: #fde68a; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .controls button { border: 1px solid rgba(56,132,255,0.4); border-radius: 10px; padding: 11px 8px; background: rgba(13,30,66,0.7); color: #bfe0ff; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .controls button:hover:not(:disabled) { border-color: rgba(125,211,252,0.85); box-shadow: 0 0 14px rgba(56,189,248,0.3); }
+  .controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .controls .play-btn { grid-column: span 2; background: linear-gradient(90deg, rgba(29,78,216,0.8), rgba(37,99,235,0.8)); font-size: 15px; }
+  .speed { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .speed input { flex: 1; accent-color: var(--cyan); }
+  .kbd-hints { font-size: 11.5px; color: var(--dim); text-align: center; line-height: 1.7; }
+  .insight button { width: 100%; border: 1px solid rgba(251,191,36,0.4); border-radius: 10px; padding: 10px; background: rgba(251,191,36,0.08); color: #fde68a; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .insight-body { margin-top: 8px; font-size: 13.5px; line-height: 1.75; color: #d8c9a3; border-top: 1px dashed rgba(251,191,36,0.3); padding-top: 8px; }
+  .insight-body b { color: var(--amber); }
+  body.quiz-active .controls, body.quiz-active .speed { display: none; }
+  @keyframes popIn { 0% { transform: scale(0.92); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+  .bit { position: relative; aspect-ratio: 0.78; border-radius: 9px; border: 1px solid rgba(51,65,100,0.9); background: rgba(9,18,44,0.9); color: var(--dim); font-family: "Consolas", monospace; font-size: 20px; font-weight: 800; display: grid; place-items: center; user-select: none; transition: all 160ms ease; }
+  .bit.on { color: #d9f7ff; border-color: rgba(34,211,238,0.75); background: linear-gradient(150deg, rgba(14,44,72,0.95), rgba(9,24,52,0.95)); box-shadow: 0 0 12px rgba(34,211,238,0.3); }
+  .bit.sign { border-color: rgba(167,139,250,0.75); }
+  .bit.clickable { cursor: pointer; }
+  .bit.clickable:hover { transform: translateY(-2px) scale(1.05); border-color: var(--cyan-soft); }
+  .bit.ghost { visibility: hidden; }
+  .bit.pop { animation: bitPop 420ms cubic-bezier(0.2,1.6,0.4,1); }
+  @keyframes bitPop { 0% { transform: scale(0.3); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .bit.col-hi { outline: 2px solid rgba(251,191,36,0.85); outline-offset: 2px; box-shadow: 0 0 16px rgba(251,191,36,0.4); }
+  .bits8 { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+  .bits16 { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; }
+  .bits16 .bit { font-size: 14px; }
+
+  .stepper-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .stepper-row button { width: 40px; height: 40px; border-radius: 10px; border: 1px solid rgba(125,211,252,0.5); background: rgba(13,30,66,0.7); color: var(--cyan-soft); font-size: 20px; font-weight: 800; cursor: pointer; }
+  .stepper-row button:hover { box-shadow: 0 0 14px rgba(56,189,248,0.4); }
+  .stepper-row .stepper-val { font-size: 22px; font-weight: 800; min-width: 130px; text-align: center; color: #eaf4ff; font-variant-numeric: tabular-nums; }
+  .stepper-row .stepper-val small { display: block; font-size: 11px; color: var(--dim); font-weight: 400; }
+
+  .toggle-row { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+  .toggle-row button { border: 1px solid rgba(56,132,255,0.4); border-radius: 999px; padding: 6px 14px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; cursor: pointer; }
+  .toggle-row button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); }
+
+  .inline-steps { display: flex; justify-content: center; gap: 10px; padding: 2px 0; flex-wrap: wrap; }
+  .inline-steps button { border: 1px solid rgba(56,132,255,0.45); border-radius: 999px; padding: 8px 18px; background: rgba(13,30,66,0.85); color: #bfe0ff; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .inline-steps button:hover:not(:disabled) { border-color: rgba(125,211,252,0.9); box-shadow: 0 0 14px rgba(56,189,248,0.35); }
+  .inline-steps button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .inline-steps .inline-play { background: linear-gradient(90deg, rgba(29,78,216,0.85), rgba(37,99,235,0.85)); }
+
+  /* ── 存储层次 ── */
+  .pyramid-wrap { display: grid; grid-template-columns: 300px 1fr; gap: 14px; align-items: center; }
+  .pyramid-level { cursor: pointer; transition: all 200ms ease; }
+  .pyramid-level:hover, .pyramid-level.sel { filter: drop-shadow(0 0 8px rgba(56,189,248,0.7)); }
+  .level-detail { border: 1px solid rgba(56,132,255,0.3); border-radius: 12px; padding: 14px; background: rgba(13,30,66,0.55); display: grid; gap: 8px; }
+  .level-detail h3 { font-size: 18px; color: #dbeafe; }
+  .level-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .level-stat { text-align: center; padding: 8px; border-radius: 10px; background: rgba(8,18,46,0.6); }
+  .level-stat span { display: block; font-size: 11px; color: var(--dim); }
+  .level-stat strong { font-size: 16px; color: var(--cyan-soft); }
+  .race-track { display: grid; gap: 7px; }
+  .race-row { display: grid; grid-template-columns: 74px 1fr 96px; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+  .race-bar { height: 14px; border-radius: 7px; background: rgba(41,64,95,0.55); overflow: hidden; }
+  .race-bar span { display: block; height: 100%; width: 0; border-radius: 7px; transition: width 2600ms cubic-bezier(0.2,0.8,0.2,1); }
+  .race-val { text-align: right; font-variant-numeric: tabular-nums; color: #dbeafe; font-weight: 700; }
+
+  /* ── 主存 ── */
+  .mem-grid { display: grid; grid-template-columns: auto repeat(16, 1fr); gap: 2px; font-family: "Consolas", monospace; }
+  .mem-row-label { font-size: 9px; color: var(--dim); display: grid; place-items: center; padding: 0 4px; }
+  .mem-cell { height: 17px; border-radius: 3px; border: 1px solid rgba(51,65,100,0.7); background: rgba(9,18,44,0.75); font-size: 7.5px; color: var(--dim); display: grid; place-items: center; transition: all 180ms ease; }
+  .mem-cell.row-hi { border-color: rgba(56,189,248,0.8); background: rgba(56,132,255,0.18); }
+  .mem-cell.cell-hi { border-color: var(--amber); background: rgba(251,191,36,0.25); color: #fde68a; box-shadow: 0 0 10px rgba(251,191,36,0.5); }
+  .chip-grid { display: grid; gap: 6px; }
+  .chip-row { display: flex; gap: 6px; justify-content: center; }
+  .chip-card { border: 1px solid rgba(56,132,255,0.45); border-radius: 8px; padding: 6px 10px; background: rgba(13,30,66,0.75); font-family: "Consolas", monospace; font-size: 11px; text-align: center; color: #bfe0ff; animation: bitPop 400ms ease; }
+  .chip-card small { display: block; color: var(--dim); font-size: 9px; }
+
+  /* ── 存储器扩展（重点内容） ── */
+  .eyebrow-text { display: block; font-size: 11px; color: var(--dim); letter-spacing: 0.1em; }
+  .expand-spec-row { display: grid; grid-template-columns: 170px 26px 1fr 190px; gap: 12px; align-items: center; }
+  .expand-chip-spec, .expand-formula { border: 1px solid rgba(56,132,255,0.35); border-radius: 12px; padding: 10px 14px; background: rgba(13,30,66,0.6); }
+  .expand-chip-spec strong, .expand-formula strong { display: block; font-size: 22px; color: #eaf4ff; margin: 2px 0; }
+  .expand-formula strong { color: var(--teal); text-shadow: 0 0 14px rgba(45,212,191,0.5); }
+  .expand-chip-spec small, .expand-formula small { color: var(--muted); font-size: 11.5px; line-height: 1.5; }
+  .expand-arrow { font-size: 22px; color: var(--cyan-soft); text-align: center; }
+  .expand-type-desc { font-size: 13.5px; color: var(--cyan-soft); }
+  #expSvg { width: 100%; height: auto; display: block; }
+  .exp-chip rect { transition: all 240ms ease; }
+  .expand-demo-bar { display: grid; gap: 8px; border-top: 1px dashed rgba(56,132,255,0.25); padding-top: 10px; }
+  .expand-lamps { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .exp-lamp { display: grid; place-items: center; width: 58px; padding: 6px 0; border-radius: 9px; border: 1px solid rgba(51,65,100,0.9); background: rgba(9,18,44,0.85); color: var(--dim); font-family: "Consolas", monospace; font-size: 14px; font-weight: 800; }
+  .exp-lamp small { font-size: 9px; font-weight: 400; }
+  .exp-lamp.on { border-color: var(--green); color: #a7f3d0; background: rgba(52,211,153,0.14); box-shadow: 0 0 14px rgba(52,211,153,0.4); }
+  .expand-table { display: grid; gap: 4px; font-size: 12.5px; }
+  .expand-tr { display: grid; grid-template-columns: 110px 1fr 1.4fr 110px; gap: 8px; align-items: center; padding: 6px 10px; border: 1px solid rgba(51,65,100,0.7); border-radius: 8px; background: rgba(9,18,44,0.7); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .expand-tr.head { color: var(--dim); font-size: 11px; letter-spacing: 0.06em; background: transparent; border-style: dashed; }
+  .expand-tr.active { border-color: rgba(34,211,238,0.75); background: rgba(34,211,238,0.1); color: #d9f7ff; box-shadow: 0 0 12px rgba(34,211,238,0.25); }
+  @media (max-width: 1180px) {
+    .expand-spec-row { grid-template-columns: 1fr; }
+    .expand-tr { grid-template-columns: 80px 1fr 1fr; }
+  }
+
+  /* ── Cache ── */
+  .split-bar { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+  .split-bar .bit.seg-tag { border-color: rgba(167,139,250,0.8); }
+  .split-bar .bit.seg-tag.on { box-shadow: 0 0 12px rgba(167,139,250,0.45); color: #e9e2ff; }
+  .split-bar .bit.seg-index { border-color: rgba(251,191,36,0.7); }
+  .split-bar .bit.seg-index.on { box-shadow: 0 0 12px rgba(251,191,36,0.4); color: #fde68a; }
+  .split-bar .bit.seg-offset.on { box-shadow: 0 0 12px rgba(34,211,238,0.35); }
+  .split-legend { display: flex; justify-content: center; gap: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .split-legend b { font-family: "Consolas", monospace; }
+  .legend-chip { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; }
+  .cache-layout { display: grid; grid-template-columns: 1fr 190px; gap: 12px; }
+  .cache-sets { display: grid; gap: 8px; }
+  .cache-set { border: 1px solid rgba(56,132,255,0.25); border-radius: 10px; padding: 8px; display: grid; gap: 6px; }
+  .cache-set-title { font-size: 11px; color: var(--dim); letter-spacing: 0.1em; }
+  .cache-line { display: grid; grid-template-columns: 44px 1fr auto auto; align-items: center; gap: 8px; border: 1px solid rgba(51,65,100,0.8); border-radius: 8px; padding: 6px 10px; font-family: "Consolas", monospace; font-size: 12.5px; background: rgba(9,18,44,0.85); color: var(--dim); transition: all 200ms ease; }
+  .cache-line.valid { color: #c6d8f5; }
+  .cache-line .cl-block { font-weight: 800; color: #dbeafe; }
+  .cache-line.flash-hit { border-color: var(--green); background: rgba(52,211,153,0.15); box-shadow: 0 0 14px rgba(52,211,153,0.4); }
+  .cache-line.flash-miss { border-color: var(--amber); background: rgba(251,191,36,0.14); box-shadow: 0 0 14px rgba(251,191,36,0.4); }
+  .cache-line.flash-evict { border-color: var(--red); background: rgba(248,113,113,0.14); }
+  .mem-blocks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; align-content: start; }
+  .mem-block { border: 1px solid rgba(51,65,100,0.8); border-radius: 8px; padding: 6px 4px; text-align: center; font-family: "Consolas", monospace; font-size: 11px; color: var(--dim); background: rgba(9,18,44,0.75); transition: all 200ms ease; }
+  .mem-block.in-cache { border-color: rgba(34,211,238,0.7); color: #a5ecff; background: rgba(34,211,238,0.1); }
+  .mem-block.just-accessed { outline: 2px solid var(--amber); box-shadow: 0 0 12px rgba(251,191,36,0.5); }
+  .addr-palette { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; }
+  .addr-btn { border: 1px solid rgba(56,132,255,0.35); border-radius: 7px; padding: 5px 9px; background: rgba(13,30,66,0.65); color: #bfe0ff; font-family: "Consolas", monospace; font-size: 12px; cursor: pointer; }
+  .addr-btn:hover { border-color: var(--cyan-soft); }
+  .addr-btn.warn-chip { border-color: rgba(248,113,113,0.5); color: #fecaca; }
+  .addr-btn.warn-chip:hover { border-color: rgba(248,113,113,0.85); }
+  .stat-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat-card { text-align: center; padding: 8px; border-radius: 10px; background: rgba(8,18,46,0.6); border: 1px solid rgba(56,132,255,0.2); }
+  .stat-card span { display: block; font-size: 11px; color: var(--dim); }
+  .stat-card strong { font-size: 19px; color: #eaf4ff; font-variant-numeric: tabular-nums; }
+  .stat-card.hit strong { color: var(--green); }
+  .stat-card.miss strong { color: var(--red); }
+  .stat-card.rate strong { color: var(--cyan-soft); }
+
+  /* ── 虚拟存储 ── */
+  .ptable { display: grid; gap: 3px; font-family: "Consolas", monospace; font-size: 11.5px; max-height: 300px; overflow-y: auto; }
+  .ptable-head, .ptable-row { display: grid; grid-template-columns: 46px 52px 62px 1fr; gap: 6px; align-items: center; padding: 3px 8px; }
+  .ptable-head { color: var(--dim); font-size: 10.5px; letter-spacing: 0.06em; }
+  .ptable-row { border: 1px solid rgba(51,65,100,0.6); border-radius: 6px; background: rgba(9,18,44,0.7); color: var(--muted); transition: all 180ms ease; }
+  .ptable-row.valid { color: #c6d8f5; }
+  .ptable-row.invalid { opacity: 0.55; }
+  .ptable-row.hi { border-color: var(--amber); background: rgba(251,191,36,0.14); box-shadow: 0 0 12px rgba(251,191,36,0.35); }
+  .ptable-row.faulting { border-color: var(--red); background: rgba(248,113,113,0.12); }
+  .tlb-box { display: grid; gap: 5px; }
+  .tlb-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; border: 1px solid rgba(167,139,250,0.4); border-radius: 7px; padding: 5px 8px; font-family: "Consolas", monospace; font-size: 11.5px; background: rgba(167,139,250,0.07); color: #c6b8f5; }
+  .tlb-row.hi { border-color: var(--violet); box-shadow: 0 0 12px rgba(167,139,250,0.5); }
+  .pa-assembly { display: grid; gap: 6px; text-align: center; }
+  .pa-line { font-family: "Consolas", monospace; font-size: 15px; color: var(--cyan-soft); }
+  .load-bar { height: 12px; border-radius: 6px; background: rgba(41,64,95,0.55); overflow: hidden; }
+  .load-bar span { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--amber), var(--red)); transition: width 1600ms linear; }
+
+  /* ── 练习 ── */
+  .quiz-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
+  .quiz-head strong { color: var(--cyan-soft); font-size: 16px; }
+  .quiz-streak { color: var(--amber); font-weight: 700; }
+  .quiz-q { font-size: 19px; font-weight: 700; line-height: 1.6; color: #eaf4ff; }
+  .quiz-q code { font-family: "Consolas", monospace; font-size: 20px; color: var(--amber); background: rgba(251,191,36,0.1); padding: 2px 10px; border-radius: 8px; }
+  .quiz-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .quiz-choice { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(56,132,255,0.35); border-radius: 12px; padding: 11px 13px; background: rgba(13,30,66,0.6); color: #dbeafe; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 140ms ease; text-align: left; }
+  .quiz-choice .qc-key { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(125,211,252,0.5); color: var(--cyan-soft); font-size: 13px; font-weight: 800; flex: none; }
+  .quiz-choice:hover { border-color: rgba(125,211,252,0.8); }
+  .quiz-choice.selected { border-color: var(--cyan-soft); background: rgba(56,132,255,0.16); }
+  .quiz-choice.correct { border-color: var(--green); background: rgba(52,211,153,0.14); color: #d1fae5; }
+  .quiz-choice.wrong { border-color: var(--red); background: rgba(248,113,113,0.12); color: #fecaca; }
+  .quiz-choice:disabled { cursor: default; }
+  .quiz-input { width: 150px; padding: 9px 13px; border: 1px solid rgba(125,211,252,0.45); border-radius: 10px; background: rgba(9,18,44,0.85); color: #eaf4ff; font-size: 20px; font-weight: 800; text-align: center; outline: none; font-variant-numeric: tabular-nums; }
+  .quiz-input:focus { border-color: var(--cyan-soft); box-shadow: 0 0 16px rgba(56,189,248,0.4); }
+  .quiz-feedback { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.65; display: none; }
+  .quiz-feedback.show { display: block; animation: popIn 320ms ease; }
+  .quiz-feedback.ok { border: 1px solid rgba(52,211,153,0.55); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .quiz-feedback.bad { border: 1px solid rgba(248,113,113,0.55); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .quiz-actions { display: flex; justify-content: center; gap: 10px; }
+  .quiz-actions button { border: 1px solid rgba(56,132,255,0.5); border-radius: 999px; padding: 10px 28px; background: linear-gradient(90deg, rgba(29,78,216,0.85), rgba(37,99,235,0.85)); color: #eaf4ff; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .quiz-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .quiz-actions .ghost-action { background: rgba(13,30,66,0.7); }
+
+  @media (max-width: 1180px) {
+    main { grid-template-columns: 1fr; }
+    .narrator { position: static; }
+    .cache-layout, .pyramid-wrap { grid-template-columns: 1fr; }
+    h1 { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="kicker">第四章 · 存储器系统</span>
+    <h1>存储器系统</h1>
+    <p class="subtitle">Memory System —— 层次、主存、Cache、虚拟存储，一次讲透</p>
+    <nav class="mode-tabs" id="modeTabs">
+      <button data-mode="hierarchy" class="active">存储层次</button>
+      <button data-mode="mainmem">主存与读写</button>
+      <button data-mode="expand">存储器扩展</button>
+      <button data-mode="cache">Cache 映像</button>
+      <button data-mode="vm">虚拟存储</button>
+      <button data-mode="quiz">课堂练习</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="side panel" aria-label="场景面板">
+      <h2>场景与序列<small id="sideHint"></small></h2>
+      <div class="presets"><div class="preset-list" id="presetList"></div></div>
+      <div class="side-note" id="sideNote"></div>
+    </section>
+
+    <section class="stage panel" aria-label="演示舞台" id="stage"></section>
+
+    <aside class="narrator panel" aria-label="讲解与控制">
+      <div class="step-card">
+        <div class="step-count" id="stepCount"></div>
+        <div class="step-text" id="stepText"></div>
+      </div>
+      <div class="banner" id="banner"></div>
+      <div class="controls">
+        <button class="play-btn" id="playBtn">▶ 自动播放</button>
+        <button id="prevBtn">← 上一步</button>
+        <button id="nextBtn">下一步 →</button>
+        <button id="resetBtn" style="grid-column: span 2;">↺ 重置本模式</button>
+      </div>
+      <div class="speed">
+        <span>速度</span>
+        <input type="range" id="speedRange" min="0.5" max="2.5" step="0.25" value="1">
+        <span id="speedLabel">1×</span>
+      </div>
+      <div class="kbd-hints">空格 播放/暂停 · ← / → 步进 · 1 ~ 6 切换模式 · R 重置</div>
+      <div class="insight">
+        <button id="insightToggle">💡 为什么层次结构有效？—— 局部性原理</button>
+        <div class="insight-body" id="insightBody" hidden>
+          程序访问的数据往往<b>扎堆出现</b>：<b>时间局部性</b>（刚用过的马上又要用，比如循环变量）和<b>空间局部性</b>（用了第 i 个，马上用第 i+1 个，比如遍历数组）。<br>
+          于是把「当前最可能用到的一小部分」放进小而快的 Cache，<b>90% 以上的访问都能命中</b>——平均访存速度接近 Cache，成本却接近主存。这就是整个存储金字塔成立的理由。
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ───────────────────────── 基础工具 ───────────────────────── */
+const hex = (v, w = 2) => "0x" + v.toString(16).toUpperCase().padStart(w, "0");
+const bin = (v, w) => v.toString(2).padStart(w, "0");
+function fmtSize(bytes) {
+  if (bytes >= 1 << 30) return (bytes / (1 << 30)) + " GB";
+  if (bytes >= 1 << 20) return (bytes / (1 << 20)) + " MB";
+  if (bytes >= 1 << 10) return (bytes / (1 << 10)) + " KB";
+  return bytes + " B";
+}
+function randomInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function shuffled(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/* ───────────────────────── 全局状态 ───────────────────────── */
+const state = {
+  mode: "hierarchy",
+  stepIndex: 0,
+  playing: false,
+  speed: 1,
+  timer: null,
+};
+
+/* 存储层次 */
+const HIERARCHY_LEVELS = [
+  { id: "reg", name: "寄存器", speed: "< 1 ns", capacity: "~1 KB", cost: "极高", ratio: 1, ratioLabel: "1 秒", color: "#7dd3fc", desc: "CPU 内部的工作台，指令执行时直接取用。最快、最小、最贵。" },
+  { id: "cache", name: "Cache (SRAM)", speed: "~10 ns", capacity: "KB ~ MB", cost: "很高", ratio: 10, ratioLabel: "10 秒", color: "#38bdf8", desc: "存放主存中最热的数据块，靠局部性原理获得 90%+ 命中率。" },
+  { id: "mem", name: "主存 (DRAM)", speed: "~100 ns", capacity: "GB 级", cost: "中", ratio: 100, ratioLabel: "≈ 1.7 分钟", color: "#2dd4bf", desc: "程序运行时之家。DRAM 电容会漏电，需要约 2ms 周期刷新。" },
+  { id: "ssd", name: "固态硬盘 (SSD)", speed: "~100 μs", capacity: "TB 级", cost: "低", ratio: 10000, ratioLabel: "≈ 2.8 小时", color: "#a78bfa", desc: "辅存，断电不丢数据。速度比主存慢约 1000 倍。" },
+  { id: "hdd", name: "机械硬盘 (HDD)", speed: "~10 ms", capacity: "TB+ 级", cost: "极低", ratio: 100000, ratioLabel: "≈ 1.2 天", color: "#fbbf24", desc: "大容量仓库。机械臂寻道，比寄存器慢约 10 万倍。" },
+];
+const hierarchyState = { selected: "cache", racePlayed: false };
+
+/* 主存与扩展 */
+const mainMemState = { addrBits: 8, readAddr: 0xB2, expansion: "none" };
+
+/* Cache */
+const cacheState = {
+  mapping: "direct", // direct | full | set2
+  policy: "LRU",
+  lines: [],
+  clock: 0,
+  hits: 0,
+  misses: 0,
+  sequence: null,
+  seqIndex: 0,
+  autoPlaying: false,
+};
+const CACHE = { memBlocks: 16, blockBytes: 16, lines: 4 };
+const CACHE_SEQUENCES = {
+  locality: { label: "局部性序列", note: "0,1,2,3 重复两轮：第 2 轮全命中", addrs: [0, 1, 2, 3, 0, 1, 2, 3] },
+  stream: { label: "四块顺序流", note: "0,16,32,48 重复：直接映像也能全命中", addrs: [0, 16, 32, 48, 0, 16, 32, 48] },
+  thrash: { label: "冲突抖动序列", note: "0,64,128,192 重复：直接映像 0% 命中！换映像方式再试", addrs: [0, 64, 128, 192, 0, 64, 128, 192], warn: true },
+  relief: { label: "组相联缓解序列", note: "0,64,16,80 重复：直接映像抖动，2 路组相联第 2 轮全命中", addrs: [0, 64, 16, 80, 0, 64, 16, 80] },
+};
+
+/* 虚拟存储 */
+const vmState = {
+  va: 0x2304,
+  tlbEnabled: true,
+  tlb: [],          // [{page, frame, age}] 最多 2 条
+  pageTable: [],    // 16 页
+  clock: 0,
+  tlbHits: 0,
+  pageHits: 0,
+  faults: 0,
+  last: null,
+};
+const VM = { pageBits: 12, pages: 16, frames: 4, tlbSize: 2 };
+const VM_PRESETS = {
+  seq: { label: "页内顺序地址", note: "同一页反复访问 → TLB 命中演示", va: 0x2100 },
+  edge: { label: "跨页边界", note: "0x2FFF → 0x3000 跨页瞬间", va: 0x2FFF },
+  invalid: { label: "访问无效页", note: "第 9 页不在内存 → 缺页中断演示", va: 0x9004, warn: true },
+  last: { label: "最后一页", note: "第 15 页 · 地址空间尽头", va: 0xF0F0 },
+};
+
+/* 练习 */
+const quizState = { total: 0, correct: 0, streak: 0, best: 0, current: null, answered: false, selected: -1 };
+
+/* ───────────────────────── 场景面板（预设） ───────────────────────── */
+const presetList = document.getElementById("presetList");
+const sideNote = document.getElementById("sideNote");
+
+function renderPresets() {
+  presetList.innerHTML = "";
+  sideNote.textContent = "";
+  const addBtn = (label, note, warn, onClick) => {
+    const btn = document.createElement("button");
+    btn.className = "preset-btn" + (warn ? " warn" : "");
+    btn.innerHTML = `${label}<small>${note}</small>`;
+    btn.addEventListener("click", onClick);
+    presetList.appendChild(btn);
+  };
+
+  if (state.mode === "hierarchy") {
+    addBtn("▶ 重播时间比例尺", "寄存器 1 秒 → 机械盘约 1.2 天", false, playRace);
+    addBtn("逐层认识", "步骤讲解五层各自的角色", false, () => goToStep(0));
+    sideNote.textContent = "点击金字塔或右侧步骤，逐层认识；比例尺动画把抽象数量级变成体感时间。";
+  } else if (state.mode === "mainmem") {
+    sideNote.innerHTML = "同屏操作点（都在右侧舞台内）：<br>① 顶部：拨地址位数看容量<br>② 中部：选地址，跑读周期<br>③ 底部：点三种扩展方式<br><br>读周期五步：MAR→译码→选行→读出→MDR。";
+  } else if (state.mode === "expand") {
+    sideNote.innerHTML = "教学动线：<br>① 顶部：三种目标规格各点一遍，记片数公式<br>② 中部：看接线图三种颜色各管什么<br>③ 拨 12 位地址 → 译码灯、芯片点亮、分配表高亮<br>④ 考点：片数计算、片选地址、译码器输出。";
+  } else if (state.mode === "cache") {
+    sideNote.innerHTML = "教学动线：<br>① 顶部选「映像方式」<br>② 控制台选一条序列自动播放<br>③ 观察命中率<br>④ 换映像方式重跑同一序列对比<br><br>「冲突抖动序列」在三种映像下表现完全不同，务必各试一遍。";
+  } else if (state.mode === "vm") {
+    sideNote.innerHTML = "教学动线：<br>① 选预设地址 → 开始转换<br>② 同页再转一次 → TLB 命中<br>③ 跑「访问无效页」→ 看缺页调页<br><br>物理地址 = 帧号 × 页大小 + 页内偏移。";
+  } else if (state.mode === "quiz") {
+    presetList.innerHTML = `<div class="side-note" style="text-align:left">题型：层次与容量 · 地址划分 · 命中判断 · 页式转换 · 概念题<br><br>答对立即解析，连对有 🔥 标记。</div>`;
+  }
+}
+
+/* ───────────────────────── 存储层次模式 ───────────────────────── */
+function buildHierarchyScenario() {
+  const steps = [
+    { zone: 0, text: `存储器的核心矛盾：<b>快的贵、大的慢</b>。解决办法不是选一个，而是全都要——分层次，让每一层各司其职。点金字塔的任意一层看详情。`, formula: `速度 ↑ 容量 ↓ 成本 ↑` },
+    { zone: 0, text: `<b>寄存器与 Cache</b>：CPU 的手边。寄存器按个存数，Cache 按「块」缓存主存热点——本页第三站专门拆 Cache。`, formula: `寄存器 <1ns · Cache ~10ns` },
+    { zone: 0, text: `<b>主存 DRAM</b>：程序运行时之家。注意一个考点：DRAM 靠电容存电，会漏电，<b>约 2ms 就要全部刷新一遍</b>。`, formula: `DRAM：电容存储 + 定期刷新` },
+    { zone: 0, text: `<b>辅存（SSD/HDD）</b>：断电不丢的仓库。慢主存 1000~100000 倍，但便宜量大。虚拟存储器就是让主存「借用」这块仓库（第四站）。`, formula: `辅存：慢 × 大 × 便宜 × 非易失` },
+    { zone: 1, text: `<b>时间比例尺</b>：如果寄存器取数只要 1 秒，主存就是 1.7 分钟，SSD 接近 3 小时，机械盘要 1 天多。点左侧「播放时间比例尺」感受差距。`, formula: `1s → 1.7min → 2.8h → 1.2d` },
+  ];
+  return { kind: "hierarchy", zoneBased: true, steps };
+}
+
+function playRace() {
+  hierarchyState.racePlayed = true;
+  const bars = document.querySelectorAll(".race-bar span");
+  // 先归零再重放，保证每次点击都能看到生长动画
+  bars.forEach((bar) => {
+    bar.style.transition = "none";
+    bar.style.width = "0";
+  });
+  requestAnimationFrame(() => {
+    bars.forEach((bar, i) => {
+      bar.style.transition = `width ${(1800 + i * 700) / state.speed}ms cubic-bezier(0.2,0.8,0.2,1)`;
+      bar.style.width = bar.dataset.target;
+    });
+  });
+  setBanner("比例换算：把寄存器的 <1ns 当作 1 秒，其余各级按真实倍数放大。层次之间是数量级的鸿沟。", "evict");
+}
+
+function renderHierarchyStage() {
+  stage.innerHTML = `
+    <div class="stage-title"><h2>存储器层次结构</h2><span class="st-sub">寄存器 → Cache → 主存 → 辅存</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">存储金字塔 · 点层看详情</div>
+      <div class="pyramid-wrap">
+        <svg id="pyramidSvg" viewBox="0 0 300 260"></svg>
+        <div class="level-detail" id="levelDetail"></div>
+      </div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">时间比例尺：如果寄存器取数 = 1 秒</div>
+      <div class="race-track" id="raceTrack"></div>
+      <div class="inline-steps"><button id="raceReplay" type="button">▶ 重播比例尺动画</button></div>
+      <div class="enc-note">横条按对数比例绘制，标签是按真实倍数换算的体感时间</div>
+    </div>
+    <div class="formula-strip" id="formulaStrip"></div>`;
+
+  // 金字塔 SVG
+  const svg = document.getElementById("pyramidSvg");
+  const widths = [90, 140, 190, 240, 290];
+  svg.innerHTML = HIERARCHY_LEVELS.map((level, i) => {
+    const y = 12 + i * 50;
+    const w = widths[i];
+    return `<g class="pyramid-level ${hierarchyState.selected === level.id ? "sel" : ""}" data-level="${level.id}">
+      <rect x="${(300 - w) / 2}" y="${y}" width="${w}" height="42" rx="10"
+        fill="rgba(13,30,66,0.85)" stroke="${level.color}" stroke-width="${hierarchyState.selected === level.id ? 2.4 : 1.2}" />
+      <text x="150" y="${y + 26}" text-anchor="middle" fill="#dbeafe" font-size="15" font-weight="700">${level.name}</text>
+    </g>`;
+  }).join("");
+  svg.querySelectorAll(".pyramid-level").forEach((el) => {
+    el.addEventListener("click", () => { hierarchyState.selected = el.dataset.level; renderLevelDetail(); renderPyramidSel(); });
+  });
+  document.getElementById("raceReplay").addEventListener("click", playRace);
+  renderLevelDetail();
+
+  // 比例尺
+  const maxLog = Math.log10(HIERARCHY_LEVELS.at(-1).ratio);
+  document.getElementById("raceTrack").innerHTML = HIERARCHY_LEVELS.map((level) => {
+    const pct = Math.max(2, (Math.log10(level.ratio) / maxLog) * 100);
+    return `<div class="race-row">
+      <span>${level.name}</span>
+      <div class="race-bar"><span data-target="${pct}%" style="background:${level.color}"></span></div>
+      <span class="race-val">${level.ratioLabel}</span>
+    </div>`;
+  }).join("");
+
+  // 进入本模式自动播放一次比例尺，不再留空条的第一印象
+  setTimeout(() => { if (state.mode === "hierarchy") playRace(); }, 450);
+}
+
+function renderPyramidSel() {
+  document.querySelectorAll(".pyramid-level").forEach((el) => {
+    el.classList.toggle("sel", el.dataset.level === hierarchyState.selected);
+    el.querySelector("rect").setAttribute("stroke-width", el.dataset.level === hierarchyState.selected ? 2.4 : 1.2);
+  });
+}
+
+function renderLevelDetail() {
+  const level = HIERARCHY_LEVELS.find((l) => l.id === hierarchyState.selected);
+  document.getElementById("levelDetail").innerHTML = `
+    <h3 style="color:${level.color}">${level.name}</h3>
+    <div class="level-stats">
+      <div class="level-stat"><span>典型速度</span><strong>${level.speed}</strong></div>
+      <div class="level-stat"><span>典型容量</span><strong>${level.capacity}</strong></div>
+      <div class="level-stat"><span>单位成本</span><strong>${level.cost}</strong></div>
+    </div>
+    <div class="enc-note" style="text-align:left;line-height:1.7">${level.desc}</div>`;
+}
+
+/* ───────────────────────── 主存与扩展模式 ───────────────────────── */
+function buildMainMemScenario() {
+  const steps = [
+    { zone: 0, text: `主存是「按地址访问」的仓库：<b>地址总线的位数决定能表示多少个单元</b>。拨动位数，看可寻址空间指数增长。`, formula: `n 位地址 → 2ⁿ 个单元` },
+    { zone: 1, text: `一次<b>读周期</b>分五步：地址进 MAR → 高 4 位送行译码 → 选中一整行 → 低 4 位选中字节 → 数据进 MDR。点区内地址 chips 各跑一遍。`, formula: `MAR → 译码 → 选行 → 选元 → MDR` },
+    { zone: 1, text: `<b>存储器扩展</b>已升级为重点内容并独立成站：片数公式推导、接线示意图、片选译码演示、地址空间分配表——点顶部「存储器扩展」（或按 3）继续。`, formula: `下一站：存储器扩展` },
+  ];
+  return { kind: "mainmem", zoneBased: true, steps };
+}
+
+function setReadAddr(addr) {
+  mainMemState.readAddr = addr;
+  renderReadCycle(true);
+}
+
+/* ───────────────────────── 存储器扩展模式（重点内容） ───────────────────────── */
+const expandState = { target: "word", addr: 0x250 };
+
+const EXPAND_TYPES = {
+  bit: {
+    label: "位扩展", target: "1K × 8", chipSpec: "1K × 4",
+    wordRatio: 1, bitRatio: 2, chipCount: 2, addrBits: 10,
+    desc: "只加宽度：地址线全部并联，两片分管数据高低半字节。",
+    chips: [
+      { id: "c0", name: "芯片 0", lanes: [0, 3], lanesText: "D0~D3" },
+      { id: "c1", name: "芯片 1", lanes: [4, 7], lanesText: "D4~D7" },
+    ],
+  },
+  word: {
+    label: "字扩展", target: "4K × 4", chipSpec: "1K × 4",
+    wordRatio: 4, bitRatio: 1, chipCount: 4, addrBits: 12,
+    desc: "只加深度：片内 A0~A9 并联，高位 A10/A11 经 2-4 译码器产生 4 路片选。",
+    chips: [
+      { id: "c0", name: "芯片 0", range: "000H~3FFH", lanes: [0, 3], lanesText: "D0~D3（选中时）" },
+      { id: "c1", name: "芯片 1", range: "400H~7FFH", lanes: [0, 3], lanesText: "D0~D3（选中时）" },
+      { id: "c2", name: "芯片 2", range: "800H~BFFH", lanes: [0, 3], lanesText: "D0~D3（选中时）" },
+      { id: "c3", name: "芯片 3", range: "C00H~FFFH", lanes: [0, 3], lanesText: "D0~D3（选中时）" },
+    ],
+  },
+  both: {
+    label: "字位同时扩展", target: "4K × 8", chipSpec: "1K × 4",
+    wordRatio: 4, bitRatio: 2, chipCount: 8, addrBits: 12,
+    desc: "先位扩展成 4 组 1K×8（每组 2 片），再字扩展成 4K×8：组内分高低半字节，组间靠译码器片选。",
+    chips: [
+      { id: "g0c0", name: "组0·片0", range: "000H~3FFH", lanes: [0, 3], lanesText: "D0~D3" },
+      { id: "g0c1", name: "组0·片1", range: "000H~3FFH", lanes: [4, 7], lanesText: "D4~D7" },
+      { id: "g1c0", name: "组1·片0", range: "400H~7FFH", lanes: [0, 3], lanesText: "D0~D3" },
+      { id: "g1c1", name: "组1·片1", range: "400H~7FFH", lanes: [4, 7], lanesText: "D4~D7" },
+      { id: "g2c0", name: "组2·片0", range: "800H~BFFH", lanes: [0, 3], lanesText: "D0~D3" },
+      { id: "g2c1", name: "组2·片1", range: "800H~BFFH", lanes: [4, 7], lanesText: "D4~D7" },
+      { id: "g3c0", name: "组3·片0", range: "C00H~FFFH", lanes: [0, 3], lanesText: "D0~D3" },
+      { id: "g3c1", name: "组3·片1", range: "C00H~FFFH", lanes: [4, 7], lanesText: "D4~D7" },
+    ],
+  },
+};
+
+function buildExpandScenario() {
+  const steps = [
+    { zone: 0, text: `单片芯片容量有限，<b>位扩展凑宽度、字扩展凑深度、字位扩展两者都要</b>。片数公式一眼可推：<b>片数 = 字数比 × 位数比</b>。先在上面的规格卡里把三种目标各点一遍。`, formula: `片数 =（目标字数/芯片字数）×（目标位数/芯片位数）` },
+    { zone: 0, text: `例：1K×4 → 4K×8。字数比 = 4K/1K = 4，位数比 = 8/4 = 2，<b>片数 = 4 × 2 = 8 片</b>。位数比永远 ≥1 时才需要位扩展，字数比 >1 时才需要译码器。`, formula: `(4K/1K) × (8/4) = 4 × 2 = 8 片` },
+    { zone: 1, text: `看接线图：<b>片内地址 A0~A9（青色）并联到每一片</b>；高位 A10/A11（琥珀色）进 2-4 译码器，输出 Y0~Y3（绿色）分别作 4 个片选；数据线（紫色）按位扩展分工汇入数据总线。`, formula: `片内并联 · 高位译码 · 数据分路` },
+    { zone: 1, text: `<b>片选演示</b>：拨一个 12 位地址，看它被拆成「片选 2 位 + 片内 10 位」，译码器哪一路输出有效、哪一组芯片被点亮、数据总线 D0~D7 由谁驱动。地址分配表同步高亮。`, formula: `地址 = 片选 A11A10 | 片内 A9~A0` },
+  ];
+  return { kind: "expand", zoneBased: true, steps };
+}
+
+function expandDemoInfo() {
+  const t = EXPAND_TYPES[expandState.target];
+  const addr = expandState.addr & ((1 << t.addrBits) - 1);
+  if (t.addrBits === 10) {
+    return {
+      type: t, addr, sel: null, selBits: null, inner: addr,
+      activeIds: t.chips.map((c) => c.id),
+      split: { selText: "无片选（全并联）", innerText: `A9~A0 = ${bin(addr, 10)}` },
+    };
+  }
+  const sel = addr >> 10;
+  const inner = addr & 0x3FF;
+  const activeIds = t.chips.filter((c) => c.id.startsWith(t.label === "字位同时扩展" ? `g${sel}` : `c${sel}`)).map((c) => c.id);
+  return {
+    type: t, addr, sel, selBits: bin(sel, 2), inner,
+    activeIds,
+    split: { selText: `A11A10 = ${bin(sel, 2)} → 译码输出 Y${sel} 有效`, innerText: `A9~A0 = ${bin(inner, 10)}` },
+  };
+}
+
+function renderExpandStage() {
+  stage.innerHTML = `
+    <div class="stage-title"><h2>存储器扩展：位扩展 · 字扩展 · 字位扩展</h2><span class="st-sub">芯片规格 1K×4（片内地址 10 位 · 数据 4 位）</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">规格与片数公式</div>
+      <div class="expand-spec-row">
+        <div class="expand-chip-spec">
+          <span class="eyebrow-text">单片规格</span>
+          <strong>1K × 4</strong>
+          <small>1024 单元 × 4 位<br>片内地址 A0~A9（10 位） · 数据 D0~D3</small>
+        </div>
+        <div class="expand-arrow">➜</div>
+        <div class="toggle-row" id="expandTarget"></div>
+        <div class="expand-formula" id="expandFormula"></div>
+      </div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">接线示意图 与 片选演示</div>
+      <div class="expand-type-desc" id="expandTypeDesc"></div>
+      <svg id="expSvg" viewBox="0 0 760 330" role="img" aria-label="扩展接线示意图"></svg>
+      <div class="expand-demo-bar">
+        <div class="stepper-row">
+          <button id="expAddrMinus">−</button>
+          <div class="stepper-val" id="expAddrVal"></div>
+          <button id="expAddrPlus">+</button>
+        </div>
+        <div class="split-legend" id="expSplitText"></div>
+        <div class="expand-lamps" id="expLamps"></div>
+      </div>
+    </div>
+    <div class="zone logic-zone" data-zone="2">
+      <div class="zone-title">地址空间 / 数据线分配表</div>
+      <div class="expand-table" id="expandTable"></div>
+    </div>
+    <div class="formula-strip" id="formulaStrip"></div>`;
+
+  document.getElementById("expandTarget").innerHTML = Object.entries(EXPAND_TYPES)
+    .map(([key, t]) => `<button data-target="${key}">${t.label}<br><small>${t.target}</small></button>`).join("");
+  document.getElementById("expandTarget").addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-target]");
+    if (!btn) return;
+    expandState.target = btn.dataset.target;
+    expandState.addr = expandState.addr & ((1 << EXPAND_TYPES[expandState.target].addrBits) - 1);
+    renderExpandAll();
+  });
+  document.getElementById("expAddrMinus").addEventListener("click", () => {
+    const max = 1 << EXPAND_TYPES[expandState.target].addrBits;
+    expandState.addr = (expandState.addr - 0x50 + max) % max;
+    renderExpandAll();
+  });
+  document.getElementById("expAddrPlus").addEventListener("click", () => {
+    const max = 1 << EXPAND_TYPES[expandState.target].addrBits;
+    expandState.addr = (expandState.addr + 0x50) % max;
+    renderExpandAll();
+  });
+  renderExpandAll();
+}
+
+function renderExpandAll() {
+  const t = EXPAND_TYPES[expandState.target];
+  const demo = expandDemoInfo();
+  // 公式
+  document.querySelectorAll("#expandTarget button").forEach((btn) => btn.classList.toggle("active", btn.dataset.target === expandState.target));
+  document.getElementById("expandFormula").innerHTML = `
+    <span class="eyebrow-text">片数公式</span>
+    <strong>${t.chipCount} 片</strong>
+    <small>(${t.target.replace(/\s/g, "")} ÷ ${t.chipSpec.replace(/\s/g, "")})<br>= 字数比 ${t.wordRatio} × 位数比 ${t.bitRatio}</small>`;
+  document.getElementById("expandTypeDesc").textContent = `${t.label}：${t.desc}`;
+  renderExpandDiagram(demo);
+  renderExpandDemoBar(demo);
+  renderExpandTable(demo);
+}
+
+/* 接线示意图：片内地址（青）并联 · 片选地址（琥珀）译码 · CS（绿） · 数据（紫） */
+function renderExpandDiagram(demo) {
+  const t = demo.type;
+  const chips = t.chips;
+  const hasDecoder = t.addrBits === 12;
+  const perRow = expandState.target === "both" ? 2 : expandState.target === "bit" ? 2 : 1;
+  const rows = Math.ceil(chips.length / perRow);
+  const rowH = 62;
+  const topPad = hasDecoder ? 64 : 24;
+  const H = Math.max(300, topPad + rows * rowH + 56);
+  const addrX = 12, addrW = 96, chipX = 330, chipW = 132, dataX = 620, dataW = 118;
+  const decX = 190, decW = 108;
+
+  let svg = "";
+  // 图例
+  svg += `<g font-size="11">
+    <rect x="12" y="6" width="12" height="4" fill="#22d3ee"/><text x="28" y="12" fill="#8ea3c8">片内地址 A0~A9 并联</text>
+    <rect x="170" y="6" width="12" height="4" fill="#fbbf24"/><text x="186" y="12" fill="#8ea3c8">片选地址 A10/A11</text>
+    <rect x="300" y="6" width="12" height="4" fill="#34d399"/><text x="316" y="12" fill="#8ea3c8">译码输出 Y0~Y3 → CS</text>
+    <rect x="452" y="6" width="12" height="4" fill="#a78bfa"/><text x="468" y="12" fill="#8ea3c8">数据线 → 数据总线</text>
+  </g>`;
+
+  const busMidY = topPad + (rows * rowH) / 2;
+  // 地址总线箱
+  svg += `<g>
+    <rect x="${addrX}" y="${busMidY - 46}" width="${addrW}" height="92" rx="10" fill="rgba(13,30,66,0.85)" stroke="rgba(125,211,252,0.5)"/>
+    <text x="${addrX + addrW / 2}" y="${busMidY - 28}" text-anchor="middle" fill="#dbeafe" font-size="12" font-weight="700">地址总线</text>
+    ${Array.from({ length: t.addrBits }, (_, i) => `<text x="${addrX + 10}" y="${busMidY - 14 + i * 8}" fill="${i < t.addrBits - 10 ? "#fbbf24" : "#67e8f9"}" font-size="8">A${t.addrBits - 1 - i}</text>`).join("")}
+  </g>`;
+
+  // 译码器
+  if (hasDecoder) {
+    const decY = topPad - 44;
+    svg += `<g>
+      <rect x="${decX}" y="${decY}" width="${decW}" height="40" rx="8" fill="rgba(251,191,36,0.12)" stroke="rgba(251,191,36,0.7)"/>
+      <text x="${decX + decW / 2}" y="${decY + 18}" text-anchor="middle" fill="#fde68a" font-size="12" font-weight="700">2-4 译码器</text>
+      <text x="${decX + decW / 2}" y="${decY + 32}" text-anchor="middle" fill="#8ea3c8" font-size="9">A10,A11 → Y0~Y3</text>
+    </g>
+    <path d="M ${addrX + addrW} ${busMidY - 30} L ${decX} ${decY + 14}" stroke="#fbbf24" stroke-width="2.4" fill="none"/>`;
+    // 译码器到各芯片/组的 CS 线
+    for (let r = 0; r < rows; r++) {
+      const y = topPad + r * rowH + 18;
+      const active = demo.sel === r;
+      svg += `<path d="M ${decX + decW} ${decY + 30} L ${chipX - 8} ${y}" stroke="#34d399" stroke-width="${active ? 3.4 : 1.4}" fill="none" opacity="${active ? 1 : 0.4}"/>
+        <text x="${decX + decW + 8}" y="${decY + 42 + r * 10}" fill="${active ? "#a7f3d0" : "#5d7099"}" font-size="9" font-weight="${active ? 800 : 400}">Y${r}${active ? "=0 有效" : ""}</text>`;
+    }
+  }
+
+  // 片内地址干线（青）：地址箱 → 芯片列，每行一个小分支
+  svg += `<path d="M ${addrX + addrW} ${busMidY + 6} L ${chipX - 8} ${busMidY + 6}" stroke="#22d3ee" stroke-width="2.4" fill="none"/>`;
+  for (let r = 0; r < rows; r++) {
+    const y = topPad + r * rowH + 30;
+    svg += `<path d="M ${(addrX + addrW + chipX - 8) / 2} ${busMidY + 6} L ${(addrX + addrW + chipX - 8) / 2} ${y} L ${chipX - 8} ${y}" stroke="#22d3ee" stroke-width="1.6" fill="none" opacity="0.75"/>`;
+  }
+  svg += `<text x="${(addrX + addrW + chipX - 8) / 2 - 30}" y="${busMidY + 20}" fill="#67e8f9" font-size="10">A0~A9 并联</text>`;
+
+  // 芯片
+  chips.forEach((chip, i) => {
+    const r = Math.floor(i / perRow);
+    const c = i % perRow;
+    const x = chipX + c * (chipW + 14);
+    const y = topPad + r * rowH;
+    const active = demo.activeIds.includes(chip.id);
+    svg += `<g class="exp-chip" data-chip="${chip.id}">
+      <rect x="${x}" y="${y}" width="${chipW}" height="46" rx="9"
+        fill="${active ? "rgba(34,211,238,0.16)" : "rgba(13,30,66,0.8)"}"
+        stroke="${active ? "#22d3ee" : "rgba(56,132,255,0.4)"}" stroke-width="${active ? 2.6 : 1.2}"/>
+      <text x="${x + chipW / 2}" y="${y + 18}" text-anchor="middle" fill="${active ? "#a5ecff" : "#bfe0ff"}" font-size="12" font-weight="800">${chip.name}</text>
+      <text x="${x + chipW / 2}" y="${y + 33}" text-anchor="middle" fill="${active ? "#67e8f9" : "#5d7099"}" font-size="9">${chip.range ?? "全地址"} · ${chip.lanesText}</text>
+      ${hasDecoder ? `<rect x="${x - 7}" y="${y + 13}" width="10" height="10" rx="2" fill="${active ? "#34d399" : "rgba(52,73,107,0.9)"}"/>` : ""}
+    </g>`;
+    // 数据线 → 数据总线
+    const laneY0 = topPad + chip.lanes[0] * 26 + 10;
+    const laneY1 = topPad + chip.lanes[1] * 26 + 10;
+    svg += `<path d="M ${x + chipW} ${y + 23} L ${dataX} ${(laneY0 + laneY1) / 2}" stroke="#a78bfa" stroke-width="${active ? 3 : 1.3}" fill="none" opacity="${active ? 0.95 : 0.3}"/>`;
+  });
+
+  // 数据总线
+  svg += `<g>
+    <rect x="${dataX}" y="${topPad - 6}" width="${dataW}" height="${26 * 8 + 12}" rx="10" fill="rgba(13,30,66,0.85)" stroke="rgba(167,139,250,0.5)"/>
+    <text x="${dataX + dataW / 2}" y="${topPad + 8}" text-anchor="middle" fill="#e9e2ff" font-size="11" font-weight="700">数据总线</text>
+    ${Array.from({ length: 8 }, (_, d) => {
+      const laneActive = chips.some((chip) => demo.activeIds.includes(chip.id) && d >= chip.lanes[0] && d <= chip.lanes[1]);
+      const usable = chips.some((chip) => d >= chip.lanes[0] && d <= chip.lanes[1]);
+      return `<text x="${dataX + dataW / 2}" y="${topPad + 26 + d * 26}" text-anchor="middle" font-size="11" font-weight="${laneActive ? 800 : 400}"
+        fill="${laneActive ? "#d9c9ff" : usable ? "#8ea3c8" : "#4a5a7d"}">D${d}${laneActive ? " ●" : usable ? "" : "（空）"}</text>`;
+    }).join("")}
+  </g>`;
+
+  const svgEl = document.getElementById("expSvg");
+  svgEl.setAttribute("viewBox", `0 0 760 ${H}`);
+  svgEl.innerHTML = svg;
+}
+
+function renderExpandDemoBar(demo) {
+  const t = demo.type;
+  document.getElementById("expAddrVal").innerHTML = `${t.addrBits === 12 ? hex(demo.addr, 3) : "0" + bin(demo.addr, 10).slice(0, 2) + " " + bin(demo.addr, 10).slice(2)}<small>${t.addrBits} 位地址</small>`;
+  document.getElementById("expSplitText").innerHTML = `
+    <span><span class="legend-chip" style="background:#fbbf24"></span>${demo.split.selText}</span>
+    <span><span class="legend-chip" style="background:#22d3ee"></span>${demo.split.innerText}</span>`;
+  // 译码灯
+  const lamps = document.getElementById("expLamps");
+  if (demo.sel === null) {
+    lamps.innerHTML = `<span class="enc-note">位扩展无译码器：两片同时工作，各管半个字节</span>`;
+  } else {
+    lamps.innerHTML = `<span style="font-size:12px;color:var(--dim)">译码输出：</span>` + [0, 1, 2, 3].map((i) => `
+      <span class="exp-lamp ${demo.sel === i ? "on" : ""}">Y${i}<small>${demo.sel === i ? "0 有效" : "1"}</small></span>`).join("");
+  }
+}
+
+function renderExpandTable(demo) {
+  const t = demo.type;
+  const table = document.getElementById("expandTable");
+  if (t.addrBits === 10) {
+    table.innerHTML = `
+      <div class="expand-tr head"><span>芯片</span><span>地址范围</span><span>驱动数据线</span><span>状态</span></div>
+      ${t.chips.map((chip) => `
+        <div class="expand-tr active"><span>${chip.name}</span><span>全部（000H~3FFH）</span><span>${chip.lanesText}</span><span>始终工作</span></div>`).join("")}
+      <div class="enc-note">位扩展没有片选：两片看同一组片内地址，一片出低半字节、一片出高半字节。</div>`;
+    return;
+  }
+  const groupPrefix = expandState.target === "both" ? "组" : "芯片";
+  table.innerHTML = `
+    <div class="expand-tr head"><span>片选 A11A10</span><span>地址范围</span><span>被选中的${groupPrefix}</span><span>译码输出</span></div>
+    ${[0, 1, 2, 3].map((i) => `
+      <div class="expand-tr ${demo.sel === i ? "active" : ""}">
+        <span>${bin(i, 2)}</span>
+        <span>${hex(i * 0x400, 3)}H ~ ${hex(i * 0x400 + 0x3FF, 3)}H</span>
+        <span>${groupPrefix} ${i}（${expandState.target === "both" ? "片0→D0~D3 · 片1→D4~D7" : "驱动 D0~D3"}）</span>
+        <span>Y${i}${demo.sel === i ? " = 0 有效" : ""}</span>
+      </div>`).join("")}`;
+}
+
+
+function renderMainMemStage() {
+  stage.innerHTML = `
+    <div class="stage-title"><h2>主存储器：寻址、读周期与扩展</h2><span class="st-sub">地址译码 · 读写控制 · 芯片组织</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">地址位数 → 可寻址空间</div>
+      <div class="stepper-row">
+        <button id="addrMinus">−</button>
+        <div class="stepper-val" id="addrBitsVal"></div>
+        <button id="addrPlus">+</button>
+      </div>
+      <div class="formula-strip" id="capacityOut"></div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">读周期演示（8 位地址 · 16 行 × 16B）</div>
+      <div class="stepper-row">
+        <button id="readMinus">−</button>
+        <div class="stepper-val" id="readAddrVal"></div>
+        <button id="readPlus">+</button>
+      </div>
+      <div class="addr-palette" id="readPalette"></div>
+      <div class="mem-grid" id="memGrid"></div>
+      <div class="formula-strip" id="readCycleOut"></div>
+    </div>
+    <div class="formula-strip" id="formulaStrip"></div>`;
+
+  document.getElementById("addrMinus").addEventListener("click", () => { mainMemState.addrBits = Math.max(1, mainMemState.addrBits - 1); renderCapacity(); });
+  document.getElementById("addrPlus").addEventListener("click", () => { mainMemState.addrBits = Math.min(32, mainMemState.addrBits + 1); renderCapacity(); });
+  document.getElementById("readMinus").addEventListener("click", () => setReadAddr((mainMemState.readAddr - 1 + 256) % 256));
+  document.getElementById("readPlus").addEventListener("click", () => setReadAddr((mainMemState.readAddr + 1) % 256));
+  document.getElementById("readPalette").innerHTML = [0xB2, 0x47, 0x00, 0xFF]
+    .map((a) => `<button class="addr-btn" data-read-addr="${a}">${hex(a)}</button>`).join("")
+    + `<button class="addr-btn" data-read-addr="rand">🎲 随机</button>`;
+  document.getElementById("readPalette").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-read-addr]");
+    if (!btn) return;
+    setReadAddr(btn.dataset.readAddr === "rand" ? randomInt(0, 255) : Number(btn.dataset.readAddr));
+  });
+  renderCapacity();
+  renderReadCycle(false);
+}
+
+function renderCapacity() {
+  const n = mainMemState.addrBits;
+  const cells = 2 ** n;
+  document.getElementById("addrBitsVal").innerHTML = `${n} 位<small>地址总线</small>`;
+  document.getElementById("capacityOut").textContent = `2^${n} = ${cells.toLocaleString()} 个单元 = ${fmtSize(cells)}（按字节编址）`;
+}
+
+function renderReadCycle(animate) {
+  const addr = mainMemState.readAddr;
+  const row = addr >> 4;
+  const col = addr & 0xF;
+  document.getElementById("readAddrVal").innerHTML = `${hex(addr)}<small>${bin(addr, 8)}</small>`;
+  const grid = document.getElementById("memGrid");
+  grid.innerHTML = Array.from({ length: 16 }, (_, r) =>
+    [`<span class="mem-row-label">${bin(r, 4)}</span>`,
+      ...Array.from({ length: 16 }, (_, c) =>
+        `<div class="mem-cell" data-r="${r}" data-c="${c}">${hex(r * 16 + c)}</div>`)].join(""),
+  ).join("");
+  const out = document.getElementById("readCycleOut");
+  const apply = () => {
+    grid.querySelectorAll(".mem-cell").forEach((cellEl) => {
+      const r = Number(cellEl.dataset.r), c = Number(cellEl.dataset.c);
+      cellEl.classList.toggle("row-hi", r === row);
+      cellEl.classList.toggle("cell-hi", r === row && c === col);
+    });
+    out.textContent = `MAR=${bin(addr, 8)} → 高4位 ${bin(row, 4)} 选第 ${row} 行 → 低4位 ${bin(col, 4)} 选第 ${col} 字节 → MDR ← M[${hex(addr)}]`;
+  };
+  if (animate) {
+    out.textContent = "";
+    setTimeout(apply, 250 / state.speed);
+  } else apply();
+}
+
+/* ───────────────────────── Cache 映像模式 ───────────────────────── */
+function buildCacheScenario() {
+  const steps = [
+    { zone: 0, text: `Cache 按「块」搬运：本页把主存缩成 <b>256B = 16 块</b>，Cache 只有 <b>4 行</b>。块能不能放进 Cache、放哪一行，由<b>映像方式</b>决定——先选一种，看地址被切成三段。`, formula: `地址 = 标记 | 索引 | 块内偏移` },
+    { zone: 1, text: `<b>直接映像</b>：每个主存块只能去固定一行（块号 mod 4）。电路最简单，但冲突多——跑「冲突抖动序列」会看到 0% 命中。`, formula: `行号 = 块号 mod 4 · 标记 = 块号 ÷ 4` },
+    { zone: 1, text: `<b>全相联</b>：任何块可以去任何行，只比标记。最灵活、命中最好，但要同时比较所有行，硬件贵。`, formula: `标记 = 块号 · 无索引` },
+    { zone: 1, text: `<b>组相联</b>（2 路）：先按组号定组，组内 2 行随便放——直接映像与全相联的折中。同一序列换它再跑，命中率立刻翻身。`, formula: `组号 = 块号 mod 2 · 组内任意` },
+    { zone: 2, text: `左侧序列逐个跑：每访问一个地址，看地址怎么切、落在哪行、<b>命中（绿）还是缺失调入（黄）/替换（红）</b>。命中率统计实时更新。`, formula: `HIT 命中 · MISS 缺失 · EVICT 替换` },
+  ];
+  return { kind: "cache", zoneBased: true, steps };
+}
+
+function splitAddress(addr) {
+  const block = addr >> 4;
+  if (cacheState.mapping === "direct") return { block, tag: block >> 2, index: block % 4, indexBits: 2, tagBits: 2, setIndex: null };
+  if (cacheState.mapping === "full") return { block, tag: block, index: null, indexBits: 0, tagBits: 4, setIndex: null };
+  return { block, tag: block >> 1, index: block % 2, indexBits: 1, tagBits: 3, setIndex: block % 2 };
+}
+
+function cacheReset(keepStats = false) {
+  cacheState.lines = cacheState.mapping === "set2"
+    ? [Array.from({ length: 2 }, () => ({ valid: false, tag: null, block: null, age: 0 })), Array.from({ length: 2 }, () => ({ valid: false, tag: null, block: null, age: 0 }))]
+    : Array.from({ length: 4 }, () => ({ valid: false, tag: null, block: null, age: 0 }));
+  cacheState.clock = 0;
+  if (!keepStats) { cacheState.hits = 0; cacheState.misses = 0; }
+  cacheState.sequence = null;
+  cacheState.seqIndex = 0;
+  cacheState.autoPlaying = false;
+  renderCacheView();
+  setBanner("", null);
+}
+
+function candidateLines(split) {
+  if (cacheState.mapping === "direct") return [{ setIndex: null, lineIndex: split.index, line: cacheState.lines[split.index], key: `${split.index}` }];
+  if (cacheState.mapping === "full") return cacheState.lines.map((line, i) => ({ setIndex: null, lineIndex: i, line, key: `${i}` }));
+  return cacheState.lines[split.setIndex].map((line, i) => ({ setIndex: split.setIndex, lineIndex: i, line, key: `${split.setIndex}-${i}` }));
+}
+
+function cacheAccess(addr) {
+  const split = splitAddress(addr);
+  const candidates = candidateLines(split);
+  cacheState.clock += 1;
+  const hitEntry = candidates.find((c) => c.line.valid && c.line.tag === split.tag);
+  let outcome, target, evicted = null;
+
+  if (hitEntry) {
+    // FIFO 的 age 只记录装入时刻，命中不刷新；LRU 命中也要刷新
+    if (cacheState.policy === "LRU") hitEntry.line.age = cacheState.clock;
+    cacheState.hits += 1;
+    outcome = "hit";
+    target = hitEntry;
+  } else {
+    cacheState.misses += 1;
+    let slot = candidates.find((c) => !c.line.valid);
+    if (!slot) {
+      slot = candidates.reduce((oldest, c) => (cacheState.policy === "FIFO"
+        ? (c.line.age < oldest.line.age ? c : oldest)
+        : (c.line.age < oldest.line.age ? c : oldest)), candidates[0]);
+      evicted = slot.line.block;
+    }
+    slot.line.valid = true;
+    slot.line.tag = split.tag;
+    slot.line.block = split.block;
+    slot.line.age = cacheState.clock;
+    outcome = evicted != null ? "evict" : "miss";
+    target = slot;
+  }
+  renderCacheView({ split, outcome, target, evicted, addr });
+  return { split, outcome };
+}
+
+function loadCacheSequence(key) {
+  cacheReset();
+  cacheState.sequence = CACHE_SEQUENCES[key];
+  cacheState.seqIndex = 0;
+  renderCacheControls();
+  setBanner(`已载入「${cacheState.sequence.label}」：${cacheState.sequence.addrs.map((a) => hex(a)).join(" ")}。点「下一条访问」或「自动播放」。`, "evict");
+}
+
+function cacheNextAccess() {
+  if (!cacheState.sequence || cacheState.seqIndex >= cacheState.sequence.addrs.length) return false;
+  const addr = cacheState.sequence.addrs[cacheState.seqIndex];
+  cacheState.seqIndex += 1;
+  cacheAccess(addr);
+  renderCacheControls();
+  return cacheState.seqIndex < cacheState.sequence.addrs.length;
+}
+
+function renderCacheStage() {
+  stage.innerHTML = `
+    <div class="stage-title"><h2>Cache 地址映像与访存模拟</h2><span class="st-sub">主存 256B = 16 块 · Cache 4 行 · 块 16B</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">映像方式与地址划分</div>
+      <div class="toggle-row" id="mappingToggle">
+        <button data-map="direct">直接映像</button>
+        <button data-map="full">全相联</button>
+        <button data-map="set2">2 路组相联</button>
+      </div>
+      <div class="stepper-row">
+        <button id="cacheAddrMinus">−</button>
+        <div class="stepper-val" id="cacheAddrVal"></div>
+        <button id="cacheAddrPlus">+</button>
+      </div>
+      <div class="split-bar" id="splitBar"></div>
+      <div class="split-legend" id="splitLegend"></div>
+      <div class="addr-palette" id="addrPalette"></div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">Cache 与主存状态</div>
+      <div class="cache-layout">
+        <div class="cache-sets" id="cacheSets"></div>
+        <div>
+          <div class="cache-set-title" style="margin-bottom:5px">主存 16 块（青色 = 已在 Cache）</div>
+          <div class="mem-blocks" id="memBlocks"></div>
+        </div>
+      </div>
+      <div class="toggle-row" id="policyToggle">
+        <button data-policy="LRU">LRU 最近最少使用</button>
+        <button data-policy="FIFO">FIFO 先进先出</button>
+      </div>
+    </div>
+    <div class="zone logic-zone" data-zone="2">
+      <div class="zone-title">访问序列控制台 · 先选序列再播放</div>
+      <div class="addr-palette" id="seqPalette"></div>
+      <div class="stat-cards">
+        <div class="stat-card hit"><span>命中</span><strong id="statHit">0</strong></div>
+        <div class="stat-card miss"><span>缺失</span><strong id="statMiss">0</strong></div>
+        <div class="stat-card rate"><span>命中率</span><strong id="statRate">—</strong></div>
+        <div class="stat-card"><span>进度</span><strong id="statSeq">—</strong></div>
+      </div>
+      <div class="inline-steps">
+        <button id="cacheNext">下一条访问 →</button>
+        <button id="cacheAuto" class="inline-play">▶ 自动播放序列</button>
+        <button id="cacheResetBtn">↺ 清空 Cache</button>
+      </div>
+      <div class="enc-note" id="cacheSeqNote">先选一条访问序列，或直接点上面的地址按钮单步访问</div>
+    </div>
+    <div class="formula-strip" id="formulaStrip"></div>`;
+
+  document.getElementById("mappingToggle").addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-map]");
+    if (!btn) return;
+    cacheState.mapping = btn.dataset.map;
+    cacheReset();
+    renderMappingUI();
+    renderCacheControls();
+  });
+  document.getElementById("policyToggle").addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-policy]");
+    if (!btn) return;
+    cacheState.policy = btn.dataset.policy;
+    renderMappingUI();
+  });
+  document.getElementById("cacheAddrMinus").addEventListener("click", () => cacheAccess((cacheAddrValue() - 16 + 256) % 256));
+  document.getElementById("cacheAddrPlus").addEventListener("click", () => cacheAccess((cacheAddrValue() + 16) % 256));
+  document.getElementById("cacheNext").addEventListener("click", cacheNextAccess);
+  document.getElementById("cacheAuto").addEventListener("click", toggleCacheAuto);
+  document.getElementById("cacheResetBtn").addEventListener("click", () => { cacheReset(); renderCacheControls(); });
+
+  document.getElementById("addrPalette").innerHTML = [0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x80, 0xB2, 0xC0, 0xF0]
+    .map((a) => `<button class="addr-btn" data-addr="${a}">${hex(a)}</button>`).join("");
+  document.getElementById("addrPalette").addEventListener("click", (event) => {
+    const btn = event.target.closest(".addr-btn");
+    if (btn) cacheAccess(Number(btn.dataset.addr));
+  });
+
+  // 序列选择就放在控制台旁边，选中即见效果
+  document.getElementById("seqPalette").innerHTML = Object.entries(CACHE_SEQUENCES)
+    .map(([key, seq]) => `<button class="addr-btn ${seq.warn ? "warn-chip" : ""}" data-seq="${key}" title="${seq.note}">${seq.label}</button>`).join("");
+  document.getElementById("seqPalette").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-seq]");
+    if (btn) loadCacheSequence(btn.dataset.seq);
+  });
+
+  cacheReset();
+  renderMappingUI();
+  renderCacheControls();
+}
+
+let lastCacheAddr = 0x00;
+function cacheAddrValue() { return lastCacheAddr; }
+
+function renderMappingUI() {
+  document.querySelectorAll("#mappingToggle button").forEach((btn) => btn.classList.toggle("active", btn.dataset.map === cacheState.mapping));
+  document.querySelectorAll("#policyToggle button").forEach((btn) => btn.classList.toggle("active", btn.dataset.policy === cacheState.policy));
+  renderSplitBar(lastCacheAddr);
+}
+
+function renderSplitBar(addr) {
+  const split = splitAddress(addr);
+  const bits = bin(addr, 8).split("");
+  const tagBits = split.tagBits;
+  const indexBits = split.indexBits;
+  const names = cacheState.mapping === "full"
+    ? [`标记（块号）${tagBits} 位`, null, "块内偏移 4 位"]
+    : cacheState.mapping === "direct"
+      ? [`标记 ${tagBits} 位`, `行号 ${indexBits} 位`, "块内偏移 4 位"]
+      : [`标记 ${tagBits} 位`, `组号 ${indexBits} 位`, "块内偏移 4 位"];
+  document.getElementById("cacheAddrVal").innerHTML = `${hex(addr)}<small>块 ${split.block}</small>`;
+  document.getElementById("splitBar").innerHTML = bits.map((b, i) => {
+    const seg = i < tagBits ? "seg-tag" : i < tagBits + indexBits ? "seg-index" : "seg-offset";
+    return `<div class="bit ${seg} ${b === "1" ? "on" : ""}">${b}</div>`;
+  }).join("");
+  document.getElementById("splitLegend").innerHTML = [
+    `<span><span class="legend-chip" style="background:#a78bfa"></span>${names[0]} = <b>${bin(split.tag, tagBits)}</b></span>`,
+    names[1] ? `<span><span class="legend-chip" style="background:#fbbf24"></span>${names[1]} = <b>${bin(split.index, indexBits)}</b></span>` : "",
+    `<span><span class="legend-chip" style="background:#22d3ee"></span>${names[2]} = <b>${bin(addr & 0xF, 4)}</b></span>`,
+  ].join("");
+}
+
+function renderCacheView(access) {
+  if (access) {
+    lastCacheAddr = access.addr;
+    renderSplitBar(access.addr);
+  }
+  // Cache 行
+  const setsEl = document.getElementById("cacheSets");
+  const lineHtml = (line, label, key) => `
+    <div class="cache-line ${line.valid ? "valid" : ""} ${access && access.target && access.target.key === key ? (access.outcome === "hit" ? "flash-hit" : access.outcome === "miss" ? "flash-miss" : "flash-evict") : ""}" data-key="${key}">
+      <span>${label}</span>
+      <span class="cl-block">${line.valid ? "块 " + line.block : "空"}</span>
+      <small>${line.valid ? "tag=" + line.tag : "—"}</small>
+      <small>${line.valid ? "age=" + line.age : ""}</small>
+    </div>`;
+  if (cacheState.mapping === "set2") {
+    setsEl.innerHTML = cacheState.lines.map((set, s) => `
+      <div class="cache-set"><div class="cache-set-title">组 ${s}</div>
+        ${set.map((line, i) => lineHtml(line, `路${i}`, `${s}-${i}`)).join("")}
+      </div>`).join("");
+  } else {
+    setsEl.innerHTML = `<div class="cache-set"><div class="cache-set-title">${cacheState.mapping === "direct" ? "4 行（块号 mod 4 定行）" : "4 行（任意块可去任意行）"}</div>
+      ${cacheState.lines.map((line, i) => lineHtml(line, `行${i}`, `${i}`)).join("")}
+    </div>`;
+  }
+  // 主存块
+  const inCacheBlocks = new Set();
+  const collect = (line) => { if (line.valid) inCacheBlocks.add(line.block); };
+  cacheState.lines.flat ? cacheState.lines.flat().forEach(collect) : cacheState.lines.forEach(collect);
+  document.getElementById("memBlocks").innerHTML = Array.from({ length: CACHE.memBlocks }, (_, b) =>
+    `<div class="mem-block ${inCacheBlocks.has(b) ? "in-cache" : ""} ${access && access.split.block === b ? "just-accessed" : ""}">块${b}<br><small>${hex(b * 16)}~${hex(b * 16 + 15)}</small></div>`).join("");
+  // 统计
+  document.getElementById("statHit").textContent = cacheState.hits;
+  document.getElementById("statMiss").textContent = cacheState.misses;
+  const total = cacheState.hits + cacheState.misses;
+  document.getElementById("statRate").textContent = total ? Math.round((cacheState.hits / total) * 100) + "%" : "—";
+  // 横幅
+  if (access) {
+    const { split, outcome, evicted } = access;
+    const where = cacheState.mapping === "direct" ? `第 ${split.index} 行` : cacheState.mapping === "full" ? "任意行" : `组 ${split.setIndex}`;
+    if (outcome === "hit") {
+      setBanner(`✅ <b>命中 HIT</b>：地址 ${hex(access.addr)} → 块 ${split.block}，标记 ${split.tag} 在${where}命中，直接从 Cache 读。`, "hit");
+    } else if (outcome === "miss") {
+      setBanner(`🟡 <b>缺失 MISS</b>：块 ${split.block} 不在 Cache，从主存整块调入${where}（块内 16B 一起搬，利用空间局部性）。`, "evict");
+    } else {
+      setBanner(`🔴 <b>缺失并替换 EVICT</b>：${where}已满，按 ${cacheState.policy} 踢出块 ${evicted}，调入块 ${split.block}。${cacheState.mapping === "direct" ? "——直接映像的冲突就这么来的。" : ""}`, "miss");
+    }
+  }
+  renderCacheControls();
+}
+
+function renderCacheControls() {
+  const note = document.getElementById("cacheSeqNote");
+  const nextBtn = document.getElementById("cacheNext");
+  const autoBtn = document.getElementById("cacheAuto");
+  if (!note || !nextBtn) return;
+  const seq = cacheState.sequence;
+  document.getElementById("statSeq").textContent = seq ? `${cacheState.seqIndex}/${seq.addrs.length}` : "—";
+  note.textContent = seq
+    ? cacheState.seqIndex < seq.addrs.length
+      ? `「${seq.label}」下一条：${hex(seq.addrs[cacheState.seqIndex])}（第 ${cacheState.seqIndex + 1} 条，共 ${seq.addrs.length} 条）`
+      : `「${seq.label}」已播完：命中 ${cacheState.hits} / 缺失 ${cacheState.misses}。换个映像方式或替换策略再跑一次！`
+    : "先在左侧选一条访问序列，或直接点上面的地址按钮单步访问";
+  nextBtn.disabled = !seq || cacheState.seqIndex >= seq.addrs.length;
+  if (autoBtn) autoBtn.textContent = cacheState.autoPlaying ? "⏸ 暂停" : "▶ 自动播放序列";
+}
+
+function toggleCacheAuto() {
+  if (cacheState.autoPlaying) {
+    cacheState.autoPlaying = false;
+    renderCacheControls();
+    return;
+  }
+  if (!cacheState.sequence) return;
+  cacheState.autoPlaying = true;
+  const tick = () => {
+    if (!cacheState.autoPlaying) return;
+    if (!cacheNextAccess()) { cacheState.autoPlaying = false; renderCacheControls(); return; }
+    setTimeout(tick, 1400 / state.speed);
+  };
+  renderCacheControls();
+  tick();
+}
+
+/* ───────────────────────── 虚拟存储模式 ───────────────────────── */
+function vmReset() {
+  vmState.pageTable = Array.from({ length: VM.pages }, (_, i) => ({
+    page: i, valid: i < VM.frames, frame: i < VM.frames ? i : null, lru: i < VM.frames ? i : -1, disk: i + 20,
+  }));
+  vmState.tlb = [];
+  vmState.clock = VM.frames;
+  vmState.tlbHits = 0;
+  vmState.pageHits = 0;
+  vmState.faults = 0;
+  vmState.last = null;
+}
+
+function buildVmScenario() {
+  const steps = [
+    { zone: 0, text: `主存不够用了怎么办？把磁盘「借」来当内存：<b>程序看到 64KB 虚拟空间（16 页），物理主存只有 16KB（4 帧）</b>。页表负责把虚拟页映射到物理帧。`, formula: `虚拟地址 = 页号 | 页内偏移` },
+    { zone: 1, text: `每次访问先查 <b>TLB（快表）</b>——它是页表的高速缓存：命中就一步到位；未命中才去查主存里的页表，并把结果补进 TLB。`, formula: `TLB 命中 → 快路径` },
+    { zone: 2, text: `页表项<b>无效 = 这一页还在磁盘上</b>：触发缺页中断，操作系统把页调入一个物理帧（满了就按 LRU 换出），再重新执行这次访问。`, formula: `缺页 → 调页 → 重访` },
+    { zone: 3, text: `物理地址 = <b>帧号拼接页内偏移</b>。点左侧预设地址逐个试：页内顺序（TLB 连中）、跨页边界、无效页（缺页）都值得演一遍。`, formula: `PA = 帧号 × 页大小 + 偏移` },
+  ];
+  return { kind: "vm", zoneBased: true, steps };
+}
+
+function renderVmStage() {
+  stage.innerHTML = `
+    <div class="stage-title"><h2>页式虚拟存储器</h2><span class="st-sub">虚拟 64KB / 16 页 · 物理 16KB / 4 帧 · 页 4KB</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">虚拟地址输入与拆分</div>
+      <div class="stepper-row">
+        <button id="vmMinus">−</button>
+        <div class="stepper-val" id="vmAddrVal"></div>
+        <button id="vmPlus">+</button>
+      </div>
+      <div class="split-bar" id="vmSplitBar" style="grid-template-columns:repeat(16,1fr)"></div>
+      <div class="split-legend">
+        <span><span class="legend-chip" style="background:#a78bfa"></span>页号 4 位 = <b id="vmPageNo"></b></span>
+        <span><span class="legend-chip" style="background:#22d3ee"></span>页内偏移 12 位 = <b id="vmOffset"></b></span>
+      </div>
+      <div class="addr-palette" id="vaPalette"></div>
+      <div class="inline-steps"><button id="vmTranslateBtn">开始地址转换 →</button></div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">TLB 快表（2 条）</div>
+      <div class="toggle-row"><button id="tlbToggle"></button></div>
+      <div class="tlb-box" id="tlbBox"></div>
+    </div>
+    <div class="zone logic-zone" data-zone="2">
+      <div class="zone-title">页表（16 页）</div>
+      <div class="ptable" id="ptable"></div>
+      <div class="load-bar" id="loadBarWrap" hidden><span id="loadBar"></span></div>
+    </div>
+    <div class="zone logic-zone" data-zone="3">
+      <div class="zone-title">物理地址合成与统计</div>
+      <div class="pa-assembly">
+        <div class="pa-line" id="paLine">—</div>
+        <div class="stat-cards">
+          <div class="stat-card hit"><span>TLB 命中</span><strong id="vmTlbHit">0</strong></div>
+          <div class="stat-card"><span>页表命中</span><strong id="vmPageHit">0</strong></div>
+          <div class="stat-card miss"><span>缺页</span><strong id="vmFault">0</strong></div>
+          <div class="stat-card"><span>物理帧</span><strong>${VM.frames}</strong></div>
+        </div>
+      </div>
+    </div>
+    <div class="formula-strip" id="formulaStrip"></div>`;
+
+  document.getElementById("vmMinus").addEventListener("click", () => { vmState.va = (vmState.va - 1 + 65536) % 65536; vmRenderAddr(); });
+  document.getElementById("vmPlus").addEventListener("click", () => { vmState.va = (vmState.va + 1) % 65536; vmRenderAddr(); });
+  document.getElementById("vmTranslateBtn").addEventListener("click", vmTranslate);
+  document.getElementById("vaPalette").innerHTML = Object.entries(VM_PRESETS)
+    .map(([key, preset]) => `<button class="addr-btn ${preset.warn ? "warn-chip" : ""}" data-va="${preset.va}" title="${preset.note}">${preset.label}</button>`).join("");
+  document.getElementById("vaPalette").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-va]");
+    if (!btn) return;
+    vmState.va = Number(btn.dataset.va);
+    vmRenderAll();
+    vmTranslate();
+  });
+  document.getElementById("tlbToggle").addEventListener("click", () => {
+    vmState.tlbEnabled = !vmState.tlbEnabled;
+    renderTlb();
+  });
+  vmRenderAll();
+}
+
+function vmRenderAll() {
+  vmRenderAddr();
+  renderTlb();
+  renderPageTable();
+  renderVmStats();
+}
+
+function vmRenderAddr() {
+  const va = vmState.va;
+  const page = va >> VM.pageBits;
+  const offset = va & ((1 << VM.pageBits) - 1);
+  document.getElementById("vmAddrVal").innerHTML = `${hex(va, 4)}<small>虚拟地址</small>`;
+  const bits = bin(va, 16).split("");
+  document.getElementById("vmSplitBar").innerHTML = bits.map((b, i) =>
+    `<div class="bit ${i < 4 ? "seg-tag" : "seg-offset"} ${b === "1" ? "on" : ""}" style="aspect-ratio:0.6;font-size:13px">${b}</div>`).join("");
+  document.getElementById("vmPageNo").textContent = `${page}（${bin(page, 4)}）`;
+  document.getElementById("vmOffset").textContent = hex(offset, 3);
+}
+
+function renderTlb() {
+  document.getElementById("tlbToggle").textContent = vmState.tlbEnabled ? "TLB：启用 ✓" : "TLB：关闭（每次都查页表）";
+  document.getElementById("tlbToggle").classList.toggle("active", vmState.tlbEnabled);
+  const box = document.getElementById("tlbBox");
+  box.innerHTML = vmState.tlb.length
+    ? vmState.tlb.map((e) => `<div class="tlb-row ${vmState.last?.tlbHitPage === e.page ? "hi" : ""}"><span>页 ${e.page}</span><span>→ 帧 ${e.frame}</span><span>age ${e.age}</span></div>`).join("")
+    : `<div class="enc-note">TLB 为空（首次访问后自动填入）</div>`;
+}
+
+function renderPageTable(hiPage = null, faultPage = null) {
+  document.getElementById("ptable").innerHTML = `
+    <div class="ptable-head"><span>页号</span><span>有效</span><span>物理帧</span><span>说明</span></div>
+    ${vmState.pageTable.map((p) => `
+      <div class="ptable-row ${p.valid ? "valid" : "invalid"} ${hiPage === p.page ? "hi" : ""} ${faultPage === p.page ? "faulting" : ""}">
+        <span>页 ${p.page}</span>
+        <span>${p.valid ? "✓ 有效" : "✗ 无效"}</span>
+        <span>${p.valid ? "帧 " + p.frame : "—"}</span>
+        <span>${p.valid ? `LRU ${p.lru}` : `在磁盘块 ${p.disk}`}</span>
+      </div>`).join("")}`;
+}
+
+function renderVmStats() {
+  document.getElementById("vmTlbHit").textContent = vmState.tlbHits;
+  document.getElementById("vmPageHit").textContent = vmState.pageHits;
+  document.getElementById("vmFault").textContent = vmState.faults;
+}
+
+function vmTranslate() {
+  const va = vmState.va;
+  const page = va >> VM.pageBits;
+  const offset = va & ((1 << VM.pageBits) - 1);
+  const entry = vmState.pageTable[page];
+  vmState.last = { tlbHitPage: null };
+
+  // 1. TLB
+  if (vmState.tlbEnabled) {
+    const tlbEntry = vmState.tlb.find((e) => e.page === page);
+    if (tlbEntry && vmState.pageTable[page].valid) {
+      vmState.tlbHits += 1;
+      vmState.clock += 1;
+      tlbEntry.age = vmState.clock;
+      entry.lru = vmState.clock;
+      vmState.last.tlbHitPage = page;
+      const pa = tlbEntry.frame * (1 << VM.pageBits) + offset;
+      document.getElementById("paLine").textContent = `TLB 命中：页 ${page} → 帧 ${tlbEntry.frame} ｜ PA = ${tlbEntry.frame}×4096 + ${hex(offset, 3)} = ${hex(pa, 4)}`;
+      setBanner(`⚡ <b>TLB 命中（快路径）</b>：页 ${page} 的映射就在快表里，一次转换完成。`, "hit");
+      renderTlb(); renderPageTable(page); renderVmStats();
+      return;
+    }
+  }
+
+  // 2. 页表
+  if (entry.valid) {
+    vmState.pageHits += 1;
+    vmState.clock += 1;
+    entry.lru = vmState.clock;
+    if (vmState.tlbEnabled) {
+      vmState.tlb.push({ page, frame: entry.frame, age: vmState.clock });
+      if (vmState.tlb.length > VM.tlbSize) vmState.tlb.shift();
+    }
+    const pa = entry.frame * (1 << VM.pageBits) + offset;
+    document.getElementById("paLine").textContent = `页表命中：页 ${page} → 帧 ${entry.frame} ｜ PA = ${entry.frame}×4096 + ${hex(offset, 3)} = ${hex(pa, 4)}`;
+    setBanner(`✅ <b>页表命中</b>：页 ${page} 在物理帧 ${entry.frame}。${vmState.tlbEnabled ? "映射已补进 TLB，下次访问同页走快路径。" : ""}`, "hit");
+    renderTlb(); renderPageTable(page); renderVmStats();
+    return;
+  }
+
+  // 3. 缺页
+  vmState.faults += 1;
+  renderPageTable(null, page);
+  document.getElementById("paLine").textContent = `页 ${page} 无效 → 缺页中断 …`;
+  setBanner(`🔴 <b>缺页中断</b>：页 ${page} 还在磁盘（块 ${entry.disk}）。正在为它分配物理帧并调页……`, "miss");
+  const loadWrap = document.getElementById("loadBarWrap");
+  const loadBar = document.getElementById("loadBar");
+  loadWrap.hidden = false;
+  loadBar.style.transition = "none";
+  loadBar.style.width = "0";
+  requestAnimationFrame(() => {
+    loadBar.style.transition = `width ${1600 / state.speed}ms linear`;
+    loadBar.style.width = "100%";
+  });
+
+  setTimeout(() => {
+    // 分配帧：优先无效帧，否则 LRU 换出
+    vmState.clock += 1;
+    let victim = vmState.pageTable.find((p) => p.valid);
+    for (const p of vmState.pageTable) {
+      if (p.valid && p.lru < victim.lru) victim = p;
+    }
+    const frame = victim.valid ? victim.frame : null;
+    const evictedPage = victim.page;
+    if (frame !== null) {
+      victim.valid = false; victim.frame = null; victim.disk = evictedPage + 20;
+    }
+    entry.valid = true;
+    entry.frame = frame ?? evictedPage % VM.frames;
+    entry.lru = vmState.clock;
+    if (vmState.tlbEnabled) {
+      vmState.tlb.push({ page, frame: entry.frame, age: vmState.clock });
+      if (vmState.tlb.length > VM.tlbSize) vmState.tlb.shift();
+      vmState.tlb = vmState.tlb.filter((e) => e.page !== evictedPage || vmState.pageTable[e.page]?.valid);
+    }
+    const pa = entry.frame * (1 << VM.pageBits) + offset;
+    document.getElementById("paLine").textContent = `调页完成：页 ${page} → 帧 ${entry.frame}（换出页 ${evictedPage}）｜ PA = ${entry.frame}×4096 + ${hex(offset, 3)} = ${hex(pa, 4)}`;
+    setBanner(`🟡 <b>调页完成</b>：按 LRU 换出页 ${evictedPage}，页 ${page} 调入帧 ${entry.frame}，本次访问重新执行成功。`, "evict");
+    loadWrap.hidden = true;
+    renderTlb(); renderPageTable(page); renderVmStats();
+  }, 1700 / state.speed);
+}
+
+/* ───────────────────────── 练习模式 ───────────────────────── */
+const QUIZ_CONCEPTS = [
+  { q: "存储层次中，速度最快的是？", choices: ["主存 DRAM", "Cache SRAM", "寄存器", "固态硬盘"], answer: 2, why: "寄存器在 CPU 内部，<1ns 完成访问，是金字塔尖。" },
+  { q: "Cache 之所以能获得高命中率，主要依赖？", choices: ["摩尔定律", "局部性原理", "DMA 技术", "中断机制"], answer: 1, why: "时间局部性（刚用过还要用）+ 空间局部性（用 i 马上用 i+1）让热点数据反复命中。" },
+  { q: "DRAM 为什么需要定期刷新？", choices: ["电容会漏电", "磁性会消退", "光敏老化", "散热需要"], answer: 0, why: "DRAM 用电容存储电荷表示 1/0，电容漏电，约 2ms 内要全部行刷新一遍。" },
+  { q: "「每个主存块只能放入 Cache 的固定一行」是哪种映像？", choices: ["全相联映像", "直接映像", "组相联映像", "段相联映像"], answer: 1, why: "直接映像：行号 = 块号 mod 行数。电路最简单，但冲突缺失最多。" },
+  { q: "「主存块可放入 Cache 任意一行」是哪种映像？", choices: ["全相联映像", "直接映像", "组相联映像", "页式映像"], answer: 0, why: "全相联只比标记、不限位置，命中最好但比较电路最贵。" },
+  { q: "TLB（快表）的作用是？", choices: ["缓存指令", "缓存数据", "缓存页表项加速地址转换", "缓存磁盘块"], answer: 2, why: "TLB 是页表的小缓存：命中则一步完成虚拟→物理转换，避免再访主存查页表。" },
+  { q: "Cache 按块从主存调页……调数据时，一次调入多少？", choices: ["1 字节", "1 个字", "整个数据块", "整个主存"], answer: 2, why: "Cache 以「块」为搬运单位：缺失时整块调入，利用空间局部性。" },
+  { q: "页式虚拟存储中，页表项的「有效位」为 0 表示？", choices: ["页损坏", "该页不在物理内存", "页被锁定", "页为只读"], answer: 1, why: "无效 = 该页还在磁盘上，访问会触发缺页中断，由操作系统调页。" },
+];
+
+function generateQuestion(forceType = null) {
+  const types = ["capacity", "split", "hitjudge", "translate", "mapping", "chipcount", "chipselect", "decoder", "concept"];
+  const type = forceType ?? types[randomInt(0, types.length - 1)];
+
+  if (type === "chipcount") {
+    const cases = [
+      { target: "1K×8", n: 2, wr: 1, br: 2 },
+      { target: "4K×4", n: 4, wr: 4, br: 1 },
+      { target: "4K×8", n: 8, wr: 4, br: 2 },
+      { target: "2K×8", n: 4, wr: 2, br: 2 },
+    ];
+    const picked = cases[randomInt(0, cases.length - 1)];
+    const wrongs = [picked.n * 2, picked.n / 2, picked.n + 1, picked.n - 1, picked.n + 2].filter((w) => w > 0 && w !== picked.n);
+    const choices = shuffled([picked.n, ...shuffled([...new Set(wrongs)]).slice(0, 3)]);
+    return {
+      type, mode: "choice",
+      prompt: `用 <b>1K×4</b> 芯片组成 <b>${picked.target}</b> 存储器，需要多少片？`,
+      choices: choices.map((c) => `${c} 片`), answer: choices.indexOf(picked.n),
+      explain: `片数 = 字数比 × 位数比 = ${picked.wr} × ${picked.br} = <b>${picked.n} 片</b>。`,
+    };
+  }
+  if (type === "chipselect") {
+    const addr = randomInt(0, 4095);
+    const sel = addr >> 10;
+    const choices = shuffled([0, 1, 2, 3]);
+    return {
+      type, mode: "choice",
+      prompt: `字扩展（4 片 1K×4，A10/A11 译码片选）中，地址 <code>${hex(addr, 3)}H</code> 会选中第几片？`,
+      choices: choices.map((c) => `芯片 ${c}（${hex(c * 0x400, 3)}H~${hex(c * 0x400 + 0x3FF, 3)}H）`), answer: choices.indexOf(sel),
+      explain: `片选 = A11A10 = ${bin(sel, 2)}，译码输出 Y${sel} 有效 → 芯片 ${sel}。片内地址 = ${bin(addr & 0x3FF, 10)}。`,
+    };
+  }
+  if (type === "decoder") {
+    const sel = randomInt(0, 3);
+    const choices = shuffled([0, 1, 2, 3]);
+    return {
+      type, mode: "choice",
+      prompt: `2-4 译码器输入 <code>A11A10 = ${bin(sel, 2)}</code> 时，哪一路输出有效（低电平）？`,
+      choices: choices.map((c) => `Y${c}`), answer: choices.indexOf(sel),
+      explain: `二进制 ${bin(sel, 2)} = ${sel}，所以 Y${sel} 输出低电平有效，对应芯片 ${sel} 被选中。`,
+    };
+  }
+
+  if (type === "capacity") {
+    const n = [8, 10, 12, 16, 20, 24][randomInt(0, 5)];
+    const correct = fmtSize(2 ** n);
+    const wrongs = [fmtSize(2 ** (n - 1)), fmtSize(2 ** (n + 1)), fmtSize(2 ** n / 2), `${n} KB`, `${2 ** n} 单元`].filter((w) => w !== correct);
+    const choices = shuffled([correct, ...shuffled([...new Set(wrongs)]).slice(0, 3)]);
+    return {
+      type, mode: "choice",
+      prompt: `地址总线为 <b>${n} 位</b>（按字节编址），可寻址空间是？`,
+      choices, answer: choices.indexOf(correct),
+      explain: `n 位地址可表示 2ⁿ 个单元：2^${n} = ${(2 ** n).toLocaleString()} ≈ <b>${correct}</b>。`,
+    };
+  }
+  if (type === "split") {
+    const addr = randomInt(0, 255);
+    const block = addr >> 4;
+    const line = block % 4;
+    const choices = shuffled([line, (line + 1) % 4, (line + 2) % 4, (line + 3) % 4]);
+    return {
+      type, mode: "choice",
+      prompt: `直接映像（Cache 4 行、块 16B）中，地址 <code>${hex(addr)}</code> 映射到第几行？`,
+      choices: choices.map((c) => `第 ${c} 行`), answer: choices.indexOf(line),
+      explain: `块号 = ${hex(addr)} ÷ 16 = ${block}；行号 = ${block} mod 4 = <b>${line}</b>。`,
+    };
+  }
+  if (type === "hitjudge") {
+    const block = randomInt(0, 15);
+    const line = block % 4;
+    const resident = randomInt(0, 15);
+    const addr = block * 16 + randomInt(0, 15);
+    const hit = resident === block;
+    return {
+      type, mode: "choice",
+      prompt: `直接映像中，Cache 第 ${line} 行当前装的是「块 ${resident}」。访问地址 <code>${hex(addr)}</code>（块 ${block}），结果？`,
+      choices: ["命中 HIT", "缺失 MISS（并替换）"], answer: hit ? 0 : 1,
+      explain: `块 ${block} 应去第 ${line} 行，该行装的是块 ${resident}：${hit ? "正是它——命中。" : `不是它——缺失，块 ${block} 调入并替换块 ${resident}。`}`,
+    };
+  }
+  if (type === "translate") {
+    const page = randomInt(0, 15);
+    const frame = randomInt(0, 3);
+    const offset = randomInt(0, 15) * 256;
+    const va = page * 4096 + offset;
+    const pa = frame * 4096 + offset;
+    const wrongs = [pa + 4096, pa - 4096 > 0 ? pa - 4096 : pa + 8192, va, page * 4096 + frame * 256 + (offset % 256)].filter((w) => w !== pa && w >= 0 && w <= 65535);
+    const choices = shuffled([pa, ...shuffled([...new Set(wrongs)]).slice(0, 3)]);
+    return {
+      type, mode: "choice",
+      prompt: `页表：页 ${page} → 帧 ${frame}（页 4KB）。虚拟地址 <code>${hex(va, 4)}</code> 的物理地址是？`,
+      choices: choices.map((c) => hex(c, 4)), answer: choices.indexOf(pa),
+      explain: `页内偏移不变：${hex(offset, 3)}；物理地址 = ${frame}×4096 + ${hex(offset, 3)} = <b>${hex(pa, 4)}</b>。`,
+    };
+  }
+  if (type === "mapping") {
+    const cases = [
+      { desc: "块号 mod 行数定行，电路最简、冲突最多", answer: "直接映像" },
+      { desc: "任何块可去任何行，命中最好、比较最贵", answer: "全相联映像" },
+      { desc: "先分组，组内自由放——前两者的折中", answer: "组相联映像" },
+    ];
+    const picked = cases[randomInt(0, 2)];
+    const choices = shuffled(cases.map((c) => c.answer));
+    return {
+      type, mode: "choice",
+      prompt: `「${picked.desc}」说的是哪种映像方式？`,
+      choices, answer: choices.indexOf(picked.answer),
+      explain: `${picked.answer}：${picked.desc}。`,
+    };
+  }
+  const concept = QUIZ_CONCEPTS[randomInt(0, QUIZ_CONCEPTS.length - 1)];
+  return { type: "concept", mode: "choice", prompt: concept.q, choices: concept.choices, answer: concept.answer, explain: concept.why };
+}
+
+function startQuizRound() {
+  quizState.current = generateQuestion(window.__forceQuizType ?? null);
+  quizState.answered = false;
+  quizState.selected = -1;
+  renderQuizQuestion();
+  updateQuizNarrator();
+}
+
+function updateQuizNarrator() {
+  stepCountEl.textContent = `答对 ${quizState.correct} / ${quizState.total} · 连对 ${quizState.streak}`;
+  stepTextEl.innerHTML = `题型随机：<b>容量计算 / 地址划分 / 命中判断 / 页式转换 / 映像识别 / 概念</b>。<br>A / B / C / D 作答，Enter 提交。`;
+}
+
+function renderQuizQuestion() {
+  const q = quizState.current;
+  document.getElementById("quizPrompt").innerHTML = q.prompt;
+  const answerEl = document.getElementById("quizAnswer");
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = "quiz-feedback";
+  feedback.innerHTML = "";
+  document.getElementById("quizSubmit").hidden = false;
+  document.getElementById("quizNext").hidden = true;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  answerEl.innerHTML = `<div class="quiz-choices">${q.choices.map((choice, i) => `
+    <button class="quiz-choice" data-idx="${i}" type="button"><span class="qc-key">${"ABCD"[i]}</span><span>${choice}</span></button>`).join("")}</div>`;
+  answerEl.querySelectorAll(".quiz-choice").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (quizState.answered) return;
+      quizState.selected = Number(btn.dataset.idx);
+      answerEl.querySelectorAll(".quiz-choice").forEach((b) => b.classList.toggle("selected", b === btn));
+    });
+  });
+}
+
+function submitQuizAnswer() {
+  if (quizState.answered || quizState.selected < 0) return;
+  const q = quizState.current;
+  const isCorrect = quizState.selected === q.answer;
+  document.querySelectorAll(".quiz-choice").forEach((btn) => {
+    const idx = Number(btn.dataset.idx);
+    btn.disabled = true;
+    if (idx === q.answer) btn.classList.add("correct");
+    else if (idx === quizState.selected) btn.classList.add("wrong");
+  });
+  quizState.answered = true;
+  window.__platformLink?.recordQuizAnswer(isCorrect);
+  quizState.total += 1;
+  if (isCorrect) {
+    quizState.correct += 1;
+    quizState.streak += 1;
+    quizState.best = Math.max(quizState.best, quizState.streak);
+  } else {
+    quizState.streak = 0;
+  }
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = `quiz-feedback show ${isCorrect ? "ok" : "bad"}`;
+  feedback.innerHTML = `${isCorrect ? "✅ <b>答对了！</b>" : "❌ <b>不对哦。</b>"} ${q.explain}`;
+  document.getElementById("quizSubmit").hidden = true;
+  document.getElementById("quizNext").hidden = false;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  updateQuizNarrator();
+}
+
+/* ───────────────────────── 舞台渲染 ───────────────────────── */
+const stage = document.getElementById("stage");
+const stepCountEl = document.getElementById("stepCount");
+const stepTextEl = document.getElementById("stepText");
+const bannerEl = document.getElementById("banner");
+const playBtn = document.getElementById("playBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+let scenario = { steps: [], zoneBased: false };
+
+function renderStageShell() {
+  if (scenario.kind === "hierarchy") { renderHierarchyStage(); return; }
+  if (scenario.kind === "mainmem") { renderMainMemStage(); return; }
+  if (scenario.kind === "expand") { renderExpandStage(); return; }
+  if (scenario.kind === "cache") { renderCacheStage(); return; }
+  if (scenario.kind === "vm") { vmReset(); renderVmStage(); return; }
+  if (scenario.kind === "quiz") {
+    stage.innerHTML = `
+      <div class="stage-title"><h2>课堂练习 · 随机出题</h2><span class="st-sub">容量 / 划分 / 命中 / 转换 / 概念</span></div>
+      <div class="zone"><div class="quiz-head">
+        <span>得分 <strong id="quizScore">0 / 0</strong></span>
+        <span class="quiz-streak" id="quizStreak"></span>
+        <span>A / B / C / D 键作答 · Enter 提交</span>
+      </div></div>
+      <div class="zone quiz-card" style="gap:14px">
+        <div class="quiz-q" id="quizPrompt"></div>
+        <div id="quizAnswer"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+      </div>
+      <div class="quiz-actions">
+        <button id="quizSubmit" type="button">提交答案</button>
+        <button id="quizNext" class="ghost-action" type="button" hidden>下一题 →</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">独立练习模式：题目随机生成，做完一题点「下一题」</div>`;
+    document.getElementById("quizSubmit").addEventListener("click", submitQuizAnswer);
+    document.getElementById("quizNext").addEventListener("click", startQuizRound);
+  }
+}
+
+function refreshScenario(targetStep = 0) {
+  if (state.mode === "quiz") stopPlaying();
+  document.body.classList.toggle("quiz-active", state.mode === "quiz");
+  scenario = state.mode === "hierarchy" ? buildHierarchyScenario()
+    : state.mode === "mainmem" ? buildMainMemScenario()
+    : state.mode === "expand" ? buildExpandScenario()
+    : state.mode === "cache" ? buildCacheScenario()
+    : state.mode === "vm" ? buildVmScenario()
+    : { kind: "quiz", steps: [{ text: "", formula: "独立练习模式：题目随机，做完一题点「下一题」" }] };
+  renderStageShell();
+  renderPresets();
+  goToStep(Math.min(targetStep, scenario.steps.length - 1));
+  if (state.mode === "quiz") startQuizRound();
+}
+
+function goToStep(index) {
+  state.stepIndex = Math.max(0, Math.min(index, scenario.steps.length - 1));
+  const step = scenario.steps[state.stepIndex];
+
+  if (scenario.kind === "quiz") {
+    // 练习模式自管理
+  } else if (scenario.zoneBased) {
+    stage.querySelectorAll(".logic-zone").forEach((zoneEl, i) => {
+      zoneEl.classList.toggle("zone-current", i === step.zone);
+    });
+    // 步进到「时间比例尺」区域时自动重播生长动画
+    if (scenario.kind === "hierarchy" && step.zone === 1) playRace();
+  }
+
+  const formulaEl = document.getElementById("formulaStrip");
+  if (formulaEl && step.formula) formulaEl.textContent = step.formula;
+  if (step.text) stepTextEl.innerHTML = step.text;
+  stepCountEl.textContent = `第 ${state.stepIndex + 1} / ${scenario.steps.length} 步`;
+
+  prevBtn.disabled = state.stepIndex === 0;
+  nextBtn.disabled = state.stepIndex === scenario.steps.length - 1;
+  if (state.stepIndex === scenario.steps.length - 1) stopPlaying();
+}
+
+function setBanner(html, kind) {
+  if (!kind) { bannerEl.className = "banner"; bannerEl.innerHTML = ""; return; }
+  bannerEl.className = `banner show ${kind}`;
+  bannerEl.innerHTML = html;
+}
+
+/* ───────────────────────── 播放控制 ───────────────────────── */
+function setPlayUI(playing) { playBtn.textContent = playing ? "⏸ 暂停" : "▶ 自动播放"; }
+function stopPlaying() { state.playing = false; clearTimeout(state.timer); setPlayUI(false); }
+function scheduleNext() {
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => {
+    if (!state.playing) return;
+    if (state.stepIndex >= scenario.steps.length - 1) { stopPlaying(); return; }
+    goToStep(state.stepIndex + 1);
+    scheduleNext();
+  }, 1800 / state.speed);
+}
+playBtn.addEventListener("click", () => {
+  if (state.playing) { stopPlaying(); return; }
+  state.playing = true;
+  setPlayUI(true);
+  if (state.stepIndex >= scenario.steps.length - 1) goToStep(0);
+  scheduleNext();
+});
+prevBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex - 1); });
+nextBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex + 1); });
+document.getElementById("resetBtn").addEventListener("click", () => {
+  stopPlaying();
+  if (state.mode === "cache") { cacheReset(); renderCacheControls(); }
+  if (state.mode === "vm") { vmReset(); vmRenderAll(); document.getElementById("paLine").textContent = "—"; }
+  goToStep(0);
+});
+
+const speedRange = document.getElementById("speedRange");
+speedRange.addEventListener("input", () => {
+  state.speed = Number(speedRange.value);
+  document.getElementById("speedLabel").textContent = `${state.speed}×`;
+});
+
+document.getElementById("modeTabs").addEventListener("click", (event) => {
+  const btn = event.target.closest("button[data-mode]");
+  if (!btn) return;
+  stopPlaying();
+  state.mode = btn.dataset.mode;
+  document.querySelectorAll("#modeTabs button").forEach((b) => b.classList.toggle("active", b === btn));
+  refreshScenario(0);
+});
+
+document.getElementById("insightToggle").addEventListener("click", () => {
+  const body = document.getElementById("insightBody");
+  body.hidden = !body.hidden;
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.target.tagName === "INPUT") return;
+  if (event.code === "Space") { event.preventDefault(); playBtn.click(); }
+  if (event.key === "ArrowLeft") prevBtn.click();
+  if (event.key === "ArrowRight") nextBtn.click();
+  if (event.key === "1") document.querySelector('[data-mode="hierarchy"]').click();
+  if (event.key === "2") document.querySelector('[data-mode="mainmem"]').click();
+  if (event.key === "3") document.querySelector('[data-mode="expand"]').click();
+  if (event.key === "4") document.querySelector('[data-mode="cache"]').click();
+  if (event.key === "5") document.querySelector('[data-mode="vm"]').click();
+  if (event.key === "6") document.querySelector('[data-mode="quiz"]').click();
+  if (state.mode === "quiz" && /^[a-dA-D]$/.test(event.key) && !quizState.answered) {
+    const idx = "abcd".indexOf(event.key.toLowerCase());
+    document.querySelector(`.quiz-choice[data-idx="${idx}"]`)?.click();
+  }
+  if (state.mode === "quiz" && event.key === "Enter") {
+    event.preventDefault();
+    if (quizState.answered) startQuizRound();
+    else submitQuizAnswer();
+  }
+  if (event.key.toLowerCase() === "r") document.getElementById("resetBtn").click();
+});
+
+/* ───────────────────────── 启动 ───────────────────────── */
+refreshScenario(0);
+
+/* 供自动化验收读取（verify.mjs 使用），页面逻辑不依赖 */
+window.__quizState = quizState;
+window.__cacheState = cacheState;
+window.__vmState = vmState;
+</script>
+<script src="./platform-link.js"></script>
+</body>
+</html>

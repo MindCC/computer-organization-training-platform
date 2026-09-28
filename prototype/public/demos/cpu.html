@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CPU 的结构与设计 · 课堂互动演示</title>
+<style>
+  :root {
+    --bg0: #050c22; --bg1: #0a1738;
+    --panel: rgba(10, 23, 56, 0.82);
+    --line: rgba(56, 132, 255, 0.28);
+    --text: #e6f0ff; --muted: #8ea3c8; --dim: #5d7099;
+    --cyan: #38bdf8; --cyan-soft: #7dd3fc; --teal: #2dd4bf;
+    --violet: #a78bfa; --amber: #fbbf24; --red: #f87171; --green: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 520px at 85% -10%, rgba(56, 132, 255, 0.16), transparent 62%),
+      radial-gradient(800px 480px at 5% 112%, rgba(45, 212, 191, 0.10), transparent 55%),
+      linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 55%, var(--bg0) 100%);
+    min-height: 100vh; overflow-x: hidden;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(56,132,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(56,132,255,0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 78%);
+  }
+  .app { position: relative; max-width: 1440px; margin: 0 auto; padding: 18px 24px 26px; }
+
+  header { text-align: center; padding: 6px 0 14px; }
+  .kicker { display: inline-block; font-size: 13px; letter-spacing: 0.22em; color: var(--cyan-soft); border: 1px solid rgba(125,211,252,0.4); border-radius: 999px; padding: 4px 16px; background: rgba(56,132,255,0.08); }
+  h1 { margin-top: 10px; font-size: 40px; letter-spacing: 0.08em; background: linear-gradient(90deg, #7dd3fc, #38bdf8 45%, #2dd4bf); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 34px rgba(56,189,248,0.3); }
+  .subtitle { margin-top: 6px; color: var(--muted); font-size: 15px; letter-spacing: 0.05em; }
+  .mode-tabs { margin-top: 14px; display: inline-flex; gap: 6px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: rgba(8,18,46,0.75); flex-wrap: wrap; justify-content: center; }
+  .mode-tabs button { border: none; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 700; letter-spacing: 0.03em; color: var(--muted); background: transparent; cursor: pointer; transition: all 160ms ease; }
+  .mode-tabs button:hover { color: var(--text); }
+  .mode-tabs button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); box-shadow: 0 0 20px rgba(56,189,248,0.45); }
+
+  main { display: grid; grid-template-columns: 290px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: inset 0 0 32px rgba(15,36,82,0.45), 0 10px 34px rgba(2,8,26,0.4); }
+  .panel h2 { font-size: 16px; letter-spacing: 0.08em; color: #cfe6ff; }
+  .panel h2 small { color: var(--dim); font-size: 12px; font-weight: 400; margin-left: 8px; }
+
+  .side { padding: 16px; display: grid; gap: 14px; }
+  .presets h3 { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .preset-list { display: grid; gap: 6px; }
+  .preset-btn { text-align: left; border: 1px solid rgba(56,132,255,0.3); border-radius: 10px; padding: 8px 12px; background: rgba(13,30,66,0.6); color: #bfe0ff; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
+  .preset-btn:hover { border-color: rgba(125,211,252,0.8); box-shadow: 0 0 14px rgba(56,189,248,0.25); transform: translateX(3px); }
+  .preset-btn small { display: block; color: var(--dim); font-weight: 400; margin-top: 1px; }
+  .preset-btn.warn { border-color: rgba(248,113,113,0.45); color: #fecaca; }
+  .side-note { font-size: 12.5px; color: var(--dim); line-height: 1.75; }
+
+  .stage { padding: 18px 20px 22px; min-height: 560px; display: grid; gap: 14px; align-content: start; }
+  .stage-title { display: flex; align-items: baseline; justify-content: space-between; }
+  .stage-title h2 { font-size: 17px; }
+  .stage-title .st-sub { color: var(--dim); font-size: 12.5px; }
+  .zone { display: grid; gap: 10px; border: 1px dashed rgba(56,132,255,0.3); border-radius: 12px; padding: 12px 14px; transition: border-color 300ms ease, box-shadow 300ms ease; }
+  .zone-title { font-size: 13px; font-weight: 700; color: var(--cyan-soft); letter-spacing: 0.08em; }
+  .zone.zone-current { border-color: rgba(125,211,252,0.7); box-shadow: 0 0 18px rgba(56,189,248,0.25); }
+  .enc-note { text-align: center; font-size: 12.5px; color: var(--dim); }
+  .formula-strip { min-height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(56,132,255,0.08); border: 1px solid rgba(56,132,255,0.22); font-family: "Consolas", monospace; font-size: 15.5px; color: var(--cyan-soft); padding: 6px 12px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  .narrator { padding: 16px; display: grid; gap: 12px; position: sticky; top: 14px; }
+  .step-card { border: 1px solid rgba(125,211,252,0.35); border-radius: 12px; padding: 14px; background: rgba(56,132,255,0.07); min-height: 120px; }
+  .step-count { font-size: 12px; color: var(--dim); letter-spacing: 0.14em; }
+  .step-text { margin-top: 8px; font-size: 15.5px; line-height: 1.65; color: #dbeafe; }
+  .step-text b { color: var(--amber); }
+  .banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.6; display: none; }
+  .banner.show { display: block; animation: popIn 320ms ease; }
+  .banner.hit { border: 1px solid rgba(52,211,153,0.6); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .banner.miss { border: 1px solid rgba(248,113,113,0.6); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .banner.evict { border: 1px solid rgba(251,191,36,0.6); background: rgba(60,45,8,0.45); color: #fde68a; }
+  @keyframes popIn { 0% { transform: scale(0.92); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .controls button { border: 1px solid rgba(56,132,255,0.4); border-radius: 10px; padding: 11px 8px; background: rgba(13,30,66,0.7); color: #bfe0ff; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .controls button:hover:not(:disabled) { border-color: rgba(125,211,252,0.85); box-shadow: 0 0 14px rgba(56,189,248,0.3); }
+  .controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .controls .play-btn { grid-column: span 2; background: linear-gradient(90deg, rgba(29,78,216,0.8), rgba(37,99,235,0.8)); font-size: 15px; }
+  .speed { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .speed input { flex: 1; accent-color: var(--cyan); }
+  .kbd-hints { font-size: 11.5px; color: var(--dim); text-align: center; line-height: 1.7; }
+  .insight button { width: 100%; border: 1px solid rgba(251,191,36,0.4); border-radius: 10px; padding: 10px; background: rgba(251,191,36,0.08); color: #fde68a; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .insight-body { margin-top: 8px; font-size: 13.5px; line-height: 1.75; color: #d8c9a3; border-top: 1px dashed rgba(251,191,36,0.3); padding-top: 8px; }
+  .insight-body b { color: var(--amber); }
+  body.quiz-active .controls, body.quiz-active .speed { display: none; }
+
+  .toggle-row { display: flex; justify-content: center; gap: 7px; flex-wrap: wrap; }
+  .toggle-row button { border: 1px solid rgba(56,132,255,0.4); border-radius: 999px; padding: 6px 13px; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .toggle-row button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); }
+  .inline-steps { display: flex; justify-content: center; gap: 10px; padding: 2px 0; flex-wrap: wrap; }
+  .inline-steps button { border: 1px solid rgba(56,132,255,0.45); border-radius: 999px; padding: 8px 18px; background: rgba(13,30,66,0.85); color: #bfe0ff; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .inline-steps button:hover:not(:disabled) { border-color: rgba(125,211,252,0.9); box-shadow: 0 0 14px rgba(56,189,248,0.35); }
+  .inline-steps button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── 数据通路 ── */
+  .datapath-svg { width: 100%; height: auto; display: block; }
+  .dp-comp rect { fill: rgba(13,30,66,0.88); stroke: rgba(56,132,255,0.5); stroke-width: 1.4; transition: all 240ms ease; }
+  .dp-comp text { fill: #dbeafe; font-size: 13px; font-weight: 700; }
+  .dp-comp .dp-sub { fill: #5d7099; font-size: 9.5px; font-weight: 400; }
+  .dp-comp { cursor: pointer; }
+  .dp-comp:hover rect { stroke: var(--cyan-soft); }
+  .dp-comp.active rect { stroke: #22d3ee; stroke-width: 3; filter: drop-shadow(0 0 10px rgba(34,211,238,0.6)); }
+  .dp-comp.selected rect { stroke: var(--amber); stroke-width: 2.6; }
+  .dp-wire { stroke: rgba(56,132,255,0.4); stroke-width: 2; fill: none; transition: all 240ms ease; }
+  .dp-wire.active { stroke: #22d3ee; stroke-width: 3.2; filter: drop-shadow(0 0 6px rgba(34,211,238,0.7)); }
+  .dp-wire.ctrl { stroke: rgba(251,191,36,0.35); stroke-dasharray: 5 4; }
+  .dp-wire.ctrl.active { stroke: var(--amber); }
+  .dp-info { border: 1px solid rgba(56,132,255,0.3); border-radius: 12px; padding: 10px 14px; background: rgba(13,30,66,0.55); font-size: 13.5px; line-height: 1.7; color: var(--muted); min-height: 66px; }
+  .dp-info b { color: var(--cyan-soft); }
+
+  .stage-flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .stage-chip { border: 1px solid rgba(51,65,100,0.9); border-radius: 10px; padding: 8px 6px; text-align: center; background: rgba(9,18,44,0.85); color: var(--dim); font-size: 12.5px; font-weight: 700; transition: all 200ms ease; }
+  .stage-chip small { display: block; font-size: 10px; font-weight: 400; margin-top: 2px; }
+  .stage-chip.active { border-color: #22d3ee; color: #a5ecff; background: rgba(34,211,238,0.12); box-shadow: 0 0 14px rgba(34,211,238,0.4); }
+  .stage-chip.done { border-color: rgba(52,211,153,0.6); color: #a7f3d0; }
+
+  /* ── 多级时序 ── */
+  .timing-grid { display: grid; gap: 8px; font-family: "Consolas", monospace; }
+  .tl-row { display: grid; grid-template-columns: 90px 1fr; align-items: center; gap: 8px; }
+  .tl-label { font-size: 12px; color: var(--dim); text-align: right; }
+  .tl-cells { display: grid; gap: 4px; }
+  .tl-cells.level0 { grid-template-columns: 1fr; }
+  .tl-cell { border: 1px solid rgba(51,65,100,0.9); border-radius: 8px; padding: 7px 6px; text-align: center; background: rgba(9,18,44,0.85); color: var(--dim); font-size: 12px; transition: all 180ms ease; }
+  .tl-cell small { display: block; font-size: 9px; opacity: 0.8; }
+  .tl-cell.active { border-color: var(--amber); color: #fde68a; background: rgba(251,191,36,0.14); box-shadow: 0 0 12px rgba(251,191,36,0.4); }
+  .tl-cell.done { border-color: rgba(52,211,153,0.55); color: #a7f3d0; }
+  .beat-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); vertical-align: middle; margin-right: 5px; }
+
+  /* ── 控制信号 ── */
+  .beat-matrix { display: grid; gap: 5px; font-family: "Consolas", monospace; }
+  .beat-row { display: grid; grid-template-columns: 96px repeat(3, 1fr); gap: 5px; align-items: stretch; }
+  .beat-head { display: grid; place-items: center; font-size: 11px; color: var(--dim); padding: 4px; }
+  .beat-cell { border: 1px solid rgba(51,65,100,0.8); border-radius: 8px; padding: 6px 8px; background: rgba(9,18,44,0.8); font-size: 11px; color: var(--dim); transition: all 180ms ease; display: flex; flex-wrap: wrap; gap: 4px; align-content: start; }
+  .beat-cell.active { border-color: #22d3ee; background: rgba(34,211,238,0.1); box-shadow: 0 0 12px rgba(34,211,238,0.35); }
+  .beat-cell.done { border-color: rgba(52,211,153,0.5); }
+  .sig-chip { border: 1px solid rgba(56,132,255,0.4); border-radius: 6px; padding: 2px 6px; font-size: 10.5px; color: var(--muted); background: rgba(13,30,66,0.6); transition: all 180ms ease; }
+  .beat-cell.active .sig-chip { border-color: #22d3ee; color: #a5ecff; background: rgba(34,211,238,0.15); box-shadow: 0 0 8px rgba(34,211,238,0.4); }
+
+  /* ── 中断 ── */
+  .irq-flow { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+  .irq-chip { border: 1px solid rgba(51,65,100,0.9); border-radius: 10px; padding: 9px 6px; text-align: center; background: rgba(9,18,44,0.85); color: var(--dim); font-size: 12px; font-weight: 700; transition: all 200ms ease; }
+  .irq-chip small { display: block; font-size: 10px; font-weight: 400; margin-top: 3px; line-height: 1.45; }
+  .irq-chip.active { border-color: var(--red); color: #fecaca; background: rgba(248,113,113,0.12); box-shadow: 0 0 14px rgba(248,113,113,0.4); }
+  .irq-chip.done { border-color: rgba(52,211,153,0.6); color: #a7f3d0; }
+  .ctrl-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ctrl-card { border: 1px solid rgba(56,132,255,0.3); border-radius: 12px; padding: 10px 12px; background: rgba(13,30,66,0.55); }
+  .ctrl-card h4 { font-size: 14px; color: var(--cyan-soft); margin-bottom: 4px; }
+  .ctrl-card p { font-size: 12px; color: var(--muted); line-height: 1.65; }
+
+  /* ── 练习 ── */
+  .quiz-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
+  .quiz-head strong { color: var(--cyan-soft); font-size: 16px; }
+  .quiz-streak { color: var(--amber); font-weight: 700; }
+  .quiz-q { font-size: 19px; font-weight: 700; line-height: 1.6; color: #eaf4ff; }
+  .quiz-q code { font-family: "Consolas", monospace; font-size: 19px; color: var(--amber); background: rgba(251,191,36,0.1); padding: 2px 10px; border-radius: 8px; }
+  .quiz-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .quiz-choice { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(56,132,255,0.35); border-radius: 12px; padding: 11px 13px; background: rgba(13,30,66,0.6); color: #dbeafe; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 140ms ease; text-align: left; }
+  .quiz-choice .qc-key { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(125,211,252,0.5); color: var(--cyan-soft); font-size: 13px; font-weight: 800; flex: none; }
+  .quiz-choice:hover { border-color: rgba(125,211,252,0.8); }
+  .quiz-choice.selected { border-color: var(--cyan-soft); background: rgba(56,132,255,0.16); }
+  .quiz-choice.correct { border-color: var(--green); background: rgba(52,211,153,0.14); color: #d1fae5; }
+  .quiz-choice.wrong { border-color: var(--red); background: rgba(248,113,113,0.12); color: #fecaca; }
+  .quiz-choice:disabled { cursor: default; }
+  .quiz-feedback { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.65; display: none; }
+  .quiz-feedback.show { display: block; animation: popIn 320ms ease; }
+  .quiz-feedback.ok { border: 1px solid rgba(52,211,153,0.55); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .quiz-feedback.bad { border: 1px solid rgba(248,113,113,0.55); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .quiz-actions { display: flex; justify-content: center; gap: 10px; }
+  .quiz-actions button { border: 1px solid rgba(56,132,255,0.5); border-radius: 999px; padding: 10px 28px; background: linear-gradient(90deg, rgba(29,78,216,0.85), rgba(37,99,235,0.85)); color: #eaf4ff; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .quiz-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .quiz-actions .ghost-action { background: rgba(13,30,66,0.7); }
+
+  @media (max-width: 1180px) {
+    main { grid-template-columns: 1fr; }
+    .narrator { position: static; }
+    .stage-flow, .irq-flow { grid-template-columns: repeat(3, 1fr); }
+    h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="kicker">第六章 · CPU 的结构与设计</span>
+    <h1>CPU 的结构与设计</h1>
+    <p class="subtitle">数据通路 · 多级时序 · 控制信号 · 中断系统 —— 一条指令在 CPU 里的一生</p>
+    <nav class="mode-tabs" id="modeTabs">
+      <button data-mode="datapath" class="active">数据通路</button>
+      <button data-mode="timing">多级时序</button>
+      <button data-mode="signals">节拍控制信号</button>
+      <button data-mode="interrupt">中断系统</button>
+      <button data-mode="quiz">课堂练习</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="side panel" aria-label="场景面板">
+      <h2>场景与动线<small></small></h2>
+      <div class="presets"><div class="preset-list" id="presetList"></div></div>
+      <div class="side-note" id="sideNote"></div>
+    </section>
+
+    <section class="stage panel" aria-label="演示舞台" id="stage"></section>
+
+    <aside class="narrator panel" aria-label="讲解与控制">
+      <div class="step-card">
+        <div class="step-count" id="stepCount"></div>
+        <div class="step-text" id="stepText"></div>
+      </div>
+      <div class="banner" id="banner"></div>
+      <div class="controls">
+        <button class="play-btn" id="playBtn">▶ 自动播放</button>
+        <button id="prevBtn">← 上一步</button>
+        <button id="nextBtn">下一步 →</button>
+        <button id="resetBtn" style="grid-column: span 2;">↺ 重置本模式</button>
+      </div>
+      <div class="speed">
+        <span>速度</span>
+        <input type="range" id="speedRange" min="0.5" max="2.5" step="0.25" value="1">
+        <span id="speedLabel">1×</span>
+      </div>
+      <div class="kbd-hints">空格 播放/暂停 · ← / → 步进 · 1 ~ 5 切换模式 · R 重置</div>
+      <div class="insight">
+        <button id="insightToggle">💡 控制器到底在干什么？</button>
+        <div class="insight-body" id="insightBody" hidden>
+          把 CPU 想成一间厨房：<b>数据通路是灶台、锅碗瓢盆</b>（寄存器、ALU、总线），<b>控制器是厨师</b>。<br>
+          厨师手里有一张<b>食谱（指令）</b>：每个机器周期看一
+页（取指/译码/执行…），每一页再拆成几个<b>节拍</b>，每个节拍发一组<b>控制信号</b>——开哪个阀门（PCout）、让数据进哪个容器（MARin）、让 ALU 做什么运算。<br>
+          所谓<b>组合逻辑控制器</b>，就是一张「指令 × 机器周期 × 节拍 → 控制信号」的硬连线真值表。
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ───────────────────────── 基础工具 ───────────────────────── */
+function randomInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function shuffled(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/* ───────────────────────── 全局状态 ───────────────────────── */
+const state = { mode: "datapath", stepIndex: 0, playing: false, speed: 1, timer: null };
+const dpState = { stage: -1, playing: false, selected: null, instr: "ADD R1, R2" };
+const timingState = { instr: "ADD", beat: -1, playing: false };
+const sigState = { beat: -1 };
+const irqState = { step: -1, playing: false };
+const quizState = { total: 0, correct: 0, streak: 0, best: 0, current: null, answered: false, selected: -1 };
+
+/* ───────────────────────── 数据通路模型 ───────────────────────── */
+const DP_COMPONENTS = {
+  pc: { name: "PC 程序计数器", x: 30, y: 30, w: 110, h: 52, sub: "下一条指令地址", desc: "保存下一条要取指令的地址，取指后通常自动 +1（顺序寻址）；跳转时被写入目标地址。" },
+  mar: { name: "MAR 地址寄存器", x: 200, y: 30, w: 110, h: 52, sub: "访存地址暂存", desc: "要访问主存时，地址先放进 MAR，经地址总线选中主存单元。" },
+  mem: { name: "主存", x: 370, y: 22, w: 120, h: 68, sub: "指令与数据的家", desc: "保存程序与数据。取指阶段按 MAR 读出指令，访存阶段读写数据。" },
+  mdr: { name: "MDR 数据寄存器", x: 370, y: 130, w: 120, h: 52, sub: "主存数据暂存", desc: "主存读出的内容先放 MDR，再送往 IR（指令）或寄存器（数据）。" },
+  ir: { name: "IR 指令寄存器", x: 200, y: 130, w: 110, h: 52, sub: "当前执行的指令", desc: "保存正在执行的指令：操作码送控制器译码，地址码参与取数。" },
+  cu: { name: "控制器 CU", x: 30, y: 130, w: 110, h: 52, sub: "译码并发号施令", desc: "CPU 的指挥：译码 IR 中的指令，按机器周期与节拍发出全部控制信号。" },
+  regs: { name: "寄存器堆 R0~R3", x: 30, y: 240, w: 150, h: 52, sub: "通用寄存器", desc: "ALU 的操作数来源与结果归宿。本例 R1=5、R2=3。" },
+  alu: { name: "ALU 运算器", x: 240, y: 240, w: 130, h: 52, sub: "算术逻辑运算", desc: "在控制信号驱动下对 A/B 两端数据做运算，并产生标志位。" },
+  wb: { name: "写回总线", x: 430, y: 240, w: 110, h: 52, sub: "结果回写通道", desc: "ALU 结果经写回总线写入目的寄存器，一条指令至此完成。" },
+};
+const DP_WIRES = [
+  { id: "w-pc-mar", from: "pc", to: "mar", d: "M 140 56 L 200 56", stages: [0] },
+  { id: "w-mar-mem", from: "mar", to: "mem", d: "M 310 56 L 370 56", stages: [0, 3] },
+  { id: "w-mem-mdr", from: "mem", to: "mdr", d: "M 430 90 L 430 130", stages: [0, 3] },
+  { id: "w-mdr-ir", from: "mdr", to: "ir", d: "M 370 156 L 310 156", stages: [0] },
+  { id: "w-ir-cu", from: "ir", to: "cu", d: "M 200 156 L 140 156", stages: [1] },
+  { id: "w-cu-regs", from: "cu", to: "regs", d: "M 85 182 L 85 240", stages: [1, 2, 4], ctrl: true },
+  { id: "w-cu-alu", from: "cu", to: "alu", d: "M 140 170 L 260 240", stages: [1, 2, 3], ctrl: true },
+  { id: "w-cu-mem", from: "cu", to: "mem", d: "M 140 140 L 390 90", stages: [0, 3], ctrl: true },
+  { id: "w-regs-alu", from: "regs", to: "alu", d: "M 180 266 L 240 266", stages: [2] },
+  { id: "w-alu-wb", from: "alu", to: "wb", d: "M 370 266 L 430 266", stages: [3, 4] },
+  { id: "w-wb-regs", from: "wb", to: "regs", d: "M 485 292 L 485 320 L 105 320 L 105 292", stages: [4] },
+  { id: "w-pc-inc", from: "cu", to: "pc", d: "M 85 130 L 85 82", stages: [0], ctrl: true },
+];
+
+const DP_STAGES = [
+  { key: "fetch", name: "取指", sub: "IF", text: "PC→MAR→主存→MDR→IR：指令被取进指令寄存器，PC 同时 +1。", comps: ["pc", "mar", "mem", "mdr", "ir"] },
+  { key: "decode", name: "译码", sub: "ID", text: "IR 的操作码送进控制器：CU 译出「ADD R1, R2」，生成后续全部控制信号。", comps: ["ir", "cu"] },
+  { key: "fetchop", name: "取操作数", sub: "OF", text: "控制器发出读寄存器命令：R1=5、R2=3 分别送 ALU 的 A、B 两端。", comps: ["cu", "regs", "alu"] },
+  { key: "execute", name: "执行", sub: "EX", text: "ALU 在控制信号驱动下做加法：5 + 3 = 8，同时更新标志位。", comps: ["alu"] },
+  { key: "writeback", name: "写回", sub: "WB", text: "ALU 结果经写回总线写入 R1：R1 从 5 变成 8，本条指令完成。", comps: ["alu", "wb", "regs"] },
+];
+
+const TIMING_INSTRUCTIONS = {
+  ADD: { name: "ADD R1, R2", cycles: ["取指", "译码", "取操作数", "执行", "写回"], note: "寄存器型指令：不访存数据" },
+  LOAD: { name: "LOAD R1, [A]", cycles: ["取指", "译码", "计算地址", "访存读数", "写回"], note: "多一个访存机器周期" },
+  JMP: { name: "JMP target", cycles: ["取指", "译码", "计算目标", "修改PC"], note: "跳转类：节拍最少" },
+};
+const BEATS_PER_CYCLE = 3;
+
+/* 控制信号矩阵：[机器周期][节拍] = { signals: [], comps: [] } */
+const SIGNAL_MATRIX = {
+  "取指": [
+    { signals: ["PCout", "MARin"], comps: ["pc", "mar"] },
+    { signals: ["MemRead", "MDRin", "PC+1"], comps: ["mem", "mdr", "pc"] },
+    { signals: ["MDRout", "IRin"], comps: ["mdr", "ir"] },
+  ],
+  "译码": [
+    { signals: ["IRout(op)", "CUdecode"], comps: ["ir", "cu"] },
+    { signals: ["形成控制信号"], comps: ["cu"] },
+    { signals: ["（空节拍）"], comps: [] },
+  ],
+  "取操作数": [
+    { signals: ["R1out→A"], comps: ["regs", "alu"] },
+    { signals: ["R2out→B"], comps: ["regs", "alu"] },
+    { signals: ["ALUin"], comps: ["alu"] },
+  ],
+  "执行": [
+    { signals: ["ALUadd"], comps: ["alu"] },
+    { signals: ["SetFlags"], comps: ["alu"] },
+    { signals: ["（空节拍）"], comps: [] },
+  ],
+  "写回": [
+    { signals: ["ALUout"], comps: ["alu", "wb"] },
+    { signals: ["R1in"], comps: ["regs", "wb"] },
+    { signals: ["NextInstr"], comps: ["pc"] },
+  ],
+  "计算地址": [
+    { signals: ["IRout(addr)", "ALUadd"], comps: ["ir", "alu"] },
+    { signals: ["EA→MAR"], comps: ["alu", "mar"] },
+    { signals: ["（空节拍）"], comps: [] },
+  ],
+  "访存读数": [
+    { signals: ["MemRead"], comps: ["mem"] },
+    { signals: ["MDRin"], comps: ["mdr"] },
+    { signals: ["MDRout→R1"], comps: ["mdr", "regs"] },
+  ],
+  "计算目标": [
+    { signals: ["IRout(addr)", "PCadd"], comps: ["ir", "pc"] },
+    { signals: ["（空节拍）"], comps: [] },
+    { signals: ["（空节拍）"], comps: [] },
+  ],
+  "修改PC": [
+    { signals: ["Target→PC"], comps: ["pc"] },
+    { signals: ["（空节拍）"], comps: [] },
+    { signals: ["（空节拍）"], comps: [] },
+  ],
+};
+
+const IRQ_STEPS = [
+  { name: "关中断", sub: "禁止新中断", text: "先把中断允许触发器清零：响应期间不受新中断打扰，保护现场过程不被打断。" },
+  { name: "保存断点", sub: "PC 与现场入栈", text: "把当前 PC（断点）和关键寄存器压入堆栈——服务完还要回来接着跑。" },
+  { name: "识别中断源", sub: "向量查询/中断判优", text: "是谁在敲门？通过中断向量或查询链找到中断源，得到服务程序入口地址。" },
+  { name: "中断服务", sub: "执行服务程序", text: "跳转到服务程序：读键盘数据/取磁盘状态……这是中断的真正目的。" },
+  { name: "恢复现场", sub: "寄存器出栈", text: "把保存的寄存器弹回来，恢复被中断程序的执行环境。" },
+  { name: "开中断返回", sub: "回到断点继续", text: "重新开中断，PC 恢复为断点值——主程序像什么都没发生过一样继续。" },
+];
+
+/* ───────────────────────── 场景面板 ───────────────────────── */
+const presetList = document.getElementById("presetList");
+const sideNote = document.getElementById("sideNote");
+
+function renderPresets() {
+  presetList.innerHTML = "";
+  sideNote.textContent = "";
+  const addBtn = (label, note, warn, onClick) => {
+    const btn = document.createElement("button");
+    btn.className = "preset-btn" + (warn ? " warn" : "");
+    btn.innerHTML = `${label}<small>${note}</small>`;
+    btn.addEventListener("click", onClick);
+    presetList.appendChild(btn);
+  };
+  if (state.mode === "datapath") {
+    addBtn("▶ 运行 ADD R1, R2", "五阶段完整走一遍", false, () => dpRun());
+    addBtn("逐阶段单步", "取指→译码→取数→执行→写回", false, () => dpStep());
+    addBtn("重置通路", "熄灭所有高亮", false, () => dpReset());
+    sideNote.innerHTML = "同屏动线：① 点任意部件看职责 ② 运行 ADD 指令，看数据沿通路流动 ③ 注意控制信号虚线何时亮。";
+  } else if (state.mode === "timing") {
+    for (const key of Object.keys(TIMING_INSTRUCTIONS)) {
+      addBtn(`${key} 指令时序`, TIMING_INSTRUCTIONS[key].note, false, () => timingSet(key));
+    }
+    addBtn("▶ 时钟走起", "T1→T2→T3 逐拍跳动", false, () => timingPlay());
+    sideNote.innerHTML = "嵌套结构：1 个指令周期 = 若干机器周期，1 个机器周期 = 3 个时钟周期（节拍）。换指令看机器周期数量变化。";
+  } else if (state.mode === "signals") {
+    addBtn("逐拍推进", "看每个节拍发哪些信号", false, () => sigStep());
+    addBtn("▶ 自动走拍", "节拍自动循环", false, () => sigPlay());
+    addBtn("重置到取指 T1", "从头走一遍", false, () => sigReset());
+    sideNote.innerHTML = "左：机器周期×节拍矩阵，亮起的信号芯片就是本拍命令；右：数据通路同步高亮动作部件。";
+  } else if (state.mode === "interrupt") {
+    addBtn("▶ 演示中断响应", "六步流程走一遍", false, () => irqPlay());
+    addBtn("单步看流程", "关中断→…→开中断", false, () => irqStep());
+    sideNote.innerHTML = "中断 = 主程序被打断去处理急事再回来。三步关键：保存断点、识别中断源、恢复现场。";
+  } else if (state.mode === "quiz") {
+    presetList.innerHTML = `<div class="side-note" style="text-align:left">题型：阶段排序 · 时序计算 · 信号识别 · 中断流程 · 部件职责 · 概念题<br><br>答对立即解析，连对有 🔥 标记。</div>`;
+  }
+}
+
+/* ───────────────────────── 数据通路模式 ───────────────────────── */
+function buildDatapathScenario() {
+  const steps = [
+    { zone: 0, text: `先看部件：CPU 内部数据通路 = <b>寄存器 + ALU + 总线</b>的组合。点图中任意部件，下方会显示它的职责。`, formula: `数据通路 = 运算器 + 寄存器 + 总线` },
+    { zone: 1, text: `运行一条 <b>ADD R1, R2</b>（R1=5，R2=3）：五个阶段走一遍——取指、译码、取操作数、执行、写回。点「运行」或「逐阶段单步」，看高亮沿通路流动、控制信号虚线随拍亮起。`, formula: `IF → ID → OF → EX → WB` },
+  ];
+  return { kind: "datapath", zoneBased: true, steps };
+}
+
+function renderDatapathSvg(containerId, activeComps = [], activeWires = [], selectable = true) {
+  const comp = (key, c) => `
+    <g class="dp-comp ${activeComps.includes(key) ? "active" : ""} ${dpState.selected === key ? "selected" : ""}" data-comp="${key}">
+      <rect x="${c.x}" y="${c.y}" width="${c.w}" height="${c.h}" rx="10" />
+      <text x="${c.x + c.w / 2}" y="${c.y + 22}" text-anchor="middle">${c.name}</text>
+      <text class="dp-sub" x="${c.x + c.w / 2}" y="${c.y + 38}" text-anchor="middle">${c.sub}</text>
+    </g>`;
+  const wires = DP_WIRES.map((w) => `<path id="${containerId}-${w.id}" class="dp-wire ${w.ctrl ? "ctrl" : ""} ${activeWires.includes(w.id) ? "active" : ""}" d="${w.d}"/>`).join("");
+  return `<svg class="datapath-svg" viewBox="0 0 570 340">${wires}${Object.entries(DP_COMPONENTS).map(([k, c]) => comp(k, c)).join("")}</svg>`;
+}
+
+function renderDatapathStage() {
+  stage.innerHTML = `
+    <div class="stage-title"><h2>CPU 内部数据通路</h2><span class="st-sub">点部件看职责 · 运行 ADD R1, R2（R1=5, R2=3）</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">通路图（可点部件）</div>
+      <div id="dpSvgHost"></div>
+      <div class="dp-info" id="dpInfo">点任意部件查看职责说明。</div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">指令五阶段执行</div>
+      <div class="stage-flow" id="stageFlow">
+        ${DP_STAGES.map((s, i) => `<div class="stage-chip" data-stage="${i}">${s.name}<small>${s.sub}</small></div>`).join("")}
+      </div>
+      <div class="inline-steps">
+        <button id="dpStepBtn">逐阶段单步 →</button>
+        <button id="dpRunBtn">▶ 运行整条指令</button>
+        <button id="dpResetBtn">↺ 重置</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">待机：点「运行」或「单步」开始 ADD R1, R2</div>
+    </div>`;
+  document.getElementById("dpSvgHost").innerHTML = renderDatapathSvg("dp");
+  stage.querySelectorAll(".dp-comp").forEach((el) => {
+    el.addEventListener("click", () => {
+      dpState.selected = el.dataset.comp;
+      const c = DP_COMPONENTS[el.dataset.comp];
+      document.getElementById("dpInfo").innerHTML = `<b>${c.name}</b> — ${c.desc}`;
+      refreshDatapathHighlight();
+    });
+  });
+  document.getElementById("dpStepBtn").addEventListener("click", dpStep);
+  document.getElementById("dpRunBtn").addEventListener("click", dpRun);
+  document.getElementById("dpResetBtn").addEventListener("click", dpReset);
+}
+
+function refreshDatapathHighlight() {
+  const activeComps = dpState.stage >= 0 ? DP_STAGES[dpState.stage].comps : [];
+  const activeWires = dpState.stage >= 0 ? DP_WIRES.filter((w) => w.stages.includes(dpState.stage)).map((w) => w.id) : [];
+  stage.querySelectorAll(".dp-comp").forEach((el) => {
+    el.classList.toggle("active", activeComps.includes(el.dataset.comp));
+    el.classList.toggle("selected", dpState.selected === el.dataset.comp);
+  });
+  stage.querySelectorAll(".dp-wire").forEach((el) => {
+    const id = el.id.replace(/^dp-/, "");
+    el.classList.toggle("active", activeWires.includes(id));
+  });
+  stage.querySelectorAll(".stage-chip").forEach((el, i) => {
+    el.classList.toggle("active", i === dpState.stage);
+    el.classList.toggle("done", i < dpState.stage);
+  });
+  if (dpState.stage >= 0) {
+    document.getElementById("formulaStrip").textContent = `阶段 ${dpState.stage + 1}/5 · ${DP_STAGES[dpState.stage].name}：${DP_STAGES[dpState.stage].text}`;
+  }
+}
+
+function dpStep() {
+  dpState.stage = Math.min(dpState.stage + 1, DP_STAGES.length - 1);
+  refreshDatapathHighlight();
+  if (dpState.stage === DP_STAGES.length - 1) setBanner(`✅ <b>ADD R1, R2 完成</b>：R1 = 5 + 3 = <b>8</b>。一条指令的一生走完了。`, "hit");
+}
+
+function dpRun() {
+  if (dpState.playing) return;
+  dpReset();
+  dpState.playing = true;
+  let i = 0;
+  const tick = () => {
+    dpStep();
+    i += 1;
+    if (i < DP_STAGES.length) setTimeout(tick, 1300 / state.speed);
+    else dpState.playing = false;
+  };
+  tick();
+}
+
+function dpReset() {
+  dpState.stage = -1;
+  refreshDatapathHighlight();
+  document.getElementById("formulaStrip").textContent = "待机：点「运行」或「单步」开始 ADD R1, R2";
+  setBanner("", null);
+}
+
+/* ───────────────────────── 多级时序模式 ───────────────────────── */
+function buildTimingScenario() {
+  const steps = [
+    { zone: 0, text: `一条指令的执行要拆成层次：<b>指令周期 > 机器周期 > 时钟周期</b>。取指、译码、执行这些大步骤是机器周期；每个机器周期再拆成 T1/T2/T3 三个节拍。`, formula: `指令周期 = N × 机器周期 = 3N × 时钟周期` },
+    { zone: 0, text: `不同指令的机器周期数不同：<b>ADD 不访存数据（5 个）</b>，LOAD 要多一个访存周期，JMP 最精简。点「时钟走起」，看节拍从 T1 一路跳到写回。`, formula: `节拍驱动一切控制信号` },
+  ];
+  return { kind: "timing", zoneBased: true, steps };
+}
+
+function timingSet(instr) {
+  timingState.instr = instr;
+  timingState.beat = -1;
+  timingState.playing = false;
+  renderTimingStage();
+}
+
+function renderTimingStage() {
+  const info = TIMING_INSTRUCTIONS[timingState.instr];
+  const totalBeats = info.cycles.length * BEATS_PER_CYCLE;
+  const currentCycle = timingState.beat >= 0 ? Math.floor(timingState.beat / BEATS_PER_CYCLE) : -1;
+  const currentT = timingState.beat >= 0 ? timingState.beat % BEATS_PER_CYCLE : -1;
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>指令周期 · 机器周期 · 时钟周期</h2><span class="st-sub">${info.name} · ${info.cycles.length} 机器周期 × ${BEATS_PER_CYCLE} 拍 = ${totalBeats} 拍</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">选指令（机器周期构成不同）</div>
+      <div class="toggle-row" id="timingInstrRow">
+        ${Object.entries(TIMING_INSTRUCTIONS).map(([key, ins]) => `<button data-instr="${key}" class="${key === timingState.instr ? "active" : ""}">${ins.name}<br><small>${ins.note}</small></button>`).join("")}
+      </div>
+      <div class="timing-grid">
+        <div class="tl-row"><span class="tl-label">指令周期</span>
+          <div class="tl-cells level0"><div class="tl-cell ${timingState.beat >= 0 ? "active" : ""}" style="grid-column:1">${info.name}（共 ${totalBeats} 拍）</div></div>
+        </div>
+        <div class="tl-row"><span class="tl-label">机器周期</span>
+          <div class="tl-cells" style="grid-template-columns:repeat(${info.cycles.length},1fr)">
+            ${info.cycles.map((c, i) => `<div class="tl-cell ${i === currentCycle ? "active" : i < currentCycle ? "done" : ""}">${c}</div>`).join("")}
+          </div>
+        </div>
+        <div class="tl-row"><span class="tl-label">时钟周期</span>
+          <div class="tl-cells" style="grid-template-columns:repeat(${totalBeats},1fr)">
+            ${Array.from({ length: totalBeats }, (_, i) => `<div class="tl-cell ${i === timingState.beat ? "active" : i < timingState.beat ? "done" : ""}"><small>T${(i % BEATS_PER_CYCLE) + 1}</small></div>`).join("")}
+          </div>
+        </div>
+      </div>
+      <div class="inline-steps">
+        <button id="timingStepBtn" ${timingState.beat >= totalBeats - 1 ? "disabled" : ""}>下一拍 →</button>
+        <button id="timingPlayBtn">${timingState.playing ? "⏸ 暂停" : "▶ 时钟走起"}</button>
+        <button id="timingResetBtn">↺ 归零</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">${timingState.beat >= 0
+        ? `<span class="beat-dot"></span>第 ${timingState.beat + 1}/${totalBeats} 拍 · ${info.cycles[currentCycle]} · 节拍 T${currentT + 1}`
+        : `${info.cycles.length} 个机器周期 × ${BEATS_PER_CYCLE} 拍 = ${totalBeats} 个时钟周期 · 点「时钟走起」`}</div>
+    </div>`;
+
+  document.getElementById("timingInstrRow").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-instr]");
+    if (btn) timingSet(btn.dataset.instr);
+  });
+  document.getElementById("timingStepBtn").addEventListener("click", () => {
+    timingState.beat = Math.min(timingState.beat + 1, totalBeats - 1);
+    renderTimingStage();
+  });
+  document.getElementById("timingPlayBtn").addEventListener("click", timingPlay);
+  document.getElementById("timingResetBtn").addEventListener("click", () => {
+    timingState.beat = -1;
+    timingState.playing = false;
+    renderTimingStage();
+  });
+}
+
+function timingPlay() {
+  if (timingState.playing) { timingState.playing = false; renderTimingStage(); return; }
+  const totalBeats = TIMING_INSTRUCTIONS[timingState.instr].cycles.length * BEATS_PER_CYCLE;
+  if (timingState.beat >= totalBeats - 1) timingState.beat = -1;
+  timingState.playing = true;
+  const tick = () => {
+    if (!timingState.playing) return;
+    timingState.beat += 1;
+    renderTimingStage();
+    if (timingState.beat >= totalBeats - 1) { timingState.playing = false; renderTimingStage(); return; }
+    setTimeout(tick, 750 / state.speed);
+  };
+  tick();
+}
+
+/* ───────────────────────── 节拍控制信号模式 ───────────────────────── */
+function buildSignalsScenario() {
+  const steps = [
+    { zone: 0, text: `控制器在每个节拍做什么？就是这张<b>「机器周期 × 节拍 → 控制信号」表</b>：取指 T1 开 PCout/MARin，T2 读主存并 PC+1……点「逐拍推进」，左侧信号芯片亮起的同时，右侧数据通路对应部件同步发光。`, formula: `节拍 × 信号 = 组合逻辑控制器的真值表` },
+  ];
+  return { kind: "signals", zoneBased: true, steps };
+}
+
+function sigBeats() {
+  const cycles = TIMING_INSTRUCTIONS.ADD.cycles;
+  const beats = [];
+  for (const cycle of cycles) {
+    const rows = SIGNAL_MATRIX[cycle] ?? [];
+    rows.forEach((row, t) => beats.push({ cycle, t, signals: row.signals, comps: row.comps }));
+  }
+  return beats;
+}
+
+function sigStep() {
+  const beats = sigBeats();
+  sigState.beat = Math.min(sigState.beat + 1, beats.length - 1);
+  renderSignalsStage();
+}
+
+function sigPlay() {
+  const beats = sigBeats();
+  if (sigState.beat >= beats.length - 1) sigState.beat = -1;
+  const tick = () => {
+    sigStep();
+    if (sigState.beat >= beats.length - 1) return;
+    setTimeout(tick, 950 / state.speed);
+  };
+  tick();
+}
+
+function sigReset() {
+  sigState.beat = -1;
+  renderSignalsStage();
+}
+
+function renderSignalsStage() {
+  const beats = sigBeats();
+  const current = sigState.beat >= 0 ? beats[sigState.beat] : null;
+  const cycles = TIMING_INSTRUCTIONS.ADD.cycles;
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>节拍控制信号矩阵</h2><span class="st-sub">ADD R1, R2 · 机器周期 × 节拍 → 控制信号</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">信号矩阵（当前拍高亮）</div>
+      <div class="beat-matrix">
+        <div class="beat-row"><span class="beat-head">机器周期</span><span class="beat-head">T1</span><span class="beat-head">T2</span><span class="beat-head">T3</span></div>
+        ${cycles.map((cycle) => {
+          const rows = SIGNAL_MATRIX[cycle];
+          return `<div class="beat-row">
+            <span class="beat-head">${cycle}</span>
+            ${rows.map((row, t) => {
+              const isActive = current && current.cycle === cycle && current.t === t;
+              const isDone = current && (cycles.indexOf(current.cycle) > cycles.indexOf(cycle) || (current.cycle === cycle && current.t > t));
+              return `<div class="beat-cell ${isActive ? "active" : isDone ? "done" : ""}">${row.signals.map((s) => `<span class="sig-chip">${s}</span>`).join("")}</div>`;
+            }).join("")}
+          </div>`;
+        }).join("")}
+      </div>
+      <div class="inline-steps">
+        <button id="sigStepBtn" ${sigState.beat >= beats.length - 1 ? "disabled" : ""}>逐拍推进 →</button>
+        <button id="sigPlayBtn">▶ 自动走拍</button>
+        <button id="sigResetBtn">↺ 重置</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">${current
+        ? `<span class="beat-dot"></span>${current.cycle} · T${current.t + 1}：发 ${current.signals.join("、")}`
+        : "点「逐拍推进」：从取指 T1 开始"}</div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">数据通路同步（动作部件发光）</div>
+      <div id="sigSvgHost"></div>
+    </div>`;
+
+  document.getElementById("sigSvgHost").innerHTML = renderDatapathSvg("sig", current?.comps ?? [], current ? DP_WIRES.filter((w) => current.comps.includes(w.from) && current.comps.includes(w.to)).map((w) => w.id) : [], false);
+  document.getElementById("sigStepBtn").addEventListener("click", sigStep);
+  document.getElementById("sigPlayBtn").addEventListener("click", sigPlay);
+  document.getElementById("sigResetBtn").addEventListener("click", sigReset);
+}
+
+/* ───────────────────────── 中断系统模式 ───────────────────────── */
+function buildInterruptScenario() {
+  const steps = [
+    { zone: 0, text: `主程序跑到一半，外设来「敲门」：<b>中断响应六步</b>——关中断、保存断点、识别中断源、中断服务、恢复现场、开中断返回。点「演示中断响应」走一遍。`, formula: `打断 → 保护 → 服务 → 恢复 → 继续` },
+    { zone: 1, text: `时序控制方式有三种：<b>同步控制</b>（统一时钟，简单但有浪费）、<b>异步控制</b>（应答握手，灵活但复杂）、<b>联合控制</b>（大部分同步、个别异步——主流方案）。`, formula: `同步 · 异步 · 联合` },
+  ];
+  return { kind: "interrupt", zoneBased: true, steps };
+}
+
+function irqStep() {
+  irqState.step = Math.min(irqState.step + 1, IRQ_STEPS.length - 1);
+  renderInterruptStage();
+}
+
+function irqPlay() {
+  irqState.step = -1;
+  let i = 0;
+  const tick = () => {
+    irqStep();
+    i += 1;
+    if (i < IRQ_STEPS.length) setTimeout(tick, 1300 / state.speed);
+  };
+  tick();
+}
+
+function renderInterruptStage() {
+  stage.innerHTML = `
+    <div class="stage-title"><h2>中断系统与时序控制</h2><span class="st-sub">中断响应六步 + 三种时序控制方式</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">中断响应流程</div>
+      <div class="irq-flow">
+        ${IRQ_STEPS.map((s, i) => `<div class="irq-chip ${i === irqState.step ? "active" : i < irqState.step ? "done" : ""}">${i + 1}. ${s.name}<small>${s.sub}</small></div>`).join("")}
+      </div>
+      <div class="inline-steps">
+        <button id="irqStepBtn" ${irqState.step >= IRQ_STEPS.length - 1 ? "disabled" : ""}>单步看流程 →</button>
+        <button id="irqPlayBtn">▶ 演示中断响应</button>
+        <button id="irqResetBtn">↺ 重置</button>
+      </div>
+      <div class="dp-info">${irqState.step >= 0 ? `<b>${IRQ_STEPS[irqState.step].name}</b> — ${IRQ_STEPS[irqState.step].text}` : "点「演示中断响应」或「单步」开始。"}</div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">时序控制方式</div>
+      <div class="ctrl-cards">
+        <div class="ctrl-card"><h4>同步控制</h4><p>所有操作按统一时钟节拍执行。控制器最简单，但快操作要陪慢操作等拍——时间有浪费。</p></div>
+        <div class="ctrl-card"><h4>异步控制</h4><p>没有统一节拍，靠「请求-应答」握手：你好了我再走。时间利用率高，控制复杂。</p></div>
+        <div class="ctrl-card"><h4>联合控制</h4><p>大部分部件同步执行，个别慢速环节（如访存）异步等待——主流 CPU 的折中方案。</p></div>
+      </div>
+    </div>
+    <div class="formula-strip" id="formulaStrip">中断三步关键：保存断点 · 识别中断源 · 恢复现场</div>`;
+  document.getElementById("irqStepBtn").addEventListener("click", irqStep);
+  document.getElementById("irqPlayBtn").addEventListener("click", irqPlay);
+  document.getElementById("irqResetBtn").addEventListener("click", () => { irqState.step = -1; renderInterruptStage(); });
+}
+
+/* ───────────────────────── 练习模式 ───────────────────────── */
+const QUIZ_CONCEPTS = [
+  { q: "保存当前正在执行的指令的寄存器是？", choices: ["PC", "IR", "MAR", "MDR"], answer: 1, why: "IR 指令寄存器保存当前正在执行的指令；PC 保存的是下一条指令的地址。" },
+  { q: "CPU 中负责译码并发出控制信号的部件是？", choices: ["ALU", "寄存器堆", "控制器 CU", "主存"], answer: 2, why: "控制器是 CPU 的指挥：译码 IR 中的指令，按机器周期与节拍发出全部控制信号。" },
+  { q: "取指阶段结束时，PC 通常会？", choices: ["清零", "自动 +1", "写入目标地址", "保持不变"], answer: 1, why: "顺序寻址：取指后 PC 自动 +1 指向下一条指令；只有跳转指令才会改写 PC。" },
+  { q: "指令周期、机器周期、时钟周期的关系是？", choices: ["时钟周期 > 机器周期 > 指令周期", "指令周期 > 机器周期 > 时钟周期", "机器周期 > 时钟周期 > 指令周期", "三者相等"], answer: 1, why: "指令周期含若干机器周期（取指/译码/执行…），每个机器周期含若干时钟周期（节拍）。" },
+  { q: "中断响应的第一步是？", choices: ["识别中断源", "保存断点", "关中断", "中断服务"], answer: 2, why: "先关中断，防止响应过程被新中断打断；然后才保存断点、识别中断源。" },
+  { q: "保存断点的主要目的是？", choices: ["调试程序", "服务完后能返回主程序继续执行", "加快中断服务", "屏蔽低级中断"], answer: 1, why: "把 PC 和关键寄存器入栈，中断服务结束后恢复现场，主程序像没被打断过一样继续。" },
+  { q: "主流 CPU 采用的时序控制方式是？", choices: ["纯同步控制", "纯异步控制", "联合控制", "自主控制"], answer: 2, why: "联合控制：大部分操作同步、个别慢速环节异步等待，兼顾简单与效率。" },
+  { q: "组合逻辑控制器的本质是？", choices: ["一段微程序", "一张「指令×机器周期×节拍→控制信号」的硬连线真值表", "一个小型操作系统", "一块 Cache"], answer: 1, why: "组合逻辑控制器用门电路直接实现这张真值表，速度快但设计复杂、不易修改。" },
+];
+
+function generateQuestion(forceType = null) {
+  const types = ["stageorder", "timingcalc", "signalpick", "interrupt", "concept"];
+  const type = forceType ?? types[randomInt(0, types.length - 1)];
+
+  if (type === "stageorder") {
+    const correct = "取指 → 译码 → 取操作数 → 执行 → 写回";
+    const wrongs = [
+      "取指 → 取操作数 → 译码 → 执行 → 写回",
+      "译码 → 取指 → 取操作数 → 执行 → 写回",
+      "取指 → 译码 → 执行 → 取操作数 → 写回",
+    ];
+    const choices = shuffled([correct, ...wrongs]);
+    return {
+      type, mode: "choice",
+      prompt: "ADD R1, R2 在 CPU 中的阶段顺序是？",
+      choices, answer: choices.indexOf(correct),
+      explain: "IF → ID → OF → EX → WB：先取指令，再译码知道要做什么，然后取数、执行、写回。",
+    };
+  }
+  if (type === "timingcalc") {
+    const n = randomInt(3, 6);
+    const beats = randomInt(2, 4);
+    const correct = n * beats;
+    const wrongs = [n + beats, correct + 1, correct - beats, n * (beats + 1)].filter((w) => w !== correct);
+    const choices = shuffled([...new Set([correct, ...wrongs])]).slice(0, 4);
+    const finalChoices = choices.includes(correct) ? choices : shuffled([correct, ...choices.slice(0, 3)]);
+    return {
+      type, mode: "choice",
+      prompt: `某指令的指令周期含 <b>${n} 个机器周期</b>，每个机器周期 <b>${beats} 个时钟周期</b>，共多少个时钟周期？`,
+      choices: finalChoices.map(String), answer: finalChoices.indexOf(correct),
+      explain: `指令周期 = ${n} × ${beats} = <b>${correct}</b> 个时钟周期。`,
+    };
+  }
+  if (type === "signalpick") {
+    const cases = [
+      { cycle: "取指", t: "T1", answer: "PCout、MARin" },
+      { cycle: "取指", t: "T2", answer: "MemRead、MDRin、PC+1" },
+      { cycle: "取指", t: "T3", answer: "MDRout、IRin" },
+      { cycle: "写回", t: "T2", answer: "R1in" },
+    ];
+    const picked = cases[randomInt(0, cases.length - 1)];
+    const pool = [...new Set([...cases.map((c) => c.answer), "ALUadd", "R1out→A"] )];
+    const choices = shuffled(pool).slice(0, 4);
+    const finalChoices = choices.includes(picked.answer) ? choices : shuffled([picked.answer, ...choices.slice(0, 3)]);
+    return {
+      type, mode: "choice",
+      prompt: `ADD 指令在「${picked.cycle}」机器周期的 <b>${picked.t}</b> 节拍，应发出哪些控制信号？`,
+      choices: finalChoices, answer: finalChoices.indexOf(picked.answer),
+      explain: `${picked.cycle} ${picked.t}：${picked.answer}。节拍 × 信号就是组合逻辑控制器的真值表。`,
+    };
+  }
+  if (type === "interrupt") {
+    const cases = [
+      { q: "响应过程不被新中断打断，靠的是？", answer: "关中断" },
+      { q: "服务完后能回到主程序继续执行，靠的是？", answer: "保存断点与恢复现场" },
+      { q: "确定是谁发出的中断请求，这一步叫？", answer: "识别中断源" },
+    ];
+    const picked = cases[randomInt(0, cases.length - 1)];
+    const pool = ["关中断", "保存断点与恢复现场", "识别中断源", "中断服务"];
+    const choices = shuffled(pool);
+    return {
+      type, mode: "choice",
+      prompt: picked.q,
+      choices, answer: choices.indexOf(picked.answer),
+      explain: `${picked.answer}——中断响应六步：关中断→保存断点→识别中断源→中断服务→恢复现场→开中断返回。`,
+    };
+  }
+  const concept = QUIZ_CONCEPTS[randomInt(0, QUIZ_CONCEPTS.length - 1)];
+  return { type: "concept", mode: "choice", prompt: concept.q, choices: concept.choices, answer: concept.answer, explain: concept.why };
+}
+
+function startQuizRound() {
+  quizState.current = generateQuestion(window.__forceQuizType ?? null);
+  quizState.answered = false;
+  quizState.selected = -1;
+  renderQuizQuestion();
+  updateQuizNarrator();
+}
+function updateQuizNarrator() {
+  stepCountEl.textContent = `答对 ${quizState.correct} / ${quizState.total} · 连对 ${quizState.streak}`;
+  stepTextEl.innerHTML = `题型随机：<b>阶段排序 / 时序计算 / 信号识别 / 中断 / 概念</b>。<br>A / B / C / D 作答，Enter 提交。`;
+}
+function renderQuizQuestion() {
+  const q = quizState.current;
+  document.getElementById("quizPrompt").innerHTML = q.prompt;
+  const answerEl = document.getElementById("quizAnswer");
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = "quiz-feedback";
+  feedback.innerHTML = "";
+  document.getElementById("quizSubmit").hidden = false;
+  document.getElementById("quizNext").hidden = true;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  answerEl.innerHTML = `<div class="quiz-choices">${q.choices.map((choice, i) => `
+    <button class="quiz-choice" data-idx="${i}" type="button"><span class="qc-key">${"ABCD"[i]}</span><span>${choice}</span></button>`).join("")}</div>`;
+  answerEl.querySelectorAll(".quiz-choice").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (quizState.answered) return;
+      quizState.selected = Number(btn.dataset.idx);
+      answerEl.querySelectorAll(".quiz-choice").forEach((b) => b.classList.toggle("selected", b === btn));
+    });
+  });
+}
+function submitQuizAnswer() {
+  if (quizState.answered || quizState.selected < 0) return;
+  const q = quizState.current;
+  const isCorrect = quizState.selected === q.answer;
+  document.querySelectorAll(".quiz-choice").forEach((btn) => {
+    const idx = Number(btn.dataset.idx);
+    btn.disabled = true;
+    if (idx === q.answer) btn.classList.add("correct");
+    else if (idx === quizState.selected) btn.classList.add("wrong");
+  });
+  quizState.answered = true;
+  window.__platformLink?.recordQuizAnswer(isCorrect);
+  quizState.total += 1;
+  if (isCorrect) {
+    quizState.correct += 1;
+    quizState.streak += 1;
+    quizState.best = Math.max(quizState.best, quizState.streak);
+  } else {
+    quizState.streak = 0;
+  }
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = `quiz-feedback show ${isCorrect ? "ok" : "bad"}`;
+  feedback.innerHTML = `${isCorrect ? "✅ <b>答对了！</b>" : "❌ <b>不对哦。</b>"} ${q.explain}`;
+  document.getElementById("quizSubmit").hidden = true;
+  document.getElementById("quizNext").hidden = false;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  updateQuizNarrator();
+}
+
+/* ───────────────────────── 舞台渲染 ───────────────────────── */
+const stage = document.getElementById("stage");
+const stepCountEl = document.getElementById("stepCount");
+const stepTextEl = document.getElementById("stepText");
+const bannerEl = document.getElementById("banner");
+const playBtn = document.getElementById("playBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+let scenario = { steps: [], zoneBased: false };
+
+function renderStageShell() {
+  if (scenario.kind === "datapath") { renderDatapathStage(); return; }
+  if (scenario.kind === "timing") { renderTimingStage(); return; }
+  if (scenario.kind === "signals") { renderSignalsStage(); return; }
+  if (scenario.kind === "interrupt") { renderInterruptStage(); return; }
+  if (scenario.kind === "quiz") {
+    stage.innerHTML = `
+      <div class="stage-title"><h2>课堂练习 · 随机出题</h2><span class="st-sub">阶段 / 时序 / 信号 / 中断 / 概念</span></div>
+      <div class="zone"><div class="quiz-head">
+        <span>得分 <strong id="quizScore">0 / 0</strong></span>
+        <span class="quiz-streak" id="quizStreak"></span>
+        <span>A / B / C / D 键作答 · Enter 提交</span>
+      </div></div>
+      <div class="zone quiz-card" style="gap:14px">
+        <div class="quiz-q" id="quizPrompt"></div>
+        <div id="quizAnswer"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+      </div>
+      <div class="quiz-actions">
+        <button id="quizSubmit" type="button">提交答案</button>
+        <button id="quizNext" class="ghost-action" type="button" hidden>下一题 →</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">独立练习模式：题目随机生成，做完一题点「下一题」</div>`;
+    document.getElementById("quizSubmit").addEventListener("click", submitQuizAnswer);
+    document.getElementById("quizNext").addEventListener("click", startQuizRound);
+  }
+}
+
+function refreshScenario(targetStep = 0) {
+  if (state.mode === "quiz") stopPlaying();
+  document.body.classList.toggle("quiz-active", state.mode === "quiz");
+  scenario = state.mode === "datapath" ? buildDatapathScenario()
+    : state.mode === "timing" ? buildTimingScenario()
+    : state.mode === "signals" ? buildSignalsScenario()
+    : state.mode === "interrupt" ? buildInterruptScenario()
+    : { kind: "quiz", steps: [{ text: "", formula: "独立练习模式：题目随机，做完一题点「下一题」" }] };
+  renderStageShell();
+  renderPresets();
+  goToStep(Math.min(targetStep, scenario.steps.length - 1));
+  if (state.mode === "quiz") startQuizRound();
+}
+
+function goToStep(index) {
+  state.stepIndex = Math.max(0, Math.min(index, scenario.steps.length - 1));
+  const step = scenario.steps[state.stepIndex];
+  if (scenario.kind === "quiz") {
+    // 练习自管理
+  } else if (scenario.zoneBased) {
+    stage.querySelectorAll(".logic-zone").forEach((zoneEl, i) => {
+      zoneEl.classList.toggle("zone-current", i === step.zone);
+    });
+  }
+  const formulaEl = document.getElementById("formulaStrip");
+  if (formulaEl && step.formula) formulaEl.textContent = step.formula;
+  if (step.text) stepTextEl.innerHTML = step.text;
+  stepCountEl.textContent = `第 ${state.stepIndex + 1} / ${scenario.steps.length} 步`;
+  prevBtn.disabled = state.stepIndex === 0;
+  nextBtn.disabled = state.stepIndex === scenario.steps.length - 1;
+  if (state.stepIndex === scenario.steps.length - 1) stopPlaying();
+}
+
+function setBanner(html, kind) {
+  if (!kind) { bannerEl.className = "banner"; bannerEl.innerHTML = ""; return; }
+  bannerEl.className = `banner show ${kind}`;
+  bannerEl.innerHTML = html;
+}
+
+/* ───────────────────────── 播放控制 ───────────────────────── */
+function setPlayUI(playing) { playBtn.textContent = playing ? "⏸ 暂停" : "▶ 自动播放"; }
+function stopPlaying() { state.playing = false; clearTimeout(state.timer); setPlayUI(false); }
+function scheduleNext() {
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => {
+    if (!state.playing) return;
+    if (state.stepIndex >= scenario.steps.length - 1) { stopPlaying(); return; }
+    goToStep(state.stepIndex + 1);
+    scheduleNext();
+  }, 1800 / state.speed);
+}
+playBtn.addEventListener("click", () => {
+  if (state.playing) { stopPlaying(); return; }
+  state.playing = true;
+  setPlayUI(true);
+  if (state.stepIndex >= scenario.steps.length - 1) goToStep(0);
+  scheduleNext();
+});
+prevBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex - 1); });
+nextBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex + 1); });
+document.getElementById("resetBtn").addEventListener("click", () => { stopPlaying(); refreshScenario(0); });
+
+const speedRange = document.getElementById("speedRange");
+speedRange.addEventListener("input", () => {
+  state.speed = Number(speedRange.value);
+  document.getElementById("speedLabel").textContent = `${state.speed}×`;
+});
+
+document.getElementById("modeTabs").addEventListener("click", (event) => {
+  const btn = event.target.closest("button[data-mode]");
+  if (!btn) return;
+  stopPlaying();
+  state.mode = btn.dataset.mode;
+  document.querySelectorAll("#modeTabs button").forEach((b) => b.classList.toggle("active", b === btn));
+  refreshScenario(0);
+});
+
+document.getElementById("insightToggle").addEventListener("click", () => {
+  const body = document.getElementById("insightBody");
+  body.hidden = !body.hidden;
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.target.tagName === "INPUT") return;
+  if (event.code === "Space") { event.preventDefault(); playBtn.click(); }
+  if (event.key === "ArrowLeft") prevBtn.click();
+  if (event.key === "ArrowRight") nextBtn.click();
+  if (event.key === "1") document.querySelector('[data-mode="datapath"]').click();
+  if (event.key === "2") document.querySelector('[data-mode="timing"]').click();
+  if (event.key === "3") document.querySelector('[data-mode="signals"]').click();
+  if (event.key === "4") document.querySelector('[data-mode="interrupt"]').click();
+  if (event.key === "5") document.querySelector('[data-mode="quiz"]').click();
+  if (state.mode === "quiz" && /^[a-dA-D]$/.test(event.key) && !quizState.answered) {
+    const idx = "abcd".indexOf(event.key.toLowerCase());
+    document.querySelector(`.quiz-choice[data-idx="${idx}"]`)?.click();
+  }
+  if (state.mode === "quiz" && event.key === "Enter") {
+    event.preventDefault();
+    if (quizState.answered) startQuizRound();
+    else submitQuizAnswer();
+  }
+  if (event.key.toLowerCase() === "r") document.getElementById("resetBtn").click();
+});
+
+/* ───────────────────────── 启动 ───────────────────────── */
+refreshScenario(0);
+
+/* 供自动化验收读取（verify.mjs 使用），页面逻辑不依赖 */
+window.__quizState = quizState;
+window.__dpState = dpState;
+window.__timingState = timingState;
+window.__sigState = sigState;
+window.__irqState = irqState;
+</script>
+<script src="./platform-link.js"></script>
+</body>
+</html>

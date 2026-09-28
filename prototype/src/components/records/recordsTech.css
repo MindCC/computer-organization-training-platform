@@ -456,6 +456,32 @@
   gap: 7px;
 }
 
+.demo-practice-list {
+  display: grid;
+  gap: 8px;
+}
+
+.demo-practice-row {
+  display: grid;
+  grid-template-columns: 118px 1fr 74px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11.5px;
+}
+
+.demo-practice-title {
+  color: #bfe0ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.demo-practice-meta {
+  text-align: right;
+  color: var(--cyan-soft);
+  font-variant-numeric: tabular-nums;
+}
+
 .tech-bar-row {
   display: grid;
   grid-template-columns: 44px 1fr 34px;

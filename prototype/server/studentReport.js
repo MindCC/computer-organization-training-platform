@@ -1,4 +1,4 @@
-﻿import { LEARNING_ITEMS } from "../src/platformLogic.js";
+import { LEARNING_ITEMS } from "../src/platformLogic.js";
 
 const itemTitleById = new Map(LEARNING_ITEMS.map((item) => [item.id, item.title ?? item.shortTitle ?? item.id]));
 const statusText = {
@@ -8,7 +8,7 @@ const statusText = {
   locked: "未解锁",
 };
 
-export function buildStudentMarkdownReport({ user, summary, progress, notes = [], generatedAt = new Date() }) {
+export function buildStudentMarkdownReport({ user, summary, progress, notes = [], demoAttempts = [], generatedAt = new Date() }) {
   const lines = [
     "# 计算机组成原理实验报告",
     "",
@@ -38,6 +38,17 @@ export function buildStudentMarkdownReport({ user, summary, progress, notes = []
   if (Object.keys(progress ?? {}).some((challengeId) => challengeId.startsWith("game-"))) {
     lines.push("", "## 硬件配置挑战", "");
     lines.push("硬件配置挑战用于复盘预算、性能、容量与客户目标之间的取舍。详细成绩见上方关卡记录。");
+  }
+
+  if (demoAttempts.length > 0) {
+    lines.push("", "## 课堂演示练习", "");
+    lines.push("以下为课堂演示页（独立互动演示）中的随堂练习成绩，按演示页汇总。");
+    lines.push("");
+    lines.push("| 演示页 | 练习批次 | 累计题数 | 答对 | 正确率 | 最近成绩 |");
+    lines.push("| --- | ---: | ---: | ---: | ---: | ---: |");
+    for (const item of demoAttempts) {
+      lines.push(`| ${escapeTable(item.title ?? item.demoId)} | ${item.batches} | ${item.totalQuestions} | ${item.totalCorrect} | ${item.accuracy}% | ${item.latestScore} |`);
+    }
   }
 
   lines.push("", "## 学习笔记", "");

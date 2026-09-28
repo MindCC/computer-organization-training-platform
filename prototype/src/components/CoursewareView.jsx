@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, CaretRight, ArrowSquareOut, Lightbulb, Flask, Presentation, Star, UploadSimple, NotePencil } from "@phosphor-icons/react";
+import { BookOpen, CaretRight, ArrowSquareOut, Lightbulb, Flask, MonitorPlay, Presentation, Star, UploadSimple, NotePencil } from "@phosphor-icons/react";
 import { init as initPptxPreview } from "pptx-preview";
 import { COURSEWARE } from "../courseware.js";
 import { api } from "../apiClient.js";
@@ -187,6 +187,18 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
                         <button key={cid} className="ghost-button" onClick={() => navigateToChallenge?.(cid)}>
                           <ArrowSquareOut size={14} /> 进入实验 →
                         </button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+                {ch.demos?.length > 0 && (
+                  <section>
+                    <strong><MonitorPlay size={14} /> 课堂演示</strong>
+                    <div className="linked-challenges">
+                      {ch.demos.map((demo) => (
+                        <a key={demo.href} className="ghost-button" href={demo.href} target="_blank" rel="noreferrer" title={demo.note}>
+                          <ArrowSquareOut size={14} /> {demo.title}（新窗口）
+                        </a>
                       ))}
                     </div>
                   </section>

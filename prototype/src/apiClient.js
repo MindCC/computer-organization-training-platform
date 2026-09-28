@@ -123,6 +123,7 @@ export const api = {
     return apiRequest(`/api/student/notes${qs ? "?" + qs : ""}`);
   },
   updateProfile: (payload) => apiRequest("/api/student/profile", { method: "PUT", body: JSON.stringify(payload) }),
+  demoAttempts: () => apiRequest("/api/student/demo-attempts"),
   createClass: (payload) => apiRequest("/api/classes", { method: "POST", body: JSON.stringify(payload) }),
   teacherClasses: () => apiRequest("/api/teacher/classes"),
   importStudents: (classId, csv) => apiRequest(`/api/teacher/classes/${classId}/import-students`, { method: "POST", body: JSON.stringify({ csv }) }),

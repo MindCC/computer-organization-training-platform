@@ -10,6 +10,7 @@ import {
 } from "../recordsScreenModel.js";
 import { LearningTreeCanvas } from "./records/LearningTreeCanvas.jsx";
 import { ChapterLitBars, ChapterScoreLine, StatusDonut } from "./records/TechCharts.jsx";
+import { DemoPracticePanel } from "./records/DemoPracticePanel.jsx";
 import "./records/recordsTech.css";
 
 const CHALLENGES_BY_CHAPTER = COURSE_CHAPTERS.map((chapter) => ({
@@ -109,6 +110,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
           <StatusDonut distribution={distribution} />
           <ChapterScoreLine series={chapterSeries} />
           <ChapterLitBars series={chapterSeries} />
+          <DemoPracticePanel />
         </aside>
       </div>
 

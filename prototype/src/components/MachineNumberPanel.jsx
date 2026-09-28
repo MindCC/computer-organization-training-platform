@@ -40,6 +40,9 @@ export function MachineNumberPanel({ value }) {
           </article>
         ))}
       </div>
+      <a className="ghost-button machine-number-demo-link" href="/demos/twos-complement.html" target="_blank" rel="noreferrer">
+        补码的运算 · 课堂互动演示（新窗口）→
+      </a>
     </section>
   );
 }
