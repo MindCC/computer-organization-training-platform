@@ -1,4 +1,4 @@
-import { CaretDown, CaretRight, CheckCircle, Clock, Play } from "@phosphor-icons/react";
+import { CaretDown, CaretRight, CheckCircle, Clock, MonitorPlay, Play } from "@phosphor-icons/react";
 import { useState } from "react";
 import { formatEstimatedMinutes } from "../courseRoute.js";
 import { buildStudentQuestModel, buildFirstUseSteps } from "../questExperience.js";
@@ -8,6 +8,14 @@ import { CurrentMissionCard } from "./classroom/student/CurrentMissionCard.jsx";
 import { CurrentQuestPanel } from "./quest/CurrentQuestPanel.jsx";
 import { FirstUseGuide } from "./quest/FirstUseGuide.jsx";
 import { buildProjectChapters, buildStudentProjectSummary } from "../courseWorkbenchState.js";
+import { COURSEWARE } from "../courseware.js";
+
+/** 章节 → 课堂演示页入口（courseware demos 字段派生，首页章节板与课件页共用一份数据） */
+const DEMOS_BY_CHAPTER = Object.fromEntries(
+  (COURSEWARE.chapters ?? [])
+    .filter((chapter) => (chapter.demos ?? []).length > 0)
+    .map((chapter) => [chapter.id, chapter.demos]),
+);
 
 function NextStepCard({ challenge, progress, onEnter }) {
   return (
@@ -205,6 +213,20 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
                   <span className="project-experiment-copy"><strong>{index + 1}-{experimentIndex + 1} {experiment.title}</strong><small>{experiment.description}</small></span>
                   <span className={`project-experiment-state ${experiment.status}`}>{experiment.status === "reviewed" ? "已评价" : experiment.status === "submitted" ? "待评价" : "开始实验"}</span>
                 </button>)}
+                {(DEMOS_BY_CHAPTER[chapter.id] ?? []).map((demo) => (
+                  <a
+                    className="project-experiment-row demo-entry"
+                    href={demo.href}
+                    key={demo.href}
+                    rel="noreferrer"
+                    target="_blank"
+                    title={demo.note}
+                  >
+                    <span className="project-experiment-status demo"><MonitorPlay size={17} weight="fill" /></span>
+                    <span className="project-experiment-copy"><strong>{demo.title}</strong><small>{demo.note} · 新窗口打开，练习成绩联动学情</small></span>
+                    <span className="project-experiment-state demo">课堂演示 →</span>
+                  </a>
+                ))}
               </div> : null}
             </article>;
           })}
