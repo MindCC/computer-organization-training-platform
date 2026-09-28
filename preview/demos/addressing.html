@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>指令系统 · 寻址方式 · 课堂互动演示</title>
+<style>
+  :root {
+    --bg0: #050c22; --bg1: #0a1738;
+    --panel: rgba(10, 23, 56, 0.82);
+    --line: rgba(56, 132, 255, 0.28);
+    --text: #e6f0ff; --muted: #8ea3c8; --dim: #5d7099;
+    --cyan: #38bdf8; --cyan-soft: #7dd3fc; --teal: #2dd4bf;
+    --violet: #a78bfa; --amber: #fbbf24; --red: #f87171; --green: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 520px at 85% -10%, rgba(56, 132, 255, 0.16), transparent 62%),
+      radial-gradient(800px 480px at 5% 112%, rgba(45, 212, 191, 0.10), transparent 55%),
+      linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 55%, var(--bg0) 100%);
+    min-height: 100vh; overflow-x: hidden;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(56,132,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(56,132,255,0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 78%);
+  }
+  .app { position: relative; max-width: 1440px; margin: 0 auto; padding: 18px 24px 26px; }
+
+  header { text-align: center; padding: 6px 0 14px; }
+  .kicker { display: inline-block; font-size: 13px; letter-spacing: 0.22em; color: var(--cyan-soft); border: 1px solid rgba(125,211,252,0.4); border-radius: 999px; padding: 4px 16px; background: rgba(56,132,255,0.08); }
+  h1 { margin-top: 10px; font-size: 40px; letter-spacing: 0.08em; background: linear-gradient(90deg, #7dd3fc, #38bdf8 45%, #2dd4bf); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 34px rgba(56,189,248,0.3); }
+  .subtitle { margin-top: 6px; color: var(--muted); font-size: 15px; letter-spacing: 0.05em; }
+  .mode-tabs { margin-top: 14px; display: inline-flex; gap: 6px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: rgba(8,18,46,0.75); flex-wrap: wrap; justify-content: center; }
+  .mode-tabs button { border: none; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 700; letter-spacing: 0.03em; color: var(--muted); background: transparent; cursor: pointer; transition: all 160ms ease; }
+  .mode-tabs button:hover { color: var(--text); }
+  .mode-tabs button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); box-shadow: 0 0 20px rgba(56,189,248,0.45); }
+
+  main { display: grid; grid-template-columns: 290px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: inset 0 0 32px rgba(15,36,82,0.45), 0 10px 34px rgba(2,8,26,0.4); }
+  .panel h2 { font-size: 16px; letter-spacing: 0.08em; color: #cfe6ff; }
+  .panel h2 small { color: var(--dim); font-size: 12px; font-weight: 400; margin-left: 8px; }
+
+  .side { padding: 16px; display: grid; gap: 14px; }
+  .presets h3 { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .preset-list { display: grid; gap: 6px; }
+  .preset-btn { text-align: left; border: 1px solid rgba(56,132,255,0.3); border-radius: 10px; padding: 8px 12px; background: rgba(13,30,66,0.6); color: #bfe0ff; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
+  .preset-btn:hover { border-color: rgba(125,211,252,0.8); box-shadow: 0 0 14px rgba(56,189,248,0.25); transform: translateX(3px); }
+  .preset-btn small { display: block; color: var(--dim); font-weight: 400; margin-top: 1px; }
+  .preset-btn.warn { border-color: rgba(248,113,113,0.45); color: #fecaca; }
+  .side-note { font-size: 12.5px; color: var(--dim); line-height: 1.75; }
+
+  .stage { padding: 18px 20px 22px; min-height: 560px; display: grid; gap: 14px; align-content: start; }
+  .stage-title { display: flex; align-items: baseline; justify-content: space-between; }
+  .stage-title h2 { font-size: 17px; }
+  .stage-title .st-sub { color: var(--dim); font-size: 12.5px; }
+  .zone { display: grid; gap: 10px; border: 1px dashed rgba(56,132,255,0.3); border-radius: 12px; padding: 12px 14px; transition: border-color 300ms ease, box-shadow 300ms ease; }
+  .zone-title { font-size: 13px; font-weight: 700; color: var(--cyan-soft); letter-spacing: 0.08em; }
+  .zone.zone-current { border-color: rgba(125,211,252,0.7); box-shadow: 0 0 18px rgba(56,189,248,0.25); }
+  .enc-note { text-align: center; font-size: 12.5px; color: var(--dim); }
+  .formula-strip { min-height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(56,132,255,0.08); border: 1px solid rgba(56,132,255,0.22); font-family: "Consolas", monospace; font-size: 15.5px; color: var(--cyan-soft); padding: 6px 12px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  .narrator { padding: 16px; display: grid; gap: 12px; position: sticky; top: 14px; }
+  .step-card { border: 1px solid rgba(125,211,252,0.35); border-radius: 12px; padding: 14px; background: rgba(56,132,255,0.07); min-height: 120px; }
+  .step-count { font-size: 12px; color: var(--dim); letter-spacing: 0.14em; }
+  .step-text { margin-top: 8px; font-size: 15.5px; line-height: 1.65; color: #dbeafe; }
+  .step-text b { color: var(--amber); }
+  .banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.6; display: none; }
+  .banner.show { display: block; animation: popIn 320ms ease; }
+  .banner.hit { border: 1px solid rgba(52,211,153,0.6); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .banner.miss { border: 1px solid rgba(248,113,113,0.6); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .banner.evict { border: 1px solid rgba(251,191,36,0.6); background: rgba(60,45,8,0.45); color: #fde68a; }
+  @keyframes popIn { 0% { transform: scale(0.92); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .controls button { border: 1px solid rgba(56,132,255,0.4); border-radius: 10px; padding: 11px 8px; background: rgba(13,30,66,0.7); color: #bfe0ff; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .controls button:hover:not(:disabled) { border-color: rgba(125,211,252,0.85); box-shadow: 0 0 14px rgba(56,189,248,0.3); }
+  .controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .controls .play-btn { grid-column: span 2; background: linear-gradient(90deg, rgba(29,78,216,0.8), rgba(37,99,235,0.8)); font-size: 15px; }
+  .speed { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .speed input { flex: 1; accent-color: var(--cyan); }
+  .kbd-hints { font-size: 11.5px; color: var(--dim); text-align: center; line-height: 1.7; }
+  .insight button { width: 100%; border: 1px solid rgba(251,191,36,0.4); border-radius: 10px; padding: 10px; background: rgba(251,191,36,0.08); color: #fde68a; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .insight-body { margin-top: 8px; font-size: 13.5px; line-height: 1.75; color: #d8c9a3; border-top: 1px dashed rgba(251,191,36,0.3); padding-top: 8px; }
+  .insight-body b { color: var(--amber); }
+  body.quiz-active .controls, body.quiz-active .speed { display: none; }
+
+  .bit { position: relative; aspect-ratio: 0.82; border-radius: 8px; border: 1px solid rgba(51,65,100,0.9); background: rgba(9,18,44,0.9); color: var(--dim); font-family: "Consolas", monospace; font-size: 17px; font-weight: 800; display: grid; place-items: center; user-select: none; transition: all 160ms ease; }
+  .bit.on { color: #d9f7ff; border-color: rgba(34,211,238,0.75); background: linear-gradient(150deg, rgba(14,44,72,0.95), rgba(9,24,52,0.95)); box-shadow: 0 0 10px rgba(34,211,238,0.3); }
+  .bit.clickable { cursor: pointer; }
+  .bit.clickable:hover { transform: translateY(-2px) scale(1.05); border-color: var(--cyan-soft); }
+  .bit.seg-op.on { border-color: rgba(167,139,250,0.8); box-shadow: 0 0 10px rgba(167,139,250,0.4); color: #e9e2ff; }
+  .bit.seg-mode.on { border-color: rgba(251,191,36,0.75); box-shadow: 0 0 10px rgba(251,191,36,0.35); color: #fde68a; }
+  .bit.seg-addr.on { border-color: rgba(34,211,238,0.75); }
+  @keyframes bitPop { 0% { transform: scale(0.35); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .bit.pop { animation: bitPop 380ms ease; }
+  .bits16 { display: grid; grid-template-columns: repeat(16, 1fr); gap: 3px; }
+  .seg-legend { display: flex; justify-content: center; gap: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .legend-chip { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; }
+
+  .stepper-row { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+  .stepper-row button { width: 38px; height: 38px; border-radius: 10px; border: 1px solid rgba(125,211,252,0.5); background: rgba(13,30,66,0.7); color: var(--cyan-soft); font-size: 19px; font-weight: 800; cursor: pointer; }
+  .stepper-row button:hover { box-shadow: 0 0 14px rgba(56,189,248,0.4); }
+  .stepper-row .stepper-val { font-size: 19px; font-weight: 800; min-width: 100px; text-align: center; color: #eaf4ff; font-variant-numeric: tabular-nums; }
+  .stepper-row .stepper-val small { display: block; font-size: 10.5px; color: var(--dim); font-weight: 400; }
+  .toggle-row { display: flex; justify-content: center; gap: 7px; flex-wrap: wrap; }
+  .toggle-row button { border: 1px solid rgba(56,132,255,0.4); border-radius: 999px; padding: 6px 13px; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .toggle-row button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); }
+  .inline-steps { display: flex; justify-content: center; gap: 10px; padding: 2px 0; flex-wrap: wrap; }
+  .inline-steps button { border: 1px solid rgba(56,132,255,0.45); border-radius: 999px; padding: 8px 18px; background: rgba(13,30,66,0.85); color: #bfe0ff; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .inline-steps button:hover:not(:disabled) { border-color: rgba(125,211,252,0.9); box-shadow: 0 0 14px rgba(56,189,248,0.35); }
+  .inline-steps button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .decode-card { border: 1px solid rgba(56,132,255,0.3); border-radius: 12px; padding: 10px 14px; background: rgba(13,30,66,0.55); display: grid; gap: 6px; }
+  .decode-row { display: grid; grid-template-columns: 96px 1fr; gap: 8px; font-size: 13.5px; align-items: baseline; }
+  .decode-row .dk { color: var(--dim); font-size: 12px; }
+  .decode-row .dv { color: #eaf4ff; font-weight: 700; font-family: "Consolas", monospace; }
+  .decode-row .dv em { font-style: normal; color: var(--cyan-soft); }
+
+  /* 内存表 */
+  .mem-table { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+  .mem-cell { border: 1px solid rgba(51,65,100,0.75); border-radius: 6px; padding: 5px 3px; text-align: center; font-family: "Consolas", monospace; background: rgba(9,18,44,0.8); transition: all 180ms ease; }
+  .mem-cell .ma { display: block; font-size: 9px; color: var(--dim); }
+  .mem-cell .mv { display: block; font-size: 13px; font-weight: 800; color: #c6d8f5; }
+  .mem-cell.lookup1 { border-color: var(--amber); background: rgba(251,191,36,0.18); box-shadow: 0 0 10px rgba(251,191,36,0.4); }
+  .mem-cell.lookup2 { border-color: var(--green); background: rgba(52,211,153,0.16); box-shadow: 0 0 10px rgba(52,211,153,0.45); }
+
+  .deriv-steps { display: grid; gap: 6px; }
+  .deriv-step { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: baseline; padding: 7px 10px; border: 1px solid rgba(56,132,255,0.25); border-radius: 9px; background: rgba(13,30,66,0.5); font-size: 13.5px; color: var(--muted); animation: bitPop 400ms ease; }
+  .deriv-step .dn { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 1px solid rgba(125,211,252,0.5); color: var(--cyan-soft); font-size: 12px; font-weight: 800; }
+  .deriv-step code { color: var(--amber); font-family: "Consolas", monospace; }
+  .deriv-step.final { border-color: rgba(52,211,153,0.55); background: rgba(6,40,32,0.4); color: #d1fae5; }
+
+  /* 程序执行 */
+  .prog-layout { display: grid; grid-template-columns: 1fr 210px; gap: 12px; }
+  .prog-list { display: grid; gap: 4px; font-family: "Consolas", monospace; }
+  .prog-row { display: grid; grid-template-columns: 40px 1.2fr 1.6fr; gap: 8px; padding: 6px 10px; border: 1px solid rgba(51,65,100,0.7); border-radius: 8px; background: rgba(9,18,44,0.75); font-size: 12.5px; color: var(--muted); transition: all 180ms ease; }
+  .prog-row .pa { color: var(--dim); }
+  .prog-row .pc-asm { color: #c6d8f5; font-weight: 700; }
+  .prog-row.running { border-color: var(--amber); background: rgba(251,191,36,0.12); box-shadow: 0 0 12px rgba(251,191,36,0.35); }
+  .prog-row.done { opacity: 0.55; }
+  .reg-panel { display: grid; gap: 8px; align-content: start; }
+  .reg-card { border: 1px solid rgba(56,132,255,0.3); border-radius: 10px; padding: 8px 12px; background: rgba(8,18,46,0.65); text-align: center; }
+  .reg-card span { display: block; font-size: 11px; color: var(--dim); }
+  .reg-card strong { font-size: 20px; color: var(--cyan-soft); font-variant-numeric: tabular-nums; }
+  .reg-card.halted strong { color: var(--red); }
+
+  /* RISC/CISC */
+  .rc-layout { display: grid; grid-template-columns: 1fr 1.3fr 1fr; gap: 10px; }
+  .rc-col { display: grid; gap: 6px; align-content: start; border: 1px solid rgba(56,132,255,0.25); border-radius: 12px; padding: 10px; min-height: 240px; }
+  .rc-col h4 { text-align: center; font-size: 15px; }
+  .rc-col.risc h4 { color: var(--teal); }
+  .rc-col.cisc h4 { color: var(--amber); }
+  .rc-pool { display: grid; gap: 6px; align-content: start; }
+  .feature-chip { display: grid; gap: 5px; border: 1px solid rgba(56,132,255,0.35); border-radius: 10px; padding: 8px 10px; background: rgba(13,30,66,0.65); font-size: 12.5px; color: #dbeafe; }
+  .feature-chip .fc-btns { display: flex; gap: 5px; }
+  .feature-chip .fc-btns button { flex: 1; border: 1px solid rgba(56,132,255,0.4); border-radius: 7px; padding: 4px 6px; background: transparent; color: var(--muted); font-size: 11.5px; font-weight: 700; cursor: pointer; }
+  .feature-chip .fc-btns button:hover { border-color: var(--cyan-soft); color: var(--cyan-soft); }
+  .feature-chip.placed { animation: bitPop 300ms ease; }
+  .feature-chip.placed.risc { border-color: rgba(45,212,191,0.6); }
+  .feature-chip.placed.cisc { border-color: rgba(251,191,36,0.6); }
+  .feature-chip.wrong { border-color: var(--red); animation: shake 400ms ease; }
+  @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+
+  /* 练习 */
+  .quiz-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
+  .quiz-head strong { color: var(--cyan-soft); font-size: 16px; }
+  .quiz-streak { color: var(--amber); font-weight: 700; }
+  .quiz-q { font-size: 19px; font-weight: 700; line-height: 1.6; color: #eaf4ff; }
+  .quiz-q code { font-family: "Consolas", monospace; font-size: 19px; color: var(--amber); background: rgba(251,191,36,0.1); padding: 2px 10px; border-radius: 8px; }
+  .quiz-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .quiz-choice { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(56,132,255,0.35); border-radius: 12px; padding: 11px 13px; background: rgba(13,30,66,0.6); color: #dbeafe; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 140ms ease; text-align: left; }
+  .quiz-choice .qc-key { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(125,211,252,0.5); color: var(--cyan-soft); font-size: 13px; font-weight: 800; flex: none; }
+  .quiz-choice code { font-family: "Consolas", monospace; }
+  .quiz-choice:hover { border-color: rgba(125,211,252,0.8); }
+  .quiz-choice.selected { border-color: var(--cyan-soft); background: rgba(56,132,255,0.16); }
+  .quiz-choice.correct { border-color: var(--green); background: rgba(52,211,153,0.14); color: #d1fae5; }
+  .quiz-choice.wrong { border-color: var(--red); background: rgba(248,113,113,0.12); color: #fecaca; }
+  .quiz-choice:disabled { cursor: default; }
+  .quiz-feedback { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.65; display: none; }
+  .quiz-feedback.show { display: block; animation: popIn 320ms ease; }
+  .quiz-feedback.ok { border: 1px solid rgba(52,211,153,0.55); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .quiz-feedback.bad { border: 1px solid rgba(248,113,113,0.55); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .quiz-actions { display: flex; justify-content: center; gap: 10px; }
+  .quiz-actions button { border: 1px solid rgba(56,132,255,0.5); border-radius: 999px; padding: 10px 28px; background: linear-gradient(90deg, rgba(29,78,216,0.85), rgba(37,99,235,0.85)); color: #eaf4ff; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .quiz-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .quiz-actions .ghost-action { background: rgba(13,30,66,0.7); }
+
+  @media (max-width: 1180px) {
+    main { grid-template-columns: 1fr; }
+    .narrator { position: static; }
+    .rc-layout, .prog-layout { grid-template-columns: 1fr; }
+    h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="kicker">第五章 · 指令系统</span>
+    <h1>指令系统与寻址方式</h1>
+    <p class="subtitle">Instruction Set &amp; Addressing —— 操作码·地址码·八种寻址·RISC/CISC</p>
+    <nav class="mode-tabs" id="modeTabs">
+      <button data-mode="format" class="active">指令格式</button>
+      <button data-mode="addressing">寻址方式</button>
+      <button data-mode="program">指令寻址</button>
+      <button data-mode="risc">RISC vs CISC</button>
+      <button data-mode="quiz">课堂练习</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="side panel" aria-label="场景面板">
+      <h2>场景与动线<small></small></h2>
+      <div class="presets"><div class="preset-list" id="presetList"></div></div>
+      <div class="side-note" id="sideNote"></div>
+    </section>
+
+    <section class="stage panel" aria-label="演示舞台" id="stage"></section>
+
+    <aside class="narrator panel" aria-label="讲解与控制">
+      <div class="step-card">
+        <div class="step-count" id="stepCount"></div>
+        <div class="step-text" id="stepText"></div>
+      </div>
+      <div class="banner" id="banner"></div>
+      <div class="controls">
+        <button class="play-btn" id="playBtn">▶ 自动播放</button>
+        <button id="prevBtn">← 上一步</button>
+        <button id="nextBtn">下一步 →</button>
+        <button id="resetBtn" style="grid-column: span 2;">↺ 重置本模式</button>
+      </div>
+      <div class="speed">
+        <span>速度</span>
+        <input type="range" id="speedRange" min="0.5" max="2.5" step="0.25" value="1">
+        <span id="speedLabel">1×</span>
+      </div>
+      <div class="kbd-hints">空格 播放/暂停 · ← / → 步进 · 1 ~ 5 切换模式 · R 重置</div>
+      <div class="insight">
+        <button id="insightToggle">💡 寻址方式到底在解决什么问题？</button>
+        <div class="insight-body" id="insightBody" hidden>
+          指令里能写下的地址码很短（本页只有 9 位），但内存很大、数据还会搬来搬去。<b>寻址方式就是用短地址码灵活找到操作数的约定</b>：<br>
+          · <b>变址</b>：寄存器 + 形式地址 → 数组下标跟着走，指令不用改；<br>
+          · <b>基址</b>：程序整体搬家（重定位），只改基址寄存器；<br>
+          · <b>相对</b>：以 PC 为锚点，代码搬到哪里跳转都不乱；<br>
+          · <b>间接</b>：地址的地址 → 指针！<br>
+          同一条「形式地址 A」，八种解释规则，八种到达路径。
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ───────────────────────── 基础工具 ───────────────────────── */
+const hex = (v, w = 2) => "0x" + v.toString(16).toUpperCase().padStart(w, "0");
+const bin = (v, w) => v.toString(2).padStart(w, "0");
+function randomInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function shuffled(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/* ───────────────────────── 全局状态 ───────────────────────── */
+const state = { mode: "format", stepIndex: 0, playing: false, speed: 1, timer: null };
+
+/* 指令集（4 位操作码） */
+const OPCODES = {
+  "0000": "NOP", "0001": "ADD", "0010": "SUB", "0011": "MOV",
+  "0100": "LOAD", "0101": "STORE", "0110": "AND", "0111": "OR",
+  "1000": "XOR", "1001": "NOT", "1010": "SHL", "1011": "SHR",
+  "1100": "JMP", "1101": "JNZ", "1110": "CALL", "1111": "EXT（扩展前缀）",
+};
+
+/* 8 种寻址方式（3 位寻址特征码） */
+const ADDRESSING_MODES = {
+  "000": { key: "immediate", name: "立即寻址", formula: "操作数 = A" },
+  "001": { key: "direct", name: "直接寻址", formula: "EA = A" },
+  "010": { key: "indirect", name: "间接寻址", formula: "EA = (A)" },
+  "011": { key: "register", name: "寄存器寻址", formula: "操作数 = Rn" },
+  "100": { key: "regindirect", name: "寄存器间接", formula: "EA = (Rn)" },
+  "101": { key: "indexed", name: "变址寻址", formula: "EA = Rx + A" },
+  "110": { key: "base", name: "基址寻址", formula: "EA = Rb + A" },
+  "111": { key: "relative", name: "相对寻址", formula: "EA = PC + A" },
+};
+const MODE_KEY_TO_CODE = Object.fromEntries(Object.entries(ADDRESSING_MODES).map(([code, m]) => [m.key, code]));
+
+const formatState = { bits: [0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1], extDemo: "fixed" };
+
+/* 寻址计算器 */
+const eaState = {
+  mode: "indirect",
+  A: 12,
+  regs: [5, 4, 12, 7],   // R0~R3（R1 当变址 Rx，R2 当间址 Rn）
+  rx: 1, rb: 2, rn: 2,
+  pc: 5,
+  mem: [],
+  step: 0,
+};
+function buildMemory() {
+  const mem = Array.from({ length: 32 }, () => 0);
+  mem[8] = 100; mem[9] = 200; mem[10] = 300; mem[11] = 400;
+  mem[12] = 8; mem[13] = 10; mem[14] = 12; mem[15] = 26;
+  mem[20] = 42; mem[21] = 43; mem[22] = 44; mem[23] = 45;
+  mem[26] = 500; mem[28] = 8; mem[30] = 777;
+  return mem;
+}
+eaState.mem = buildMemory();
+
+/* 程序执行 */
+const PROGRAM = [
+  { addr: 0, asm: "LOAD R1, #5", effect: "R1 ← 5（立即寻址）" },
+  { addr: 1, asm: "SUB  R1, #1", effect: "R1 ← R1 − 1" },
+  { addr: 2, asm: "JNZ  1", effect: "R1≠0 → PC←1（相对寻址）" },
+  { addr: 3, asm: "HALT", effect: "停机" },
+];
+const runState = { pc: 0, ir: null, r1: 0, phase: "fetch", halted: false, cycles: 0, log: [] };
+
+/* RISC/CISC */
+const RC_FEATURES = [
+  { text: "指令数量多（300+ 条）", side: "cisc" },
+  { text: "指令数量少（<100 条）", side: "risc" },
+  { text: "定长指令（如 32 位）", side: "risc" },
+  { text: "变长指令（1~15 字节）", side: "cisc" },
+  { text: "寻址方式多（10+ 种）", side: "cisc" },
+  { text: "寻址方式少（≤5 种）", side: "risc" },
+  { text: "大量通用寄存器（32 个）", side: "risc" },
+  { text: "Load/Store 架构：运算只在寄存器间", side: "risc" },
+  { text: "访存数据可直接参与运算", side: "cisc" },
+  { text: "硬布线控制为主，追求单周期", side: "risc" },
+  { text: "微程序控制为主，灵活但慢", side: "cisc" },
+  { text: "代表：x86（Intel/AMD）", side: "cisc" },
+  { text: "代表：ARM / MIPS / RISC-V", side: "risc" },
+  { text: "强调编译器优化", side: "risc" },
+];
+const rcState = { assignments: {}, checked: false, score: null };
+
+/* 练习 */
+const quizState = { total: 0, correct: 0, streak: 0, best: 0, current: null, answered: false, selected: -1 };
+
+/* ───────────────────────── 场景面板 ───────────────────────── */
+const presetList = document.getElementById("presetList");
+const sideNote = document.getElementById("sideNote");
+
+function renderPresets() {
+  presetList.innerHTML = "";
+  sideNote.textContent = "";
+  const addBtn = (label, note, warn, onClick) => {
+    const btn = document.createElement("button");
+    btn.className = "preset-btn" + (warn ? " warn" : "");
+    btn.innerHTML = `${label}<small>${note}</small>`;
+    btn.addEventListener("click", onClick);
+    presetList.appendChild(btn);
+  };
+  if (state.mode === "format") {
+    addBtn("LOAD 间接 A=12", "0100 010 000001100", false, () => formatSet("0100", "010", 12));
+    addBtn("JMP 相对 A=3", "1100 111 000000011", false, () => formatSet("1100", "111", 3));
+    addBtn("ADD 寄存器 R1", "0001 011 → R1", false, () => formatSet("0001", "011", 1));
+    addBtn("扩展操作码演示", "4 位定长 16 条 → 扩展后更多", false, () => { formatState.extDemo = formatState.extDemo === "fixed" ? "ext" : "fixed"; renderFormatStage(); });
+    sideNote.innerHTML = "同屏动线：① 点 bit 改指令 ② 看译码卡解读 OP/M/A ③ 底部切换定长/扩展操作码对比。";
+  } else if (state.mode === "addressing") {
+    addBtn("间接寻址 A=12", "(12)=8 → EA=8 → 操作数 100", false, () => eaSet("indirect", 12));
+    addBtn("变址寻址 Rx+A", "Rx=4 + A=6 → EA=10 → 数组元素", false, () => eaSet("indexed", 6));
+    addBtn("基址寻址 Rb+A", "Rb=12 + A=8 → 重定位", false, () => eaSet("base", 8));
+    addBtn("相对寻址 PC+A", "PC=5 + A=3 → EA=8", false, () => eaSet("relative", 3));
+    addBtn("立即寻址 A=42", "操作数就是 A 本身", false, () => eaSet("immediate", 42));
+    sideNote.innerHTML = "同屏动线：① 选寻址方式 ② 调 A / 寄存器 / PC ③ 点「推导 EA」逐步看路径，内存表同步高亮。";
+  } else if (state.mode === "program") {
+    addBtn("单步执行循环", "LOAD → SUB → JNZ 回跳 ×5 → HALT", false, () => runStep());
+    addBtn("自动运行到停机", "看 PC 顺序走与回跳交替", false, () => runAuto());
+    addBtn("重置程序", "PC=0, R1=0", false, () => runReset());
+    sideNote.innerHTML = "指令寻址只有两种：顺序（PC+1）与跳跃（PC←目标）。看这个 4 行小程序把 R1 从 5 数到 0。";
+  } else if (state.mode === "risc") {
+    addBtn("检查归类", "判分并弹回错项", false, () => rcCheck());
+    addBtn("全部收回重来", "特征卡回池", false, () => rcReset());
+    sideNote.innerHTML = "把 14 张特征卡分到 RISC / CISC 两列，点「检查归类」判分——错的会弹回中池。";
+  } else if (state.mode === "quiz") {
+    presetList.innerHTML = `<div class="side-note" style="text-align:left">题型：格式译码 · EA 计算 · 取数路径 · 寻址识别 · PC 走向 · RISC 概念<br><br>答对立即解析，连对有 🔥 标记。</div>`;
+  }
+}
+
+/* ───────────────────────── 指令格式模式 ───────────────────────── */
+function buildFormatScenario() {
+  const steps = [
+    { zone: 0, text: `一条指令 = <b>操作码 OP（做什么）+ 地址码（操作数在哪）</b>。本页用 16 位格式：<b>OP 4 位 | 寻址特征 M 3 位 | 形式地址 A 9 位</b>。点 bit 随便改，译码卡实时解读。`, formula: `[ OP:4 | M:3 | A:9 ]` },
+    { zone: 0, text: `<b>M 决定 A 的解释规则</b>（下一站细讲）；<b>A 只是「形式地址」</b>——它是线索，不一定是最终地址。地址码字段的位数还区分零/一/二/三地址指令。`, formula: `OP 说做什么 · M 说怎么找 · A 是线索` },
+    { zone: 1, text: `操作码怎么编码？<b>定长</b>：4 位固定 = 16 条，译码快但写死了；<b>扩展操作码</b>：留一个前缀（如 1111）作逃生门，短码给高频指令、长码给低频指令——点底部开关对比两种方案。`, formula: `定长快 · 变长省 · 扩展操作码两全` },
+  ];
+  return { kind: "format", zoneBased: true, steps };
+}
+
+function formatSet(op, m, a) {
+  const bits = [...op.split("").map(Number), ...m.split("").map(Number), ...bin(a, 9).split("").map(Number)];
+  formatState.bits = bits;
+  renderFormatStage();
+}
+
+function formatDecode() {
+  const bits = formatState.bits;
+  const op = bits.slice(0, 4).join("");
+  const m = bits.slice(4, 7).join("");
+  const a = Number.parseInt(bits.slice(7).join(""), 2);
+  return { op, opName: OPCODES[op] ?? "未定义", m, mode: ADDRESSING_MODES[m], a };
+}
+
+function renderFormatStage() {
+  const d = formatDecode();
+  stage.innerHTML = `
+    <div class="stage-title"><h2>指令格式拆分器</h2><span class="st-sub">16 位指令字：OP 4 | M 3 | A 9</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">指令字（点 bit 改）与实时译码</div>
+      <div class="bits16" id="fmtBits"></div>
+      <div class="seg-legend">
+        <span><span class="legend-chip" style="background:#a78bfa"></span>操作码 OP（4 位）</span>
+        <span><span class="legend-chip" style="background:#fbbf24"></span>寻址特征 M（3 位）</span>
+        <span><span class="legend-chip" style="background:#22d3ee"></span>形式地址 A（9 位）</span>
+      </div>
+      <div class="decode-card">
+        <div class="decode-row"><span class="dk">操作码 OP</span><span class="dv">${d.op} → <em>${d.opName}</em></span></div>
+        <div class="decode-row"><span class="dk">寻址特征 M</span><span class="dv">${d.m} → <em>${d.mode.name}</em>（${d.mode.formula}）</span></div>
+        <div class="decode-row"><span class="dk">形式地址 A</span><span class="dv">${bin(d.a, 9)} = <em>${d.a}</em>（0~511）</span></div>
+        <div class="decode-row"><span class="dk">汇编助记</span><span class="dv"><em>${d.opName.split("（")[0]} ${d.mode.name === "立即寻址" ? "#" + d.a : d.mode.name === "寄存器寻址" ? "R" + (d.a % 4) : d.a}</em></span></div>
+      </div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">操作码编码：定长 vs 扩展</div>
+      <div class="toggle-row" id="extToggle">
+        <button data-ext="fixed">定长编码（4 位）</button>
+        <button data-ext="ext">扩展操作码</button>
+      </div>
+      <div class="decode-card" id="extCard"></div>
+    </div>
+    <div class="formula-strip" id="formulaStrip"></div>`;
+
+  document.getElementById("fmtBits").innerHTML = formatState.bits.map((b, i) => {
+    const seg = i < 4 ? "seg-op" : i < 7 ? "seg-mode" : "seg-addr";
+    return `<div class="bit clickable ${seg} ${b ? "on" : ""}" data-col="${i}">${b}</div>`;
+  }).join("");
+  document.querySelectorAll("#fmtBits .bit").forEach((cellEl, i) => {
+    cellEl.addEventListener("click", () => {
+      formatState.bits[i] = formatState.bits[i] ? 0 : 1;
+      cellEl.classList.add("pop");
+      setTimeout(() => renderFormatStage(), 120);
+    });
+  });
+  document.getElementById("extToggle").addEventListener("click", (event) => {
+    const btn = event.target.closest("button[data-ext]");
+    if (!btn) return;
+    formatState.extDemo = btn.dataset.ext;
+    renderExtCard();
+  });
+  renderExtCard();
+
+  function renderExtCard() {
+    document.querySelectorAll("#extToggle button").forEach((btn) => btn.classList.toggle("active", btn.dataset.ext === formatState.extDemo));
+    document.getElementById("extCard").innerHTML = formatState.extDemo === "fixed"
+      ? `<div class="decode-row"><span class="dk">方案</span><span class="dv">OP 固定 4 位</span></div>
+         <div class="decode-row"><span class="dk">可表示指令</span><span class="dv"><em>2⁴ = 16 条</em>，一条不多</span></div>
+         <div class="decode-row"><span class="dk">特点</span><span class="dv">译码电路最简单、速度最快；指令数被写死，想加新指令只能加字长</span></div>`
+      : `<div class="decode-row"><span class="dk">方案</span><span class="dv">1111 作为扩展前缀（逃生门）</span></div>
+         <div class="decode-row"><span class="dk">可表示指令</span><span class="dv"><em>15 条短码 + 扩展空间</em>：1111 后再接一个 4 位窗口，又多 16 条；还能继续嵌套</span></div>
+         <div class="decode-row"><span class="dk">特点</span><span class="dv">高频指令用短码（省空间），低频/新指令走长码（可扩展）——<em>用译码复杂度换指令数量</em></span></div>`;
+  }
+}
+
+/* ───────────────────────── 寻址方式计算器 ───────────────────────── */
+function buildAddressingScenario() {
+  const steps = [
+    { zone: 0, text: `核心问题来了：指令里的形式地址 A 只有 9 位，<b>怎么用它找到真正的操作数？</b>八种寻址方式 = 八种解释 A 的规则。先选一种，再调 A 和寄存器。`, formula: `EA（有效地址）= f(方式, A, 寄存器, PC)` },
+    { zone: 0, text: `<b>立即</b>：A 就是数据本身，最快；<b>直接</b>：EA=A，访存一次；<b>间接</b>：EA=(A)，访存两次——A 处存的是地址的地址（指针！）。`, formula: `立即 A · 直接 (A) · 间接 ((A))` },
+    { zone: 0, text: `<b>寄存器/寄存器间接</b>：数据或地址在寄存器里；<b>变址</b> Rx+A 为数组而生；<b>基址</b> Rb+A 为重定位而生；<b>相对</b> PC+A 让跳转随代码搬家不乱。`, formula: `变址跟着下标走 · 基址跟着程序走 · 相对跟着 PC 走` },
+    { zone: 1, text: `点「推导 EA」逐步看：先算 EA（公式拼装），再按 EA 取操作数，<b>内存表同步高亮查找路径</b>——间接寻址会看到两级高亮跳两跳。`, formula: `求 EA → 访存 → 得操作数` },
+  ];
+  return { kind: "addressing", zoneBased: true, steps };
+}
+
+function eaSet(mode, a) {
+  eaState.mode = mode;
+  eaState.A = a;
+  eaState.step = 0;
+  renderEaStage();
+  eaDerive(true);
+}
+
+function eaDeriveSteps() {
+  const { mode, A, regs, rx, rb, rn, pc, mem } = eaState;
+  const steps = [];
+  const final = (ea, operand, lookupCells) => ({ ea, operand, lookupCells });
+  steps.push({ text: `形式地址 A = ${A}，寻址方式：${ADDRESSING_MODES[MODE_KEY_TO_CODE[mode]].name}`, cells: [] });
+
+  if (mode === "immediate") {
+    steps.push({ text: `立即寻址：<code>操作数 = A</code>，数据就写在指令里，不用再访存`, cells: [] });
+    steps.push({ text: `操作数 = ${A} ✓（速度最快，但数是定死的）`, cells: [], final: final(null, A, []) });
+    return steps;
+  }
+  if (mode === "direct") {
+    steps.push({ text: `直接寻址：<code>EA = A = ${A}</code>`, cells: [A] });
+    steps.push({ text: `访存：操作数 = (${A}) = <code>${mem[A]}</code> ✓`, cells: [A], final: final(A, mem[A], [A]) });
+    return steps;
+  }
+  if (mode === "indirect") {
+    const mid = mem[A];
+    steps.push({ text: `间接寻址第一步：先访存读 (${A}) = <code>${mid}</code>——这是地址的地址`, cells: [A], level: 1 });
+    steps.push({ text: `<code>EA = ${mid}</code>`, cells: [mid], level: 2 });
+    steps.push({ text: `再访存：操作数 = (${mid}) = <code>${mem[mid] ?? 0}</code> ✓（两次访存，换来「指针」能力）`, cells: [mid], final: final(mid, mem[mid] ?? 0, [A, mid]) });
+    return steps;
+  }
+  if (mode === "register") {
+    steps.push({ text: `寄存器寻址：<code>操作数 = R${rn}</code>，不访存`, cells: [] });
+    steps.push({ text: `操作数 = R${rn} = <code>${regs[rn]}</code> ✓`, cells: [], final: final(null, regs[rn], []) });
+    return steps;
+  }
+  if (mode === "regindirect") {
+    const ea = regs[rn];
+    steps.push({ text: `寄存器间接：<code>EA = (R${rn}) = ${ea}</code>`, cells: [ea] });
+    steps.push({ text: `访存：操作数 = (${ea}) = <code>${mem[ea] ?? 0}</code> ✓`, cells: [ea], final: final(ea, mem[ea] ?? 0, [ea]) });
+    return steps;
+  }
+  const baseReg = mode === "indexed" ? { name: "Rx", idx: rx, val: regs[rx] } : mode === "base" ? { name: "Rb", idx: rb, val: regs[rb] } : { name: "PC", idx: null, val: pc };
+  const ea = baseReg.val + A;
+  const purpose = mode === "indexed" ? "（数组：Rx 是下标，A 是数组首址）" : mode === "base" ? "（重定位：Rb 是程序基址，A 是偏移）" : "（跳转/短漂数据：跟着 PC 走）";
+  steps.push({ text: `${ADDRESSING_MODES[MODE_KEY_TO_CODE[mode]].name}：<code>EA = ${baseReg.name} + A = ${baseReg.val} + ${A} = ${ea}</code>${purpose}`, cells: [ea] });
+  steps.push({ text: `访存：操作数 = (${ea}) = <code>${mem[ea] ?? 0}</code> ✓`, cells: [ea], final: final(ea, mem[ea] ?? 0, [ea]) });
+  return steps;
+}
+
+function eaDerive(playAll = false) {
+  eaState.step = playAll ? eaDeriveSteps().length : 1;
+  renderEaStage();
+}
+
+function renderEaStage() {
+  const mode = eaState.mode;
+  const steps = eaDeriveSteps();
+  const shown = steps.slice(0, eaState.step);
+  const finalStep = eaState.step >= steps.length ? steps[steps.length - 1] : null;
+  const lookupCells = new Set(finalStep?.final?.lookupCells ?? []);
+  const level1Cell = steps.find((s) => s.level === 1)?.cells?.[0];
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>寻址方式计算器</h2><span class="st-sub">同一个 A，八种到达操作数的路径</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">① 选方式 · 调参数（全在区内）</div>
+      <div class="toggle-row" id="eaModeRow">
+        ${Object.entries(ADDRESSING_MODES).map(([code, m]) => `<button data-mode-key="${m.key}" class="${m.key === mode ? "active" : ""}">${m.name}<br><small>${m.formula}</small></button>`).join("")}
+      </div>
+      <div class="stepper-row">
+        <button id="eaAMinus">−</button>
+        <div class="stepper-val">A = ${eaState.A}<small>形式地址（0~31 有效）</small></div>
+        <button id="eaAPlus">+</button>
+        <button id="eaRxMinus">−</button>
+        <div class="stepper-val">Rx = ${eaState.regs[eaState.rx]}<small>变址寄存器</small></div>
+        <button id="eaRxPlus">+</button>
+        <button id="eaRbMinus">−</button>
+        <div class="stepper-val">Rb = ${eaState.regs[eaState.rb]}<small>基址寄存器</small></div>
+        <button id="eaRbPlus">+</button>
+        <button id="eaPcMinus">−</button>
+        <div class="stepper-val">PC = ${eaState.pc}<small>程序计数器</small></div>
+        <button id="eaPcPlus">+</button>
+      </div>
+      <div class="inline-steps">
+        <button id="eaStepBtn">推导一步 →</button>
+        <button id="eaAllBtn">▶ 推导全部</button>
+        <button id="eaResetBtn">↺ 收起推导</button>
+      </div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">② 推导路径 与 内存表（琥珀=中间跳，绿=最终取数）</div>
+      <div class="deriv-steps" id="derivSteps">
+        ${shown.map((s, i) => `<div class="deriv-step ${i === steps.length - 1 && eaState.step >= steps.length ? "final" : ""}"><span class="dn">${i + 1}</span><span>${s.text}</span></div>`).join("") || `<div class="enc-note">点「推导一步 / 推导全部」开始</div>`}
+      </div>
+      <div class="mem-table" id="eaMem">
+        ${eaState.mem.map((v, addr) => `
+          <div class="mem-cell ${lookupCells.has(addr) ? (addr === level1Cell && steps.length > 2 ? "lookup1" : "lookup2") : ""}">
+            <span class="ma">${addr}</span><span class="mv">${v}</span>
+          </div>`).join("")}
+      </div>
+      <div class="formula-strip" id="eaFormula">${finalStep?.final
+        ? `${ADDRESSING_MODES[MODE_KEY_TO_CODE[mode]].name}：A=${eaState.A} → ${finalStep.final.ea != null ? `EA=${finalStep.final.ea} → ` : ""}操作数 = ${finalStep.final.operand}`
+        : `${ADDRESSING_MODES[MODE_KEY_TO_CODE[mode]].formula} · 点推导开始`}</div>
+    </div>`;
+
+  document.getElementById("eaModeRow").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-mode-key]");
+    if (!btn) return;
+    eaState.mode = btn.dataset.modeKey;
+    eaState.step = 0;
+    renderEaStage();
+  });
+  const clampA = (v) => Math.max(0, Math.min(31, v));
+  document.getElementById("eaAMinus").addEventListener("click", () => { eaState.A = clampA(eaState.A - 1); eaState.step = 0; renderEaStage(); });
+  document.getElementById("eaAPlus").addEventListener("click", () => { eaState.A = clampA(eaState.A + 1); eaState.step = 0; renderEaStage(); });
+  document.getElementById("eaRxMinus").addEventListener("click", () => { eaState.regs[eaState.rx] = clampA(eaState.regs[eaState.rx] - 1); eaState.step = 0; renderEaStage(); });
+  document.getElementById("eaRxPlus").addEventListener("click", () => { eaState.regs[eaState.rx] = clampA(eaState.regs[eaState.rx] + 1); eaState.step = 0; renderEaStage(); });
+  document.getElementById("eaRbMinus").addEventListener("click", () => { eaState.regs[eaState.rb] = clampA(eaState.regs[eaState.rb] - 1); eaState.step = 0; renderEaStage(); });
+  document.getElementById("eaRbPlus").addEventListener("click", () => { eaState.regs[eaState.rb] = clampA(eaState.regs[eaState.rb] + 1); eaState.step = 0; renderEaStage(); });
+  document.getElementById("eaPcMinus").addEventListener("click", () => { eaState.pc = clampA(eaState.pc - 1); eaState.step = 0; renderEaStage(); });
+  document.getElementById("eaPcPlus").addEventListener("click", () => { eaState.pc = clampA(eaState.pc + 1); eaState.step = 0; renderEaStage(); });
+  document.getElementById("eaStepBtn").addEventListener("click", () => { eaState.step = Math.min(eaState.step + 1, eaDeriveSteps().length); renderEaStage(); });
+  document.getElementById("eaAllBtn").addEventListener("click", () => eaDerive(true));
+  document.getElementById("eaResetBtn").addEventListener("click", () => { eaState.step = 0; renderEaStage(); });
+  document.getElementById("eaStepBtn").disabled = eaState.step >= steps.length;
+}
+
+/* ───────────────────────── 指令寻址（程序执行） ───────────────────────── */
+function buildProgramScenario() {
+  const steps = [
+    { zone: 0, text: `数据有寻址，<b>指令本身也有寻址</b>——下一条指令从哪来？默认 <b>PC+1（顺序）</b>；遇到跳转指令则 <b>PC ← 目标地址（跳跃）</b>，跳转目标常用相对寻址给出。`, formula: `顺序 PC+1 · 跳跃 PC←目标` },
+    { zone: 0, text: `看这个 4 行循环：LOAD 给 R1 赋 5，SUB 每次减 1，JNZ 用相对寻址跳回——<b>PC 会在 1 和 2 之间来回 5 次</b>，直到 R1=0 才落到 HALT。点「单步执行」看取指/执行两相位。`, formula: `取指 → 执行 → 更新 PC` },
+  ];
+  return { kind: "program", zoneBased: true, steps };
+}
+
+function runReset() {
+  runState.pc = 0; runState.ir = null; runState.r1 = 0;
+  runState.phase = "fetch"; runState.halted = false; runState.cycles = 0; runState.log = [];
+  renderProgramStage();
+}
+
+function runStep() {
+  if (runState.halted) return;
+  if (runState.phase === "fetch") {
+    runState.ir = PROGRAM[runState.pc];
+    runState.phase = "execute";
+    runState.log.push(`取指：PC=${runState.pc} → IR =「${runState.ir.asm}」`);
+  } else {
+    const ins = runState.ir;
+    if (ins.addr === 0) { runState.r1 = 5; runState.pc = 1; runState.log.push("执行：R1=5；PC+1 → 1（顺序）"); }
+    else if (ins.addr === 1) { runState.r1 -= 1; runState.pc = 2; runState.log.push(`执行：R1=${runState.r1}；PC+1 → 2（顺序）`); }
+    else if (ins.addr === 2) {
+      if (runState.r1 !== 0) { runState.pc = 1; runState.log.push(`执行：R1=${runState.r1}≠0 → PC←1（跳跃·相对寻址）`); }
+      else { runState.pc = 3; runState.log.push("执行：R1=0 → PC+1 → 3（顺序）"); }
+    }
+    else if (ins.addr === 3) { runState.halted = true; runState.log.push("执行：HALT，程序结束"); }
+    runState.cycles += 1;
+    runState.phase = "fetch";
+  }
+  renderProgramStage();
+}
+
+function runAuto() {
+  if (runState.halted) return;
+  const tick = () => {
+    if (runState.halted) return;
+    runStep();
+    setTimeout(tick, 900 / state.speed);
+  };
+  tick();
+}
+
+function renderProgramStage() {
+  stage.innerHTML = `
+    <div class="stage-title"><h2>指令寻址：顺序执行与跳转</h2><span class="st-sub">取指 → 执行 → 更新 PC</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">迷你程序：R1 从 5 数到 0</div>
+      <div class="prog-layout">
+        <div class="prog-list">
+          ${PROGRAM.map((ins) => `
+            <div class="prog-row ${runState.ir?.addr === ins.addr && !runState.halted ? "running" : ""} ${runState.halted && ins.addr !== 3 ? "done" : ""}">
+              <span class="pa">${ins.addr}</span>
+              <span class="pc-asm">${ins.asm}</span>
+              <span>${ins.effect}</span>
+            </div>`).join("")}
+        </div>
+        <div class="reg-panel">
+          <div class="reg-card"><span>PC（程序计数器）</span><strong>${runState.pc}</strong></div>
+          <div class="reg-card"><span>IR（指令寄存器）</span><strong style="font-size:14px">${runState.ir ? runState.ir.asm : "—"}</strong></div>
+          <div class="reg-card"><span>R1（计数）</span><strong>${runState.r1}</strong></div>
+          <div class="reg-card ${runState.halted ? "halted" : ""}"><span>状态</span><strong style="font-size:15px">${runState.halted ? "已停机" : runState.phase === "fetch" ? "下一相位：取指" : "下一相位：执行"}</strong></div>
+          <div class="reg-card"><span>已执行指令数</span><strong>${runState.cycles}</strong></div>
+        </div>
+      </div>
+      <div class="inline-steps">
+        <button id="runStepBtn" ${runState.halted ? "disabled" : ""}>单步（取指/执行）→</button>
+        <button id="runAutoBtn" ${runState.halted ? "disabled" : ""}>▶ 自动运行</button>
+        <button id="runResetBtn">↺ 重置程序</button>
+      </div>
+      <div class="deriv-steps">
+        ${runState.log.slice(-4).map((line) => `<div class="deriv-step"><span class="dn">·</span><span>${line}</span></div>`).join("") || `<div class="enc-note">点「单步」开始执行</div>`}
+      </div>
+    </div>
+    <div class="formula-strip" id="formulaStrip">${runState.log.at(-1) ?? "顺序寻址 PC+1 · 跳跃寻址 PC←目标"}</div>`;
+  document.getElementById("runStepBtn")?.addEventListener("click", runStep);
+  document.getElementById("runAutoBtn")?.addEventListener("click", runAuto);
+  document.getElementById("runResetBtn")?.addEventListener("click", runReset);
+}
+
+/* ───────────────────────── RISC vs CISC ───────────────────────── */
+function buildRiscScenario() {
+  const steps = [
+    { zone: 0, text: `<b>CISC（复杂指令集）</b>：指令多、功能强、长度不一，希望一条指令做更多事（x86）；<b>RISC（精简指令集）</b>：指令少而整齐、定长、Load/Store 分离，希望每条都快（ARM/MIPS/RISC-V）。`, formula: `CISC 以复杂换表达力 · RISC 以简单换速度` },
+    { zone: 0, text: `RISC 的设计哲学：<b>定长指令好译码、多寄存器少访存、硬布线控制求单周期</b>，把复杂性甩给编译器。CISC 则用微程序灵活实现复杂语义。`, formula: `RISC 四宝：定长 · 多寄存器 · Load/Store · 硬布线` },
+    { zone: 1, text: `归归类：把 14 张特征卡分到两列（点卡上的 RISC / CISC 按钮），然后「检查归类」判分——分错的会弹回中池。`, formula: `全部归对 → 满分` },
+  ];
+  return { kind: "risc", zoneBased: true, steps };
+}
+
+function rcReset() {
+  rcState.assignments = {};
+  rcState.checked = false;
+  rcState.score = null;
+  renderRiscStage();
+}
+
+function rcCheck() {
+  rcState.checked = true;
+  let correct = 0;
+  RC_FEATURES.forEach((f, i) => {
+    if (rcState.assignments[i] === f.side) correct += 1;
+  });
+  const placed = Object.values(rcState.assignments).filter(Boolean).length;
+  rcState.score = { correct, total: RC_FEATURES.length, placed };
+  // 错项弹回中池
+  RC_FEATURES.forEach((f, i) => {
+    if (rcState.assignments[i] && rcState.assignments[i] !== f.side) delete rcState.assignments[i];
+  });
+  renderRiscStage();
+  const { correct: c, total, placed: p } = rcState.score;
+  if (c === total) setBanner(`🏆 <b>全部归对！</b>RISC 四宝记住了：定长、多寄存器、Load/Store、硬布线。`, "hit");
+  else setBanner(`归对 <b>${c} / ${total}</b>（已放置 ${p} 张）。错项已弹回中池，再试一次！`, "evict");
+}
+
+function renderRiscStage() {
+  const chip = (f, i, placed) => `
+    <div class="feature-chip ${placed ? `placed ${placed}` : ""}" data-fid="${i}">
+      <span>${f.text}</span>
+      ${placed ? "" : `<span class="fc-btns"><button data-assign="risc" data-fid="${i}">RISC</button><button data-assign="cisc" data-fid="${i}">CISC</button></span>`}
+    </div>`;
+  const pool = RC_FEATURES.map((f, i) => ({ f, i })).filter(({ i }) => !rcState.assignments[i]);
+  const risc = RC_FEATURES.map((f, i) => ({ f, i })).filter(({ i }) => rcState.assignments[i] === "risc");
+  const cisc = RC_FEATURES.map((f, i) => ({ f, i })).filter(({ i }) => rcState.assignments[i] === "cisc");
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>RISC vs CISC · 特征归类游戏</h2><span class="st-sub">${rcState.score ? `上次归对 ${rcState.score.correct} / ${rcState.score.total}` : `${Object.keys(rcState.assignments).length} / ${RC_FEATURES.length} 已归类`}</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">设计理念速览</div>
+      <div class="decode-card">
+        <div class="decode-row"><span class="dk">CISC</span><span class="dv">指令多而强 · 变长 · 寻址方式多 · 微程序控制 · <em>x86</em></span></div>
+        <div class="decode-row"><span class="dk">RISC</span><span class="dv">指令少而齐 · <em>定长 · 多寄存器 · Load/Store · 硬布线</em> · ARM / MIPS / RISC-V</span></div>
+      </div>
+    </div>
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">归类区（点卡上的按钮分配）</div>
+      <div class="rc-layout">
+        <div class="rc-col risc"><h4>RISC 精简指令集</h4>${risc.map(({ f, i }) => chip(f, i, "risc")).join("") || `<div class="enc-note">还没有卡</div>`}</div>
+        <div class="rc-pool">${shuffled(pool).map(({ f, i }) => chip(f, i, null)).join("") || `<div class="enc-note">中池已空 ✓</div>`}</div>
+        <div class="rc-col cisc"><h4>CISC 复杂指令集</h4>${cisc.map(({ f, i }) => chip(f, i, "cisc")).join("") || `<div class="enc-note">还没有卡</div>`}</div>
+      </div>
+      <div class="inline-steps">
+        <button id="rcCheckBtn">检查归类</button>
+        <button id="rcResetBtn">↺ 全部收回</button>
+      </div>
+    </div>
+    <div class="formula-strip" id="formulaStrip">RISC 四宝：定长 · 多寄存器 · Load/Store · 硬布线</div>`;
+
+  stage.querySelectorAll("[data-assign]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      rcState.assignments[btn.dataset.fid] = btn.dataset.assign;
+      renderRiscStage();
+    });
+  });
+  document.getElementById("rcCheckBtn").addEventListener("click", rcCheck);
+  document.getElementById("rcResetBtn").addEventListener("click", rcReset);
+}
+
+/* ───────────────────────── 练习模式 ───────────────────────── */
+const QUIZ_CONCEPTS = [
+  { q: "指令周期、机器周期、时钟周期的大小关系是？", choices: ["指令周期 > 机器周期 > 时钟周期", "时钟周期 > 机器周期 > 指令周期", "机器周期 > 指令周期 > 时钟周期", "三者相等"], answer: 0, why: "一条指令周期含若干机器周期（取指/译码/执行/访存/写回），一个机器周期含若干时钟周期（节拍）。" },
+  { q: "扩展操作码技术的主要目的是？", choices: ["加快指令执行", "在定字长内表示更多指令", "减少指令字长", "简化译码电路"], answer: 1, why: "用前缀作逃生门：短码给高频指令、长码给低频指令，用译码复杂度换指令数量。" },
+  { q: "立即寻址的操作数存放在？", choices: ["寄存器中", "主存中", "指令的地址码字段中", "Cache 中"], answer: 2, why: "立即寻址：形式地址 A 就是操作数本身，随指令一起来，不再访存。" },
+  { q: "间接寻址获取操作数需要访存几次？", choices: ["1 次", "2 次", "3 次", "0 次"], answer: 1, why: "先读 (A) 得到有效地址，再读 (EA) 得操作数——两次访存放慢速度，但获得了指针能力。" },
+  { q: "基址寻址最典型的用途是？", choices: ["数组遍历", "程序重定位", "循环计数", "堆栈操作"], answer: 1, why: "程序整体搬家只需改基址寄存器：EA = Rb + A，指令里的偏移不用动。" },
+  { q: "变址寻址最典型的用途是？", choices: ["程序重定位", "访问数组/字符串元素", "相对跳转", "立即数运算"], answer: 1, why: "EA = Rx + A：A 作数组首址固定，Rx 作下标随循环自增——为数组而生。" },
+  { q: "相对寻址中，有效地址的基准是？", choices: ["基址寄存器", "变址寄存器", "程序计数器 PC", "堆栈指针"], answer: 2, why: "EA = PC + A：以当前指令位置为锚，代码整体搬迁时跳转关系不乱。" },
+  { q: "RISC 的控制器实现方式以什么为主？", choices: ["微程序控制", "硬布线控制", "存储逻辑控制", "门阵列控制"], answer: 1, why: "RISC 指令简单规整，适合硬布线实现以追求单周期执行；CISC 复杂语义多用微程序。" },
+];
+
+function generateQuestion(forceType = null) {
+  const types = ["format", "eacalc", "fetch", "modename", "pcjump", "concept"];
+  const type = forceType ?? types[randomInt(0, types.length - 1)];
+
+  if (type === "format") {
+    const opKeys = Object.keys(OPCODES).filter((k) => k !== "1111");
+    const op = opKeys[randomInt(0, opKeys.length - 1)];
+    const mCode = Object.keys(ADDRESSING_MODES)[randomInt(0, 7)];
+    const a = randomInt(0, 31);
+    const bits = op + mCode + bin(a, 9);
+    const correct = `${OPCODES[op]} · ${ADDRESSING_MODES[mCode].name} · A=${a}`;
+    const wrongOps = shuffled(opKeys.filter((k) => k !== op))[0];
+    const wrongMode = shuffled(Object.keys(ADDRESSING_MODES).filter((k) => k !== mCode))[0];
+    const wrongA = (a + randomInt(1, 8)) % 32;
+    const choices = shuffled([
+      correct,
+      `${OPCODES[wrongOps]} · ${ADDRESSING_MODES[mCode].name} · A=${a}`,
+      `${OPCODES[op]} · ${ADDRESSING_MODES[wrongMode].name} · A=${a}`,
+      `${OPCODES[op]} · ${ADDRESSING_MODES[mCode].name} · A=${wrongA}`,
+    ]);
+    return {
+      type, mode: "choice",
+      prompt: `指令字 <code>${bits}</code>（OP 4 | M 3 | A 9）译码为？`,
+      choices, answer: choices.indexOf(correct),
+      explain: `OP=${op}→${OPCODES[op]}；M=${mCode}→${ADDRESSING_MODES[mCode].name}；A=${bin(a, 9)}=${a}。`,
+    };
+  }
+  if (type === "eacalc") {
+    const mode = ["direct", "indexed", "base", "relative"][randomInt(0, 3)];
+    const A = randomInt(2, 12);
+    const rx = randomInt(2, 8);
+    const rb = randomInt(10, 20);
+    const pc = randomInt(3, 9);
+    const ea = mode === "direct" ? A : mode === "indexed" ? rx + A : mode === "base" ? rb + A : pc + A;
+    const wrongs = [ea + 1, ea - 1, ea + A, ea * 2, A].filter((w) => w !== ea && w >= 0);
+    const choices = shuffled([...new Set([ea, ...wrongs])]).slice(0, 4);
+    const finalChoices = choices.includes(ea) ? choices : shuffled([ea, ...choices.slice(0, 3)]);
+    const modeName = { direct: "直接", indexed: "变址", base: "基址", relative: "相对" }[mode];
+    const formulaText = mode === "direct" ? `EA = A = ${A}` : mode === "indexed" ? `EA = Rx+A = ${rx}+${A} = ${ea}` : mode === "base" ? `EA = Rb+A = ${rb}+${A} = ${ea}` : `EA = PC+A = ${pc}+${A} = ${ea}`;
+    return {
+      type, mode: "choice",
+      prompt: `${modeName}寻址：A=${A}，${mode === "indexed" ? `Rx=${rx}` : mode === "base" ? `Rb=${rb}` : mode === "relative" ? `PC=${pc}` : ""} 有效地址 EA = ?`,
+      choices: finalChoices.map(String), answer: finalChoices.indexOf(ea),
+      explain: formulaText + "。",
+    };
+  }
+  if (type === "fetch") {
+    const A = randomInt(12, 15);
+    const mem = buildMemory();
+    const mid = mem[A];
+    const operand = mem[mid] ?? 0;
+    const wrongs = [mid, A, mem[A + 1] ?? 0, operand + 1].filter((w) => w !== operand);
+    const choices = shuffled([...new Set([operand, ...wrongs])]).slice(0, 4);
+    const finalChoices = choices.includes(operand) ? choices : shuffled([operand, ...choices.slice(0, 3)]);
+    return {
+      type, mode: "choice",
+      prompt: `间接寻址 A=${A}：已知 (${A})=${mid}，操作数是？`,
+      choices: finalChoices.map(String), answer: finalChoices.indexOf(operand),
+      explain: `EA = (${A}) = ${mid}；操作数 = (${mid}) = <b>${operand}</b>。两次访存。`,
+    };
+  }
+  if (type === "modename") {
+    const cases = [
+      { desc: "形式地址 A 就是操作数本身", answer: "立即寻址" },
+      { desc: "EA = A，直接按地址访存一次", answer: "直接寻址" },
+      { desc: "EA = (A)，地址的地址，访存两次", answer: "间接寻址" },
+      { desc: "EA = Rx + A，为数组下标而生", answer: "变址寻址" },
+      { desc: "EA = Rb + A，为程序重定位而生", answer: "基址寻址" },
+      { desc: "EA = PC + A，跳转随代码搬迁不乱", answer: "相对寻址" },
+    ];
+    const picked = cases[randomInt(0, cases.length - 1)];
+    const pool = ["立即寻址", "直接寻址", "间接寻址", "变址寻址", "基址寻址", "相对寻址"];
+    const choices = shuffled(pool).slice(0, 4);
+    const finalChoices = choices.includes(picked.answer) ? choices : shuffled([picked.answer, ...choices.slice(0, 3)]);
+    return {
+      type, mode: "choice",
+      prompt: `「${picked.desc}」是哪种寻址方式？`,
+      choices: finalChoices, answer: finalChoices.indexOf(picked.answer),
+      explain: `${picked.answer}：${picked.desc}。`,
+    };
+  }
+  if (type === "pcjump") {
+    const pc = randomInt(2, 8);
+    const offset = randomInt(1, 6);
+    const forward = Math.random() > 0.5;
+    const target = forward ? pc + offset : pc - offset;
+    const correct = target;
+    const wrongs = [pc + 1, target + 1, target - 1, pc].filter((w) => w !== correct && w >= 0);
+    const choices = shuffled([...new Set([correct, ...wrongs])]).slice(0, 4);
+    const finalChoices = choices.includes(correct) ? choices : shuffled([correct, ...choices.slice(0, 3)]);
+    return {
+      type, mode: "choice",
+      prompt: `当前 PC=${pc}，执行「JMP ${forward ? "+" : "−"}${offset}」（相对寻址跳转）后，PC = ?`,
+      choices: finalChoices.map(String), answer: finalChoices.indexOf(correct),
+      explain: `跳跃寻址：PC ← PC ${forward ? "+" : "−"} ${offset} = <b>${correct}</b>（不是 PC+1）。`,
+    };
+  }
+  const concept = QUIZ_CONCEPTS[randomInt(0, QUIZ_CONCEPTS.length - 1)];
+  return { type: "concept", mode: "choice", prompt: concept.q, choices: concept.choices, answer: concept.answer, explain: concept.why };
+}
+
+function startQuizRound() {
+  quizState.current = generateQuestion(window.__forceQuizType ?? null);
+  quizState.answered = false;
+  quizState.selected = -1;
+  renderQuizQuestion();
+  updateQuizNarrator();
+}
+function updateQuizNarrator() {
+  stepCountEl.textContent = `答对 ${quizState.correct} / ${quizState.total} · 连对 ${quizState.streak}`;
+  stepTextEl.innerHTML = `题型随机：<b>格式译码 / EA 计算 / 取数 / 寻址识别 / PC / 概念</b>。<br>A / B / C / D 作答，Enter 提交。`;
+}
+function renderQuizQuestion() {
+  const q = quizState.current;
+  document.getElementById("quizPrompt").innerHTML = q.prompt;
+  const answerEl = document.getElementById("quizAnswer");
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = "quiz-feedback";
+  feedback.innerHTML = "";
+  document.getElementById("quizSubmit").hidden = false;
+  document.getElementById("quizNext").hidden = true;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  answerEl.innerHTML = `<div class="quiz-choices">${q.choices.map((choice, i) => `
+    <button class="quiz-choice" data-idx="${i}" type="button"><span class="qc-key">${"ABCD"[i]}</span><span>${choice}</span></button>`).join("")}</div>`;
+  answerEl.querySelectorAll(".quiz-choice").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (quizState.answered) return;
+      quizState.selected = Number(btn.dataset.idx);
+      answerEl.querySelectorAll(".quiz-choice").forEach((b) => b.classList.toggle("selected", b === btn));
+    });
+  });
+}
+function submitQuizAnswer() {
+  if (quizState.answered || quizState.selected < 0) return;
+  const q = quizState.current;
+  const isCorrect = quizState.selected === q.answer;
+  document.querySelectorAll(".quiz-choice").forEach((btn) => {
+    const idx = Number(btn.dataset.idx);
+    btn.disabled = true;
+    if (idx === q.answer) btn.classList.add("correct");
+    else if (idx === quizState.selected) btn.classList.add("wrong");
+  });
+  quizState.answered = true;
+  window.__platformLink?.recordQuizAnswer(isCorrect);
+  quizState.total += 1;
+  if (isCorrect) {
+    quizState.correct += 1;
+    quizState.streak += 1;
+    quizState.best = Math.max(quizState.best, quizState.streak);
+  } else {
+    quizState.streak = 0;
+  }
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = `quiz-feedback show ${isCorrect ? "ok" : "bad"}`;
+  feedback.innerHTML = `${isCorrect ? "✅ <b>答对了！</b>" : "❌ <b>不对哦。</b>"} ${q.explain}`;
+  document.getElementById("quizSubmit").hidden = true;
+  document.getElementById("quizNext").hidden = false;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  updateQuizNarrator();
+}
+
+/* ───────────────────────── 舞台渲染 ───────────────────────── */
+const stage = document.getElementById("stage");
+const stepCountEl = document.getElementById("stepCount");
+const stepTextEl = document.getElementById("stepText");
+const bannerEl = document.getElementById("banner");
+const playBtn = document.getElementById("playBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+let scenario = { steps: [], zoneBased: false };
+
+function renderStageShell() {
+  if (scenario.kind === "format") { renderFormatStage(); return; }
+  if (scenario.kind === "addressing") { renderEaStage(); return; }
+  if (scenario.kind === "program") { renderProgramStage(); return; }
+  if (scenario.kind === "risc") { renderRiscStage(); return; }
+  if (scenario.kind === "quiz") {
+    stage.innerHTML = `
+      <div class="stage-title"><h2>课堂练习 · 随机出题</h2><span class="st-sub">译码 / EA / 取数 / 寻址 / PC / 概念</span></div>
+      <div class="zone"><div class="quiz-head">
+        <span>得分 <strong id="quizScore">0 / 0</strong></span>
+        <span class="quiz-streak" id="quizStreak"></span>
+        <span>A / B / C / D 键作答 · Enter 提交</span>
+      </div></div>
+      <div class="zone quiz-card" style="gap:14px">
+        <div class="quiz-q" id="quizPrompt"></div>
+        <div id="quizAnswer"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+      </div>
+      <div class="quiz-actions">
+        <button id="quizSubmit" type="button">提交答案</button>
+        <button id="quizNext" class="ghost-action" type="button" hidden>下一题 →</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">独立练习模式：题目随机生成，做完一题点「下一题」</div>`;
+    document.getElementById("quizSubmit").addEventListener("click", submitQuizAnswer);
+    document.getElementById("quizNext").addEventListener("click", startQuizRound);
+  }
+}
+
+function refreshScenario(targetStep = 0) {
+  if (state.mode === "quiz") stopPlaying();
+  document.body.classList.toggle("quiz-active", state.mode === "quiz");
+  scenario = state.mode === "format" ? buildFormatScenario()
+    : state.mode === "addressing" ? buildAddressingScenario()
+    : state.mode === "program" ? buildProgramScenario()
+    : state.mode === "risc" ? buildRiscScenario()
+    : { kind: "quiz", steps: [{ text: "", formula: "独立练习模式：题目随机，做完一题点「下一题」" }] };
+  renderStageShell();
+  renderPresets();
+  goToStep(Math.min(targetStep, scenario.steps.length - 1));
+  if (state.mode === "quiz") startQuizRound();
+}
+
+function goToStep(index) {
+  state.stepIndex = Math.max(0, Math.min(index, scenario.steps.length - 1));
+  const step = scenario.steps[state.stepIndex];
+  if (scenario.kind === "quiz") {
+    // 练习自管理
+  } else if (scenario.zoneBased) {
+    stage.querySelectorAll(".logic-zone").forEach((zoneEl, i) => {
+      zoneEl.classList.toggle("zone-current", i === step.zone);
+    });
+  }
+  const formulaEl = document.getElementById("formulaStrip");
+  if (formulaEl && step.formula) formulaEl.textContent = step.formula;
+  if (step.text) stepTextEl.innerHTML = step.text;
+  stepCountEl.textContent = `第 ${state.stepIndex + 1} / ${scenario.steps.length} 步`;
+  prevBtn.disabled = state.stepIndex === 0;
+  nextBtn.disabled = state.stepIndex === scenario.steps.length - 1;
+  if (state.stepIndex === scenario.steps.length - 1) stopPlaying();
+}
+
+function setBanner(html, kind) {
+  if (!kind) { bannerEl.className = "banner"; bannerEl.innerHTML = ""; return; }
+  bannerEl.className = `banner show ${kind}`;
+  bannerEl.innerHTML = html;
+}
+
+/* ───────────────────────── 播放控制 ───────────────────────── */
+function setPlayUI(playing) { playBtn.textContent = playing ? "⏸ 暂停" : "▶ 自动播放"; }
+function stopPlaying() { state.playing = false; clearTimeout(state.timer); setPlayUI(false); }
+function scheduleNext() {
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => {
+    if (!state.playing) return;
+    if (state.stepIndex >= scenario.steps.length - 1) { stopPlaying(); return; }
+    goToStep(state.stepIndex + 1);
+    scheduleNext();
+  }, 1800 / state.speed);
+}
+playBtn.addEventListener("click", () => {
+  if (state.playing) { stopPlaying(); return; }
+  state.playing = true;
+  setPlayUI(true);
+  if (state.stepIndex >= scenario.steps.length - 1) goToStep(0);
+  scheduleNext();
+});
+prevBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex - 1); });
+nextBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex + 1); });
+document.getElementById("resetBtn").addEventListener("click", () => { stopPlaying(); refreshScenario(0); });
+
+const speedRange = document.getElementById("speedRange");
+speedRange.addEventListener("input", () => {
+  state.speed = Number(speedRange.value);
+  document.getElementById("speedLabel").textContent = `${state.speed}×`;
+});
+
+document.getElementById("modeTabs").addEventListener("click", (clickEvent) => {
+  const btn = clickEvent.target.closest("button[data-mode]");
+  if (!btn) return;
+  stopPlaying();
+  state.mode = btn.dataset.mode;
+  document.querySelectorAll("#modeTabs button").forEach((b) => b.classList.toggle("active", b === btn));
+  refreshScenario(0);
+});
+
+document.getElementById("insightToggle").addEventListener("click", () => {
+  const body = document.getElementById("insightBody");
+  body.hidden = !body.hidden;
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.target.tagName === "INPUT") return;
+  if (event.code === "Space") { event.preventDefault(); playBtn.click(); }
+  if (event.key === "ArrowLeft") prevBtn.click();
+  if (event.key === "ArrowRight") nextBtn.click();
+  if (event.key === "1") document.querySelector('[data-mode="format"]').click();
+  if (event.key === "2") document.querySelector('[data-mode="addressing"]').click();
+  if (event.key === "3") document.querySelector('[data-mode="program"]').click();
+  if (event.key === "4") document.querySelector('[data-mode="risc"]').click();
+  if (event.key === "5") document.querySelector('[data-mode="quiz"]').click();
+  if (state.mode === "quiz" && /^[a-dA-D]$/.test(event.key) && !quizState.answered) {
+    const idx = "abcd".indexOf(event.key.toLowerCase());
+    document.querySelector(`.quiz-choice[data-idx="${idx}"]`)?.click();
+  }
+  if (state.mode === "quiz" && event.key === "Enter") {
+    event.preventDefault();
+    if (quizState.answered) startQuizRound();
+    else submitQuizAnswer();
+  }
+  if (event.key.toLowerCase() === "r") document.getElementById("resetBtn").click();
+});
+
+/* ───────────────────────── 启动 ───────────────────────── */
+refreshScenario(0);
+
+/* 供自动化验收读取（verify.mjs 使用），页面逻辑不依赖 */
+window.__quizState = quizState;
+window.__eaState = eaState;
+window.__runState = runState;
+</script>
+<script src="./platform-link.js"></script>
+</body>
+</html>

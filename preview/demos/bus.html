@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>系统总线 · 课堂互动演示</title>
+<style>
+  :root {
+    --bg0: #050c22; --bg1: #0a1738;
+    --panel: rgba(10, 23, 56, 0.82);
+    --line: rgba(56, 132, 255, 0.28);
+    --text: #e6f0ff; --muted: #8ea3c8; --dim: #5d7099;
+    --cyan: #38bdf8; --cyan-soft: #7dd3fc; --teal: #2dd4bf;
+    --violet: #a78bfa; --amber: #fbbf24; --red: #f87171; --green: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 520px at 85% -10%, rgba(56, 132, 255, 0.16), transparent 62%),
+      radial-gradient(800px 480px at 5% 112%, rgba(45, 212, 191, 0.10), transparent 55%),
+      linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 55%, var(--bg0) 100%);
+    min-height: 100vh; overflow-x: hidden;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(56,132,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(56,132,255,0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 78%);
+  }
+  .app { position: relative; max-width: 1440px; margin: 0 auto; padding: 18px 24px 26px; }
+
+  header { text-align: center; padding: 6px 0 14px; }
+  .kicker { display: inline-block; font-size: 13px; letter-spacing: 0.22em; color: var(--cyan-soft); border: 1px solid rgba(125,211,252,0.4); border-radius: 999px; padding: 4px 16px; background: rgba(56,132,255,0.08); }
+  h1 { margin-top: 10px; font-size: 40px; letter-spacing: 0.08em; background: linear-gradient(90deg, #7dd3fc, #38bdf8 45%, #2dd4bf); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 34px rgba(56,189,248,0.3); }
+  .subtitle { margin-top: 6px; color: var(--muted); font-size: 15px; letter-spacing: 0.05em; }
+  .mode-tabs { margin-top: 14px; display: inline-flex; gap: 6px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: rgba(8,18,46,0.75); flex-wrap: wrap; justify-content: center; }
+  .mode-tabs button { border: none; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 700; letter-spacing: 0.03em; color: var(--muted); background: transparent; cursor: pointer; transition: all 160ms ease; }
+  .mode-tabs button:hover { color: var(--text); }
+  .mode-tabs button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); box-shadow: 0 0 20px rgba(56,189,248,0.45); }
+
+  main { display: grid; grid-template-columns: 290px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: inset 0 0 32px rgba(15,36,82,0.45), 0 10px 34px rgba(2,8,26,0.4); }
+  .panel h2 { font-size: 16px; letter-spacing: 0.08em; color: #cfe6ff; }
+  .panel h2 small { color: var(--dim); font-size: 12px; font-weight: 400; margin-left: 8px; }
+
+  .side { padding: 16px; display: grid; gap: 14px; }
+  .presets h3 { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .preset-list { display: grid; gap: 6px; }
+  .preset-btn { text-align: left; border: 1px solid rgba(56,132,255,0.3); border-radius: 10px; padding: 8px 12px; background: rgba(13,30,66,0.6); color: #bfe0ff; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
+  .preset-btn:hover { border-color: rgba(125,211,252,0.8); box-shadow: 0 0 14px rgba(56,189,248,0.25); transform: translateX(3px); }
+  .preset-btn small { display: block; color: var(--dim); font-weight: 400; margin-top: 1px; }
+  .preset-btn.warn { border-color: rgba(248,113,113,0.45); color: #fecaca; }
+  .side-note { font-size: 12.5px; color: var(--dim); line-height: 1.75; }
+
+  .stage { padding: 18px 20px 22px; min-height: 560px; display: grid; gap: 14px; align-content: start; }
+  .stage-title { display: flex; align-items: baseline; justify-content: space-between; }
+  .stage-title h2 { font-size: 17px; }
+  .stage-title .st-sub { color: var(--dim); font-size: 12.5px; }
+  .zone { display: grid; gap: 10px; border: 1px dashed rgba(56,132,255,0.3); border-radius: 12px; padding: 12px 14px; transition: border-color 300ms ease, box-shadow 300ms ease; }
+  .zone-title { font-size: 13px; font-weight: 700; color: var(--cyan-soft); letter-spacing: 0.08em; }
+  .zone.zone-current { border-color: rgba(125,211,252,0.7); box-shadow: 0 0 18px rgba(56,189,248,0.25); }
+  .enc-note { text-align: center; font-size: 12.5px; color: var(--dim); }
+  .formula-strip { min-height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(56,132,255,0.08); border: 1px solid rgba(56,132,255,0.22); font-family: "Consolas", monospace; font-size: 15.5px; color: var(--cyan-soft); padding: 6px 12px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  .narrator { padding: 16px; display: grid; gap: 12px; position: sticky; top: 14px; }
+  .step-card { border: 1px solid rgba(125,211,252,0.35); border-radius: 12px; padding: 14px; background: rgba(56,132,255,0.07); min-height: 120px; }
+  .step-count { font-size: 12px; color: var(--dim); letter-spacing: 0.14em; }
+  .step-text { margin-top: 8px; font-size: 15.5px; line-height: 1.65; color: #dbeafe; }
+  .step-text b { color: var(--amber); }
+  .banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.6; display: none; }
+  .banner.show { display: block; animation: popIn 320ms ease; }
+  .banner.hit { border: 1px solid rgba(52,211,153,0.6); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .banner.miss { border: 1px solid rgba(248,113,113,0.6); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .banner.evict { border: 1px solid rgba(251,191,36,0.6); background: rgba(60,45,8,0.45); color: #fde68a; }
+  @keyframes popIn { 0% { transform: scale(0.92); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .controls button { border: 1px solid rgba(56,132,255,0.4); border-radius: 10px; padding: 11px 8px; background: rgba(13,30,66,0.7); color: #bfe0ff; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .controls button:hover:not(:disabled) { border-color: rgba(125,211,252,0.85); box-shadow: 0 0 14px rgba(56,189,248,0.3); }
+  .controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .controls .play-btn { grid-column: span 2; background: linear-gradient(90deg, rgba(29,78,216,0.8), rgba(37,99,235,0.8)); font-size: 15px; }
+  .speed { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .speed input { flex: 1; accent-color: var(--cyan); }
+  .kbd-hints { font-size: 11.5px; color: var(--dim); text-align: center; line-height: 1.7; }
+  .insight button { width: 100%; border: 1px solid rgba(251,191,36,0.4); border-radius: 10px; padding: 10px; background: rgba(251,191,36,0.08); color: #fde68a; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .insight-body { margin-top: 8px; font-size: 13.5px; line-height: 1.75; color: #d8c9a3; border-top: 1px dashed rgba(251,191,36,0.3); padding-top: 8px; }
+  .insight-body b { color: var(--amber); }
+  body.quiz-active .controls, body.quiz-active .speed { display: none; }
+
+  .toggle-row { display: flex; justify-content: center; gap: 7px; flex-wrap: wrap; }
+  .toggle-row button { border: 1px solid rgba(56,132,255,0.4); border-radius: 999px; padding: 6px 13px; background: transparent; color: var(--muted); font-size: 12.5px; font-weight: 700; cursor: pointer; }
+  .toggle-row button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); }
+  .inline-steps { display: flex; justify-content: center; gap: 10px; padding: 2px 0; flex-wrap: wrap; }
+  .inline-steps button { border: 1px solid rgba(56,132,255,0.45); border-radius: 999px; padding: 8px 18px; background: rgba(13,30,66,0.85); color: #bfe0ff; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .inline-steps button:hover:not(:disabled) { border-color: rgba(125,211,252,0.9); box-shadow: 0 0 14px rgba(56,189,248,0.35); }
+  .inline-steps button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── 三总线 ── */
+  .bus-svg { width: 100%; height: auto; display: block; }
+  .bus-line { stroke-width: 5; fill: none; opacity: 0.35; transition: all 240ms ease; }
+  .bus-line.active { opacity: 1; filter: drop-shadow(0 0 8px currentColor); }
+  .bus-arrow { font-size: 16px; opacity: 0.35; transition: all 240ms ease; }
+  .bus-arrow.active { opacity: 1; }
+  .bus-box rect { fill: rgba(13,30,66,0.9); stroke: rgba(56,132,255,0.55); stroke-width: 1.5; }
+  .bus-box text { fill: #dbeafe; font-size: 13px; font-weight: 700; }
+  .bus-box .bus-sub { fill: #5d7099; font-size: 9px; font-weight: 400; }
+  .bus-box.active rect { stroke: #22d3ee; stroke-width: 2.6; filter: drop-shadow(0 0 8px rgba(34,211,238,0.6)); }
+  .bus-label { font-size: 11px; font-weight: 700; }
+  .mem-cells { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+  .mem-cell { border: 1px solid rgba(51,65,100,0.75); border-radius: 6px; padding: 5px 3px; text-align: center; font-family: "Consolas", monospace; background: rgba(9,18,44,0.8); transition: all 180ms ease; }
+  .mem-cell .ma { display: block; font-size: 9px; color: var(--dim); }
+  .mem-cell .mv { display: block; font-size: 13px; font-weight: 800; color: #c6d8f5; }
+  .mem-cell.hi { border-color: var(--amber); background: rgba(251,191,36,0.16); box-shadow: 0 0 10px rgba(251,191,36,0.45); }
+
+  /* ── 判优 ── */
+  .arb-devices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .arb-device { border: 1px solid rgba(56,132,255,0.3); border-radius: 10px; padding: 8px; background: rgba(13,30,66,0.6); display: grid; gap: 5px; text-align: center; transition: all 180ms ease; }
+  .arb-device .dev-name { font-size: 13px; font-weight: 800; color: #dbeafe; }
+  .arb-device label { display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 11.5px; color: var(--muted); cursor: pointer; }
+  .arb-device.requesting { border-color: var(--amber); box-shadow: 0 0 10px rgba(251,191,36,0.3); }
+  .arb-device.requesting .dev-name { color: #fde68a; }
+  .arb-device.granted { border-color: var(--green); background: rgba(52,211,153,0.14); box-shadow: 0 0 16px rgba(52,211,153,0.5); }
+  .arb-device.granted .dev-name { color: #a7f3d0; }
+  .arb-device.passed { opacity: 0.45; }
+  .arb-chain { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; align-items: center; margin: 4px 0; }
+  .chain-hop { height: 6px; background: rgba(41,64,95,0.6); position: relative; }
+  .chain-hop.bg-active { background: var(--green); box-shadow: 0 0 10px rgba(52,211,153,0.7); }
+  .arb-counter { text-align: center; font-family: "Consolas", monospace; }
+  .arb-counter strong { font-size: 30px; color: var(--amber); }
+  .arb-table { display: grid; gap: 4px; font-size: 12.5px; }
+  .arb-tr { display: grid; grid-template-columns: 96px 1fr 1fr 1fr; gap: 6px; padding: 6px 10px; border: 1px solid rgba(51,65,100,0.7); border-radius: 8px; background: rgba(9,18,44,0.7); color: var(--muted); }
+  .arb-tr.head { color: var(--dim); font-size: 11px; border-style: dashed; background: transparent; }
+  .arb-tr.hi { border-color: rgba(34,211,238,0.6); color: #d9f7ff; }
+
+  /* ── 通信时序 ── */
+  .wave-grid { display: grid; gap: 6px; font-family: "Consolas", monospace; }
+  .wave-row { display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 8px; }
+  .wave-label { font-size: 11.5px; color: var(--dim); text-align: right; }
+  .wave-cells { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
+  .wave-cell { height: 26px; border-radius: 4px; display: grid; place-items: center; font-size: 10px; color: var(--dim); background: rgba(9,18,44,0.8); border: 1px solid rgba(51,65,100,0.7); transition: all 180ms ease; }
+  .wave-cell.hi-sig { background: rgba(34,211,238,0.2); border-color: #22d3ee; color: #a5ecff; }
+  .wave-cell.lo-sig { background: rgba(9,18,44,0.5); }
+  .wave-cell.now { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .handshake { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .hs-chip { border: 1px solid rgba(51,65,100,0.9); border-radius: 10px; padding: 8px 6px; text-align: center; background: rgba(9,18,44,0.85); color: var(--dim); font-size: 12px; font-weight: 700; transition: all 180ms ease; }
+  .hs-chip small { display: block; font-size: 10px; font-weight: 400; margin-top: 2px; }
+  .hs-chip.active { border-color: var(--green); color: #a7f3d0; background: rgba(52,211,153,0.12); box-shadow: 0 0 12px rgba(52,211,153,0.4); }
+  .hs-chip.done { border-color: rgba(52,211,153,0.5); color: #a7f3d0; }
+
+  /* ── 练习 ── */
+  .quiz-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); }
+  .quiz-head strong { color: var(--cyan-soft); font-size: 16px; }
+  .quiz-streak { color: var(--amber); font-weight: 700; }
+  .quiz-q { font-size: 19px; font-weight: 700; line-height: 1.6; color: #eaf4ff; }
+  .quiz-q code { font-family: "Consolas", monospace; font-size: 19px; color: var(--amber); background: rgba(251,191,36,0.1); padding: 2px 10px; border-radius: 8px; }
+  .quiz-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .quiz-choice { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(56,132,255,0.35); border-radius: 12px; padding: 11px 13px; background: rgba(13,30,66,0.6); color: #dbeafe; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 140ms ease; text-align: left; }
+  .quiz-choice .qc-key { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(125,211,252,0.5); color: var(--cyan-soft); font-size: 13px; font-weight: 800; flex: none; }
+  .quiz-choice:hover { border-color: rgba(125,211,252,0.8); }
+  .quiz-choice.selected { border-color: var(--cyan-soft); background: rgba(56,132,255,0.16); }
+  .quiz-choice.correct { border-color: var(--green); background: rgba(52,211,153,0.14); color: #d1fae5; }
+  .quiz-choice.wrong { border-color: var(--red); background: rgba(248,113,113,0.12); color: #fecaca; }
+  .quiz-choice:disabled { cursor: default; }
+  .quiz-feedback { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.65; display: none; }
+  .quiz-feedback.show { display: block; animation: popIn 320ms ease; }
+  .quiz-feedback.ok { border: 1px solid rgba(52,211,153,0.55); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .quiz-feedback.bad { border: 1px solid rgba(248,113,113,0.55); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .quiz-actions { display: flex; justify-content: center; gap: 10px; }
+  .quiz-actions button { border: 1px solid rgba(56,132,255,0.5); border-radius: 999px; padding: 10px 28px; background: linear-gradient(90deg, rgba(29,78,216,0.85), rgba(37,99,235,0.85)); color: #eaf4ff; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .quiz-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .quiz-actions .ghost-action { background: rgba(13,30,66,0.7); }
+
+  @media (max-width: 1180px) {
+    main { grid-template-columns: 1fr; }
+    .narrator { position: static; }
+    h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="kicker">第七章 · 系统总线</span>
+    <h1>系统总线</h1>
+    <p class="subtitle">System Bus —— 三总线分工 · 判优控制 · 通信控制</p>
+    <nav class="mode-tabs" id="modeTabs">
+      <button data-mode="threebus" class="active">三总线分工</button>
+      <button data-mode="structure">单总线 vs 多总线</button>
+      <button data-mode="arbitration">总线判优</button>
+      <button data-mode="comm">通信控制</button>
+      <button data-mode="quiz">课堂练习</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="side panel" aria-label="场景面板">
+      <h2>场景与动线<small></small></h2>
+      <div class="presets"><div class="preset-list" id="presetList"></div></div>
+      <div class="side-note" id="sideNote"></div>
+    </section>
+
+    <section class="stage panel" aria-label="演示舞台" id="stage"></section>
+
+    <aside class="narrator panel" aria-label="讲解与控制">
+      <div class="step-card">
+        <div class="step-count" id="stepCount"></div>
+        <div class="step-text" id="stepText"></div>
+      </div>
+      <div class="banner" id="banner"></div>
+      <div class="controls">
+        <button class="play-btn" id="playBtn">▶ 自动播放</button>
+        <button id="prevBtn">← 上一步</button>
+        <button id="nextBtn">下一步 →</button>
+        <button id="resetBtn" style="grid-column: span 2;">↺ 重置本模式</button>
+      </div>
+      <div class="speed">
+        <span>速度</span>
+        <input type="range" id="speedRange" min="0.5" max="2.5" step="0.25" value="1">
+        <span id="speedLabel">1×</span>
+      </div>
+      <div class="kbd-hints">空格 播放/暂停 · ← / → 步进 · 1 ~ 5 切换模式 · R 重置</div>
+      <div class="insight">
+        <button id="insightToggle">💡 为什么需要判优和通信控制？</button>
+        <div class="insight-body" id="insightBody" hidden>
+          总线是「公共马路」：CPU、主存、多个 I/O 都走这一条。<b>两辆主设备的车同时上路会撞车</b>——所以要<b>判优</b>：链式查询（简单但优先级焊死、怕断链）、计数器定时（优先级可编程、但要等计数）、独立请求（最快但线多 2n 根）。<br>
+          上了路还要<b>通信控制</b>：同步通信一切听时钟（快但呆板）；异步通信靠请求-应答握手（全互锁四步：REQ↑→ACK↑→REQ↓→ACK↓），速度不匹配的设备也能可靠传。
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ───────────────────────── 基础工具 ───────────────────────── */
+function randomInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function shuffled(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/* ───────────────────────── 全局状态 ───────────────────────── */
+const state = { mode: "threebus", stepIndex: 0, playing: false, speed: 1, timer: null };
+const busState = { op: "read", addr: 5, phase: -1, mem: [] };
+const structState = { scenario: null };
+const arbState = { requests: [false, true, false, true], method: "chain", running: false, granted: null, counter: 0, chainPos: -1 };
+const commState = { kind: "sync", step: -1, playing: false };
+const quizState = { total: 0, correct: 0, streak: 0, best: 0, current: null, answered: false, selected: -1 };
+
+busState.mem = Array.from({ length: 16 }, (_, i) => (i * 37 + 11) % 100);
+
+/* ───────────────────────── 场景面板 ───────────────────────── */
+const presetList = document.getElementById("presetList");
+const sideNote = document.getElementById("sideNote");
+
+function renderPresets() {
+  presetList.innerHTML = "";
+  sideNote.textContent = "";
+  const addBtn = (label, note, warn, onClick) => {
+    const btn = document.createElement("button");
+    btn.className = "preset-btn" + (warn ? " warn" : "");
+    btn.innerHTML = `${label}<small>${note}</small>`;
+    btn.addEventListener("click", onClick);
+    presetList.appendChild(btn);
+  };
+  if (state.mode === "threebus") {
+    addBtn("读周期：主存 → CPU", "数据沿数据总线流回", false, () => busRun("read"));
+    addBtn("写周期：CPU → 主存", "数据反向流入主存", false, () => busRun("write"));
+    addBtn("换地址 0x9", "再跑一次看地址选择", false, () => { busState.addr = 9; renderThreebusStage(); });
+    sideNote.innerHTML = "同屏动线：① 选读/写 ② 跑周期 ③ 看三条总线各管什么——地址单向、数据双向、控制指挥。";
+  } else if (state.mode === "structure") {
+    addBtn("场景：CPU 读主存", "两种结构下都能跑", false, () => structRun("cpu-mem"));
+    addBtn("场景：DMA 写主存", "I/O 也要用总线", false, () => structRun("dma-mem"));
+    addBtn("场景：两者同时！", "单总线撞车 vs 多总线并行", true, () => structRun("both"));
+    sideNote.innerHTML = "点「两者同时」是关键对比：单总线只能排队等，多总线让 CPU↔Cache 与 DMA↔主存并行。";
+  } else if (state.mode === "arbitration") {
+    addBtn("链式查询 BG 传播", "看信号沿链走到第一个请求者", false, () => arbRun("chain"));
+    addBtn("计数器定时查询", "计数器数到谁谁候选", false, () => arbRun("counter"));
+    addBtn("独立请求并行判优", "BR 同时到，仲裁器点名", false, () => arbRun("independent"));
+    sideNote.innerHTML = "先勾选 D0~D3 谁请求（琥珀），再跑三种判优法，对照底部特性表。";
+  } else if (state.mode === "comm") {
+    addBtn("同步通信时序", "T1~T4 一切听时钟", false, () => commRun("sync"));
+    addBtn("异步全互锁握手", "REQ↑→ACK↑→REQ↓→ACK↓", false, () => commRun("full"));
+    addBtn("不互锁 vs 半互锁", "握手的松紧对比", false, () => commRun("compare"));
+    sideNote.innerHTML = "通信控制回答「两边怎么对上节奏」：同步靠统一时钟，异步靠请求-应答。";
+  } else if (state.mode === "quiz") {
+    presetList.innerHTML = `<div class="side-note" style="text-align:left">题型：三总线 · 判优特性 · 通信方式 · 结构对比 · 概念题<br><br>答对立即解析，连对有 🔥 标记。</div>`;
+  }
+}
+
+/* ───────────────────────── 三总线分工 ───────────────────────── */
+function buildThreebusScenario() {
+  const steps = [
+    { zone: 0, text: `系统总线按职能分三族：<b>地址总线（单向，CPU 指哪打哪）、数据总线（双向，读回流写流出）、控制总线（发号施令）</b>。选读或写，跑一个完整总线周期。`, formula: `地址单向 · 数据双向 · 控制指挥` },
+    { zone: 0, text: `<b>读周期</b>：地址上线 → 读命令 → 主存数据上线回 CPU；<b>写周期</b>：地址上线 → CPU 数据上线 → 写命令 → 入主存。注意数据总线方向的翻转。`, formula: `读：主存→CPU · 写：CPU→主存` },
+  ];
+  return { kind: "threebus", zoneBased: true, steps };
+}
+
+const BUS_PHASES = [
+  { key: "addr", text: "CPU 把地址放上地址总线", wires: ["addr"], comps: ["cpu", "abus"] },
+  { key: "ctrl", text: "控制总线发出读/写命令", wires: ["ctrl"], comps: ["cpu", "cbus"] },
+  { key: "data", text: "数据经数据总线传送", wires: ["data"], comps: ["dbus", "mem"] },
+];
+
+function busRun(op) {
+  busState.op = op;
+  busState.phase = 0;
+  renderThreebusStage();
+  const tick = () => {
+    busState.phase += 1;
+    renderThreebusStage();
+    if (busState.phase < BUS_PHASES.length) setTimeout(tick, 1100 / state.speed);
+  };
+  setTimeout(tick, 900 / state.speed);
+}
+
+function renderThreebusStage() {
+  const phase = busState.phase;
+  const activeWires = phase >= 0 && phase < BUS_PHASES.length ? BUS_PHASES[phase].wires : [];
+  const activeComps = phase >= 0 && phase < BUS_PHASES.length ? BUS_PHASES[phase].comps : [];
+  const op = busState.op;
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>三总线分工：一次${op === "read" ? "读" : "写"}周期</h2><span class="st-sub">地址 ${busState.addr} · ${phase >= 0 && phase < 3 ? `阶段 ${phase + 1}/3：${BUS_PHASES[phase].text}` : "待启动"}</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">总线结构图（读/写切换 + 运行）</div>
+      <div class="toggle-row" id="busOpRow">
+        <button data-busop="read" class="${op === "read" ? "active" : ""}">读周期（主存→CPU）</button>
+        <button data-busop="write" class="${op === "write" ? "active" : ""}">写周期（CPU→主存）</button>
+      </div>
+      <svg class="bus-svg" viewBox="0 0 640 250">
+        <g class="bus-box ${activeComps.includes("cpu") ? "active" : ""}">
+          <rect x="30" y="90" width="120" height="70" rx="10"/>
+          <text x="90" y="118" text-anchor="middle">CPU</text>
+          <text class="bus-sub" x="90" y="136" text-anchor="middle">发地址/命令${op === "write" ? "/数据" : ""}</text>
+        </g>
+        <g class="bus-box ${activeComps.includes("mem") ? "active" : ""}">
+          <rect x="480" y="90" width="130" height="70" rx="10"/>
+          <text x="545" y="118" text-anchor="middle">主存</text>
+          <text class="bus-sub" x="545" y="136" text-anchor="middle">按地址读写</text>
+        </g>
+        <line class="bus-line ${activeWires.includes("addr") ? "active" : ""}" x1="150" y1="105" x2="480" y2="105" stroke="#a78bfa"/>
+        <text class="bus-label" x="315" y="96" text-anchor="middle" fill="#a78bfa">地址总线（单向 →）</text>
+        <text class="bus-arrow ${activeWires.includes("addr") ? "active" : ""}" x="315" y="112" text-anchor="middle" fill="#a78bfa">▶▶▶</text>
+        <line class="bus-line ${activeWires.includes("ctrl") ? "active" : ""}" x1="150" y1="128" x2="480" y2="128" stroke="#fbbf24"/>
+        <text class="bus-label" x="315" y="147" text-anchor="middle" fill="#fbbf24">控制总线（${op === "read" ? "读命令 →" : "写命令 →"}）</text>
+        <line class="bus-line ${activeWires.includes("data") ? "active" : ""}" x1="150" y1="152" x2="480" y2="152" stroke="#22d3ee"/>
+        <text class="bus-label" x="315" y="172" text-anchor="middle" fill="#22d3ee">数据总线（双向 ⇄）</text>
+        <text class="bus-arrow ${activeWires.includes("data") ? "active" : ""}" x="315" y="158" text-anchor="middle" fill="#22d3ee">${op === "read" ? "◀◀◀" : "▶▶▶"}</text>
+      </svg>
+      <div class="inline-steps">
+        <button id="busRunBtn">▶ 运行${op === "read" ? "读" : "写"}周期</button>
+        <button id="busAddrBtn">换地址（当前 ${busState.addr}）</button>
+      </div>
+      <div class="mem-cells" id="busMemCells">
+        ${busState.mem.map((v, i) => `<div class="mem-cell ${phase >= 2 && i === busState.addr ? "hi" : ""}"><span class="ma">${i}</span><span class="mv">${v}</span></div>`).join("")}
+      </div>
+      <div class="formula-strip" id="formulaStrip">${phase >= 0 && phase < 3
+        ? BUS_PHASES[phase].text + (phase === 2 ? (op === "read" ? `：主存[${busState.addr}]=${busState.mem[busState.addr]} → CPU` : `：CPU 数据 → 主存[${busState.addr}]`) : "")
+        : "点「运行」：地址 → 命令 → 数据 三阶段依次上线"}</div>
+    </div>`;
+
+  document.getElementById("busOpRow").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-busop]");
+    if (!btn) return;
+    busState.op = btn.dataset.busop;
+    busState.phase = -1;
+    renderThreebusStage();
+  });
+  document.getElementById("busRunBtn").addEventListener("click", () => busRun(busState.op));
+  document.getElementById("busAddrBtn").addEventListener("click", () => {
+    busState.addr = (busState.addr + 5) % 16;
+    busState.phase = -1;
+    renderThreebusStage();
+  });
+}
+
+/* ───────────────────────── 单总线 vs 多总线 ───────────────────────── */
+function buildStructureScenario() {
+  const steps = [
+    { zone: 0, text: `<b>单总线</b>：CPU、主存、I/O 全挂一条线上——简单便宜，但<b>同一时刻只能一对在传</b>，带宽瓶颈；<b>多总线</b>：分级（CPU↔Cache 本地总线 + 系统总线 + I/O 总线），多对可并行。`, formula: `单总线省线 · 多总线买带宽` },
+    { zone: 0, text: `点「两者同时」看本质区别：单总线里 DMA 必须等 CPU 释放总线（排队），多总线里 <b>CPU↔Cache 与 DMA↔主存可以并行</b>——这就是分级的意义。`, formula: `单总线排队 · 多总线并行` },
+  ];
+  return { kind: "structure", zoneBased: true, steps };
+}
+
+function structRun(scenario) {
+  structState.scenario = scenario;
+  renderStructureStage();
+  const singleText = scenario === "cpu-mem" ? "单总线：CPU↔主存 占用总线，其他等待"
+    : scenario === "dma-mem" ? "单总线：DMA↔主存 占用总线，CPU 等待"
+    : "单总线：撞车！DMA 必须等 CPU 用完，排队串行";
+  const multiText = scenario === "both" ? "多总线：CPU↔Cache（本地总线）与 DMA↔主存（系统总线）并行不冲突" : "多总线：各路有各路的车道";
+  setBanner(`<b>${singleText}</b><br><b>${multiText}</b>`, scenario === "both" ? "evict" : "hit");
+}
+
+function renderStructureStage() {
+  const s = structState.scenario;
+  const singleActive = s ? (s === "cpu-mem" ? ["cpu", "mem"] : ["dma", "mem"]) : [];
+  const singleWaiting = s === "both" ? ["dma"] : [];
+  const multiActive1 = s === "both" ? ["cpu", "cache"] : s === "cpu-mem" ? ["cpu", "mem"] : [];
+  const multiActive2 = s === "both" ? ["dma", "mem"] : s === "dma-mem" ? ["dma", "mem"] : [];
+
+  const box = (cls, name, sub, x, y, active, waiting = false) => `
+    <g class="bus-box ${active ? "active" : ""}" opacity="${waiting ? 0.45 : 1}">
+      <rect x="${x}" y="${y}" width="110" height="56" rx="10"/>
+      <text x="${x + 55}" y="${y + 23}" text-anchor="middle">${name}</text>
+      <text class="bus-sub" x="${x + 55}" y="${y + 40}" text-anchor="middle">${sub}</text>
+    </g>`;
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>单总线 vs 多总线结构</h2><span class="st-sub">场景：${s === "cpu-mem" ? "CPU 读主存" : s === "dma-mem" ? "DMA 写主存" : s === "both" ? "CPU 读 + DMA 写 同时！" : "选场景"}</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">场景按钮（同屏对比）</div>
+      <div class="inline-steps">
+        <button data-struct="cpu-mem">CPU 读主存</button>
+        <button data-struct="dma-mem">DMA 写主存</button>
+        <button data-struct="both">⚡ 两者同时</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div class="zone-title" style="margin-bottom:6px">单总线结构</div>
+          <svg class="bus-svg" viewBox="0 0 300 190">
+            ${box("", "CPU", "", 10, 10, singleActive.includes("cpu"))}
+            ${box("", "主存", "", 180, 10, singleActive.includes("mem"))}
+            ${box("", "DMA/IO", "", 95, 120, s === "dma-mem" && !singleWaiting.length, singleWaiting.includes("dma"))}
+            <line class="bus-line ${singleActive.length ? "active" : ""}" x1="65" y1="66" x2="65" y2="150" stroke="#38bdf8"/>
+            <line class="bus-line ${singleActive.length ? "active" : ""}" x1="235" y1="66" x2="235" y2="150" stroke="#38bdf8"/>
+            <line class="bus-line ${singleActive.length ? "active" : ""}" x1="65" y1="150" x2="235" y2="150" stroke="#38bdf8"/>
+            <text class="bus-label" x="150" y="170" text-anchor="middle" fill="#38bdf8">一条总线（大家排队）</text>
+          </svg>
+        </div>
+        <div>
+          <div class="zone-title" style="margin-bottom:6px">多总线结构（分级）</div>
+          <svg class="bus-svg" viewBox="0 0 300 190">
+            ${box("", "CPU", "", 10, 10, multiActive1.includes("cpu"))}
+            ${box("", "Cache", "", 180, 10, multiActive1.includes("cache"))}
+            ${box("", "主存", "", 95, 78, multiActive2.includes("mem") || multiActive1.includes("mem"))}
+            ${box("", "DMA/IO", "", 95, 132, multiActive2.includes("dma"))}
+            <line class="bus-line ${multiActive1.length ? "active" : ""}" x1="120" y1="38" x2="180" y2="38" stroke="#2dd4bf"/>
+            <text class="bus-label" x="150" y="30" text-anchor="middle" fill="#2dd4bf">本地总线</text>
+            <line class="bus-line ${multiActive2.length ? "active" : ""}" x1="150" y1="90" x2="150" y2="132" stroke="#a78bfa"/>
+            <text class="bus-label" x="150" y="124" text-anchor="middle" fill="#a78bfa">系统总线</text>
+          </svg>
+        </div>
+      </div>
+      <div class="arb-table">
+        <div class="arb-tr head"><span>对比项</span><span>单总线</span><span>多总线</span></div>
+        <div class="arb-tr"><span>并发能力</span><span>同一时刻只一对传送</span><span>不同层级可并行</span></div>
+        <div class="arb-tr"><span>成本</span><span>最低（线少）</span><span>高（线多、接口多）</span></div>
+        <div class="arb-tr"><span>适用</span><span>小系统/教学模型</span><span>主流与高性能系统</span></div>
+      </div>
+    </div>`;
+  stage.querySelectorAll("[data-struct]").forEach((btn) => btn.addEventListener("click", () => structRun(btn.dataset.struct)));
+}
+
+/* ───────────────────────── 总线判优 ───────────────────────── */
+function buildArbitrationScenario() {
+  const steps = [
+    { zone: 0, text: `多个主设备抢一条总线，谁来仲裁？<b>集中式判优三法</b>：链式查询、计数器定时查询、独立请求。先勾选哪几个设备在请求（琥珀色），再跑动画。`, formula: `请求 BR → 仲裁 → 授权 BG` },
+    { zone: 0, text: `<b>链式</b>：BG 沿链传播，先碰到谁谁得——优先级焊死、怕断链；<b>计数器</b>：数到谁谁候选，优先级可编程但要等；<b>独立请求</b>：每设备一对 BR/BG 线，仲裁器并行点名——最快但线多。`, formula: `链式省线 · 计数器灵活 · 独立最快` },
+  ];
+  return { kind: "arbitration", zoneBased: true, steps };
+}
+
+function arbRun(method) {
+  if (arbState.running) return;
+  arbState.method = method;
+  arbState.running = true;
+  arbState.granted = null;
+  arbState.chainPos = -1;
+  arbState.counter = 0;
+  const firstRequester = arbState.requests.findIndex(Boolean);
+  if (firstRequester === -1) {
+    setBanner("没有设备在请求——先勾选 D0~D3 的「请求」再跑。", "miss");
+    arbState.running = false;
+    renderArbitrationStage();
+    return;
+  }
+  renderArbitrationStage();
+
+  if (method === "chain") {
+    // BG 沿链传播，先到第一个请求者
+    let pos = -1;
+    const tick = () => {
+      pos += 1;
+      arbState.chainPos = pos;
+      renderArbitrationStage();
+      if (arbState.requests[pos]) {
+        arbState.granted = pos;
+        arbState.running = false;
+        renderArbitrationStage();
+        setBanner(`🔗 <b>链式查询</b>：BG 沿链传播 ${pos + 1} 跳，停在第一个请求者 <b>D${pos}</b>。优先级 = 离仲裁器的距离，焊死不变；D${pos} 若坏了，后面的设备全部瘫痪。`, "hit");
+        return;
+      }
+      setTimeout(tick, 800 / state.speed);
+    };
+    setTimeout(tick, 500 / state.speed);
+  } else if (method === "counter") {
+    const tick = () => {
+      if (arbState.requests[arbState.counter]) {
+        arbState.granted = arbState.counter;
+        arbState.running = false;
+        renderArbitrationStage();
+        setBanner(`🔢 <b>计数器定时查询</b>：计数器数到 <b>${arbState.counter}</b> 时命中请求者 D${arbState.counter}。计数器从哪启动，谁的优先级就临时最高——灵活，但平均要等 n/2 次计数。`, "hit");
+        return;
+      }
+      arbState.counter += 1;
+      renderArbitrationStage();
+      setTimeout(tick, 800 / state.speed);
+    };
+    setTimeout(tick, 500 / state.speed);
+  } else {
+    // 独立请求：所有 BR 同时到，仲裁器按编号优先级点名
+    setTimeout(() => {
+      arbState.granted = firstRequester;
+      arbState.running = false;
+      renderArbitrationStage();
+      setBanner(`⚡ <b>独立请求</b>：所有 BR 线同时到达仲裁器，按可编程优先级立即点名 <b>D${firstRequester}</b>——最快，但 n 个设备要 2n 根控制线。`, "hit");
+    }, 900 / state.speed);
+  }
+}
+
+function renderArbitrationStage() {
+  const firstRequester = arbState.requests.findIndex(Boolean);
+  stage.innerHTML = `
+    <div class="stage-title"><h2>总线判优：三种集中式仲裁</h2><span class="st-sub">勾选请求中的设备，跑三种方法对比</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">① 设备请求状态（勾选后跑方法）</div>
+      <div class="arb-devices" id="arbDevices">
+        ${arbState.requests.map((req, i) => `
+          <div class="arb-device ${req ? "requesting" : ""} ${arbState.granted === i ? "granted" : arbState.chainPos > i && arbState.granted === null ? "passed" : ""}">
+            <span class="dev-name">D${i}${arbState.granted === i ? " ✓ 获得总线" : ""}</span>
+            <label><input type="checkbox" data-req="${i}" ${req ? "checked" : ""} ${arbState.running ? "disabled" : ""}> 请求 BR</label>
+          </div>`).join("")}
+      </div>
+      <div class="arb-chain" id="arbChain">
+        ${[0, 1, 2, 3].map((i) => `<div class="chain-hop ${arbState.method === "chain" && arbState.chainPos >= i && (arbState.granted === null ? arbState.chainPos === i : i <= arbState.granted) ? "bg-active" : ""}"></div>`).join("")}
+      </div>
+      <div class="zone-title">② 选方法并运行</div>
+      <div class="toggle-row" id="arbMethodRow">
+        <button data-arb="chain" class="${arbState.method === "chain" ? "active" : ""}">链式查询</button>
+        <button data-arb="counter" class="${arbState.method === "counter" ? "active" : ""}">计数器定时</button>
+        <button data-arb="independent" class="${arbState.method === "independent" ? "active" : ""}">独立请求</button>
+      </div>
+      <div class="arb-counter" id="arbCounter" style="display:${arbState.method === "counter" ? "block" : "none"}">
+        计数器 = <strong>${arbState.counter}</strong>
+      </div>
+      <div class="inline-steps">
+        <button id="arbRunBtn" ${arbState.running ? "disabled" : ""}>▶ 运行「${arbState.method === "chain" ? "链式查询" : arbState.method === "counter" ? "计数器定时" : "独立请求"}」</button>
+        <button id="arbClearBtn">↺ 清除授权</button>
+      </div>
+      <div class="arb-table">
+        <div class="arb-tr head"><span>特性</span><span>链式查询</span><span>计数器定时</span><span>独立请求</span></div>
+        <div class="arb-tr ${arbState.method === "chain" ? "hi" : ""}"><span>控制线数</span><span>极少（~3 根）</span><span>⌈log₂n⌉ 根</span><span>2n 根</span></div>
+        <div class="arb-tr"><span>响应速度</span><span>慢（逐级传播）</span><span>中（等计数）</span><span>最快（并行）</span></div>
+        <div class="arb-tr"><span>优先级</span><span>焊死（离仲裁器近优先）</span><span>可编程（启动点可变）</span><span>可编程</span></div>
+        <div class="arb-tr"><span>故障敏感度</span><span>高（断链全瘫）</span><span>低</span><span>低</span></div>
+      </div>
+    </div>`;
+
+  stage.querySelectorAll("[data-req]").forEach((box) => {
+    box.addEventListener("change", () => {
+      arbState.requests[Number(box.dataset.req)] = box.checked;
+      arbState.granted = null;
+      renderArbitrationStage();
+    });
+  });
+  document.getElementById("arbMethodRow").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-arb]");
+    if (!btn || arbState.running) return;
+    arbState.method = btn.dataset.arb;
+    arbState.granted = null;
+    arbState.chainPos = -1;
+    arbState.counter = 0;
+    renderArbitrationStage();
+  });
+  document.getElementById("arbRunBtn").addEventListener("click", () => arbRun(arbState.method));
+  document.getElementById("arbClearBtn").addEventListener("click", () => {
+    arbState.granted = null;
+    arbState.chainPos = -1;
+    arbState.counter = 0;
+    renderArbitrationStage();
+  });
+  void firstRequester;
+}
+
+/* ───────────────────────── 通信控制 ───────────────────────── */
+function buildCommScenario() {
+  const steps = [
+    { zone: 0, text: `<b>同步通信</b>：双方听同一个时钟，T1 上地址、T2 上读命令、T3 从设备放数据、T4 撤销——快而简单，但慢设备会拖全队。`, formula: `同步：一切听时钟` },
+    { zone: 0, text: `<b>异步通信</b>：没有统一时钟，靠请求-应答握手。全互锁四步：<b>REQ↑ → ACK↑ → REQ↓ → ACK↓</b>，谁慢等谁——速度不匹配也能可靠传。`, formula: `异步：REQ/ACK 握手` },
+  ];
+  return { kind: "comm", zoneBased: true, steps };
+}
+
+const SYNC_BEATS = [
+  { t: "T1", text: "主设备：地址上线", waves: { addr: 1, cmd: 0, data: 0 } },
+  { t: "T2", text: "主设备：发读命令", waves: { addr: 1, cmd: 1, data: 0 } },
+  { t: "T3", text: "从设备：数据上线", waves: { addr: 1, cmd: 1, data: 1 } },
+  { t: "T4", text: "主设备：取数，撤销命令", waves: { addr: 0, cmd: 0, data: 0 } },
+];
+const FULL_HANDSHAKE = [
+  { t: "①", text: "主设备 REQ↑（我要传）", req: 1, ack: 0 },
+  { t: "②", text: "从设备 ACK↑（我好了）", req: 1, ack: 1 },
+  { t: "③", text: "主设备 REQ↓（传完了）", req: 0, ack: 1 },
+  { t: "④", text: "从设备 ACK↓（知道了）", req: 0, ack: 0 },
+];
+
+function commRun(kind) {
+  commState.kind = kind;
+  commState.step = 0;
+  renderCommStage();
+  const total = kind === "sync" ? SYNC_BEATS.length : FULL_HANDSHAKE.length;
+  const tick = () => {
+    commState.step += 1;
+    renderCommStage();
+    if (commState.step < total) setTimeout(tick, 1100 / state.speed);
+  };
+  setTimeout(tick, 900 / state.speed);
+}
+
+function renderCommStage() {
+  const kind = commState.kind;
+  const step = commState.step;
+  stage.innerHTML = `
+    <div class="stage-title"><h2>总线通信控制</h2><span class="st-sub">同步时序 vs 异步握手</span></div>
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">选通信方式并运行</div>
+      <div class="toggle-row" id="commKindRow">
+        <button data-comm="sync" class="${kind === "sync" ? "active" : ""}">同步通信（时钟节拍）</button>
+        <button data-comm="full" class="${kind === "full" ? "active" : ""}">异步·全互锁握手</button>
+      </div>
+      ${kind === "sync" ? `
+        <div class="wave-grid">
+          ${[["地址", "addr"], ["读命令", "cmd"], ["数据", "data"]].map(([label, key]) => `
+            <div class="wave-row"><span class="wave-label">${label}</span>
+              <div class="wave-cells" style="grid-template-columns:repeat(4,1fr)">
+                ${SYNC_BEATS.map((b, i) => `<div class="wave-cell ${b.waves[key] ? "hi-sig" : "lo-sig"} ${i === step ? "now" : ""}">${b.waves[key] ? "高" : "低"}</div>`).join("")}
+              </div>
+            </div>`).join("")}
+          <div class="wave-row"><span class="wave-label">节拍</span>
+            <div class="wave-cells" style="grid-template-columns:repeat(4,1fr)">
+              ${SYNC_BEATS.map((b, i) => `<div class="wave-cell ${i === step ? "now" : ""}">${b.t}</div>`).join("")}
+            </div>
+          </div>
+        </div>
+        <div class="enc-note">${step >= 0 && step < SYNC_BEATS.length ? SYNC_BEATS[step].text : "点运行看 T1~T4 四拍"}</div>
+      ` : `
+        <div class="handshake">
+          ${FULL_HANDSHAKE.map((h, i) => `
+            <div class="hs-chip ${i === step ? "active" : i < step ? "done" : ""}">${h.t} ${h.text.split("（")[0]}<small>${h.text.match(/（(.+)）/)?.[1] ?? ""}</small></div>`).join("")}
+        </div>
+        <div class="wave-grid">
+          <div class="wave-row"><span class="wave-label">REQ</span>
+            <div class="wave-cells" style="grid-template-columns:repeat(4,1fr)">
+              ${FULL_HANDSHAKE.map((h, i) => `<div class="wave-cell ${h.req ? "hi-sig" : "lo-sig"} ${i === step ? "now" : ""}">${h.req ? "高" : "低"}</div>`).join("")}
+            </div>
+          </div>
+          <div class="wave-row"><span class="wave-label">ACK</span>
+            <div class="wave-cells" style="grid-template-columns:repeat(4,1fr)">
+              ${FULL_HANDSHAKE.map((h, i) => `<div class="wave-cell ${h.ack ? "hi-sig" : "lo-sig"} ${i === step ? "now" : ""}">${h.ack ? "高" : "低"}</div>`).join("")}
+            </div>
+          </div>
+        </div>
+        <div class="enc-note">${step >= 0 && step < FULL_HANDSHAKE.length ? FULL_HANDSHAKE[step].text : "全互锁：每个变化都要对方确认，最可靠"}</div>
+      `}
+      <div class="inline-steps">
+        <button id="commRunBtn">▶ 运行${kind === "sync" ? "同步时序" : "全互锁握手"}</button>
+      </div>
+      <div class="arb-table">
+        <div class="arb-tr head"><span>方式</span><span>握手机制</span><span>特点</span></div>
+        <div class="arb-tr"><span>不互锁</span><span>REQ 脉冲发出就完，不等 ACK</span><span>最快但不可靠（不知道对方收没收到）</span></div>
+        <div class="arb-tr"><span>半互锁</span><span>REQ 等 ACK↑ 才撤，不等 ACK↓</span><span>折中：确认对方应答，但不确认结束</span></div>
+        <div class="arb-tr ${kind === "full" ? "hi" : ""}"><span>全互锁</span><span>REQ↑→ACK↑→REQ↓→ACK↓</span><span>四步双确认，最可靠，速度最慢</span></div>
+      </div>
+    </div>`;
+
+  document.getElementById("commKindRow").addEventListener("click", (event) => {
+    const btn = event.target.closest("[data-comm]");
+    if (!btn) return;
+    commState.kind = btn.dataset.comm;
+    commState.step = -1;
+    renderCommStage();
+  });
+  document.getElementById("commRunBtn").addEventListener("click", () => commRun(commState.kind));
+}
+
+/* ───────────────────────── 练习模式 ───────────────────────── */
+const QUIZ_CONCEPTS = [
+  { q: "三总线中，双向传输的是？", choices: ["地址总线", "数据总线", "控制总线", "都是双向"], answer: 1, why: "数据总线双向：读周期主存→CPU，写周期 CPU→主存。地址总线总是单向（CPU 指出方向）。" },
+  { q: "地址总线的传输方向是？", choices: ["双向", "单向（CPU 发出）", "单向（主存发出）", "随机方向"], answer: 1, why: "地址总线单向：永远由主设备（如 CPU）发出地址，选中目标单元。" },
+  { q: "链式查询判优的致命缺点是？", choices: ["速度慢", "优先级固定且对断链敏感", "线太多", "不能扩展设备"], answer: 1, why: "链式：优先级由物理位置焊死，且某个设备故障会导致其后所有设备永远无法获得总线。" },
+  { q: "n 个主设备采用独立请求判优，需要多少根控制线？", choices: ["n 根", "2n 根", "⌈log₂n⌉ 根", "3 根"], answer: 1, why: "独立请求：每个设备一对 BR（请求）+ BG（授权）线，共 2n 根——换最快速度。" },
+  { q: "计数器定时查询相比链式查询的最大优点是？", choices: ["线更少", "响应更快", "优先级可编程改变", "不怕断链"], answer: 2, why: "计数器从不同启动值开始数，就能改变谁的优先级临时最高——灵活，代价是平均等待 n/2 次计数。" },
+  { q: "全互锁异步握手的正确顺序是？", choices: ["ACK↑→REQ↑→ACK↓→REQ↓", "REQ↑→ACK↑→REQ↓→ACK↓", "REQ↑→REQ↓→ACK↑→ACK↓", "ACK↑→ACK↓→REQ↑→REQ↓"], answer: 1, why: "全互锁四步：主设备请求→从设备应答→主设备撤销→从设备确认结束，每个变化都有对方确认。" },
+  { q: "为什么要设置总线判优控制？", choices: ["提高总线速度", "多个主设备共享总线时需要仲裁使用权", "节省控制线", "实现异步通信"], answer: 1, why: "总线是公共通路，多个主设备同时请求会冲突，必须由仲裁机制决定谁先用。" },
+  { q: "单总线结构的主要瓶颈是？", choices: ["控制复杂", "成本高", "同一时刻只能一对部件传送", "扩展困难"], answer: 2, why: "单总线所有部件共享一条线，带宽有限且无法并行；多总线分级后不同层级可以并行传送。" },
+];
+
+function generateQuestion(forceType = null) {
+  const types = ["arbmethod", "wires", "handshake", "concept"];
+  const type = forceType ?? types[randomInt(0, types.length - 1)];
+
+  if (type === "arbmethod") {
+    const cases = [
+      { desc: "BG 信号沿设备链逐个传播，先碰到谁谁获得总线", answer: "链式查询" },
+      { desc: "计数器从零开始计数，设备地址与计数值相等时获得总线", answer: "计数器定时查询" },
+      { desc: "每个设备一对 BR/BG 线直连仲裁器，并行点名", answer: "独立请求" },
+    ];
+    const picked = cases[randomInt(0, cases.length - 1)];
+    const choices = shuffled(cases.map((c) => c.answer));
+    return {
+      type, mode: "choice",
+      prompt: `「${picked.desc}」是哪种判优方式？`,
+      choices, answer: choices.indexOf(picked.answer),
+      explain: `${picked.answer}：${picked.desc}。`,
+    };
+  }
+  if (type === "wires") {
+    const n = [3, 4, 5, 8][randomInt(0, 3)];
+    const correct = `${2 * n} 根`;
+    const pool = [`${n} 根`, `${2 * n} 根`, `${Math.ceil(Math.log2(n))} 根`, "3 根"];
+    const choices = shuffled(pool);
+    return {
+      type, mode: "choice",
+      prompt: `<b>${n} 个</b>主设备采用<b>独立请求</b>判优，共需多少根控制线？`,
+      choices, answer: choices.indexOf(correct),
+      explain: `独立请求每设备一对 BR+BG：2 × ${n} = <b>${2 * n} 根</b>。`,
+    };
+  }
+  if (type === "handshake") {
+    const cases = [
+      { desc: "REQ 脉冲发出就结束，不等任何应答", answer: "不互锁" },
+      { desc: "REQ 等到 ACK↑ 才撤销，但不等 ACK↓", answer: "半互锁" },
+      { desc: "REQ↑→ACK↑→REQ↓→ACK↓ 四步双确认", answer: "全互锁" },
+    ];
+    const picked = cases[randomInt(0, cases.length - 1)];
+    const choices = shuffled(cases.map((c) => c.answer));
+    return {
+      type, mode: "choice",
+      prompt: `「${picked.desc}」是哪种异步握手机制？`,
+      choices, answer: choices.indexOf(picked.answer),
+      explain: `${picked.answer}：${picked.desc}。`,
+    };
+  }
+  const concept = QUIZ_CONCEPTS[randomInt(0, QUIZ_CONCEPTS.length - 1)];
+  return { type: "concept", mode: "choice", prompt: concept.q, choices: concept.choices, answer: concept.answer, explain: concept.why };
+}
+
+function startQuizRound() {
+  quizState.current = generateQuestion(window.__forceQuizType ?? null);
+  quizState.answered = false;
+  quizState.selected = -1;
+  renderQuizQuestion();
+  updateQuizNarrator();
+}
+function updateQuizNarrator() {
+  stepCountEl.textContent = `答对 ${quizState.correct} / ${quizState.total} · 连对 ${quizState.streak}`;
+  stepTextEl.innerHTML = `题型随机：<b>三总线 / 判优 / 通信 / 结构 / 概念</b>。<br>A / B / C / D 作答，Enter 提交。`;
+}
+function renderQuizQuestion() {
+  const q = quizState.current;
+  document.getElementById("quizPrompt").innerHTML = q.prompt;
+  const answerEl = document.getElementById("quizAnswer");
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = "quiz-feedback";
+  feedback.innerHTML = "";
+  document.getElementById("quizSubmit").hidden = false;
+  document.getElementById("quizNext").hidden = true;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  answerEl.innerHTML = `<div class="quiz-choices">${q.choices.map((choice, i) => `
+    <button class="quiz-choice" data-idx="${i}" type="button"><span class="qc-key">${"ABCD"[i]}</span><span>${choice}</span></button>`).join("")}</div>`;
+  answerEl.querySelectorAll(".quiz-choice").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (quizState.answered) return;
+      quizState.selected = Number(btn.dataset.idx);
+      answerEl.querySelectorAll(".quiz-choice").forEach((b) => b.classList.toggle("selected", b === btn));
+    });
+  });
+}
+function submitQuizAnswer() {
+  if (quizState.answered || quizState.selected < 0) return;
+  const q = quizState.current;
+  const isCorrect = quizState.selected === q.answer;
+  document.querySelectorAll(".quiz-choice").forEach((btn) => {
+    const idx = Number(btn.dataset.idx);
+    btn.disabled = true;
+    if (idx === q.answer) btn.classList.add("correct");
+    else if (idx === quizState.selected) btn.classList.add("wrong");
+  });
+  quizState.answered = true;
+  window.__platformLink?.recordQuizAnswer(isCorrect);
+  quizState.total += 1;
+  if (isCorrect) {
+    quizState.correct += 1;
+    quizState.streak += 1;
+    quizState.best = Math.max(quizState.best, quizState.streak);
+  } else {
+    quizState.streak = 0;
+  }
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = `quiz-feedback show ${isCorrect ? "ok" : "bad"}`;
+  feedback.innerHTML = `${isCorrect ? "✅ <b>答对了！</b>" : "❌ <b>不对哦。</b>"} ${q.explain}`;
+  document.getElementById("quizSubmit").hidden = true;
+  document.getElementById("quizNext").hidden = false;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  updateQuizNarrator();
+}
+
+/* ───────────────────────── 舞台渲染 ───────────────────────── */
+const stage = document.getElementById("stage");
+const stepCountEl = document.getElementById("stepCount");
+const stepTextEl = document.getElementById("stepText");
+const bannerEl = document.getElementById("banner");
+const playBtn = document.getElementById("playBtn");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+
+let scenario = { steps: [], zoneBased: false };
+
+function renderStageShell() {
+  if (scenario.kind === "threebus") { renderThreebusStage(); return; }
+  if (scenario.kind === "structure") { renderStructureStage(); return; }
+  if (scenario.kind === "arbitration") { renderArbitrationStage(); return; }
+  if (scenario.kind === "comm") { renderCommStage(); return; }
+  if (scenario.kind === "quiz") {
+    stage.innerHTML = `
+      <div class="stage-title"><h2>课堂练习 · 随机出题</h2><span class="st-sub">三总线 / 判优 / 通信 / 概念</span></div>
+      <div class="zone"><div class="quiz-head">
+        <span>得分 <strong id="quizScore">0 / 0</strong></span>
+        <span class="quiz-streak" id="quizStreak"></span>
+        <span>A / B / C / D 键作答 · Enter 提交</span>
+      </div></div>
+      <div class="zone quiz-card" style="gap:14px">
+        <div class="quiz-q" id="quizPrompt"></div>
+        <div id="quizAnswer"></div>
+        <div class="quiz-feedback" id="quizFeedback"></div>
+      </div>
+      <div class="quiz-actions">
+        <button id="quizSubmit" type="button">提交答案</button>
+        <button id="quizNext" class="ghost-action" type="button" hidden>下一题 →</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">独立练习模式：题目随机生成，做完一题点「下一题」</div>`;
+    document.getElementById("quizSubmit").addEventListener("click", submitQuizAnswer);
+    document.getElementById("quizNext").addEventListener("click", startQuizRound);
+  }
+}
+
+function refreshScenario(targetStep = 0) {
+  if (state.mode === "quiz") stopPlaying();
+  document.body.classList.toggle("quiz-active", state.mode === "quiz");
+  scenario = state.mode === "threebus" ? buildThreebusScenario()
+    : state.mode === "structure" ? buildStructureScenario()
+    : state.mode === "arbitration" ? buildArbitrationScenario()
+    : state.mode === "comm" ? buildCommScenario()
+    : { kind: "quiz", steps: [{ text: "", formula: "独立练习模式：题目随机，做完一题点「下一题」" }] };
+  renderStageShell();
+  renderPresets();
+  goToStep(Math.min(targetStep, scenario.steps.length - 1));
+  if (state.mode === "quiz") startQuizRound();
+}
+
+function goToStep(index) {
+  state.stepIndex = Math.max(0, Math.min(index, scenario.steps.length - 1));
+  const step = scenario.steps[state.stepIndex];
+  if (scenario.kind === "quiz") {
+    // 练习自管理
+  } else if (scenario.zoneBased) {
+    stage.querySelectorAll(".logic-zone").forEach((zoneEl, i) => {
+      zoneEl.classList.toggle("zone-current", i === step.zone);
+    });
+  }
+  const formulaEl = document.getElementById("formulaStrip");
+  if (formulaEl && step.formula) formulaEl.textContent = step.formula;
+  if (step.text) stepTextEl.innerHTML = step.text;
+  stepCountEl.textContent = `第 ${state.stepIndex + 1} / ${scenario.steps.length} 步`;
+  prevBtn.disabled = state.stepIndex === 0;
+  nextBtn.disabled = state.stepIndex === scenario.steps.length - 1;
+  if (state.stepIndex === scenario.steps.length - 1) stopPlaying();
+}
+
+function setBanner(html, kind) {
+  if (!kind) { bannerEl.className = "banner"; bannerEl.innerHTML = ""; return; }
+  bannerEl.className = `banner show ${kind}`;
+  bannerEl.innerHTML = html;
+}
+
+/* ───────────────────────── 播放控制 ───────────────────────── */
+function setPlayUI(playing) { playBtn.textContent = playing ? "⏸ 暂停" : "▶ 自动播放"; }
+function stopPlaying() { state.playing = false; clearTimeout(state.timer); setPlayUI(false); }
+function scheduleNext() {
+  clearTimeout(state.timer);
+  state.timer = setTimeout(() => {
+    if (!state.playing) return;
+    if (state.stepIndex >= scenario.steps.length - 1) { stopPlaying(); return; }
+    goToStep(state.stepIndex + 1);
+    scheduleNext();
+  }, 1800 / state.speed);
+}
+playBtn.addEventListener("click", () => {
+  if (state.playing) { stopPlaying(); return; }
+  state.playing = true;
+  setPlayUI(true);
+  if (state.stepIndex >= scenario.steps.length - 1) goToStep(0);
+  scheduleNext();
+});
+prevBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex - 1); });
+nextBtn.addEventListener("click", () => { stopPlaying(); goToStep(state.stepIndex + 1); });
+document.getElementById("resetBtn").addEventListener("click", () => { stopPlaying(); refreshScenario(0); });
+
+const speedRange = document.getElementById("speedRange");
+speedRange.addEventListener("input", () => {
+  state.speed = Number(speedRange.value);
+  document.getElementById("speedLabel").textContent = `${state.speed}×`;
+});
+
+document.getElementById("modeTabs").addEventListener("click", (event) => {
+  const btn = event.target.closest("button[data-mode]");
+  if (!btn) return;
+  stopPlaying();
+  state.mode = btn.dataset.mode;
+  document.querySelectorAll("#modeTabs button").forEach((b) => b.classList.toggle("active", b === btn));
+  refreshScenario(0);
+});
+
+document.getElementById("insightToggle").addEventListener("click", () => {
+  const body = document.getElementById("insightBody");
+  body.hidden = !body.hidden;
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.target.tagName === "INPUT") return;
+  if (event.code === "Space") { event.preventDefault(); playBtn.click(); }
+  if (event.key === "ArrowLeft") prevBtn.click();
+  if (event.key === "ArrowRight") nextBtn.click();
+  if (event.key === "1") document.querySelector('[data-mode="threebus"]').click();
+  if (event.key === "2") document.querySelector('[data-mode="structure"]').click();
+  if (event.key === "3") document.querySelector('[data-mode="arbitration"]').click();
+  if (event.key === "4") document.querySelector('[data-mode="comm"]').click();
+  if (event.key === "5") document.querySelector('[data-mode="quiz"]').click();
+  if (state.mode === "quiz" && /^[a-dA-D]$/.test(event.key) && !quizState.answered) {
+    const idx = "abcd".indexOf(event.key.toLowerCase());
+    document.querySelector(`.quiz-choice[data-idx="${idx}"]`)?.click();
+  }
+  if (state.mode === "quiz" && event.key === "Enter") {
+    event.preventDefault();
+    if (quizState.answered) startQuizRound();
+    else submitQuizAnswer();
+  }
+  if (event.key.toLowerCase() === "r") document.getElementById("resetBtn").click();
+});
+
+/* ───────────────────────── 启动 ───────────────────────── */
+refreshScenario(0);
+
+/* 供自动化验收读取（verify.mjs 使用），页面逻辑不依赖 */
+window.__quizState = quizState;
+window.__arbState = arbState;
+window.__commState = commState;
+window.__busState = busState;
+</script>
+<script src="./platform-link.js"></script>
+</body>
+</html>

@@ -16,6 +16,8 @@
     "migrate": "node server/migrate.js",
     "seed:teacher": "node server/seedTeacher.js",
     "seed:demo": "node server/seedDemoClassroom.js",
+    "preview:site": "node scripts/previewSite.mjs",
+    "preview:site:check": "node scripts/previewSite.mjs --check",
     "qa:3d": "node scripts/run-browser-qa.mjs scripts/verify-3d.mjs",
     "preqa:production": "npm run build -- --manifest",
     "qa:production": "node scripts/run-browser-qa.mjs scripts/verify-production-modules.mjs --production && node scripts/run-browser-qa.mjs scripts/verify-3d.mjs --production",

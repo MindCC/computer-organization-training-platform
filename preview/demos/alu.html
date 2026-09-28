@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>运算器 · 定点乘除与浮点运算 · 课堂互动演示</title>
+<style>
+  :root {
+    --bg0: #050c22; --bg1: #0a1738;
+    --panel: rgba(10, 23, 56, 0.82);
+    --line: rgba(56, 132, 255, 0.28);
+    --text: #e6f0ff; --muted: #8ea3c8; --dim: #5d7099;
+    --cyan: #38bdf8; --cyan-soft: #7dd3fc; --teal: #2dd4bf;
+    --violet: #a78bfa; --amber: #fbbf24; --red: #f87171; --green: #34d399;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 520px at 85% -10%, rgba(56, 132, 255, 0.16), transparent 62%),
+      radial-gradient(800px 480px at 5% 112%, rgba(45, 212, 191, 0.10), transparent 55%),
+      linear-gradient(180deg, var(--bg0) 0%, var(--bg1) 55%, var(--bg0) 100%);
+    min-height: 100vh; overflow-x: hidden;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background-image: linear-gradient(rgba(56,132,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(56,132,255,0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse at 50% 30%, black 30%, transparent 78%);
+  }
+  .app { position: relative; max-width: 1440px; margin: 0 auto; padding: 18px 24px 26px; }
+
+  header { text-align: center; padding: 6px 0 14px; }
+  .kicker { display: inline-block; font-size: 13px; letter-spacing: 0.22em; color: var(--cyan-soft); border: 1px solid rgba(125,211,252,0.4); border-radius: 999px; padding: 4px 16px; background: rgba(56,132,255,0.08); }
+  h1 { margin-top: 10px; font-size: 40px; letter-spacing: 0.08em; background: linear-gradient(90deg, #7dd3fc, #38bdf8 45%, #2dd4bf); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 34px rgba(56,189,248,0.3); }
+  .subtitle { margin-top: 6px; color: var(--muted); font-size: 15px; letter-spacing: 0.05em; }
+  .mode-tabs { margin-top: 14px; display: inline-flex; gap: 6px; padding: 5px; border: 1px solid var(--line); border-radius: 999px; background: rgba(8,18,46,0.75); flex-wrap: wrap; justify-content: center; }
+  .mode-tabs button { border: none; border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 700; letter-spacing: 0.03em; color: var(--muted); background: transparent; cursor: pointer; transition: all 160ms ease; }
+  .mode-tabs button:hover { color: var(--text); }
+  .mode-tabs button.active { color: #04122b; background: linear-gradient(90deg, var(--cyan-soft), var(--teal)); box-shadow: 0 0 20px rgba(56,189,248,0.45); }
+
+  main { display: grid; grid-template-columns: 290px minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+  .panel { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: inset 0 0 32px rgba(15,36,82,0.45), 0 10px 34px rgba(2,8,26,0.4); }
+  .panel h2 { font-size: 16px; letter-spacing: 0.08em; color: #cfe6ff; }
+  .panel h2 small { color: var(--dim); font-size: 12px; font-weight: 400; margin-left: 8px; }
+
+  .side { padding: 16px; display: grid; gap: 14px; }
+  .presets h3 { font-size: 13px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 8px; }
+  .preset-list { display: grid; gap: 6px; }
+  .preset-btn { text-align: left; border: 1px solid rgba(56,132,255,0.3); border-radius: 10px; padding: 8px 12px; background: rgba(13,30,66,0.6); color: #bfe0ff; font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all 150ms ease; }
+  .preset-btn:hover { border-color: rgba(125,211,252,0.8); box-shadow: 0 0 14px rgba(56,189,248,0.25); transform: translateX(3px); }
+  .preset-btn.active { border-color: rgba(125,211,252,0.9); background: rgba(56,132,255,0.2); }
+  .preset-btn small { display: block; color: var(--dim); font-weight: 400; margin-top: 1px; }
+  .side-note { font-size: 12.5px; color: var(--dim); line-height: 1.75; }
+  .side-note b { color: var(--cyan-soft); }
+
+  .stage { padding: 18px 20px 22px; min-height: 560px; display: grid; gap: 14px; align-content: start; }
+  .stage-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .stage-title h2 { font-size: 17px; }
+  .stage-title .st-sub { color: var(--dim); font-size: 12.5px; text-align: right; }
+  .zone { display: grid; gap: 10px; border: 1px dashed rgba(56,132,255,0.3); border-radius: 12px; padding: 12px 14px; }
+  .zone-title { font-size: 13px; font-weight: 700; color: var(--cyan-soft); letter-spacing: 0.08em; }
+  .zone.zone-current { border-color: rgba(125,211,252,0.7); box-shadow: 0 0 18px rgba(56,189,248,0.25); }
+  .formula-strip { min-height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(56,132,255,0.08); border: 1px solid rgba(56,132,255,0.22); font-family: "Consolas", monospace; font-size: 15.5px; color: var(--cyan-soft); padding: 6px 12px; text-align: center; font-variant-numeric: tabular-nums; }
+
+  .narrator { padding: 16px; display: grid; gap: 12px; position: sticky; top: 14px; }
+  .step-card { border: 1px solid rgba(125,211,252,0.35); border-radius: 12px; padding: 14px; background: rgba(56,132,255,0.07); min-height: 120px; }
+  .step-count { font-size: 12px; color: var(--dim); letter-spacing: 0.14em; }
+  .step-text { margin-top: 8px; font-size: 15.5px; line-height: 1.65; color: #dbeafe; }
+  .step-text b { color: var(--amber); }
+  .banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.6; display: none; }
+  .banner.show { display: block; animation: popIn 320ms ease; }
+  .banner.hit { border: 1px solid rgba(52,211,153,0.6); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .banner.miss { border: 1px solid rgba(248,113,113,0.6); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .banner.warn { border: 1px solid rgba(251,191,36,0.6); background: rgba(60,45,8,0.45); color: #fde68a; }
+  @keyframes popIn { 0% { transform: scale(0.92); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .controls button { border: 1px solid rgba(56,132,255,0.4); border-radius: 10px; padding: 11px 8px; background: rgba(13,30,66,0.7); color: #bfe0ff; font-size: 14px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .controls button:hover:not(:disabled) { border-color: rgba(125,211,252,0.85); box-shadow: 0 0 14px rgba(56,189,248,0.3); }
+  .controls button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .controls .play-btn { grid-column: span 2; background: linear-gradient(90deg, rgba(29,78,216,0.8), rgba(37,99,235,0.8)); font-size: 15px; }
+  .speed { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .speed input { flex: 1; accent-color: var(--cyan); }
+  .kbd-hints { font-size: 11.5px; color: var(--dim); text-align: center; line-height: 1.7; }
+  .insight button { width: 100%; border: 1px solid rgba(251,191,36,0.4); border-radius: 10px; padding: 10px; background: rgba(251,191,36,0.08); color: #fde68a; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .insight-body { margin-top: 8px; font-size: 13.5px; line-height: 1.75; color: #d8c9a3; border-top: 1px dashed rgba(251,191,36,0.3); padding-top: 8px; }
+  .insight-body b { color: var(--amber); }
+  body.quiz-active .controls, body.quiz-active .speed { display: none; }
+
+  .inline-steps { display: flex; justify-content: center; gap: 10px; padding: 2px 0; flex-wrap: wrap; }
+  .inline-steps button { border: 1px solid rgba(56,132,255,0.45); border-radius: 999px; padding: 8px 18px; background: rgba(13,30,66,0.85); color: #bfe0ff; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: all 150ms ease; }
+  .inline-steps button:hover:not(:disabled) { border-color: rgba(125,211,252,0.9); box-shadow: 0 0 14px rgba(56,189,248,0.35); }
+  .inline-steps button:disabled { opacity: 0.35; cursor: not-allowed; }
+  .inline-steps button.primary { background: linear-gradient(90deg, rgba(29,78,216,0.85), rgba(37,99,235,0.85)); }
+
+  /* ── 寄存器位串 ── */
+  .reg-strip { display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
+  .reg-box { display: grid; gap: 5px; }
+  .reg-name { font-size: 11.5px; color: var(--dim); letter-spacing: 0.08em; }
+  .reg-name b { color: var(--cyan-soft); }
+  .bits { display: flex; gap: 3px; }
+  .bit { display: grid; place-items: center; width: 30px; height: 34px; border: 1px solid rgba(51,65,100,0.9); border-radius: 7px; background: rgba(9,18,44,0.85); font-family: "Consolas", monospace; font-size: 16px; font-weight: 700; color: var(--dim); transition: all 200ms ease; }
+  .bit.on { color: #a5ecff; border-color: rgba(56,132,255,0.55); }
+  .bit.lsb { border-color: rgba(251,191,36,0.75); box-shadow: 0 0 12px rgba(251,191,36,0.35); }
+  .bit.enter { border-color: var(--green); color: #a7f3d0; box-shadow: 0 0 12px rgba(52,211,153,0.4); }
+  .bit.adder { border-color: var(--violet); color: #ddd6fe; box-shadow: 0 0 12px rgba(167,139,250,0.4); }
+  .bit.reg-c { width: 26px; }
+  .bit.dimmed { opacity: 0.72; }
+
+  .action-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+  .act-chip { border: 1px solid rgba(51,65,100,0.95); border-radius: 999px; padding: 6px 13px; background: rgba(9,18,44,0.85); color: var(--dim); font-weight: 700; font-size: 12.5px; transition: all 200ms ease; }
+  .act-chip.active { border-color: #22d3ee; color: #a5ecff; background: rgba(34,211,238,0.14); box-shadow: 0 0 14px rgba(34,211,238,0.4); }
+  .act-chip.done { border-color: rgba(52,211,153,0.6); color: #a7f3d0; }
+  .act-arrow { color: var(--dim); font-size: 13px; }
+
+  .kv-row { display: flex; gap: 10px; flex-wrap: wrap; font-size: 13.5px; }
+  .kv { border: 1px solid rgba(56,132,255,0.3); border-radius: 10px; padding: 7px 12px; background: rgba(13,30,66,0.55); }
+  .kv span { color: var(--dim); font-size: 12px; margin-right: 6px; }
+  .kv b { color: var(--amber); font-family: "Consolas", monospace; font-size: 15px; }
+  .kv.teal b { color: var(--teal); }
+  .kv.green b { color: var(--green); }
+  .info-bar { border: 1px solid rgba(56,132,255,0.3); border-radius: 12px; padding: 10px 14px; background: rgba(13,30,66,0.55); font-size: 13.5px; line-height: 1.75; color: var(--muted); }
+  .info-bar b { color: var(--cyan-soft); }
+  .info-bar code { font-family: "Consolas", monospace; color: var(--amber); }
+
+  /* ── 浮点字段 ── */
+  .fp-card { border: 1px solid rgba(56,132,255,0.3); border-radius: 12px; padding: 10px 12px; background: rgba(13,30,66,0.55); display: grid; gap: 7px; }
+  .fp-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--muted); }
+  .fp-head strong { color: var(--cyan-soft); font-size: 15px; }
+  .fp-fields { display: flex; gap: 3px; align-items: center; }
+  .fp-f { display: grid; place-items: center; height: 32px; border-radius: 7px; font-family: "Consolas", monospace; font-size: 15px; font-weight: 700; letter-spacing: 0.06em; padding: 0 8px; border: 1px solid; }
+  .fp-f.s { color: #fde68a; border-color: rgba(251,191,36,0.5); background: rgba(251,191,36,0.1); }
+  .fp-f.e { color: #a5ecff; border-color: rgba(56,132,255,0.5); background: rgba(56,132,255,0.1); }
+  .fp-f.m { color: #99f6e4; border-color: rgba(45,212,191,0.5); background: rgba(45,212,191,0.1); }
+  .fp-legend { font-size: 11px; color: var(--dim); display: flex; gap: 12px; }
+  .fp-legend i { font-style: normal; }
+  .fp-legend .ls { color: #fde68a; }
+  .fp-legend .le { color: #a5ecff; }
+  .fp-legend .lm { color: #99f6e4; }
+  .fp-note { font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+  .fp-note b { color: var(--amber); font-family: "Consolas", monospace; }
+  .mant-line { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-family: "Consolas", monospace; font-size: 15px; }
+  .mant-line .lbl { font-family: inherit; font-size: 12px; color: var(--dim); min-width: 88px; }
+  .mant-line .val { color: #99f6e4; font-weight: 700; }
+  .mant-line .val.shift { color: var(--amber); }
+  .mant-line .out { color: var(--red); }
+  .mant-line .arrow { color: var(--dim); }
+  .pipe { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .pipe-chip { border: 1px solid rgba(51,65,100,0.9); border-radius: 10px; padding: 8px 6px; text-align: center; background: rgba(9,18,44,0.85); color: var(--dim); font-size: 12.5px; font-weight: 700; transition: all 200ms ease; }
+  .pipe-chip small { display: block; font-size: 10px; font-weight: 400; margin-top: 2px; }
+  .pipe-chip.active { border-color: #22d3ee; color: #a5ecff; background: rgba(34,211,238,0.12); box-shadow: 0 0 14px rgba(34,211,238,0.4); }
+  .pipe-chip.done { border-color: rgba(52,211,153,0.6); color: #a7f3d0; }
+
+  /* ── 练习 ── */
+  .quiz-head { display: flex; justify-content: space-between; align-items: center; font-size: 14px; color: var(--muted); gap: 10px; flex-wrap: wrap; }
+  .quiz-head strong { color: var(--cyan-soft); font-size: 16px; }
+  .quiz-streak { color: var(--amber); font-weight: 700; }
+  .quiz-q { font-size: 19px; font-weight: 700; line-height: 1.6; color: #eaf4ff; }
+  .quiz-q code { font-family: "Consolas", monospace; font-size: 19px; color: var(--amber); background: rgba(251,191,36,0.1); padding: 2px 10px; border-radius: 8px; }
+  .quiz-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .quiz-choice { display: flex; align-items: center; gap: 10px; border: 1px solid rgba(56,132,255,0.35); border-radius: 12px; padding: 11px 13px; background: rgba(13,30,66,0.6); color: #dbeafe; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 140ms ease; text-align: left; }
+  .quiz-choice .qc-key { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(125,211,252,0.5); color: var(--cyan-soft); font-size: 13px; font-weight: 800; flex: none; }
+  .quiz-choice:hover { border-color: rgba(125,211,252,0.8); }
+  .quiz-choice.selected { border-color: var(--cyan-soft); background: rgba(56,132,255,0.16); }
+  .quiz-choice.correct { border-color: var(--green); background: rgba(52,211,153,0.14); color: #d1fae5; }
+  .quiz-choice.wrong { border-color: var(--red); background: rgba(248,113,113,0.12); color: #fecaca; }
+  .quiz-choice:disabled { cursor: default; }
+  .quiz-feedback { border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.65; display: none; }
+  .quiz-feedback.show { display: block; animation: popIn 320ms ease; }
+  .quiz-feedback.ok { border: 1px solid rgba(52,211,153,0.55); background: rgba(6,40,32,0.5); color: #d1fae5; }
+  .quiz-feedback.bad { border: 1px solid rgba(248,113,113,0.55); background: rgba(80,12,20,0.45); color: #fecaca; }
+  .quiz-actions { display: flex; justify-content: center; gap: 10px; }
+  .quiz-actions button { border: 1px solid rgba(56,132,255,0.5); border-radius: 999px; padding: 10px 28px; background: linear-gradient(90deg, rgba(29,78,216,0.85), rgba(37,99,235,0.85)); color: #eaf4ff; font-size: 15px; font-weight: 800; cursor: pointer; }
+  .quiz-actions button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .quiz-actions .ghost-action { background: rgba(13,30,66,0.7); }
+
+  @media (max-width: 1180px) {
+    main { grid-template-columns: 1fr; }
+    .narrator { position: static; }
+    .pipe { grid-template-columns: repeat(3, 1fr); }
+    h1 { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="kicker">第三章 · 运算单元设计</span>
+    <h1>运算器</h1>
+    <p class="subtitle">定点乘法（加 + 移位） · 布斯一位乘法 · 恢复余数除法 · 浮点对阶与规格化</p>
+    <nav class="mode-tabs" id="modeTabs">
+      <button data-mode="multiply" class="active">定点乘法</button>
+      <button data-mode="booth">布斯乘法</button>
+      <button data-mode="divide">定点除法</button>
+      <button data-mode="float">浮点加减</button>
+      <button data-mode="quiz">课堂练习</button>
+    </nav>
+  </header>
+
+  <main>
+    <section class="side panel" aria-label="场景面板">
+      <h2>场景与动线<small id="presetHint"></small></h2>
+      <div class="presets"><div class="preset-list" id="presetList"></div></div>
+      <div class="side-note" id="sideNote"></div>
+    </section>
+
+    <section class="stage panel" aria-label="演示舞台" id="stage"></section>
+
+    <aside class="narrator panel" aria-label="讲解与控制">
+      <div class="step-card">
+        <div class="step-count" id="stepCount"></div>
+        <div class="step-text" id="stepText"></div>
+      </div>
+      <div class="banner" id="banner"></div>
+      <div class="controls">
+        <button class="play-btn" id="playBtn">▶ 自动播放</button>
+        <button id="prevBtn">← 上一步</button>
+        <button id="nextBtn">下一步 →</button>
+        <button id="resetBtn" style="grid-column: span 2;">↺ 重置本模式</button>
+      </div>
+      <div class="speed">
+        <span>速度</span>
+        <input type="range" id="speedRange" min="0.5" max="2.5" step="0.25" value="1">
+        <span id="speedLabel">1×</span>
+      </div>
+      <div class="kbd-hints">空格 播放/暂停 · ← / → 步进 · 1 ~ 5 切换模式 · R 重置</div>
+      <div class="insight">
+        <button id="insightToggle">💡 运算器为什么只会「加」和「移」？</button>
+        <div class="insight-body" id="insightBody" hidden>
+          因为硬件里最便宜、最快的两件事就是<b>加法</b>和<b>移位</b>。<br>
+          <b>乘法</b>不过是「按乘数的每一位决定加不加被乘数，然后整体右移」——n 位乘数就做 n 拍；<b>布斯乘法</b>把相邻两位编码成 +M / −M / 不加，连符号位一起算，省掉单独处理符号的电路。<br>
+          <b>除法</b>是乘法的逆过程：左移、试减、够减就上商 1，不够减就恢复余数上商 0。<br>
+          <b>浮点</b>更麻烦：阶码不同的两个数不能直接相加减，必须先把小阶的尾数右移<b>对阶</b>，再按定点算尾数，最后<b>规格化</b>和<b>舍入</b>。
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+/* ═══════════════════════ 一、基础工具 ═══════════════════════ */
+function randomInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
+function shuffled(array) {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+/* 位串（MSB 在前） */
+function bitsOf(value, n) { return value.toString(2).padStart(n, "0").slice(-n).split("").map(Number); }
+function valueOf(bits) { return bits.length ? parseInt(bits.join(""), 2) : 0; }
+function bitString(value, n) { return value.toString(2).padStart(n, "0").slice(-n); }
+
+/** 两个等长位串相加，返回 { sum, carry } */
+function addBits(a, b) {
+  const n = a.length, out = new Array(n);
+  let carry = 0;
+  for (let i = n - 1; i >= 0; i--) {
+    const s = a[i] + b[i] + carry;
+    out[i] = s & 1;
+    carry = s >> 1;
+  }
+  return { sum: out, carry };
+}
+
+/** 取反加一（补码） */
+function negateBits(bits) {
+  const inv = bits.map((bit) => bit ^ 1);
+  return addBits(inv, bitsOf(1, bits.length)).sum;
+}
+
+/** 把 n 位补码位串解释为有符号十进制 */
+function signedValueOf(bits) { return bits[0] ? valueOf(bits) - (1 << bits.length) : valueOf(bits); }
+
+/* ═══════════════════════ 二、定点乘法：加 + 移位 ═══════════════════════ */
+/**
+ * 无符号一位乘法：乘数最低位决定「加不加被乘数」，每拍结束 C、A、Q 整体逻辑右移。
+ * 结果 = A : Q（2n 位）。
+ */
+function buildUnsignedMultiplyTrace(m, q, n) {
+  const M = bitsOf(m, n);
+  let A = bitsOf(0, n);
+  let Q = bitsOf(q, n);
+  let C = 0;
+  const trace = [{
+    kind: "init", cycle: 0, C, A: [...A], Q: [...Q], M: [...M],
+    note: "初始化：部分积 A 清零、进位位 C 清零；被乘数装入 M，乘数装入 Q。",
+    formula: `被乘数 M = ${bitString(m, n)}，乘数 Q = ${bitString(q, n)}`,
+  }];
+  for (let i = 1; i <= n; i++) {
+    const add = Q[n - 1] === 1;
+    if (add) {
+      const before = valueOf(A);
+      const result = addBits(A, M);
+      A = result.sum; C = result.carry;
+      trace.push({
+        kind: "add", cycle: i, C, A: [...A], Q: [...Q], M: [...M], focusQ: n - 1,
+        note: `第 ${i} 拍：Q₀ = 1，部分积 <b>A ← A + M</b>：${before} + ${m} = ${valueOf(A)}${C ? "，并向 C 进位 1" : ""}。`,
+        formula: `A ← A + M ： ${before} + ${m} = ${valueOf(A)}`,
+      });
+    } else {
+      trace.push({
+        kind: "noadd", cycle: i, C, A: [...A], Q: [...Q], M: [...M], focusQ: n - 1,
+        note: `第 ${i} 拍：Q₀ = 0，<b>不加</b>被乘数，直接进入移位。`,
+        formula: `Q₀ = 0 → 本拍不加，只移位`,
+      });
+    }
+    const oldC = C, oldLow = A[n - 1];
+    A = [oldC, ...A.slice(0, n - 1)];
+    Q = [oldLow, ...Q.slice(0, n - 1)];
+    C = 0;
+    trace.push({
+      kind: "shift", cycle: i, C, A: [...A], Q: [...Q], M: [...M], enterA: 0, enterQ: 0,
+      note: `第 ${i} 拍：C、A、Q <b>整体逻辑右移一位</b>——A 最低位移入 Q 最高位，C 移入 A 最高位。`,
+      formula: `C,A,Q 逻辑右移一位 → A:Q = ${bitString(valueOf(A), n)} ${bitString(valueOf(Q), n)}`,
+    });
+  }
+  return { trace, product: valueOf(A) * (1 << n) + valueOf(Q), A: valueOf(A), Q: valueOf(Q), M: valueOf(M) };
+}
+
+/* ═══════════════════════ 三、布斯乘法（补码一位乘法） ═══════════════════════ */
+/** 布斯算法：看 (Q₀, Q₋₁) → 01 加 M、10 减 M、00/11 不加，然后算术右移 */
+function buildBoothTrace(m, q, n) {
+  const M = bitsOf(m & ((1 << n) - 1), n);
+  let A = bitsOf(0, n);
+  let Q = bitsOf(q & ((1 << n) - 1), n);
+  let Qm1 = 0;
+  const trace = [{
+    kind: "init", cycle: 0, A: [...A], Q: [...Q], Qm1, M: [...M],
+    note: "初始化：A 清零，乘数装入 Q，并在 Q 右侧附加一位 <b>Q₋₁ = 0</b>；被乘数装入 M（补码，符号位参与运算）。",
+    formula: `M = ${bitString(m & ((1 << n) - 1), n)}，Q = ${bitString(q & ((1 << n) - 1), n)}，Q₋₁ = 0`,
+  }];
+  for (let i = 1; i <= n; i++) {
+    const q0 = Q[n - 1];
+    const pair = `${q0}${Qm1}`;
+    if (pair === "01") {
+      const before = signedValueOf(A);
+      A = addBits(A, M).sum;
+      trace.push({
+        kind: "add", cycle: i, A: [...A], Q: [...Q], Qm1, M: [...M], pair, focusQ: n - 1,
+        note: `第 ${i} 拍：Q₀Q₋₁ = <b>01</b> → <b>A ← A + M</b>：${before} + ${signedValueOf(M)} = ${signedValueOf(A)}。`,
+        formula: `Q₀Q₋₁ = 01 → A ← A + M`,
+      });
+    } else if (pair === "10") {
+      const before = signedValueOf(A);
+      A = addBits(A, negateBits(M)).sum;
+      trace.push({
+        kind: "sub", cycle: i, A: [...A], Q: [...Q], Qm1, M: [...M], pair, focusQ: n - 1,
+        note: `第 ${i} 拍：Q₀Q₋₁ = <b>10</b> → <b>A ← A − M</b>：${before} − ${signedValueOf(M)} = ${signedValueOf(A)}。`,
+        formula: `Q₀Q₋₁ = 10 → A ← A − M`,
+      });
+    } else {
+      trace.push({
+        kind: "nop", cycle: i, A: [...A], Q: [...Q], Qm1, M: [...M], pair, focusQ: n - 1,
+        note: `第 ${i} 拍：Q₀Q₋₁ = <b>${pair}</b> → 相邻两位相同，<b>不加不减</b>，直接移位。`,
+        formula: `Q₀Q₋₁ = ${pair} → 只移位`,
+      });
+    }
+    const sign = A[0];
+    const newQm1 = Q[n - 1];
+    const newQ = [A[n - 1], ...Q.slice(0, n - 1)];
+    const newA = [sign, ...A.slice(0, n - 1)];
+    A = newA; Q = newQ; Qm1 = newQm1;
+    trace.push({
+      kind: "shift", cycle: i, A: [...A], Q: [...Q], Qm1, M: [...M], pair, enterA: 0, enterQ: 0,
+      note: `第 ${i} 拍：<b>算术右移一位</b>——符号位不动并复制到 A 的最高位，A 最低位移入 Q 最高位，Q 最低位存入 Q₋₁。`,
+      formula: `(A,Q,Q₋₁) 算术右移一位 → A:Q = ${bitString(valueOf(A), n)} ${bitString(valueOf(Q), n)}`,
+    });
+  }
+  const productBits = [...A, ...Q];
+  return { trace, productBits, product: signedValueOf(productBits), M, Q };
+}
+
+/* ═══════════════════════ 四、定点除法：恢复余数法 ═══════════════════════ */
+/**
+ * 恢复余数法：左移 → 试减 M → 够减上商 1，不够减保留原余数并上商 0。
+ * 余数寄存器 A 取 n+1 位：左移后 A 最大可达 2M−1，比除数多一位才能放得下。
+ * 够不够减用无符号比较判断（试减结果若为负，在 n+1 位里已经溢出了）。
+ */
+function buildDivideTrace(dividend, divisor, n) {
+  const M = bitsOf(divisor, n);
+  const width = n + 1;
+  let A = bitsOf(0, width);
+  let Q = bitsOf(dividend, n);
+  const trace = [{
+    kind: "init", cycle: 0, A: [...A], Q: [...Q], M: [...M],
+    note: "初始化：余数寄存器 A 清零（n+1 位，多出的一位用来判断够不够减），被除数装入 Q，除数装入 M。双倍长被除数 = A:Q。",
+    formula: `被除数 ${dividend}（A:Q = ${bitString(0, width)} ${bitString(dividend, n)}），除数 M = ${bitString(divisor, n)}`,
+  }];
+  for (let i = 1; i <= n; i++) {
+    const out = A[0];
+    A = [...A.slice(1), Q[0]];
+    Q = [...Q.slice(1), 0];
+    trace.push({
+      kind: "shift", cycle: i, A: [...A], Q: [...Q], M: [...M], overflowBit: out,
+      note: `第 ${i} 拍：A:Q <b>左移一位</b>（A 最高位 ${out} 移出${out ? "，说明高位余数 ≥ 除数，<b>商将溢出</b>" : "，没有溢出"}），Q 最低位补 0 待上商。`,
+      formula: `A:Q 左移一位 → ${bitString(valueOf(A), width)} ${bitString(valueOf(Q), n)}`,
+    });
+    const before = valueOf(A);
+    const enough = before >= divisor;
+    trace.push({
+      kind: "sub", cycle: i, A: [...A], Q: [...Q], M: [...M], adder: true,
+      note: `第 ${i} 拍：试减 <b>A − M</b>：${before} − ${divisor} ${enough ? `= ${before - divisor}，<b>够减</b>` : "< 0，<b>不够减</b>（余数比除数小）"}。`,
+      formula: `A − M ： ${before} − ${divisor} ${enough ? `= ${before - divisor}` : "< 0"}`,
+    });
+    if (enough) {
+      A = bitsOf(before - divisor, width);
+      Q = [...Q.slice(0, n - 1), 1];
+      trace.push({
+        kind: "setq", cycle: i, A: [...A], Q: [...Q], M: [...M],
+        note: `第 ${i} 拍：够减，<b>余数保留 A = ${before - divisor}</b>，并<b>商上 1</b>。`,
+        formula: `够减 → 余数 ${before - divisor}，商上 1`,
+      });
+    } else {
+      Q = [...Q.slice(0, n - 1), 0];
+      trace.push({
+        kind: "restore", cycle: i, A: [...A], Q: [...Q], M: [...M],
+        note: `第 ${i} 拍：不够减，<b>保留原余数 A = ${before}</b>（相当于把除数加回去，即「恢复余数」），并<b>商上 0</b>。`,
+        formula: `不够减 → 恢复余数 ${before}，商上 0`,
+      });
+    }
+  }
+  return {
+    trace, M: divisor,
+    quotient: valueOf(Q), remainder: valueOf(A),
+    quotientBits: [...Q], remainderBits: [...A],
+    check: valueOf(Q) * divisor + valueOf(A),
+  };
+}
+
+/* ═══════════════════════ 五、浮点加减（对阶 · 规格化） ═══════════════════════ */
+/**
+ * 自定义教学格式：1 位符号 + 4 位阶码（移码，偏置 7）+ 7 位尾数（规格化 1.xxxxxxx）。
+ * 真值 = (-1)^S × 1.尾数 × 2^(E−7)。
+ */
+const FMT = { bias: 7, expBits: 4, fracBits: 7 };
+const FEXT = 16;                       /* 低位扩展：保证对阶移位不丢位 */
+const FONE = 128 << FEXT;              /* 尾数 1.0 的整数表示 */
+const FSCALE = FONE;                   /* 展示用：ext / FONE = 真尾数 */
+
+function decodeFloat(bits) {
+  const sign = Number(bits[0]);
+  const exp = parseInt(bits.slice(1, 1 + FMT.expBits), 2);
+  const frac = bits.slice(1 + FMT.expBits);
+  const mant = exp === 0 ? parseInt("0" + frac, 2) : parseInt("1" + frac, 2);
+  const e = exp - FMT.bias - FMT.fracBits;
+  return { bits, sign, exp, frac, mant, e, zero: exp === 0, value: (sign ? -1 : 1) * mant * Math.pow(2, e) };
+}
+function encodeFloat(sign, exp, frac) {
+  return `${sign}${bitString(exp, FMT.expBits)}${frac}`;
+}
+function floatOf(value) { return { sign: value < 0 ? 1 : 0, mant: Math.round(Math.abs(value) * 128), e: -7 }; }
+void floatOf;
+
+/** 浮点加减全过程 */
+function floatAdd(aBits, bBits) {
+  const a = decodeFloat(aBits), b = decodeFloat(bBits);
+  const sameSign = a.sign === b.sign;
+  const eBig = Math.max(a.exp, b.exp);
+  const dE = Math.abs(a.exp - b.exp);
+  const bigIsA = a.exp >= b.exp;
+  const small = bigIsA ? b : a;
+
+  const extA0 = a.mant << FEXT, extB0 = b.mant << FEXT;
+  const extA = bigIsA ? extA0 : Math.floor(extA0 / (1 << dE));
+  const extB = bigIsA ? Math.floor(extB0 / (1 << dE)) : extB0;
+  const shifted = small.mant >> dE;
+  const droppedBits = bitString(small.mant & ((1 << dE) - 1), dE);
+  const signedA = (a.sign ? -1 : 1) * extA;
+  const signedB = (b.sign ? -1 : 1) * extB;
+  const rawSum = signedA + signedB;
+
+  let e = eBig - FMT.bias - FMT.fracBits;
+  let mag = Math.abs(rawSum);
+  const sign = rawSum < 0 ? 1 : 0;
+  const zero = mag === 0;
+
+  let rightShifts = 0, leftShifts = 0;
+  if (!zero) {
+    while (mag >= 2 * FONE && rightShifts < 4) { mag = Math.floor(mag / 2); e += 1; rightShifts += 1; }
+    while (mag < FONE && leftShifts < 40) { mag *= 2; e -= 1; leftShifts += 1; }
+  }
+  const preRound = mag;
+  const dropped = mag % (1 << FEXT);
+  const roundBit = dropped === 0 ? 0 : Math.floor(dropped / (1 << (FEXT - 1))) & 1;
+  let mant = Math.floor(mag / (1 << FEXT));
+  const carryOut = roundBit === 1;
+  if (carryOut) { mant += 1; if (mant === 256) { mant = 128; e += 1; rightShifts += 1; } }
+
+  const E = e + FMT.bias + FMT.fracBits;
+  const overflow = E >= (1 << FMT.expBits) - 1;
+  const underflow = E <= 0;
+  const finalMant = zero ? 0 : mant;
+  const frac = zero ? "0".repeat(FMT.fracBits) : bitString(finalMant - 128, FMT.fracBits);
+  const finalBits = zero ? "0".repeat(1 + FMT.expBits + FMT.fracBits) : encodeFloat(sign, Math.max(0, Math.min((1 << FMT.expBits) - 1, E)), frac);
+  const value = zero ? 0 : (sign ? -1 : 1) * finalMant * Math.pow(2, e);
+
+  return {
+    a, b, sameSign, eBig, dE, bigIsA, smallLabel: bigIsA ? "B" : "A",
+    alignedSmall: shifted, alignedSmallBits: bitString(shifted, 8), droppedBits,
+    extA, extB, dispA: extA / FSCALE, dispB: extB / FSCALE,
+    rawSum, dispSum: rawSum / FSCALE, sign, zero,
+    rightShifts, leftShifts, preRound, preRoundDisp: preRound / FSCALE,
+    roundBit, droppedTail: dropped, carryOut,
+    e, E, mant: finalMant, frac, bits: finalBits, value,
+    overflow, underflow,
+    exact: a.value + b.value,
+  };
+}
+
+/* 浮点预设（12 位：符号 1 + 阶码 4 + 尾数 7） */
+const FLOAT_PRESETS = [
+  { label: "1.5 + 0.25", sub: "对阶后直接相加，无需规格化", a: "001111000000", b: "001010000000" },
+  { label: "1.75 + 0.75", sub: "尾数相加溢出 → 右规一位", a: "001111100000", b: "001101000000" },
+  { label: "1.5 − 1.375", sub: "异号相减，结果太小 → 左规三位", a: "001111000000", b: "101110110000" },
+  { label: "1.5 + 0.0156", sub: "阶差 6，对阶移出低位产生误差", a: "001111000000", b: "000010000001" },
+  { label: "−1.5 + 0.25", sub: "结果为负，符号取绝对值大的一方", a: "101111000000", b: "001010000000" },
+  { label: "1.5 + (−1.5)", sub: "尾数全抵消 → 结果为零", a: "001111000000", b: "101111000000" },
+];
+
+/* ═══════════════════════ 六、全局状态 ═══════════════════════ */
+const state = { mode: "multiply", stepIndex: 0, playing: false, speed: 1, timer: null };
+const mulState = { m: 3, q: 5, n: 4, trace: [], idx: 0, playing: false, preset: 0 };
+const boothState = { m: -3, q: 2, n: 4, trace: [], idx: 0, playing: false, preset: 1 };
+const divState = { dividend: 15, divisor: 3, n: 4, trace: [], idx: 0, playing: false, preset: 0 };
+const floatState = { preset: 0, aBits: FLOAT_PRESETS[0].a, bBits: FLOAT_PRESETS[0].b, idx: 0, playing: false, result: null };
+const quizState = { total: 0, correct: 0, streak: 0, best: 0, current: null, answered: false, selected: -1 };
+
+const MUL_PRESETS = [
+  { m: 3, q: 5, label: "3 × 5", sub: "0011 × 0101，逐位看 Q₀" },
+  { m: 7, q: 9, label: "7 × 9", sub: "0111 × 1001，两次加两次不加" },
+  { m: 15, q: 15, label: "15 × 15", sub: "1111 × 1111，每拍都加" },
+  { m: 12, q: 3, label: "12 × 3", sub: "1100 × 0011，高位决定加不加" },
+  { m: 10, q: 6, label: "10 × 6", sub: "1010 × 0110，部分积进位到 C" },
+];
+const BOOTH_PRESETS = [
+  { m: 3, q: 2, label: "3 × 2", sub: "同号相乘，结果为正" },
+  { m: -3, q: 2, label: "−3 × 2", sub: "一正一负，结果为负" },
+  { m: 3, q: -2, label: "3 × (−2)", sub: "乘数为负，看 10 做减 M" },
+  { m: -3, q: -2, label: "−3 × (−2)", sub: "负负得正" },
+  { m: 7, q: -4, label: "7 × (−4)", sub: "含 100 序列，连续移位" },
+  { m: -7, q: 7, label: "−7 × 7", sub: "负被乘数，符号位一起算" },
+];
+const DIV_PRESETS = [
+  { dividend: 15, divisor: 3, label: "15 ÷ 3", sub: "除尽，余数为 0" },
+  { dividend: 13, divisor: 4, label: "13 ÷ 4", sub: "商 3 余 1，需要恢复余数" },
+  { dividend: 7, divisor: 2, label: "7 ÷ 2", sub: "商 3 余 1，二进制除法的经典例子" },
+  { dividend: 15, divisor: 7, label: "15 ÷ 7", sub: "商 2 余 1，多次不够减" },
+  { dividend: 9, divisor: 9, label: "9 ÷ 9", sub: "商 1 余 0，每拍都要恢复" },
+  { dividend: 15, divisor: 1, label: "15 ÷ 1", sub: "商取满 4 位，余数为 0" },
+];
+
+/* ═══════════════════════ 七、舞台渲染 ═══════════════════════ */
+const stage = document.getElementById("stage");
+const stepCountEl = document.getElementById("stepCount");
+const stepTextEl = document.getElementById("stepText");
+const bannerEl = document.getElementById("banner");
+const presetListEl = document.getElementById("presetList");
+const presetHintEl = document.getElementById("presetHint");
+const sideNoteEl = document.getElementById("sideNote");
+const playBtn = document.getElementById("playBtn");
+
+function renderBits(bits, options = {}) {
+  const { lsb = -1, enter = -1, adder = [], dim = false, cls = "" } = options;
+  return `<div class="bits ${cls}">${bits.map((bit, i) => {
+    const marks = [];
+    if (bit === 1) marks.push("on");
+    if (i === lsb) marks.push("lsb");
+    if (i === enter) marks.push("enter");
+    if (adder.includes(i)) marks.push("adder");
+    if (dim) marks.push("dimmed");
+    return `<span class="bit ${marks.join(" ")}">${bit}</span>`;
+  }).join("")}</div>`;
+}
+
+function regBox(name, bits, options = {}) {
+  return `<div class="reg-box"><span class="reg-name">${name}</span>${renderBits(bits, options)}</div>`;
+}
+
+/* ── 定点乘法舞台 ── */
+function mulStepAt(index) { return mulState.trace[Math.max(0, Math.min(index, mulState.trace.length - 1))]; }
+
+function renderMultiplyStage() {
+  const s = mulState;
+  const step = mulStepAt(s.idx);
+  state.stepIndex = Math.max(0, Math.min(s.idx, s.trace.length - 1));
+  const productBits = [...step.A, ...step.Q];
+  const phase = step.kind === "add" || step.kind === "noadd" ? 0 : step.kind === "shift" ? 1 : -1;
+  const chip = (label, sub, active, done) => `<div class="act-chip ${active ? "active" : done ? "done" : ""}">${label}<small style="display:block;font-size:10px;font-weight:400;opacity:.85">${sub}</small></div>`;
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>定点乘法 · 加 + 移位</h2><span class="st-sub">4 位 × 4 位 → 8 位积　共 ${s.n} 拍，每拍「判 Q₀ → 加/不加 → 右移」</span></div>
+
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">寄存器组（当前第 ${step.cycle} / ${s.n} 拍）</div>
+      <div class="reg-strip">
+        ${regBox("C <b>进位</b>", [step.C], { cls: "bit-c" })}
+        ${regBox("A <b>部分积</b>", step.A, { adder: step.kind === "add" ? step.A.map((_, i) => i) : [], enter: step.kind === "shift" ? 0 : -1 })}
+        ${regBox("Q <b>乘数</b>", step.Q, { lsb: step.focusQ ?? -1, enter: step.kind === "shift" ? 0 : -1 })}
+        ${regBox("M <b>被乘数</b>", step.M, { dim: true })}
+      </div>
+      <div class="action-line">
+        ${chip("① 判 Q₀", "最低位决定加不加", phase === 0, phase === 1 || step.kind === "init")}
+        <span class="act-arrow">→</span>
+        ${chip("② 加 / 不加 M", "Q₀=1 才加", phase === 0 && step.kind === "add", phase === 0 && step.kind === "noadd")}
+        <span class="act-arrow">→</span>
+        ${chip("③ C,A,Q 右移", "低位挤进 Q 高位", phase === 1)}
+      </div>
+      <div class="inline-steps">
+        <button id="mulPrev" ${s.idx === 0 ? "disabled" : ""}>← 上一步</button>
+        <button id="mulNext" class="primary" ${s.idx >= s.trace.length - 1 ? "disabled" : ""}>下一步 →</button>
+        <button id="mulPlay">${s.playing ? "⏸ 暂停" : "▶ 自动演示"}</button>
+        <button id="mulReset">↺ 重置</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">${step.formula}</div>
+    </div>
+
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">乘积 = A : Q</div>
+      <div class="reg-strip">
+        <div class="reg-box"><span class="reg-name">A : Q（8 位积）</span>${renderBits(productBits, { lsb: step.kind === "shift" ? s.n - 1 : -1 })}</div>
+        <div class="reg-box"><span class="reg-name">十进制</span><div class="kv-row">${productKv(productBits)}</div></div>
+      </div>
+    </div>
+
+    <div class="zone logic-zone" data-zone="2">
+      <div class="zone-title">算式对照</div>
+      <div class="info-bar" id="mulCheck">${mulCheckText()}</div>
+    </div>`;
+
+  document.getElementById("mulPrev").addEventListener("click", () => mulGo(s.idx - 1));
+  document.getElementById("mulNext").addEventListener("click", () => mulGo(s.idx + 1));
+  document.getElementById("mulPlay").addEventListener("click", mulAuto);
+  document.getElementById("mulReset").addEventListener("click", () => mulLoad(s.m, s.q, s.preset));
+  syncNarrator(step);
+}
+
+function productKv(productBits) {
+  const value = valueOf(productBits);
+  return `<div class="kv teal"><span>A:Q</span><b>${bitString(valueOf(productBits.slice(0, 4)), 4)} ${bitString(valueOf(productBits.slice(4)), 4)}</b></div>
+    <div class="kv green"><span>=</span><b>${value}</b></div>`;
+}
+function mulCheckText() {
+  const done = mulState.idx >= mulState.trace.length - 1;
+  return `算式：<b>${mulState.m} × ${mulState.q} = ${mulState.m * mulState.q}</b>　·　
+    硬件只做了 <b>${mulState.n} 次判断</b>、最多 <b>${mulState.n} 次加法</b> 和 <b>${mulState.n} 次右移</b>。${done ? " ✅ 最终 A:Q 与你算的答案一致。" : ""}`;
+}
+function mulLoad(m, q, preset = -1) {
+  mulState.m = m; mulState.q = q; mulState.preset = preset;
+  const built = buildUnsignedMultiplyTrace(m, q, mulState.n);
+  mulState.trace = built.trace;
+  mulState.idx = 0;
+  stopAllPlaying();
+  renderMultiplyStage();
+}
+function mulGo(index) {
+  mulState.idx = Math.max(0, Math.min(index, mulState.trace.length - 1));
+  renderMultiplyStage();
+}
+function mulAuto() {
+  if (mulState.playing) { mulState.playing = false; renderMultiplyStage(); return; }
+  mulState.playing = true;
+  const tick = () => {
+    if (!mulState.playing) return;
+    if (mulState.idx >= mulState.trace.length - 1) { mulState.playing = false; renderMultiplyStage(); return; }
+    mulGo(mulState.idx + 1);
+    state.timer = setTimeout(tick, 1200 / state.speed);
+  };
+  renderMultiplyStage();
+  tick();
+}
+
+/* ── 布斯乘法舞台 ── */
+function renderBoothStage() {
+  const s = boothState;
+  const step = s.trace[Math.max(0, Math.min(s.idx, s.trace.length - 1))];
+  state.stepIndex = Math.max(0, Math.min(s.idx, s.trace.length - 1));
+  const productBits = [...step.A, ...step.Q];
+  const decision = step.pair ?? (step.kind === "init" ? "0" : "");
+  const chip = (label, sub, active, done) => `<div class="act-chip ${active ? "active" : done ? "done" : ""}">${label}<small style="display:block;font-size:10px;font-weight:400;opacity:.85">${sub}</small></div>`;
+  const isShift = step.kind === "shift";
+  const isDecision = ["add", "sub", "nop"].includes(step.kind);
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>布斯乘法 · 补码一位乘法</h2><span class="st-sub">符号位一起参与运算　看 (Q₀, Q₋₁)：01 加 M · 10 减 M · 00/11 不加</span></div>
+
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">寄存器组（当前第 ${step.cycle} / ${s.n} 拍）</div>
+      <div class="reg-strip">
+        ${regBox("A <b>部分积</b>", step.A, { adder: step.kind === "add" || step.kind === "sub" ? step.A.map((_, i) => i) : [], enter: isShift ? 0 : -1 })}
+        ${regBox("Q <b>乘数</b>", step.Q, { lsb: step.focusQ ?? -1, enter: isShift ? 0 : -1 })}
+        ${regBox("Q₋₁ <b>附加位</b>", [step.Qm1], { cls: "bit-c" })}
+        ${regBox("M <b>被乘数(补码)</b>", step.M, { dim: true })}
+      </div>
+      <div class="action-line">
+        ${chip("① 看 (Q₀,Q₋₁)", decision ? `当前 ${decision}` : "最低两位", isDecision, isShift)}
+        <span class="act-arrow">→</span>
+        ${chip("② +M / −M / 不加", "01→+M，10→−M", isDecision, isShift)}
+        <span class="act-arrow">→</span>
+        ${chip("③ 算术右移", "符号位复制，Q₋₁ 收尾", isShift)}
+      </div>
+      <div class="inline-steps">
+        <button id="boothPrev" ${s.idx === 0 ? "disabled" : ""}>← 上一步</button>
+        <button id="boothNext" class="primary" ${s.idx >= s.trace.length - 1 ? "disabled" : ""}>下一步 →</button>
+        <button id="boothPlay">${s.playing ? "⏸ 暂停" : "▶ 自动演示"}</button>
+        <button id="boothReset">↺ 重置</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">${step.formula}</div>
+    </div>
+
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">乘积 = A : Q（补码，8 位）</div>
+      <div class="reg-strip">
+        <div class="reg-box"><span class="reg-name">A : Q</span>${renderBits(productBits)}</div>
+        <div class="reg-box"><span class="reg-name">十进制</span><div class="kv-row">
+          <div class="kv teal"><span>补码值</span><b>${signedValueOf(productBits)}</b></div>
+          <div class="kv green"><span>正确结果</span><b>${boothState.m * boothState.q}</b></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="zone logic-zone" data-zone="2">
+      <div class="zone-title">为什么布斯乘法更聪明</div>
+      <div class="info-bar">
+        原码乘法要先把符号位单独拿出来，算完绝对值再补符号；布斯乘法<b>连符号位一起算</b>——把相邻两位 (Q₀, Q₋₁) 编码：
+        <code>01</code> 表示一串 1 的开始 → <b>加 M</b>；<code>10</code> 表示一串 1 的结束 → <b>减 M</b>；<code>00 / 11</code> 直接跳过。
+        乘数里连续的 1 越多，跳过的拍越多，这是硬件实现快速乘法的原型。
+        <br>校验：M = ${signedValueOf(boothState.trace[0].M)}，Q = ${signedValueOf(boothState.trace[0].Q)}，M × Q = <b>${boothState.m * boothState.q}</b>。
+      </div>
+    </div>`;
+
+  document.getElementById("boothPrev").addEventListener("click", () => boothGo(s.idx - 1));
+  document.getElementById("boothNext").addEventListener("click", () => boothGo(s.idx + 1));
+  document.getElementById("boothPlay").addEventListener("click", boothAuto);
+  document.getElementById("boothReset").addEventListener("click", () => boothLoad(s.m, s.q, s.preset));
+  syncNarrator(step);
+}
+function boothLoad(m, q, preset = -1) {
+  boothState.m = m; boothState.q = q; boothState.preset = preset;
+  const built = buildBoothTrace(m, q, boothState.n);
+  boothState.trace = built.trace;
+  boothState.idx = 0;
+  stopAllPlaying();
+  renderBoothStage();
+}
+function boothGo(index) {
+  boothState.idx = Math.max(0, Math.min(index, boothState.trace.length - 1));
+  renderBoothStage();
+}
+function boothAuto() {
+  if (boothState.playing) { boothState.playing = false; renderBoothStage(); return; }
+  boothState.playing = true;
+  const tick = () => {
+    if (!boothState.playing) return;
+    if (boothState.idx >= boothState.trace.length - 1) { boothState.playing = false; renderBoothStage(); return; }
+    boothGo(boothState.idx + 1);
+    state.timer = setTimeout(tick, 1200 / state.speed);
+  };
+  renderBoothStage();
+  tick();
+}
+
+/* ── 定点除法舞台 ── */
+function renderDivideStage() {
+  const s = divState;
+  const step = s.trace[Math.max(0, Math.min(s.idx, s.trace.length - 1))];
+  state.stepIndex = Math.max(0, Math.min(s.idx, s.trace.length - 1));
+  const result = buildDivideTrace(s.dividend, s.divisor, s.n);
+  const chip = (label, sub, active, done) => `<div class="act-chip ${active ? "active" : done ? "done" : ""}">${label}<small style="display:block;font-size:10px;font-weight:400;opacity:.85">${sub}</small></div>`;
+  const phase = step.kind === "shift" ? 0 : step.kind === "sub" ? 1 : 2;
+  const last = s.idx >= s.trace.length - 1;
+  const finalQ = valueOf(step.Q), finalA = valueOf(step.A);
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>定点除法 · 恢复余数法</h2><span class="st-sub">4 位 ÷ 4 位　共 ${s.n} 拍，每拍「左移 → 试减 → 够减上商 1 / 不够减恢复余数上商 0」</span></div>
+
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">寄存器组（当前第 ${step.cycle} / ${s.n} 拍）</div>
+      <div class="reg-strip">
+        ${regBox(`A <b>余数</b> <span style="opacity:.7">${s.n + 1} 位</span>`, step.A, { enter: step.kind === "shift" ? s.n : -1, adder: step.adder ? step.A.map((_, i) => i) : [] })}
+        ${regBox("Q <b>商</b>", step.Q, { lsb: step.kind === "setq" || step.kind === "restore" ? s.n - 1 : -1 })}
+        ${regBox("M <b>除数</b>", step.M, { dim: true })}
+      </div>
+      <div class="action-line">
+        ${chip("① A:Q 左移一位", "把被除数下一位拉进 A", phase === 0, phase > 0)}
+        <span class="act-arrow">→</span>
+        ${chip("② 试减 A − M", "够不够减？", phase === 1, phase > 1)}
+        <span class="act-arrow">→</span>
+        ${chip("③ 上商 / 恢复余数", "够减上 1，不够减恢复后上 0", phase === 2)}
+      </div>
+      <div class="inline-steps">
+        <button id="divPrev" ${s.idx === 0 ? "disabled" : ""}>← 上一步</button>
+        <button id="divNext" class="primary" ${last ? "disabled" : ""}>下一步 →</button>
+        <button id="divPlay">${s.playing ? "⏸ 暂停" : "▶ 自动演示"}</button>
+        <button id="divReset">↺ 重置</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">${step.formula}</div>
+    </div>
+
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">结果与校验</div>
+      <div class="kv-row">
+        <div class="kv teal"><span>商 Q</span><b>${bitString(finalQ, s.n)} = ${finalQ}</b></div>
+        <div class="kv teal"><span>余数 A</span><b>${bitString(finalA, s.n + 1)} = ${finalA}</b></div>
+        <div class="kv green"><span>Q × M + A</span><b>${finalQ} × ${s.divisor} + ${finalA} = ${finalQ * s.divisor + finalA}</b></div>
+      </div>
+      <div class="info-bar" id="divCheck">${last
+        ? (finalQ * s.divisor + finalA === s.dividend
+          ? `✅ 校验通过：<b>${s.dividend} ÷ ${s.divisor} = 商 ${finalQ} 余 ${finalA}</b>，且「商 × 除数 + 余数 = ${s.dividend}」。定点除法不产生小数——除不尽时余数留下来了。`
+          : `⚠️ 当前状态尚未走完，继续步进查看完整结果。`)
+        : `被除数 <b>${s.dividend}</b>，除数 <b>${s.divisor}</b>；走完 ${s.n} 拍后可用「商 × 除数 + 余数 = 被除数」自检。`}</div>
+    </div>
+
+    <div class="zone logic-zone" data-zone="2">
+      <div class="zone-title">恢复余数法 vs 加减交替法</div>
+      <div class="info-bar">
+        够减就上商 1 并把差值留下；不够减就<b>把除数加回去（恢复余数）</b>再上商 0——这是最直观的恢复余数法。
+        它的缺点是「减错了还要加回来」，多一次加法。书上更常用<b>加减交替法（不恢复余数法）</b>：余数为负时不恢复，下一步改成<b>加除数</b>，
+        商位由本次余数的符号直接决定，平均少做一次加法。两者数学上完全等价。
+        <br>本例对照：${s.dividend} ÷ ${s.divisor}，参考结果 = 余数 ${buildDivideTrace(s.dividend, s.divisor, s.n).remainder}，商 ${buildDivideTrace(s.dividend, s.divisor, s.n).quotient}。
+      </div>
+    </div>`;
+
+  document.getElementById("divPrev").addEventListener("click", () => divGo(s.idx - 1));
+  document.getElementById("divNext").addEventListener("click", () => divGo(s.idx + 1));
+  document.getElementById("divPlay").addEventListener("click", divAuto);
+  document.getElementById("divReset").addEventListener("click", () => divLoad(s.dividend, s.divisor, s.preset));
+  void result;
+  syncNarrator(step);
+}
+function divLoad(dividend, divisor, preset = -1) {
+  divState.dividend = dividend; divState.divisor = divisor; divState.preset = preset;
+  divState.trace = buildDivideTrace(dividend, divisor, divState.n).trace;
+  divState.idx = 0;
+  stopAllPlaying();
+  renderDivideStage();
+}
+function divGo(index) {
+  divState.idx = Math.max(0, Math.min(index, divState.trace.length - 1));
+  renderDivideStage();
+}
+function divAuto() {
+  if (divState.playing) { divState.playing = false; renderDivideStage(); return; }
+  divState.playing = true;
+  const tick = () => {
+    if (!divState.playing) return;
+    if (divState.idx >= divState.trace.length - 1) { divState.playing = false; renderDivideStage(); return; }
+    divGo(divState.idx + 1);
+    state.timer = setTimeout(tick, 1200 / state.speed);
+  };
+  renderDivideStage();
+  tick();
+}
+
+/* ── 浮点加减舞台 ── */
+function floatOperandCard(name, operand, extra = "") {
+  const e = operand.exp, frac = operand.frac;
+  const unbiased = e - FMT.bias;
+  return `<div class="fp-card">
+    <div class="fp-head"><strong>操作数 ${name}</strong><span>${operand.bits.slice(0, 1)} ${operand.bits.slice(1, 5)} ${operand.bits.slice(5)}₂${extra}</span></div>
+    <div class="fp-fields">
+      <span class="fp-f s">${operand.sign}</span>
+      <span class="fp-f e">${bitString(e, FMT.expBits)}</span>
+      <span class="fp-f m">${frac}</span>
+    </div>
+    <div class="fp-note">阶码 ${e} − 偏置 ${FMT.bias} = <b>${unbiased}</b>，尾数 1.${frac}₂ ⇒ 真值 = <b>${operand.value}</b>${operand.sign ? "（负数）" : ""}</div>
+  </div>`;
+}
+
+function renderFloatStage() {
+  const s = floatState;
+  const r = s.result;
+  const idx = s.idx;
+  state.stepIndex = idx;
+  const chip = (label, sub, i) => `<div class="pipe-chip ${i === idx ? "active" : i < idx ? "done" : ""}">${label}<small>${sub}</small></div>`;
+
+  const smallName = r.smallLabel;
+  const smallOperand = smallName === "A" ? r.a : r.b;
+  const bigOperand = smallName === "A" ? r.b : r.a;
+
+  stage.innerHTML = `
+    <div class="stage-title"><h2>浮点加减运算</h2><span class="st-sub">格式：1 符号 + 4 阶码（移码，偏置 7）+ 7 尾数（隐含 1）</span></div>
+
+    <div class="zone logic-zone" data-zone="0">
+      <div class="zone-title">运算流水线</div>
+      <div class="pipe">
+        ${chip("① 分解操作数", "取 S / E / M", 0)}
+        ${chip("② 对阶", "小阶向大阶看齐", 1)}
+        ${chip("③ 尾数运算", "同号相加·异号相减", 2)}
+        ${chip("④ 规格化", "右规 / 左规", 3)}
+        ${chip("⑤ 舍入与溢出判断", "0舍1入", 4)}
+      </div>
+      <div class="inline-steps">
+        <button id="fpPrev" ${idx === 0 ? "disabled" : ""}>← 上一步</button>
+        <button id="fpNext" class="primary" ${idx >= 4 ? "disabled" : ""}>下一步 →</button>
+        <button id="fpPlay">${s.playing ? "⏸ 暂停" : "▶ 跑完整流程"}</button>
+        <button id="fpReset">↺ 重置</button>
+      </div>
+      <div class="formula-strip" id="formulaStrip">${floatFormula(r, idx)}</div>
+    </div>
+
+    <div class="zone logic-zone" data-zone="1">
+      <div class="zone-title">① 两个操作数（都是规格化数，尾数隐含最高位 1）</div>
+      <div class="fp-card">
+        <div class="fp-legend"><i class="ls">■ 符号位 1 位</i><i class="le">■ 阶码 4 位（移码）</i><i class="lm">■ 尾数 7 位</i></div>
+      </div>
+      ${floatOperandCard("A", r.a)}
+      ${floatOperandCard("B", r.b)}
+    </div>
+
+    <div class="zone logic-zone" data-zone="2">
+      <div class="zone-title">② 对阶：小阶向大阶看齐</div>
+      <div class="info-bar">
+        阶差 ΔE = |${r.a.exp} − ${r.b.exp}| = <b>${r.dE}</b>${r.dE === 0 ? "（两数阶码相同，不用对阶）" : `，阶码小的 <b>操作数 ${smallName}</b> 的尾数<b>右移 ${r.dE} 位</b>，阶码加到 ${r.eBig}。`}
+        ${r.dE > 0 ? `<br>为什么必须右移小阶的尾数？因为阶码每 +1，尾数就要 ÷2 才能保持真值不变——<b>右移丢掉的低位正是浮点运算的误差来源</b>。` : ""}
+      </div>
+      ${r.dE > 0 ? `<div class="mant-line"><span class="lbl">${smallName} 原尾数</span><span class="val">1.${smallOperand.frac}</span><span class="arrow">→ 右移 ${r.dE} 位 →</span><span class="val shift">0.${r.alignedSmallBits.slice(1)}</span><span class="out">移出位 ${r.droppedBits}</span></div>` : ""}
+      ${r.dE > 0 ? `<div class="mant-line"><span class="lbl">${smallName === "A" ? "B" : "A"} 尾数(不变)</span><span class="val">1.${bigOperand.frac}</span></div>` : ""}
+      <div class="kv-row">
+        <div class="kv"><span>A 对阶后尾数</span><b>${r.dispA.toFixed(4)}</b></div>
+        <div class="kv"><span>B 对阶后尾数</span><b>${r.dispB.toFixed(4)}</b></div>
+        <div class="kv teal"><span>阶码统一为</span><b>${r.eBig}（真指数 ${r.eBig - FMT.bias}）</b></div>
+      </div>
+    </div>
+
+    <div class="zone logic-zone" data-zone="3">
+      <div class="zone-title">③ 尾数运算（按定点加减）</div>
+      <div class="info-bar">
+        两数符号${r.sameSign ? "<b>相同 → 尾数相加</b>" : "<b>不同 → 用大尾数减小尾数，符号取绝对值大的一方</b>"}。
+        <br>${r.dispA.toFixed(4)} ${r.sameSign ? "+" : "−"} ${r.dispB.toFixed(4)} = <b>${r.dispSum.toFixed(4)}</b>
+        ${r.zero ? "　→ 尾数完全抵消，结果为零。" : ""}
+      </div>
+      <div class="kv-row">
+        <div class="kv"><span>尾数和</span><b>${r.dispSum.toFixed(4)}</b></div>
+        <div class="kv ${r.rawSum < 0 ? "green" : ""}"><span>结果符号</span><b>${r.zero ? "—" : r.sign ? "1（负）" : "0（正）"}</b></div>
+      </div>
+    </div>
+
+    <div class="zone logic-zone" data-zone="4">
+      <div class="zone-title">④ 规格化</div>
+      <div class="info-bar">
+        ${r.zero ? "结果为零，直接按机器零处理（阶码、尾数全 0）。"
+          : r.rightShifts > 0
+            ? `尾数绝对值 ≥ 2，<b>右规</b>：尾数右移 <b>${r.rightShifts}</b> 位，阶码 +${r.rightShifts}。`
+            : r.leftShifts > 0
+              ? `尾数绝对值 &lt; 1，<b>左规</b>：尾数左移 <b>${r.leftShifts}</b> 位，阶码 −${r.leftShifts}。`
+              : "尾数已经落在 [1, 2) 区间，<b>无需规格化</b>。"}
+        <br>规格化的判据：尾数必须形如 <code>1.xxxxxxx</code>，这样才不浪费有效位、表示才唯一。
+      </div>
+      ${r.zero ? "" : `<div class="kv-row">
+        <div class="kv"><span>规格化前</span><b>${r.dispSum.toFixed(4)}</b></div>
+        <div class="kv teal"><span>右规 / 左规</span><b>${r.rightShifts} / ${r.leftShifts} 位</b></div>
+        <div class="kv green"><span>规格化后</span><b>${(r.mant / 128).toFixed(4)}</b></div>
+      </div>`}
+    </div>
+
+    <div class="zone logic-zone" data-zone="5">
+      <div class="zone-title">⑤ 舍入与溢出判断</div>
+      <div class="info-bar">
+        ${r.zero ? "无舍入问题。"
+          : `采用 <b>0 舍 1 入</b>：规格化后被丢弃的最高位（第 8 位尾数之后的第一位）是 <b>${r.roundBit}</b> → ${r.carryOut ? "进位，尾数末位 +1" : "舍去，尾数不变"}。`}
+        <br>阶码判断：E = ${r.zero ? "—" : `<b>${r.E}</b>`}${r.overflow ? "　⚠️ <b>阶码上溢</b>：结果超出可表示范围，需按溢出处理。" : r.underflow ? "　⚠️ <b>阶码下溢</b>：结果按机器零处理。" : r.zero ? "" : "　✅ 阶码未溢出。"}
+      </div>
+      <div class="fp-card">
+        <div class="fp-head"><strong>最终结果</strong><span>${r.bits}₂</span></div>
+        <div class="fp-fields">
+          <span class="fp-f s">${r.bits[0]}</span>
+          <span class="fp-f e">${r.bits.slice(1, 5)}</span>
+          <span class="fp-f m">${r.bits.slice(5)}</span>
+        </div>
+        <div class="fp-note">
+          真值 = <b>${r.value}</b>　·　精确值 = <b>${r.exact}</b>${r.value === r.exact ? "　✅ 本次运算无误差" : `　（误差 ${Math.abs(r.value - r.exact).toExponential(2)}，来自对阶移出的低位）`}
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById("fpPrev").addEventListener("click", () => floatGo(s.idx - 1));
+  document.getElementById("fpNext").addEventListener("click", () => floatGo(s.idx + 1));
+  document.getElementById("fpPlay").addEventListener("click", floatAuto);
+  document.getElementById("fpReset").addEventListener("click", () => floatLoad(s.preset));
+  syncNarrator({ note: FLOAT_NARRATION[idx](r), formula: floatFormula(r, idx) });
+}
+
+const FLOAT_NARRATION = [
+  () => "第一步：把两个操作数拆成 <b>符号位 S、阶码 E、尾数 M</b> 三段。阶码是移码，真指数 = E − 偏置；尾数是隐含最高位 1 的原码小数。",
+  (r) => r.dE === 0
+    ? "第二步：两数阶码相同，<b>不需要对阶</b>，可以直接做尾数运算。"
+    : `第二步：阶差 ΔE = ${r.dE}，把阶码小的 <b>操作数 ${r.smallLabel}</b> 的尾数<b>右移 ${r.dE} 位</b>，让它和阶码大的数处在同一数量级。<b>小阶向大阶看齐</b>是浮点运算的铁律。`,
+  (r) => `第三步：对阶后尾数按定点规则运算——${r.sameSign ? "同号相加" : "异号相减"}，得到尾数和 <b>${r.dispSum.toFixed(4)}</b>${r.zero ? "（恰好抵消为 0）" : ""}。`,
+  (r) => r.zero
+    ? "第四步：结果为零，无需规格化。"
+    : r.rightShifts > 0
+      ? `第四步：尾数和 ≥ 2，发生<b>尾数溢出</b>，必须<b>右规</b> ${r.rightShifts} 位并把阶码 +${r.rightShifts}。`
+      : r.leftShifts > 0
+        ? `第四步：尾数和 < 1，最高有效位不在规定位置，要<b>左规</b> ${r.leftShifts} 位，同时阶码 −${r.leftShifts}。`
+        : "第四步：尾数已经落在 [1, 2)，<b>无需规格化</b>。",
+  (r) => `第五步：按 <b>0 舍 1 入</b> 舍入（本次舍入位是 ${r.zero ? "—" : r.roundBit}），再判断阶码是否上溢/下溢。最终结果 = <b>${r.value}</b>。`,
+];
+
+function floatFormula(r, idx) {
+  if (idx === 0) return `A = ${r.a.bits}₂ , B = ${r.b.bits}₂`;
+  if (idx === 1) return r.dE === 0 ? "ΔE = 0，无需对阶" : `ΔE = ${r.dE} → 操作数 ${r.smallLabel} 尾数右移 ${r.dE} 位，阶码统一为 ${r.eBig}`;
+  if (idx === 2) return `${r.dispA.toFixed(4)} ${r.sameSign ? "+" : "−"} ${r.dispB.toFixed(4)} = ${r.dispSum.toFixed(4)}`;
+  if (idx === 3) return r.zero ? "结果为 0 → 机器零" : `右规 ${r.rightShifts} 位 / 左规 ${r.leftShifts} 位 → 阶码 e = ${r.e}`;
+  return `E = ${r.zero ? 0 : r.E}　结果 = ${r.bits}₂ = ${r.value}`;
+}
+
+function floatLoad(preset) {
+  const item = FLOAT_PRESETS[preset] ?? FLOAT_PRESETS[0];
+  floatState.preset = preset;
+  floatState.aBits = item.a;
+  floatState.bBits = item.b;
+  floatState.result = floatAdd(item.a, item.b);
+  floatState.idx = 0;
+  stopAllPlaying();
+  renderFloatStage();
+}
+function floatGo(index) {
+  floatState.idx = Math.max(0, Math.min(index, 4));
+  renderFloatStage();
+}
+function floatAuto() {
+  if (floatState.playing) { floatState.playing = false; renderFloatStage(); return; }
+  floatState.playing = true;
+  const tick = () => {
+    if (!floatState.playing) return;
+    if (floatState.idx >= 4) { floatState.playing = false; renderFloatStage(); return; }
+    floatGo(floatState.idx + 1);
+    state.timer = setTimeout(tick, 1500 / state.speed);
+  };
+  renderFloatStage();
+  tick();
+}
+
+/* ═══════════════════════ 八、练习模式 ═══════════════════════ */
+const QUIZ_CONCEPTS = [
+  { q: "定点原码一位乘法中，n 位乘数一共需要做多少次移位？", choices: ["n − 1 次", "n 次", "2n 次", "不需要移位"], answer: 1, why: "每处理乘数的一位就整体右移一次，n 位乘数共 n 次移位；加法次数取决于乘数中 1 的个数，最多 n 次。" },
+  { q: "布斯乘法中，当 (Q₀, Q₋₁) = 10 时应该？", choices: ["A ← A + M", "A ← A − M", "不加不减，只移位", "把 M 取反"], answer: 1, why: "10 表示乘数中一串 1 的结束，对应 −M；01 表示一串 1 的开始，对应 +M；00 和 11 都只移位。" },
+  { q: "布斯乘法相比原码一位乘法最大的好处是？", choices: ["不需要移位", "符号位可以一起参与运算", "只能算正数", "结果位数减半"], answer: 1, why: "布斯法把乘数当作补码整体处理，正负号不用单独判断和处理，而且乘数中连续的 1 可以被跳过。" },
+  { q: "恢复余数除法中，如果 A − M 的结果为负，应该？", choices: ["商上 1，继续", "商上 0 并恢复余数 A ← A + M", "直接停机", "把除数右移"], answer: 1, why: "不够减说明本位商 0，必须先恢复余数（把除数加回去），否则下一步的被减数就错了。" },
+  { q: "浮点加减运算中，对阶的原则是？", choices: ["大阶向小阶看齐", "小阶向大阶看齐", "必须把阶码都变成 0", "谁的尾数大就以谁为准"], answer: 1, why: "小阶向大阶看齐：把小阶数的尾数右移。若反过来左移大阶数的尾数会丢失高位有效数字，误差更大。" },
+  { q: "浮点加减中，对阶时右移尾数丢失的低位主要造成什么影响？", choices: ["没有影响", "产生运算误差，需要舍入处理", "使阶码上溢", "使符号位出错"], answer: 1, why: "右移丢掉的低位无法找回，这正是浮点运算误差的来源，所以后面必须做舍入（0 舍 1 入等）。" },
+  { q: "规格化后尾数为 1.xxxxxxx 的形式，其首位数（隐含位）是？", choices: ["0", "1", "由符号位决定", "随机"], answer: 1, why: "规格化要求尾数绝对值落在 [1, 2) 区间，二进制下首位必然是 1，因此可以隐含不存，白赚一位精度。" },
+  { q: "浮点运算中「右规」发生在什么时候？", choices: ["尾数小于 1 时", "尾数绝对值 ≥ 2（尾数溢出）时", "阶码为 0 时", "结果为零时"], answer: 1, why: "两个同号数尾数相加可能 ≥ 2，此时尾数右移一位、阶码 +1，称为右规。尾数 < 1 时做的是左规。" },
+];
+
+function buildChoices(correct, pool) {
+  const wrongs = [...new Set(pool.filter((item) => item !== correct))];
+  const picked = shuffled(wrongs).slice(0, 3);
+  while (picked.length < 3) picked.push(`以上都不对 ${picked.length + 1}`);
+  const choices = shuffled([correct, ...picked]);
+  return { choices, answer: choices.indexOf(correct) };
+}
+
+function generateQuestion(forceType = null) {
+  const types = ["mulstep", "boothpair", "divstep", "floatorder", "floatnorm", "concept"];
+  const type = forceType ?? types[randomInt(0, types.length - 1)];
+
+  if (type === "mulstep") {
+    const m = randomInt(3, 15), q = randomInt(3, 15);
+    const built = buildUnsignedMultiplyTrace(m, q, 4);
+    const steps = built.trace.filter((item) => item.kind === "shift");
+    const picked = steps[randomInt(0, steps.length - 1)];
+    const correct = valueOf(picked.A);
+    const pool = [picked.A.map((bit) => bit ^ 1), bitsOf(correct + 1, 4), bitsOf(Math.max(0, correct - 1), 4), bitsOf(valueOf(picked.Q), 4)].map(valueOf);
+    const choiceSet = buildChoices(String(correct), pool.map(String));
+    return {
+      type, mode: "choice",
+      prompt: `无符号一位乘法 <code>${bitString(m, 4)} × ${bitString(q, 4)}</code>，走完第 <b>${picked.cycle}</b> 拍（含移位）后，部分积 A 的值是多少？`,
+      choices: choiceSet.choices, answer: choiceSet.answer,
+      explain: `第 ${picked.cycle} 拍 Q₀ = ${picked.Q[3]}，移位后 A = ${bitString(correct, 4)}₂ = <b>${correct}</b>。完整轨迹：A:Q = ${built.trace[built.trace.length - 1].A.join("")} ${built.trace[built.trace.length - 1].Q.join("")}₂ = ${built.product}。`,
+    };
+  }
+
+  if (type === "boothpair") {
+    const cases = [
+      { pair: "01", answer: "A ← A + M", why: "01 表示乘数中一串 1 的开始，需要加上被乘数。" },
+      { pair: "10", answer: "A ← A − M", why: "10 表示一串 1 的结束，需要减去被乘数。" },
+      { pair: "00", answer: "不加不减，只做算术右移", why: "相邻两位相同，无需加减，只移位。" },
+      { pair: "11", answer: "不加不减，只做算术右移", why: "相邻两位相同，无需加减，只移位。" },
+    ];
+    const picked = cases[randomInt(0, cases.length - 1)];
+    const pool = ["A ← A + M", "A ← A − M", "不加不减，只做算术右移", "把 A 清零"];
+    const choiceSet = buildChoices(picked.answer, pool);
+    return {
+      type, mode: "choice",
+      prompt: `布斯乘法中，当前 (Q₀, Q₋₁) = <code>${picked.pair}</code>，本拍应该做什么？`,
+      choices: choiceSet.choices, answer: choiceSet.answer,
+      explain: `${picked.why}编码口诀：01 加、10 减、00/11 只移位。`,
+    };
+  }
+
+  if (type === "divstep") {
+    const dividend = randomInt(4, 15), divisor = randomInt(1, 15);
+    const built = buildDivideTrace(dividend, divisor, 4);
+    const restored = built.trace.filter((item) => item.kind === "restore").length;
+    const options = [
+      { q: `定点除法 ${dividend} ÷ ${divisor}，用恢复余数法做 4 拍后，得到的商和余数是？`, answer: `商 ${built.quotient}，余 ${built.remainder}`, pool: [`商 ${built.remainder}，余 ${built.quotient}`, `商 ${built.quotient + 1}，余 ${Math.max(0, built.remainder - divisor)}`, `商 ${Math.max(0, built.quotient - 1)}，余 ${built.remainder + divisor}`], why: `商 Q = ${built.quotient}，余数 A = ${built.remainder}；校验 ${built.quotient} × ${divisor} + ${built.remainder} = ${built.check}。` },
+      { q: `定点除法 ${dividend} ÷ ${divisor}（4 位恢复余数法）过程中，一共发生了几次「恢复余数」？`, answer: `${restored} 次`, pool: [`${Math.max(0, restored - 1)} 次`, `${restored + 1} 次`, `${4 - restored} 次`], why: `试减结果为负就要恢复余数，本例共 ${restored} 次；其余 ${4 - restored} 拍够减，商上 1。` },
+    ];
+    const picked = options[randomInt(0, options.length - 1)];
+    const choiceSet = buildChoices(picked.answer, picked.pool);
+    return {
+      type, mode: "choice",
+      prompt: picked.q,
+      choices: choiceSet.choices, answer: choiceSet.answer,
+      explain: picked.why,
+    };
+  }
+
+  if (type === "floatorder") {
+    const preset = FLOAT_PRESETS.filter((item) => item.label.includes("+") || item.label.includes("−"))[randomInt(0, 3)];
+    const r = floatAdd(preset.a, preset.b);
+    const smallName = r.smallLabel === "A" ? "A" : "B";
+    const correct = r.dE === 0 ? "阶码相同，无需对阶" : `操作数 ${smallName} 尾数右移 ${r.dE} 位`;
+    const pool = [
+      "操作数 A 尾数右移 1 位",
+      `操作数 ${smallName === "A" ? "B" : "A"} 尾数左移 ${r.dE} 位`,
+      `操作数 ${smallName} 尾数左移 ${r.dE} 位`,
+      "两个操作数阶码都变成 0",
+    ];
+    const choiceSet = buildChoices(correct, pool);
+    return {
+      type, mode: "choice",
+      prompt: `浮点运算 <code>${preset.label}</code>：A 的阶码 ${r.a.exp}，B 的阶码 ${r.b.exp}。对阶时应该怎么做？`,
+      choices: choiceSet.choices, answer: choiceSet.answer,
+      explain: r.dE === 0 ? "两数阶码相同，直接做尾数运算。" : `阶差 ΔE = ${r.dE}，阶码小的操作数 ${smallName} 的尾数右移 ${r.dE} 位（小阶向大阶看齐）。`,
+    };
+  }
+
+  if (type === "floatnorm") {
+    const m = randomInt(8, 255), e = randomInt(-4, 4);
+    const norm = floatAdd(encodeFloat(0, e + FMT.bias + FMT.fracBits, bitString(m - 128, FMT.fracBits)), encodeFloat(0, e + FMT.bias + FMT.fracBits, "0".repeat(FMT.fracBits)));
+    const rel = norm.leftShifts > 0 ? "左" : norm.rightShifts > 0 ? "右" : "不";
+    const count = norm.leftShifts > 0 ? norm.leftShifts : norm.rightShifts;
+    const correct = count === 0 ? "尾数已在 [1, 2)，无需规格化" : `${rel}规 ${count} 位`;
+    const pool = ["左规 1 位", "右规 1 位", "左规 2 位", "右规 2 位", "无需规格化"];
+    const choiceSet = buildChoices(correct, pool);
+    const sumDisp = (m / 128 * 2).toFixed(4);
+    return {
+      type, mode: "choice",
+      prompt: `浮点尾数运算得到和约 <code>${sumDisp}</code>（对应 1.xxx 表示法），接下来需要怎样规格化？`,
+      choices: choiceSet.choices, answer: choiceSet.answer,
+      explain: count === 0 ? "尾数已经规格化。" : `尾数和需要${rel}规 ${count} 位，使尾数回到 [1, 2) 区间，同时阶码相${rel === "左" ? "减" : "加"} ${count}。`,
+    };
+  }
+
+  const concept = QUIZ_CONCEPTS[randomInt(0, QUIZ_CONCEPTS.length - 1)];
+  return { type: "concept", mode: "choice", prompt: concept.q, choices: concept.choices, answer: concept.answer, explain: concept.why };
+}
+
+function startQuizRound() {
+  quizState.current = generateQuestion(window.__forceQuizType ?? null);
+  quizState.answered = false;
+  quizState.selected = -1;
+  renderQuizQuestion();
+  updateQuizNarrator();
+}
+function updateQuizNarrator() {
+  stepCountEl.textContent = `答对 ${quizState.correct} / ${quizState.total} · 连对 ${quizState.streak}`;
+  stepTextEl.innerHTML = `题型随机：<b>乘法中间状态 / 布斯编码 / 除法结果 / 对阶 / 规格化 / 概念</b>。<br>A / B / C / D 键作答，Enter 提交。`;
+}
+function renderQuizQuestion() {
+  const q = quizState.current;
+  document.getElementById("quizPrompt").innerHTML = q.prompt;
+  const answerEl = document.getElementById("quizAnswer");
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = "quiz-feedback";
+  feedback.innerHTML = "";
+  document.getElementById("quizSubmit").hidden = false;
+  document.getElementById("quizNext").hidden = true;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  answerEl.innerHTML = `<div class="quiz-choices">${q.choices.map((choice, i) => `
+    <button class="quiz-choice" data-idx="${i}" type="button"><span class="qc-key">${"ABCD"[i]}</span><span>${choice}</span></button>`).join("")}</div>`;
+  answerEl.querySelectorAll(".quiz-choice").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (quizState.answered) return;
+      quizState.selected = Number(btn.dataset.idx);
+      answerEl.querySelectorAll(".quiz-choice").forEach((b) => b.classList.toggle("selected", b === btn));
+    });
+  });
+}
+function submitQuizAnswer() {
+  if (quizState.answered || quizState.selected < 0) return;
+  const q = quizState.current;
+  const isCorrect = quizState.selected === q.answer;
+  document.querySelectorAll(".quiz-choice").forEach((btn) => {
+    const idx = Number(btn.dataset.idx);
+    btn.disabled = true;
+    if (idx === q.answer) btn.classList.add("correct");
+    else if (idx === quizState.selected) btn.classList.add("wrong");
+  });
+  quizState.answered = true;
+  window.__platformLink?.recordQuizAnswer(isCorrect);
+  quizState.total += 1;
+  if (isCorrect) {
+    quizState.correct += 1;
+    quizState.streak += 1;
+    quizState.best = Math.max(quizState.best, quizState.streak);
+  } else {
+    quizState.streak = 0;
+  }
+  const feedback = document.getElementById("quizFeedback");
+  feedback.className = `quiz-feedback show ${isCorrect ? "ok" : "bad"}`;
+  feedback.innerHTML = `${isCorrect ? "✅ <b>答对了！</b>" : "❌ <b>不对哦。</b>"} ${q.explain}`;
+  document.getElementById("quizSubmit").hidden = true;
+  document.getElementById("quizNext").hidden = false;
+  document.getElementById("quizScore").textContent = `${quizState.correct} / ${quizState.total}`;
+  document.getElementById("quizStreak").textContent = quizState.streak >= 2 ? `🔥 连对 ${quizState.streak}` : "";
+  updateQuizNarrator();
+}
+function renderQuizStage() {
+  stage.innerHTML = `
+    <div class="stage-title"><h2>课堂练习 · 随机出题</h2><span class="st-sub">乘法 / 布斯 / 除法 / 对阶 / 规格化 / 概念</span></div>
+    <div class="zone"><div class="quiz-head">
+      <span>得分 <strong id="quizScore">0 / 0</strong></span>
+      <span class="quiz-streak" id="quizStreak"></span>
+      <span>A / B / C / D 键作答 · Enter 提交</span>
+    </div></div>
+    <div class="zone quiz-card" style="gap:14px">
+      <div class="quiz-q" id="quizPrompt"></div>
+      <div id="quizAnswer"></div>
+      <div class="quiz-feedback" id="quizFeedback"></div>
+    </div>
+    <div class="quiz-actions">
+      <button id="quizSubmit" type="button">提交答案</button>
+      <button id="quizNext" class="ghost-action" type="button" hidden>下一题 →</button>
+    </div>
+    <div class="formula-strip" id="formulaStrip">独立练习模式：题目由运算器算法实时生成，做完一题点「下一题」</div>`;
+  document.getElementById("quizSubmit").addEventListener("click", submitQuizAnswer);
+  document.getElementById("quizNext").addEventListener("click", startQuizRound);
+}
+
+/* ═══════════════════════ 九、讲解与场景面板 ═══════════════════════ */
+function syncNarrator(step) {
+  if (state.mode === "quiz") return;
+  const total = currentTraceLength();
+  stepCountEl.textContent = `第 ${state.stepIndex + 1} / ${total} 步`;
+  if (step.note) stepTextEl.innerHTML = step.note;
+  const formulaEl = document.getElementById("formulaStrip");
+  if (formulaEl && step.formula) formulaEl.textContent = step.formula;
+  document.getElementById("prevBtn").disabled = state.stepIndex === 0;
+  document.getElementById("nextBtn").disabled = state.stepIndex >= total - 1;
+}
+function currentTraceLength() {
+  if (state.mode === "multiply") return mulState.trace.length;
+  if (state.mode === "booth") return boothState.trace.length;
+  if (state.mode === "divide") return divState.trace.length;
+  if (state.mode === "float") return 5;
+  return 1;
+}
+
+function renderPresets() {
+  const mode = state.mode;
+  let items = [], activeIndex = -1, hint = "", note = "";
+  if (mode === "multiply") {
+    items = MUL_PRESETS.map((item) => ({ label: item.label, sub: item.sub, run: () => mulLoad(item.m, item.q, MUL_PRESETS.indexOf(item)) }));
+    activeIndex = mulState.preset;
+    hint = "4 位无符号";
+    note = "<b>原码一位乘法</b>：把乘法拆成 n 次「判断 + 加法 + 右移」。<br>Q₀ = 1 就把被乘数加到部分积上，然后整体右移一位——硬件只需要一个加法器、一组寄存器和移位控制。<br>本例被乘数与乘数都是 4 位，共 4 拍，得到 8 位积。";
+  } else if (mode === "booth") {
+    items = BOOTH_PRESETS.map((item) => ({ label: item.label, sub: item.sub, run: () => boothLoad(item.m, item.q, BOOTH_PRESETS.indexOf(item)) }));
+    activeIndex = boothState.preset;
+    hint = "4 位补码";
+    note = "<b>布斯一位乘法</b>：把乘数看作补码，右侧附加 Q₋₁ = 0。<br>每拍看最低两位：<b>01 加 M、10 减 M、00/11 只移位</b>，然后做算术右移（符号位复制）。<br>符号位参与运算，不用单独处理正负号。<br><span style=\"color:#8ea3c8\">注：本演示 A 取 n 位，被乘数范围取 −7 ~ 7——−8 的相反数 +8 在 4 位里表示不出来，这正是硬件里要给累加器多留一位符号保护位的原因。</span>";
+  } else if (mode === "divide") {
+    items = DIV_PRESETS.map((item) => ({ label: item.label, sub: item.sub, run: () => divLoad(item.dividend, item.divisor, DIV_PRESETS.indexOf(item)) }));
+    activeIndex = divState.preset;
+    hint = "4 位 ÷ 4 位";
+    note = "<b>恢复余数除法</b>：每拍把 A:Q 左移一位，用 A 试减除数 M。<br>够减 → 商上 1；不够减 → 把除数加回去（恢复余数）再上商 0。<br>n 拍后 Q 是商、A 是余数，满足「商 × 除数 + 余数 = 被除数」。";
+  } else if (mode === "float") {
+    items = FLOAT_PRESETS.map((item) => ({ label: item.label, sub: item.sub, run: () => floatLoad(FLOAT_PRESETS.indexOf(item)) }));
+    activeIndex = floatState.preset;
+    hint = "1 + 4 + 7 位";
+    note = "<b>浮点加减五步</b>：分解操作数 → <b>对阶</b>（小阶向大阶看齐）→ 尾数运算 → <b>规格化</b>（右规/左规）→ 舍入与溢出判断。<br>教学格式：1 位符号 + 4 位阶码（移码，偏置 7）+ 7 位尾数（隐含 1，范围 [1,2)）。";
+  } else {
+    items = [];
+    hint = "随机出题";
+    note = "共 <b>6 种题型</b>：乘法中间状态、布斯编码决策、除法结果与恢复次数、对阶方案、规格化位数、概念判断。<br>题目答案全部由本页的运算器算法实时计算，不会出错。";
+  }
+  presetListEl.innerHTML = items.map((item, i) => `<button class="preset-btn ${i === activeIndex ? "active" : ""}" data-preset="${i}">${item.label}<small>${item.sub}</small></button>`).join("") || `<div class="side-note">本模式无需选择场景，题目会自动生成。</div>`;
+  presetListEl.querySelectorAll(".preset-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const item = items[Number(btn.dataset.preset)];
+      if (item) { stopAllPlaying(); item.run(); renderPresets(); }
+    });
+  });
+  presetHintEl.textContent = hint;
+  sideNoteEl.innerHTML = note;
+}
+
+/* ═══════════════════════ 十、播放控制与切换 ═══════════════════════ */
+function stopAllPlaying() {
+  mulState.playing = false;
+  boothState.playing = false;
+  divState.playing = false;
+  floatState.playing = false;
+  clearTimeout(state.timer);
+}
+function setBanner(html, kind) {
+  if (!kind) { bannerEl.className = "banner"; bannerEl.innerHTML = ""; return; }
+  bannerEl.className = `banner show ${kind}`;
+  bannerEl.innerHTML = html;
+}
+void setBanner;
+
+function renderScene() {
+  document.body.classList.toggle("quiz-active", state.mode === "quiz");
+  if (state.mode === "multiply") { renderMultiplyStage(); state.stepIndex = mulState.idx; }
+  else if (state.mode === "booth") { renderBoothStage(); state.stepIndex = boothState.idx; }
+  else if (state.mode === "divide") { renderDivideStage(); state.stepIndex = divState.idx; }
+  else if (state.mode === "float") { renderFloatStage(); state.stepIndex = floatState.idx; }
+  else { renderQuizStage(); startQuizRound(); }
+  renderPresets();
+  if (state.mode !== "quiz") syncNarrator(currentStep());
+}
+
+function currentStep() {
+  if (state.mode === "multiply") return mulStepAt(mulState.idx);
+  if (state.mode === "booth") return boothState.trace[Math.max(0, Math.min(boothState.idx, boothState.trace.length - 1))];
+  if (state.mode === "divide") return divState.trace[Math.max(0, Math.min(divState.idx, divState.trace.length - 1))];
+  return {};
+}
+
+function stepBy(delta) {
+  if (state.mode === "multiply") mulGo(mulState.idx + delta);
+  else if (state.mode === "booth") boothGo(boothState.idx + delta);
+  else if (state.mode === "divide") divGo(divState.idx + delta);
+  else if (state.mode === "float") floatGo(floatState.idx + delta);
+}
+
+const playBtnEl = document.getElementById("playBtn");
+function setPlayUI(playing) { playBtnEl.textContent = playing ? "⏸ 暂停" : "▶ 自动播放"; }
+function toggleAuto() {
+  if (state.mode === "multiply") mulAuto();
+  else if (state.mode === "booth") boothAuto();
+  else if (state.mode === "divide") divAuto();
+  else if (state.mode === "float") floatAuto();
+  setPlayUI(false);
+}
+playBtnEl.addEventListener("click", toggleAuto);
+document.getElementById("prevBtn").addEventListener("click", () => stepBy(-1));
+document.getElementById("nextBtn").addEventListener("click", () => stepBy(1));
+document.getElementById("resetBtn").addEventListener("click", () => {
+  stopAllPlaying();
+  if (state.mode === "multiply") mulLoad(mulState.m, mulState.q, mulState.preset);
+  else if (state.mode === "booth") boothLoad(boothState.m, boothState.q, boothState.preset);
+  else if (state.mode === "divide") divLoad(divState.dividend, divState.divisor, divState.preset);
+  else if (state.mode === "float") floatLoad(floatState.preset);
+  else startQuizRound();
+});
+
+const speedRange = document.getElementById("speedRange");
+speedRange.addEventListener("input", () => {
+  state.speed = Number(speedRange.value);
+  document.getElementById("speedLabel").textContent = `${state.speed}×`;
+});
+
+document.getElementById("modeTabs").addEventListener("click", (event) => {
+  const btn = event.target.closest("button[data-mode]");
+  if (!btn) return;
+  stopAllPlaying();
+  state.mode = btn.dataset.mode;
+  state.stepIndex = 0;
+  document.querySelectorAll("#modeTabs button").forEach((item) => item.classList.toggle("active", item === btn));
+  renderScene();
+});
+
+document.getElementById("insightToggle").addEventListener("click", () => {
+  const body = document.getElementById("insightBody");
+  body.hidden = !body.hidden;
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.target.tagName === "INPUT") return;
+  if (event.code === "Space") { event.preventDefault(); toggleAuto(); return; }
+  if (event.key === "ArrowLeft") { stepBy(-1); return; }
+  if (event.key === "ArrowRight") { stepBy(1); return; }
+  if (event.key === "1") document.querySelector('[data-mode="multiply"]').click();
+  if (event.key === "2") document.querySelector('[data-mode="booth"]').click();
+  if (event.key === "3") document.querySelector('[data-mode="divide"]').click();
+  if (event.key === "4") document.querySelector('[data-mode="float"]').click();
+  if (event.key === "5") document.querySelector('[data-mode="quiz"]').click();
+  if (state.mode === "quiz" && /^[a-dA-D]$/.test(event.key) && !quizState.answered) {
+    const idx = "abcd".indexOf(event.key.toLowerCase());
+    document.querySelector(`.quiz-choice[data-idx="${idx}"]`)?.click();
+  }
+  if (state.mode === "quiz" && event.key === "Enter") {
+    event.preventDefault();
+    if (quizState.answered) startQuizRound();
+    else submitQuizAnswer();
+  }
+  if (event.key.toLowerCase() === "r") document.getElementById("resetBtn").click();
+});
+
+/* ═══════════════════════ 十一、启动 ═══════════════════════ */
+mulLoad(MUL_PRESETS[0].m, MUL_PRESETS[0].q, 0);
+boothLoad(BOOTH_PRESETS[0].m, BOOTH_PRESETS[0].q, 0);
+divLoad(DIV_PRESETS[0].dividend, DIV_PRESETS[0].divisor, 0);
+floatLoad(0);
+state.mode = "multiply";
+renderScene();
+
+/* 供自动化验收读取（verify.mjs 使用），页面逻辑不依赖 */
+window.__quizState = quizState;
+window.__mulState = mulState;
+window.__boothState = boothState;
+window.__divState = divState;
+window.__floatState = floatState;
+window.__alu = {
+  buildUnsignedMultiplyTrace, buildBoothTrace, buildDivideTrace, floatAdd,
+  decodeFloat, encodeFloat, bitsOf, valueOf, bitString, signedValueOf, negateBits, addBits,
+  FMT, FLOAT_PRESETS, MUL_PRESETS, BOOTH_PRESETS, DIV_PRESETS,
+};
+</script>
+<script src="./platform-link.js"></script>
+</body>
+</html>

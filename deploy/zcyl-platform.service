@@ -1,0 +1,28 @@
+[Unit]
+Description=计算机组成原理实训平台（ChiQuest）
+Documentation=file://@APP_DIR@/docs/classroom-deployment.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@APP_USER@
+Group=@APP_USER@
+WorkingDirectory=@APP_DIR@/prototype
+EnvironmentFile=@ENV_FILE@
+ExecStart=@NODE_BIN@ server/server.js
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zcyl-platform
+
+# SQLite 需要写数据目录；其余路径只读
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/zcyl
+
+[Install]
+WantedBy=multi-user.target

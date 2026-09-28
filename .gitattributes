@@ -1,0 +1,8 @@
+# 服务端脚本与配置必须用 LF 行尾，CRLF 会让 bash / systemd 直接报错
+deploy/*.sh text eol=lf
+deploy/*.service text eol=lf
+deploy/*.conf text eol=lf
+
+# 静态演示版与演示页保持字节级一致（预览站校验靠 hash 对比）
+preview/** text eol=lf
+prototype/public/demos/** text eol=lf
