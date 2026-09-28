@@ -134,7 +134,7 @@ try {
   console.log("monitor view rendered, report details count:", await page.locator("details").count());
 
   // ── 修复 1：课件页上传 PPTX 并在浏览器内渲染 ──
-  await page.locator(".sidebar-nav .nav-item").filter({ hasText: "课程课件" }).click();
+  await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "课程课件" }).click();
   await page.locator(".upload-courseware-panel").waitFor({ state: "visible", timeout: 10_000 });
   await page.getByLabel("选择发布课件的班级").selectOption({ label: className });
   await page.locator(".upload-label input[type=file]").setInputFiles(samplePptx);

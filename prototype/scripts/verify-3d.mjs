@@ -172,7 +172,7 @@ try {
 
   console.log("4. Verify hardware builder path");
   await page.getByRole("button", { name: /返回课程首页/ }).click();
-  await page.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
+  await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "硬件配置挑战" }).click();
   await verifyHardwareAssembly(page, artifactDir);
   await verifyAssemblyPractice(page, artifactDir);
   await verifyAssemblyPracticeSync(page, browser, artifactDir);
@@ -216,7 +216,7 @@ try {
   await fallbackPage.locator(".project-chapter-board, .mission-route-board").first().waitFor({ state: "visible", timeout: 20_000 });
   // 结算层可能在导航回首页时才渲染，先关掉再继续点击导航。
   await dismissQuestSettlement(fallbackPage);
-  await fallbackPage.locator(".sidebar-nav .nav-item").filter({ hasText: "硬件配置挑战" }).click();
+  await fallbackPage.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "硬件配置挑战" }).click();
   await fallbackPage.waitForSelector(".assembly-workshop", { timeout: 20_000 });
   check("Builder explains unavailable WebGL", await fallbackPage.locator(".assembly-fallback").isVisible());
   await fallbackPage.getByRole('button', { name: '打开侧板', exact: true }).click();

@@ -191,11 +191,11 @@ try {
 
   assert.deepEqual(pageErrors, [], "performance QA must not emit page errors");
   async function openAssembly() {
-    await page.locator('.sidebar-nav .nav-item').filter({ hasText: '硬件配置挑战' }).click();
+    await page.locator('.topbar-nav .topbar-nav-item').filter({ hasText: '硬件配置挑战' }).click();
     await page.locator('.assembly-workshop canvas[data-model-source="blender-glb"]').waitFor({ state: 'visible' });
   }
   async function leaveAssembly() {
-    await page.locator('.sidebar-nav .nav-item').filter({ hasText: '课程首页' }).click();
+    await page.locator('.topbar-nav .topbar-nav-item').filter({ hasText: '课程首页' }).click();
     await page.locator('.assembly-workshop canvas').waitFor({ state: 'detached' });
   }
   await returnHome(page);

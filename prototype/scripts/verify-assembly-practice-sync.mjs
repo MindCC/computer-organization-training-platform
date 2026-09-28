@@ -5,7 +5,7 @@ import { clickCentered } from './lib/qaInteraction.mjs';
 
 export async function verifyAssemblyPracticeSync(page,browser,artifactDir){
   const synced=p=>expect(p.locator('.practice-sync-status')).toContainText('已同步到服务器',{timeout:15000});
-  const enter=async p=>{await p.locator('.sidebar-nav .nav-item').filter({hasText:'硬件配置挑战'}).click();await p.getByRole('button',{name:'进入装机教学练习',exact:true}).click();};
+  const enter=async p=>{await p.locator('.topbar-nav .topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();await p.getByRole('button',{name:'进入装机教学练习',exact:true}).click();};
   await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
   await page.getByRole('combobox',{name:'练习模式',exact:true}).selectOption('guided');
   // 页面向下滚动后，练习头部会被固定顶栏盖住；先居中再点。

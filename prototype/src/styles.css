@@ -7375,10 +7375,6 @@ body {
 }
 
 @media (max-width: 780px) {
-  body {
-    padding-bottom: 72px;
-  }
-
   .topbar {
     min-height: 64px;
     padding: 9px 12px;
@@ -7412,50 +7408,29 @@ body {
     min-height: 0;
   }
 
-  .sidebar {
-    position: static;
-    min-height: 0;
-    height: 0;
-    max-height: none;
-    padding: 0;
-    background: transparent;
+  /* 窄屏导航：早先是固定在底部的 .sidebar-nav，顶栏重构后那段样式已无人使用，
+     导航会把页面直接撑出横向溢出。现在让它换到第二行并横向滚动。 */
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
 
-  .sidebar-nav {
-    position: fixed;
-    right: 8px;
-    bottom: 8px;
-    left: 8px;
-    z-index: 60;
-    display: flex;
-    gap: 4px;
+  .topbar-nav {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    order: 3;
     overflow-x: auto;
     scrollbar-width: none;
-    padding: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 13px;
-    background: #1f2937;
-    box-shadow: 0 12px 30px rgba(6, 43, 73, 0.28);
   }
-  .sidebar-nav::-webkit-scrollbar {
+
+  .topbar-nav::-webkit-scrollbar {
     display: none;
   }
 
-  .sidebar-meta,
-  .sidebar-promo {
-    display: none;
-  }
-
-  .nav-item {
-    min-width: 68px;
-    min-height: 50px;
-    flex: 1 0 68px;
-    padding: 5px 4px;
-    font-size: 0.62rem;
-  }
-
-  .nav-item.active {
-    box-shadow: inset 0 -3px 0 #22c7bd;
+  .topbar-nav-item {
+    flex: none;
   }
 
   .dashboard {

@@ -104,7 +104,7 @@ try {
   await page.locator(".teacher-studio").waitFor({ state: "visible", timeout: 60_000 });
 
   // 教师侧边栏必须能进入课程课件（本次修复的可发现性问题）
-  const coursewareNav = page.locator(".sidebar-nav .nav-item").filter({ hasText: "课程课件" });
+  const coursewareNav = page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "课程课件" });
   assert.equal(await coursewareNav.count(), 1, "teacher sidebar exposes the courseware entry");
 
   // 拆分后的各功能版块（教师看板为「教学活动 / 学情统计 → 子标签」结构）
@@ -197,7 +197,7 @@ try {
   console.error("uncaught page errors:", JSON.stringify(pageErrors, null, 2));
   console.error("console errors:", JSON.stringify(consoleErrors, null, 2));
   console.error("final state:", JSON.stringify(await page.evaluate(() => ({
-    nav: [...document.querySelectorAll(".sidebar-nav .nav-item")].map((el) => el.textContent.trim()),
+    nav: [...document.querySelectorAll(".topbar-nav .topbar-nav-item")].map((el) => el.textContent.trim()),
     bodyText: document.body.innerText.replace(/\s+/g, " ").slice(0, 300),
     viewSession: window.sessionStorage.getItem("zcyl:view-session"),
     teacherStudioCount: document.querySelectorAll(".teacher-studio").length,

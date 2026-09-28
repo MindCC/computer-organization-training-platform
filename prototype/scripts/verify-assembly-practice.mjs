@@ -4,7 +4,7 @@ import path from 'node:path';
 
 export async function verifyAssemblyPractice(page,artifactDir){
   await page.reload({waitUntil:'networkidle'});
-  await page.locator('.sidebar-nav .nav-item').filter({hasText:'硬件配置挑战'}).click();
+  await page.locator('.topbar-nav .topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();
   const orderDrafts=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage).filter(([k])=>k.startsWith('zcyl:assembly-draft:'))));
   await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
   const workshop=page.getByRole('region',{name:'3D 交互装机工作台'}),review=page.getByRole('region',{name:'练习复盘',exact:true});
@@ -31,7 +31,7 @@ export async function verifyAssemblyPractice(page,artifactDir){
   await page.getByRole('button',{name:'安装到CPU 插座',exact:true}).last().click();
   await page.getByRole('button',{name:'查看提示',exact:true}).click();
   await page.reload({waitUntil:'networkidle'});
-  await page.locator('.sidebar-nav .nav-item').filter({hasText:'硬件配置挑战'}).click();
+  await page.locator('.topbar-nav .topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();
   await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
   await expect(page.locator('.practice-save-status')).toContainText('已恢复未完成练习');
   await expect(page.locator('.assembly-counter strong')).toContainText('1 /');
@@ -88,7 +88,7 @@ export async function verifyAssemblyPractice(page,artifactDir){
   await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
   await expect(review).not.toContainText('练习完成');
   await expect(page.locator('.practice-history details')).toHaveCount(5);
-  await page.reload({waitUntil:'networkidle'});await page.locator('.sidebar-nav .nav-item').filter({hasText:'硬件配置挑战'}).click();
+  await page.reload({waitUntil:'networkidle'});await page.locator('.topbar-nav .topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();
   await expect(page.getByRole('button',{name:'进入装机教学练习',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
   await expect(page.locator('.practice-history details')).toHaveCount(5);

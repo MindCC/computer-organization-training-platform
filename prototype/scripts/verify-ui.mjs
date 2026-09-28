@@ -13,7 +13,7 @@ import { CHALLENGES } from "../src/platformLogic.js";
 const text = {
   appTitle: "\u7ec4\u6210\u539f\u7406\u5b9e\u8bad\u5e73\u53f0",
   login: "\u767b\u5f55",
-  teacherHeading: "教师数据页",
+  teacherHeading: "课堂任务与课程组织",
   className: "\u8ba1\u7ec4 UI Smoke \u73ed " + Date.now(),
   studentNo: "ui-smoke-" + Date.now(),
   studentName: "\u6d4b\u8bd5\u5b66\u751f",
@@ -78,9 +78,11 @@ page.on("pageerror", (error) => pageErrors.push(error.message));
 
 try {
 await gotoApp(page, baseUrl);
-await assertVisible(page, text.appTitle);
+// 未登录先落到课程首页，登录弹层由顶栏「登录」按钮打开（早先是首页 CTA「开始第一个实验」）。
 await assertVisible(page, "当前任务");
-await page.getByRole("button", { name: "开始第一个实验" }).click();
+await page.getByRole("button", { name: "登录", exact: true }).click();
+await page.locator(".login-portal").waitFor({ state: "visible", timeout: 30_000 });
+await assertVisible(page, text.appTitle);
 await assertVisible(page, "装配知识，运行你的第一台计算机");
 await assertVisible(page, "学生入口");
 await assertVisible(page, "教师入口");
@@ -88,7 +90,7 @@ assert.equal(await page.locator(".login-portal").count(), 1);
 assert.equal(await page.locator(".login-card").count(), 0);
 await page.getByRole("button", { name: "先浏览课程" }).click();
 await assertVisible(page, "当前任务");
-await page.getByRole("button", { name: "登录" }).click();
+await page.getByRole("button", { name: "登录", exact: true }).click();
 await login(page, teacherUsername, teacherPassword);
 await assertVisible(page, text.teacherHeading);
 await assertNoVisibleMojibake(page, "teacher dashboard");
@@ -155,17 +157,17 @@ if (await lockedCard.isVisible().catch(() => false)) {
   // 未解锁 ≠ 打不开：默认不允许跳关只拦截「提交检测」，卡片仍可进入练习。
   assert.equal(await lockedCard.isDisabled(), false, "locked challenge card stays enterable for practice");
 }
-await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u9519\u9898\u672c" }).click();
+await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "\u9519\u9898\u672c" }).click();
 await page.locator(".mistakes-layout").waitFor({ state: "visible", timeout: 10_000 });
-await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u8bfe\u540e\u4f5c\u4e1a" }).click();
+await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "\u8bfe\u540e\u4f5c\u4e1a" }).click();
 await page.locator(".student-assignments").waitFor({ state: "visible", timeout: 10_000 });
-await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u8bfe\u7a0b\u8bfe\u4ef6" }).click();
+await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "\u8bfe\u7a0b\u8bfe\u4ef6" }).click();
 await page.locator(".courseware-view").waitFor({ state: "visible", timeout: 10_000 });
-await page.locator(".sidebar-nav .nav-item").filter({ hasText: "学习笔记" }).click();
+await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "学习笔记" }).click();
 await page.getByLabel("笔记内容").fill("3D 与总线关系复盘");
 await page.getByRole("button", { name: "保存笔记" }).click();
 await assertVisible(page, "3D 与总线关系复盘");
-await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u8bfe\u7a0b\u9996\u9875" }).click();
+await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "\u8bfe\u7a0b\u9996\u9875" }).click();
 await openChallenge(page, "\u8ba4\u8bc6\u8ba1\u7b97\u673a\u4e94\u5927\u90e8\u4ef6");
 await page.getByRole("button", { name: "\u6253\u5f00\u4e2a\u4eba\u8bbe\u7f6e" }).click();
 await page.locator(".settings-overlay").waitFor({ state: "visible", timeout: 10_000 });
@@ -189,7 +191,7 @@ await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
 await assertVisible(page, "当前任务");
 
 await dismissQuestSettlementNow(page);
-await page.locator(".sidebar-nav .nav-item").filter({ hasText: "课程首页" }).click();
+await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "课程首页" }).click();
 await assertVisible(page, "当前任务");
 
 
@@ -283,8 +285,19 @@ await page.setViewportSize({ width: 390, height: 900 });
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 await assertVisible(page, text.teacherHeading);
 await page.screenshot({ path: artifactPath("mobile-teacher.png"), fullPage: true });
-assert.equal(await page.locator(".sidebar-nav").evaluate((node) => getComputedStyle(node).position), "fixed", "mobile navigation stays reachable at the bottom");
-assert.equal(await page.locator(".sidebar-nav").evaluate((node) => getComputedStyle(node).scrollbarWidth), "none", "mobile navigation hides its horizontal scrollbar");
+// 窄屏导航契约：顶栏导航换到第二行并横向滚动，所有入口都能滚到、页面不横向溢出。
+// （早先是固定在底部的 .sidebar-nav，顶栏重构后那段 DOM 已不存在。）
+const mobileNav = await page.locator(".topbar-nav").evaluate((node) => ({
+  visible: node.getBoundingClientRect().height > 0,
+  overflowX: getComputedStyle(node).overflowX,
+  clientWidth: node.clientWidth,
+  scrollWidth: node.scrollWidth,
+  right: Math.round(node.getBoundingClientRect().right),
+}));
+assert.equal(mobileNav.visible, true, "mobile navigation stays reachable");
+assert.equal(mobileNav.overflowX, "auto", "mobile navigation scrolls its own items instead of pushing the page wide");
+assert.equal(mobileNav.right <= 390, true, `mobile navigation must stay inside the viewport: ${JSON.stringify(mobileNav)}`);
+assert.equal(await page.locator(".topbar-nav .topbar-nav-item").count() > 0, true, "mobile navigation keeps its items");
 const mobileOverflow = await page.evaluate(() => ({
   clientWidth: document.documentElement.clientWidth,
   scrollWidth: document.documentElement.scrollWidth,
@@ -367,11 +380,11 @@ async function openChallenge(targetPage, title) {
 }
 
 async function openRecords(targetPage) {
-  await targetPage.locator(".sidebar-nav .nav-item").filter({ hasText: text.records }).click();
+  await targetPage.locator(".topbar-nav .topbar-nav-item").filter({ hasText: text.records }).click();
 }
 
 async function openHardwareGame(targetPage) {
-  await targetPage.locator(".sidebar-nav .nav-item").filter({ hasText: text.hardwareGame }).click();
+  await targetPage.locator(".topbar-nav .topbar-nav-item").filter({ hasText: text.hardwareGame }).click();
 }
 
 async function selectClass(targetPage, className) {

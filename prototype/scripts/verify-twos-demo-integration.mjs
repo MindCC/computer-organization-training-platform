@@ -40,7 +40,7 @@ try {
   await page.locator("#login-password").fill("Student123!");
   await page.locator(".login-submit").click();
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
-  await page.locator(".sidebar-nav .nav-item", { hasText: "课程课件" }).click();
+  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "课程课件" }).click();
   await page.locator(".chapter-header", { hasText: "第二章" }).click();
   const demoLink = page.locator(".chapter-body .linked-challenges a[href='/demos/twos-complement.html']");
   check("ch2 课件含「课堂演示」入口", await demoLink.count() === 1);

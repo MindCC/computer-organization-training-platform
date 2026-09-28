@@ -33,7 +33,7 @@ try {
   });
   await fillLoginForm(page, { username: 'demo2026001', password: 'Student123!' });
   await submitLoginForm(page);
-  await page.locator('.sidebar-nav').waitFor();
+  await page.locator('.topbar-nav').waitFor();
   await openChallengeFromHome(page, '认识计算机五大部件');
   const canvas = page.locator('canvas[data-model-source="blender-glb"]');
   // 冷启动时 vite 首次编译 + GLB 加载明显更慢，这里给足余量避免抖动。

@@ -18,7 +18,7 @@ await submitLoginForm(page);
 await page.waitForTimeout(2500);
 
 // 主导航应有「错题本」入口
-const mistakesNav = page.locator(".sidebar-nav").getByRole("button", { name: "错题本" });
+const mistakesNav = page.locator(".topbar-nav").getByRole("button", { name: "错题本" });
 await mistakesNav.waitFor({ state: "visible", timeout: 10_000 });
 console.log("错题本 nav entry visible");
 await mistakesNav.click();
