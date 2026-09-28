@@ -56,24 +56,25 @@ try {
   check("学习树：24 细枝", twigCount === 24, `实际 ${twigCount}`);
   check("学习树：24 实验叶子", leafCount === 24, `实际 ${leafCount}`);
 
-  // 点亮状态（demo2026001：game-office-pc、half-adder 已完成；data-flow 进行中）
+  // 点亮状态（demo2026001 的播种学情：沿章节顺序做到「半加器」卡住，
+  // 装机挑战 game-office-pc 等也已完成）
   const officeLeafClass = await page.locator(".tree-leaf", { hasText: "办公电脑" }).getAttribute("class");
-  const halfAdderClass = await page.locator(".tree-leaf", { hasText: "半加器" }).first().getAttribute("class");
-  const dataFlowClass = await page.locator(".tree-leaf", { hasText: "认识数据流" }).getAttribute("class");
   const andGateClass = await page.locator(".tree-leaf", { hasText: "与门" }).getAttribute("class");
-  check("已完成实验点亮（办公电脑/半加器）", officeLeafClass.includes("lit") && halfAdderClass.includes("lit"));
-  check("进行中实验高亮（认识数据流）", dataFlowClass.includes("active"));
-  check("未完成实验未点亮（与门）", andGateClass.includes("dim"));
+  const halfAdderClass = await page.locator(".tree-leaf", { hasText: "半加器" }).first().getAttribute("class");
+  const fullAdderClass = await page.locator(".tree-leaf", { hasText: "全加器" }).getAttribute("class");
+  check("已完成实验点亮（办公电脑/与门）", officeLeafClass.includes("lit") && andGateClass.includes("lit"));
+  check("进行中实验高亮（半加器）", halfAdderClass.includes("active"));
+  check("未完成实验未点亮（全加器）", fullAdderClass.includes("dim"));
 
   // 统计图
   check("饼图渲染", await page.locator("[data-testid='chart-donut'] svg").count() === 1);
   check("折线图渲染（8 章刻度）", await page.locator("[data-testid='chart-line'] .line-x-label").count() === 8);
   check("柱状图渲染（8 行）", await page.locator("[data-testid='chart-bars'] .tech-bar-row").count() === 8);
 
-  // 复位视图后点击叶子进入实验（认识数据流为 demo2026001 的进行中关卡）
+  // 复位视图后点击叶子进入实验（半加器为 demo2026001 的进行中关卡）
   await page.locator(".tree-zoom-fit").click();
   await page.waitForTimeout(250);
-  await page.locator(".tree-leaf[data-leaf-id='data-flow'] .leaf-hit").click();
+  await page.locator(".tree-leaf[data-leaf-id='half-adder'] .leaf-hit").click();
   await page.waitForSelector(".lab-studio", { timeout: 15000 });
   check("点击叶子进入对应实验", true);
   await page.getByRole("button", { name: "返回课程首页" }).click();

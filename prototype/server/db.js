@@ -632,8 +632,20 @@ export function saveStudentProgress(db, studentId, progress) {
   tx();
 }
 
-export function recordStudentAttempt(db, studentId, challengeId, result, options = {}) {
+/**
+ * 清空某个学生的关卡尝试与进度。
+ * 供演示数据播种使用：播种必须可重复且结果干净，否则重复播种只会在旧学情上叠加，
+ * 演示账号的解锁状态会一直是乱的。
+ */
+export function resetStudentProgress(db, studentId) {
   const run = () => {
+    db.prepare("DELETE FROM challenge_attempts WHERE student_id = ?").run(studentId);
+    db.prepare("DELETE FROM student_progress WHERE student_id = ?").run(studentId);
+  };
+  return db.transaction(run)();
+}
+
+export function recordStudentAttempt(db, studentId, challengeId, result, options = {}) {  const run = () => {
     const before = getStudentProgress(db, studentId);
     const next = recordAttempt(before, challengeId, result);
     const errors = (result.errors ?? []).map((error) => error.type ?? String(error));
