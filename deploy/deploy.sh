@@ -15,6 +15,7 @@
 #   SEED_DEMO=1            首次部署时播种演示班级（demo2026001 / Student123!）
 #   INSTALL_NODE=0         置 1 时用 NodeSource 自动安装 Node 22
 #   SKIP_NGINX=0           置 1 时不动 Nginx 配置
+#   SKIP_BUILD=0           置 1 时跳过 vite build（dist 已由本机打包上传时用）
 #
 set -euo pipefail
 
@@ -29,6 +30,7 @@ ENABLE_TLS="${ENABLE_TLS:-0}"
 SEED_DEMO="${SEED_DEMO:-1}"
 INSTALL_NODE="${INSTALL_NODE:-0}"
 SKIP_NGINX="${SKIP_NGINX:-0}"
+SKIP_BUILD="${SKIP_BUILD:-0}"
 PROTO_DIR="$APP_DIR/prototype"
 ENV_FILE="$ETC_DIR/platform.env"
 SERVICE_FILE="/etc/systemd/system/zcyl-platform.service"
@@ -76,10 +78,17 @@ SESSION_SECRET=$SECRET
 COOKIE_SECURE=$ENABLE_TLS
 TRUST_PROXY=1
 TRUST_PROXY_HOPS=1
-PUBLIC_BASE_URL=http://${SERVER_NAME%_}
 # 智能助教（可选）：填了就走 DeepSeek，不填自动降级为本地规则建议
 # DEEPSEEK_API_KEY=sk-xxx
 EOF
+  # PUBLIC_BASE_URL 只在有真实域名时写：留空则按请求自身 Host 做 CSRF Origin 校验（IP/端口直连才不出问题）
+  if [ "$SERVER_NAME" != "_" ]; then
+    if [ "$ENABLE_TLS" = "1" ]; then
+      echo "PUBLIC_BASE_URL=https://$SERVER_NAME" >> "$ENV_FILE"
+    else
+      echo "PUBLIC_BASE_URL=http://$SERVER_NAME" >> "$ENV_FILE"
+    fi
+  fi
   chmod 640 "$ENV_FILE"
   chown root:"$APP_USER" "$ENV_FILE"
 else
@@ -95,8 +104,13 @@ if [ -f package-lock.json ]; then
 else
   sudo -u "$APP_USER" -H npm install --no-audit --no-fund
 fi
-log "构建前端（vite build → prototype/dist）"
-sudo -u "$APP_USER" -H npm run build
+if [ "$SKIP_BUILD" = "1" ]; then
+  [ -f "$PROTO_DIR/dist/index.html" ] || die "SKIP_BUILD=1 但 $PROTO_DIR/dist/index.html 不存在——请先在本机 npm run build 并上传 dist/"
+  log "跳过 vite build（SKIP_BUILD=1），使用已上传的 dist/"
+else
+  log "构建前端（vite build → prototype/dist）"
+  sudo -u "$APP_USER" -H npm run build
+fi
 
 # ── 5. 迁移 + 播种 ─────────────────────────────────────────────────────────
 log "执行数据库迁移"
