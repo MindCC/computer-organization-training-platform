@@ -22,6 +22,7 @@ function check(name, condition, detail = "") {
 /** 章节号 → 该章课堂演示页 href（与 courseware.js demos 一致） */
 const EXPECTED_DEMOS = {
   "第 2 章": ["/demos/twos-complement.html", "/demos/arithmetic-basics.html"],
+  "第 3 章": ["/demos/alu.html"],
   "第 4 章": ["/demos/memory-system.html"],
   "第 5 章": ["/demos/addressing.html"],
   "第 6 章": ["/demos/cpu.html"],

@@ -67,6 +67,26 @@ try {
   const addressing = (apiBody.demos ?? []).find((d) => d.demoId === "addressing");
   check("demo-attempts 已入账（1 批 5 题全对）", Boolean(addressing) && addressing.batches >= 1 && addressing.totalCorrect >= 5, JSON.stringify(addressing ?? null));
 
+  // 4b. 第三章运算器演示页同样联动（章节新增演示页须通过服务端白名单）
+  const aluPage = await context.newPage();
+  await aluPage.goto(`${BASE_URL}/demos/alu.html`, { waitUntil: "domcontentloaded" });
+  await aluPage.waitForSelector("#platform-link-badge", { timeout: 15000 });
+  check("运算器演示页徽标已连接学情", (await aluPage.locator("#platform-link-badge").innerText()).includes("已连接学情"));
+  await aluPage.evaluate(() => { window.__forceQuizType = "concept"; });
+  await aluPage.locator('[data-mode="quiz"]').click();
+  for (let i = 0; i < 5; i++) {
+    const answer = await aluPage.evaluate(() => window.__quizState.current.answer);
+    await aluPage.locator(`.quiz-choice[data-idx="${answer}"]`).click();
+    await aluPage.locator("#quizSubmit").click();
+    await aluPage.waitForTimeout(150);
+    await aluPage.keyboard.press("Enter");
+    await aluPage.waitForTimeout(150);
+  }
+  const aluApi = await (await page.request.get(`${API_URL}/api/student/demo-attempts`)).json();
+  const alu = (aluApi.demos ?? []).find((d) => d.demoId === "alu");
+  check("运算器练习成绩入账 demo-attempts", Boolean(alu) && alu.batches >= 1 && alu.totalCorrect >= 5, JSON.stringify(alu ?? null));
+  await aluPage.close();
+
   // 5. report.md 含课堂演示练习
   const reportResp = await page.request.get(`${API_URL}/api/student/report.md`);
   const reportText = await reportResp.text();

@@ -7,6 +7,7 @@
 export const DEMO_PAGES = Object.freeze([
   { id: "twos-complement", title: "补码的运算", chapterId: "ch2", file: "twos-complement.html" },
   { id: "arithmetic-basics", title: "运算基础（补码与移位）", chapterId: "ch2", file: "arithmetic-basics.html" },
+  { id: "alu", title: "运算器（定点乘除与浮点运算）", chapterId: "ch3", file: "alu.html" },
   { id: "memory-system", title: "存储器系统", chapterId: "ch4", file: "memory-system.html" },
   { id: "addressing", title: "指令系统与寻址方式", chapterId: "ch5", file: "addressing.html" },
   { id: "cpu", title: "CPU 的结构与设计", chapterId: "ch6", file: "cpu.html" },
