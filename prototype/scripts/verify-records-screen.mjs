@@ -35,7 +35,7 @@ try {
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
 
   // 进入学习记录
-  await page.locator(".sidebar-nav .nav-item", { hasText: "学习记录" }).click();
+  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   check("大屏标题「个人学情记录」", await page.getByRole("heading", { name: "个人学情记录" }).count() > 0);
 
@@ -78,7 +78,7 @@ try {
   check("点击叶子进入对应实验", true);
   await page.getByRole("button", { name: "返回课程首页" }).click();
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
-  await page.locator(".sidebar-nav .nav-item", { hasText: "学习记录" }).click();
+  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
   await page.waitForSelector(".records-screen .tree-leaf", { timeout: 15000 });
 
   // 画布缩放：点击控制器放大后容器 data-zoom 变大
@@ -100,7 +100,7 @@ try {
   await page.screenshot({ path: `${ARTIFACT_DIR}/records-tech-screen.png`, fullPage: false });
 
   // 明细契约保留（verify-ui 依赖 .record-table .record-row）
-  await page.locator(".sidebar-nav .nav-item", { hasText: "学习记录" }).click();
+  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   const rowCount = await page.locator(".record-table .record-row").count();
   check("章节化关卡明细保留（.record-table .record-row）", rowCount === 18, `实际 ${rowCount} 行`);

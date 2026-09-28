@@ -32,7 +32,7 @@ try {
   await page.locator("#login-password").fill("Student123!");
   await page.locator(".login-submit").click();
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
-  await page.locator(".sidebar-nav .nav-item", { hasText: "课程课件" }).click();
+  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "课程课件" }).click();
   await page.locator(".chapter-header", { hasText: "第五章" }).click();
   const demoLink = page.locator(".chapter-body .linked-challenges a[href='/demos/addressing.html']");
   check("课件 ch5 含寻址演示入口", await demoLink.count() === 1);
@@ -73,8 +73,8 @@ try {
   check("report.md 含课堂演示练习章节", reportText.includes("课堂演示练习") && reportText.includes("指令系统与寻址方式"));
 
   // 6. 学习记录页显示演示练习面板
-  await page.locator(".sidebar-nav .nav-item", hasText => hasText).first().waitFor();
-  await page.locator(".sidebar-nav .nav-item", { hasText: "学习记录" }).click();
+  await page.locator(".topbar-nav .topbar-nav-item", hasText => hasText).first().waitFor();
+  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   const panel = page.locator("[data-testid='demo-practice-panel']");
   check("学习记录显示演示练习面板", await panel.count() === 1 && (await panel.innerText()).includes("指令系统与寻址方式"), await panel.count());

@@ -34,7 +34,7 @@ try {
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
 
   // 1. 侧边导航不再出现「关卡实验」
-  const navLabels = await page.locator(".sidebar-nav .nav-item").allTextContents();
+  const navLabels = await page.locator(".topbar-nav .topbar-nav-item").allTextContents();
   check("侧边导航无「关卡实验」入口", !navLabels.some((label) => label.includes("关卡实验")), navLabels.join("/"));
 
   // 2. 章节板覆盖八章
