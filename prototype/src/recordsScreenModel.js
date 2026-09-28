@@ -1,4 +1,4 @@
-import { COURSE_CHAPTERS, chapterIdOf } from "./courseChapters.js";
+import { COURSE_CHAPTERS, chapterIdOf, displayScoreOf, isGradedChallenge, scoreLabelOf } from "./courseChapters.js";
 import { LEARNING_ITEMS } from "./platformLogic.js";
 
 /**
@@ -30,6 +30,9 @@ export function buildLearningTreeModel(progress = {}, items = LEARNING_ITEMS, ch
           estimatedMinutes: item.estimatedMinutes ?? null,
           status,
           bestScore: Number(record.bestScore ?? 0),
+          scoreLabel: scoreLabelOf(item, record),
+          scored: displayScoreOf(item, record) !== null,
+          participation: !isGradedChallenge(item),
           lit: status === "completed",
         };
       });
@@ -80,16 +83,19 @@ export function buildStatusDistribution(progress = {}, items = LEARNING_ITEMS) {
   ];
 }
 
-/** 各章学习曲线（折线图）：平均得分与完成率，按章号排序。 */
+/** 各章学习曲线（折线图）：已完成实验的平均得分与完成率，按章号排序。 */
 export function buildChapterScoreSeries(progress = {}, items = LEARNING_ITEMS, chapters = COURSE_CHAPTERS) {
   return (chapters ?? []).map((chapter) => {
     const chapterItems = (items ?? []).filter((item) => chapterIdOf(item) === chapter.id);
     const records = chapterItems.map((item) => progress?.[item.id] ?? {});
     const lit = records.filter((record) => statusOf(record) === "completed").length;
     const total = chapterItems.length;
-    const avgScore = total > 0
-      ? Math.round(records.reduce((sum, record) => sum + Number(record.bestScore ?? 0), 0) / total)
-      : 0;
+    // 平均分只看「已完成且计分」的实验：参与型关卡不计分，未开始的也没有成绩，
+    // 把它们算成 0 分会让折线图变成「做得越多、均分越低」的误导图。
+    const scored = chapterItems
+      .filter((item) => isGradedChallenge(item) && statusOf(progress?.[item.id]) === "completed")
+      .map((item) => Number(progress?.[item.id]?.bestScore ?? 0));
+    const avgScore = scored.length > 0 ? Math.round(scored.reduce((sum, score) => sum + score, 0) / scored.length) : 0;
     const studyMinutes = records.reduce((sum, record) => sum + Number(record.timeSpentMinutes ?? 0), 0);
     return {
       chapterId: chapter.id,
@@ -97,6 +103,7 @@ export function buildChapterScoreSeries(progress = {}, items = LEARNING_ITEMS, c
       label: `第${chapter.number}章`,
       shortTitle: shortChapterTitle(chapter.title),
       avgScore,
+      scoredCount: scored.length,
       completionRate: total > 0 ? Math.round((lit / total) * 100) : 0,
       studyMinutes,
       lit,

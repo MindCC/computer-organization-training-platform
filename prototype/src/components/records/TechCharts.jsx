@@ -106,7 +106,7 @@ export function ChapterScoreLine({ series }) {
     <div className="tech-chart tech-line" data-testid="chart-line">
       <div className="tech-chart-head">
         <strong>各章得分与点亮率</strong>
-        <small>平均分 / 完成率（%）</small>
+        <small>已完成实验平均分 / 完成率（%）</small>
       </div>
       <svg preserveAspectRatio="none" viewBox={`0 0 ${LINE_W} ${LINE_H}`} role="img" aria-label="各章平均分与完成率折线图">
         <defs>

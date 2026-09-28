@@ -1,4 +1,5 @@
 import { LEARNING_ITEMS } from "../../platformLogic.js";
+import { scoreLabelOf } from "../../courseChapters.js";
 
 function statusText(status) {
   return { completed: "已完成", "in-progress": "进行中", unlocked: "未开始", locked: "未解锁" }[status] ?? status;
@@ -143,7 +144,7 @@ export function TeacherStudentDetail({ student, onClose }) {
               return (
                 <div className="teacher-progress-row" key={challenge.id}>
                   <strong>{challenge.title}</strong>
-                  <span>{statusText(record?.status)} · {record?.bestScore ?? 0} 分 · {record?.attempts ?? 0} 次</span>
+                  <span>{statusText(record?.status)} · {scoreLabelOf(challenge, record)} · {record?.attempts ?? 0} 次</span>
                 </div>
               );
             })}

@@ -58,7 +58,7 @@ test("完成分布按已完成/进行中/未点亮分桶且总量守恒", () => 
   assert.equal(distribution.find((entry) => entry.key === "pending").count, LEARNING_ITEMS.length - 2);
 });
 
-test("章节折线序列给出平均分、完成率与章号顺序", () => {
+test("章节折线序列给出已完成实验平均分、完成率与章号顺序", () => {
   const series = buildChapterScoreSeries(fakeProgress({
     "and-gate": { status: "completed", bestScore: 80 },
     "or-gate": { status: "completed", bestScore: 100 },
@@ -69,10 +69,51 @@ test("章节折线序列给出平均分、完成率与章号顺序", () => {
 
   const ch3Items = LEARNING_ITEMS.filter((item) => item.chapterId === "ch3");
   const ch3 = series.find((entry) => entry.chapterId === "ch3");
-  assert.equal(ch3.avgScore, Math.round((80 + 100) / ch3Items.length));
+  // 平均分只统计"已完成且计分"的实验：未开始的实验不进分母，否则均分会被未完成拉低。
+  assert.equal(ch3.avgScore, 90);
+  assert.equal(ch3.scoredCount, 2);
   assert.equal(ch3.completionRate, Math.round((2 / ch3Items.length) * 100));
   assert.equal(ch3.lit, 2);
   assert.equal(ch3.total, ch3Items.length);
+});
+
+test("参与型关卡不计分，不会以 0 分拉低章节平均分", () => {
+  const base = fakeProgress({
+    "and-gate": { status: "completed", bestScore: 90 },
+    "or-gate": { status: "completed", bestScore: 90 },
+  });
+  const withParticipation = fakeProgress({
+    ...base,
+    // data-flow 是第三章的参与型探索关卡：服务端只记 passed + score 0
+    "data-flow": { status: "completed", bestScore: 0, attempts: 1 },
+  });
+
+  const before = buildChapterScoreSeries(base).find((entry) => entry.chapterId === "ch3");
+  const after = buildChapterScoreSeries(withParticipation).find((entry) => entry.chapterId === "ch3");
+
+  assert.equal(after.avgScore, before.avgScore, "参与型关卡的 0 分不能进入平均分");
+  assert.equal(after.avgScore, 90);
+  assert.equal(after.scoredCount, 2);
+  assert.equal(after.lit, 3, "完成数照常计入完成率");
+  assert.equal(after.completionRate > before.completionRate, true);
+});
+
+test("树杈分数按判分类型给文案：参与型不显示 0 分", () => {
+  const model = buildLearningTreeModel(fakeProgress({
+    "computer-components": { status: "completed", bestScore: 0, attempts: 1 },
+    "and-gate": { status: "completed", bestScore: 90, attempts: 2 },
+    "or-gate": { status: "in-progress" },
+  }));
+
+  const ch1 = model.chapters.find((chapter) => chapter.id === "ch1");
+  const overview = ch1.items.find((leaf) => leaf.id === "computer-components");
+  assert.equal(overview.scoreLabel, "参与型");
+  assert.equal(overview.participation, true);
+  assert.equal(overview.scored, false);
+
+  const ch3 = model.chapters.find((chapter) => chapter.id === "ch3");
+  assert.equal(ch3.items.find((leaf) => leaf.id === "and-gate").scoreLabel, "90 分");
+  assert.equal(ch3.items.find((leaf) => leaf.id === "or-gate").scoreLabel, "—", "进行中但尚未提交过的关卡不显示 0 分");
 });
 
 test("大屏 KPI 与树杈点亮口径一致", () => {

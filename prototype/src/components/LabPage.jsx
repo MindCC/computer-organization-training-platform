@@ -1,8 +1,13 @@
 import { lazy, Suspense, useEffect } from "react";
 import { ArrowLeft, Cpu, Flame, GearSix, Play, SealCheck, Sparkle, Target, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES } from "../platformLogic.js";
-import { COURSE_CHAPTERS } from "../courseChapters.js";
+import { COURSE_CHAPTERS, isParticipationChallenge } from "../courseChapters.js";
 import { getJourneyStepsForChallenge } from "../dataJourney.js";
+
+/** 侧栏与信息栏的分数文案：参与型关卡不计分，避免显示成「0 / 100」。 */
+function labScoreText(challenge, record) {
+  return isParticipationChallenge(challenge) ? "参与型" : `${record?.bestScore ?? 0} / 100`;
+}
 
 // 挑战路径与课程首页保持同一种划分：按教材章节分组展示关卡。
 const LAB_STEP_CHAPTERS = COURSE_CHAPTERS.map((chapter) => ({
@@ -122,7 +127,9 @@ export function LabPage({
         <header className="lab-studio-header">
           <div className="lab-studio-brand"><button className="lab-studio-icon-button" onClick={() => changeView("home")} type="button" aria-label="返回课程首页"><ArrowLeft size={19} /></button><span className="lab-studio-mark"><Cpu size={24} /></span><div><strong>电路实验室</strong><small>计算机组成原理实训平台</small></div></div>
           <div className="lab-studio-current"><span>当前挑战 · {idx + 1} / {CHALLENGES.length}</span><strong>{cur.title}</strong><em>{st}</em></div>
-          <div className="lab-studio-score"><span>得分</span><strong>{l.currentRecord?.bestScore ?? 0}</strong><small>/ 100</small></div>
+          <div className="lab-studio-score">{isParticipationChallenge(cur)
+            ? <><span>计分方式</span><strong>参与型</strong><small>探索完成即通过</small></>
+            : <><span>得分</span><strong>{l.currentRecord?.bestScore ?? 0}</strong><small>/ 100</small></>}</div>
           <div className="lab-studio-user"><span>{student.name}</span><button className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button" aria-label="打开个人设置"><GearSix size={19} /></button></div>
         </header>
         <main className="lab-studio-grid">
@@ -131,7 +138,7 @@ export function LabPage({
             <div className="lab-studio-stepper">{LAB_STEP_CHAPTERS.map((group) => (
               <div className="lab-studio-step-chapter-group" key={group.chapter.id}>
                 <div className="lab-studio-step-chapter">{group.chapter.title}</div>
-                {group.items.map((c) => { const i = CHALLENGES.findIndex((item) => item.id === c.id); const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} disabled={!l.allowSkipLocked && r?.status === "locked"} key={c.id} onClick={() => l.selectChallenge(c.id)} type="button"><span className="lab-studio-step-number">{i + 1}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{r?.bestScore ?? 0} / 100</span></button>); })}
+                {group.items.map((c) => { const i = CHALLENGES.findIndex((item) => item.id === c.id); const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} disabled={!l.allowSkipLocked && r?.status === "locked"} key={c.id} onClick={() => l.selectChallenge(c.id)} type="button"><span className="lab-studio-step-number">{i + 1}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{labScoreText(c, r)}</span></button>); })}
               </div>
             ))}</div>
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
@@ -146,7 +153,7 @@ export function LabPage({
             {cur.id === "machine-number" ? <MachineNumberPanel value={l.inputState.signedValue ?? -5} /> : null}
             <div className="lab-studio-inspector">
               <section><span className="eyebrow">元件属性</span><strong>{l.selectedComponent}</strong><p>{l.selectedComponentDetail?.description ?? "选择一个元件查看端口、职责和信号走向。"}</p></section>
-              <section><span className="eyebrow">实时状态</span><strong>{statusMessage}</strong><p>必要连线 {reqEdges} 条 · 测试用例 {tc || cur.requiredConnections.length} 组 · 最近得分 {l.currentRecord?.bestScore ?? 0}</p></section>
+              <section><span className="eyebrow">实时状态</span><strong>{statusMessage}</strong><p>必要连线 {reqEdges} 条 · 测试用例 {tc || cur.requiredConnections.length} 组 · 最近得分 {labScoreText(cur, l.currentRecord)}</p></section>
               <section><span className="eyebrow">检测反馈</span>{l.feedback ? l.feedback.passed ? <p className="lab-studio-feedback passed"><SealCheck size={18} weight="fill" /> 本关通过，记录已保存。</p> : <p className="lab-studio-feedback failed"><WarningCircle size={18} weight="fill" /> 发现 {l.feedback.errors.length} 类问题，请按提示修正。</p> : <p className="lab-studio-feedback neutral"><Target size={18} /> 等待提交检测。</p>}</section>
               <LabAssistantPanel challenge={cur} connections={l.connections} inputState={l.inputState} feedback={l.feedback} realtimeDiagnostics={l.realtimeDiagnostics} />
               <section className={`realtime-diagnostics ${l.realtimeDiagnostics.status}`}><strong>实时数据流检测</strong><p>{l.realtimeDiagnostics.summary}</p><div className="diagnostic-test-list">{l.realtimeDiagnostics.testRows.map((r) => <div className={r.passed ? "passed" : "needs-work"} key={r.label}><span>{r.label}</span><small>实际：{r.actual}</small></div>)}</div>{l.realtimeDiagnostics.issues.length ? <div className="diagnostic-issues">{l.realtimeDiagnostics.issues.slice(0, 3).map((i) => <span key={`${i.type}-${i.message}`}>{i.type}</span>)}</div> : null}</section>

@@ -1029,21 +1029,20 @@ function buildStudentHardwareSummary(db, studentId) {
 
 const CHALLENGE_TITLES = new Map(LEARNING_ITEMS.map((item) => [item.id, item.title]));
 
-/** 学习概览聚合卡:完成率、平均分、累计耗时、总尝试、完成 x/y。 */
+/**
+ * 学习概览聚合卡:完成率、平均分、累计耗时、总尝试、完成 x/y。
+ * 平均分与 summarizeLearning 用同一口径：只统计已完成且计分的关卡，
+ * 参与型探索关卡（服务端只记 score: 0）与未开始的关卡都不进分母。
+ */
 export function buildLearningOverview(progress) {
-  const records = LEARNING_ITEMS.map((item) => progress[item.id]).filter(Boolean);
-  const completedCount = records.filter((record) => record.status === "completed").length;
-  const totalCount = LEARNING_ITEMS.length;
-  const scored = records.filter((record) => (record.bestScore ?? 0) > 0);
+  const summary = summarizeLearning(LEARNING_ITEMS, progress);
   return {
-    completedCount,
-    totalCount,
-    completionRate: Math.round((completedCount / totalCount) * 100),
-    averageScore: scored.length
-      ? Math.round(scored.reduce((sum, record) => sum + (record.bestScore ?? 0), 0) / scored.length)
-      : 0,
-    totalAttempts: records.reduce((sum, record) => sum + (record.attempts ?? 0), 0),
-    totalTimeMinutes: records.reduce((sum, record) => sum + (record.timeSpentMinutes ?? 0), 0),
+    completedCount: summary.completed,
+    totalCount: summary.totalChallenges,
+    completionRate: summary.completionRate,
+    averageScore: summary.averageScore,
+    totalAttempts: summary.totalAttempts,
+    totalTimeMinutes: summary.totalStudyMinutes,
   };
 }
 

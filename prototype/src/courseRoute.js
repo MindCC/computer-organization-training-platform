@@ -1,5 +1,5 @@
 import { LEARNING_ITEMS } from "./platformLogic.js";
-import { COURSE_CHAPTERS, buildChapterChallengeIds } from "./courseChapters.js";
+import { COURSE_CHAPTERS, buildChapterChallengeIds, displayScoreOf, isParticipationChallenge, scoreLabelOf } from "./courseChapters.js";
 
 /**
  * 课程路线的单一分组方式：严格按教材八章划分。
@@ -73,8 +73,12 @@ export function findNextRecommendedChallenge(challenges = [], progress = {}) {
 
 function buildRouteItem(id, challenge, record = {}, fallbackDescription, sequence) {
   const fallback = LEARNING_ITEM_MAP.get(id) ?? {};
+  const item = challenge ?? fallback;
   const status = record.status ?? "not-started";
   const estimatedMinutes = challenge?.estimatedMinutes ?? fallback.estimatedMinutes ?? 8;
+  // 参与型关卡（引导探索）没有掌握度分数，未开始的关卡也还没有成绩：
+  // 两者都不能显示成「0 分」，否则学生看到的是「通过却是 0 分」。
+  const scoreLabel = scoreLabelOf(item, record);
 
   return {
     id,
@@ -83,6 +87,9 @@ function buildRouteItem(id, challenge, record = {}, fallbackDescription, sequenc
     status,
     statusLabel: routeStatusLabel(status),
     bestScore: record.bestScore ?? 0,
+    scoreLabel: scoreLabel === "—" ? "未测评" : scoreLabel,
+    scored: displayScoreOf(item, record) !== null,
+    participation: isParticipationChallenge(item),
     attempts: record.attempts ?? 0,
     estimatedMinutes,
     estimatedLabel: formatEstimatedMinutes(estimatedMinutes),

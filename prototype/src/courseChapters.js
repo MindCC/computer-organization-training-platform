@@ -97,3 +97,41 @@ export function summarizeGradingKinds(items = LEARNING_ITEMS) {
   const graded = selectChallengesByGrading("graded", items).map((item) => item.id);
   return { participation, graded, total: participation.length + graded.length };
 }
+
+/**
+ * 该实验「有没有掌握度分数」。
+ *
+ * - 参与型关卡（如「认识计算机五大部件」的引导装配）服务端只会记 `passed: true, score: 0`，
+ *   这个 0 是「不计分」而不是「考了 0 分」，所以返回 null；
+ * - 评分型关卡没开始时也没有分数可显示，同样返回 null。
+ *
+ * 展示层必须用它来渲染分数，避免把 0 分当成不及格挂在学生头上。
+ */
+export function displayScoreOf(item, record) {
+  if (isParticipationChallenge(item)) return null;
+  const attempts = Number(record?.attempts ?? 0);
+  if (attempts <= 0) return null;
+  const score = Number(record?.bestScore);
+  return Number.isFinite(score) ? score : null;
+}
+
+/** 分数文案：参与型 → 「参与型」，未开始 → 「—」，其余 → 「xx 分」。 */
+export function scoreLabelOf(item, record) {
+  const score = displayScoreOf(item, record);
+  if (score !== null) return `${score} 分`;
+  return isParticipationChallenge(item) ? "参与型" : "—";
+}
+
+/** 参与型关卡的完整说明，用于悬停提示。 */
+export const PARTICIPATION_SCORE_NOTE = "参与型探索实验：完成即通过，不计分、不计入平均分";
+
+/**
+ * 已完成评分型关卡的平均分。
+ * 参与型关卡不进分子，未完成的关卡不进分母——否则「还没做」和「不计分」都会被当成 0 分。
+ */
+export function averageGradedScore(items = LEARNING_ITEMS, progress = {}) {
+  const completed = (items ?? []).filter((item) => isGradedChallenge(item) && progress?.[item.id]?.status === "completed");
+  if (completed.length === 0) return 0;
+  const total = completed.reduce((sum, item) => sum + Number(progress[item.id]?.bestScore ?? 0), 0);
+  return Math.round(total / completed.length);
+}

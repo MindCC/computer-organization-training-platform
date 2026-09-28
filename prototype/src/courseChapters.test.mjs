@@ -3,14 +3,17 @@ import assert from "node:assert/strict";
 
 import {
   COURSE_CHAPTERS,
+  averageGradedScore,
   buildChapterChallengeIds,
   chapterIdOf,
+  displayScoreOf,
   findUnassignedChallenges,
   getChallengesByChapterId,
   gradingKindOf,
   isGradedChallenge,
   isParticipationChallenge,
   isValidChapterId,
+  scoreLabelOf,
   summarizeGradingKinds,
 } from "./courseChapters.js";
 import { COURSEWARE, getChallengesByChapter } from "./courseware.js";
@@ -102,4 +105,36 @@ test("参与型活动与评分型实验被明确区分", () => {
 test("未标注判分类型的条目按评分型处理，不会静默变成参与型", () => {
   assert.equal(gradingKindOf({ id: "unknown" }), "graded");
   assert.equal(gradingKindOf(null), "graded");
+});
+
+test("参与型关卡不显示 0 分，参与型与未开始的分数都是「没有分数」", () => {
+  const overview = LEARNING_ITEMS.find((item) => item.id === "computer-components");
+  const gate = LEARNING_ITEMS.find((item) => item.id === "and-gate");
+
+  // 服务端对参与型关卡只记 passed: true + score: 0，这个 0 是「不计分」而不是「考了 0 分」
+  assert.equal(displayScoreOf(overview, { status: "completed", bestScore: 0, attempts: 1 }), null);
+  assert.equal(scoreLabelOf(overview, { status: "completed", bestScore: 0, attempts: 1 }), "参与型");
+
+  // 评分型关卡没开始时也没有分数可显示
+  assert.equal(displayScoreOf(gate, { status: "not-started", bestScore: 0, attempts: 0 }), null);
+  assert.equal(scoreLabelOf(gate, { status: "not-started", bestScore: 0, attempts: 0 }), "—");
+  // 进行中但一次都没提交过（进度里 bestScore 是初始 0）同样不显示 0 分
+  assert.equal(displayScoreOf(gate, { status: "in-progress", bestScore: 0, attempts: 0 }), null);
+  assert.equal(scoreLabelOf(gate, { status: "in-progress", bestScore: 0, attempts: 0 }), "—");
+  assert.equal(scoreLabelOf(gate, { status: "completed", bestScore: 97, attempts: 2 }), "97 分");
+  assert.equal(scoreLabelOf(gate, { status: "in-progress", bestScore: 40, attempts: 1 }), "40 分");
+  // 真的考了 0 分（有提交记录）时照实显示 0 分
+  assert.equal(scoreLabelOf(gate, { status: "in-progress", bestScore: 0, attempts: 1 }), "0 分");
+});
+
+test("已完成均分排除参与型关卡（0 分不能拉低班级均分）", () => {
+  const progress = {
+    "computer-components": { status: "completed", bestScore: 0 },
+    "and-gate": { status: "completed", bestScore: 90 },
+    "or-gate": { status: "completed", bestScore: 100 },
+    "half-adder": { status: "in-progress", bestScore: 60 },
+  };
+  assert.equal(averageGradedScore(LEARNING_ITEMS, progress), 95);
+  assert.equal(averageGradedScore(LEARNING_ITEMS, {}), 0, "没有完成的评分型实验时返回 0");
+  assert.equal(averageGradedScore(LEARNING_ITEMS, { "and-gate": { status: "completed", bestScore: 0 } }), 0);
 });

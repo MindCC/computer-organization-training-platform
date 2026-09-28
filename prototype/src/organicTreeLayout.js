@@ -231,6 +231,7 @@ export function layoutOrganicTree(model, options = {}) {
         status: leaf.status,
         lit: leaf.lit,
         bestScore: leaf.bestScore,
+        scoreLabel: leaf.scoreLabel,
         path: ribbonPath(twigLine),
         tip: { x: twigTip.x, y: twigTip.y },
         label: leafLabelPosition(twigTip, twigAngle, side),

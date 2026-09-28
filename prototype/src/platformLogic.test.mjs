@@ -113,6 +113,28 @@ test("学习概览能统计完成率、尝试次数和高频错误", () => {
   assert.equal(summary.weakSpot, "缺少进位输入");
 });
 
+test("平均分只统计已完成且计分的关卡：参与型关卡与未开始关卡都不算 0 分", () => {
+  let progress = buildInitialProgress(CHALLENGES);
+  // 参与型探索关卡：服务端只记 passed: true + score: 0
+  progress = recordAttempt(progress, "computer-components", { passed: true, score: 0, errors: [], elapsedMinutes: 8 });
+  progress = recordAttempt(progress, "and-gate", { passed: true, score: 90, errors: [], elapsedMinutes: 6 });
+  progress = recordAttempt(progress, "or-gate", { passed: true, score: 100, errors: [], elapsedMinutes: 5 });
+
+  const summary = summarizeLearning(CHALLENGES, progress);
+
+  assert.equal(summary.completed, 3);
+  assert.equal(summary.averageScore, 95, "参与型的 0 分不能进入均分，未完成关卡也不能进分母");
+  assert.equal(summary.scoredCompleted, 2);
+});
+
+test("没有任何已完成评分型关卡时平均分为 0 而不是 NaN", () => {
+  const progress = buildInitialProgress(CHALLENGES);
+  const summary = summarizeLearning(CHALLENGES, progress);
+
+  assert.equal(summary.averageScore, 0);
+  assert.equal(summary.scoredCompleted, 0);
+});
+
 
 test("\u5b58\u50a8\u5668\u8bbf\u95ee\u4eff\u771f\u80fd\u663e\u793a\u5730\u5740\u8fdb\u5165 MAR\u3001\u4e3b\u5b58\u8fd4\u56de MDR", () => {
   const result = simulateChallenge("memory-address", { address: 100 });

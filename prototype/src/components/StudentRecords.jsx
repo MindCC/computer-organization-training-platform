@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { CheckCircle, ClockCountdown, Flask, TreeStructure, TrendUp, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES } from "../platformLogic.js";
-import { COURSE_CHAPTERS } from "../courseChapters.js";
+import { COURSE_CHAPTERS, PARTICIPATION_SCORE_NOTE, isParticipationChallenge, scoreLabelOf } from "../courseChapters.js";
 import {
   buildChapterScoreSeries,
   buildLearningTreeModel,
@@ -80,7 +80,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
         <div className="records-kpi">
           <span>平均得分</span>
           <strong>{kpis.averageScore}</strong>
-          <small>逐关最佳成绩均值</small>
+          <small>已完成实验均分 · 参与型不计分</small>
         </div>
         <div className="records-kpi">
           <span>累计学习</span>
@@ -118,7 +118,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
         <div className="section-heading">
           <div>
             <h2>关卡明细</h2>
-            <p>按教材章节归组；点击可回到对应实验。</p>
+            <p>按教材章节归组；点击可回到对应实验。"参与型"实验完成即通过，不计分。</p>
           </div>
         </div>
         {CHALLENGES_BY_CHAPTER.map((group) => (
@@ -132,7 +132,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
                     <strong>{challenge.title}</strong>
                     <span>{statusText(record.status)}</span>
                     <span>{record.attempts ?? 0} 次尝试</span>
-                    <span>{record.bestScore ?? 0} 分</span>
+                    <span title={isParticipationChallenge(challenge) ? PARTICIPATION_SCORE_NOTE : undefined}>{scoreLabelOf(challenge, record)}</span>
                     <small>{record.errors?.at(-1) ?? "暂无错误"}</small>
                   </button>
                 );

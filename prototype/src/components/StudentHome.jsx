@@ -107,7 +107,7 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
                       <strong>{item.title}</strong>
                       <p>{item.description}</p>
                       <div className="route-card-footer">
-                        <span>得分 {item.bestScore}</span>
+                        <span>{item.scoreLabel ?? `得分 ${item.bestScore}`}</span>
                         <small>{item.attempts} 次尝试</small>
                       </div>
                     </button>

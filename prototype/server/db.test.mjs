@@ -97,13 +97,14 @@ test("learningOverview aggregates completion, score, time and attempts", () => {
   const overview = buildLearningOverview({
     "half-adder": { status: "completed", attempts: 2, errors: [], bestScore: 100, timeSpentMinutes: 8 },
     "full-adder": { status: "completed", attempts: 3, errors: ["进位错误"], bestScore: 80, timeSpentMinutes: 12 },
-    "data-flow": { status: "in-progress", attempts: 1, errors: [], bestScore: 60, timeSpentMinutes: 5 },
+    // data-flow 是参与型探索关卡：它的分数不是掌握度，不能拉进均分
+    "data-flow": { status: "completed", attempts: 1, errors: [], bestScore: 0, timeSpentMinutes: 5 },
   });
 
-  assert.equal(overview.completedCount, 2);
+  assert.equal(overview.completedCount, 3);
   assert.equal(overview.totalCount, LEARNING_ITEMS.length);
-  assert.equal(overview.completionRate, Math.round((2 / LEARNING_ITEMS.length) * 100));
-  assert.equal(overview.averageScore, Math.round((100 + 80 + 60) / 3));
+  assert.equal(overview.completionRate, Math.round((3 / LEARNING_ITEMS.length) * 100));
+  assert.equal(overview.averageScore, Math.round((100 + 80) / 2));
   assert.equal(overview.totalAttempts, 6);
   assert.equal(overview.totalTimeMinutes, 25);
 });

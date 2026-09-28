@@ -169,7 +169,7 @@ export function LearningTreeCanvas({ model, onOpenChallenge }) {
                 <text className="tree-leaf-label" textAnchor={twig.label.anchor} x={twig.label.x} y={twig.label.y + 3}>
                   {twig.title}
                 </text>
-                <title>{`${twig.title} · ${twig.lit ? `已点亮 ${twig.bestScore} 分` : twig.status === "in-progress" ? "进行中" : "未点亮"}`}</title>
+                <title>{`${twig.title} · ${twig.lit ? `已点亮${twig.scoreLabel && twig.scoreLabel !== "—" ? ` · ${twig.scoreLabel}` : ""}` : twig.status === "in-progress" ? "进行中" : "未点亮"}`}</title>
               </g>
             );
           })}

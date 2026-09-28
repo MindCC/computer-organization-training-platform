@@ -809,6 +809,13 @@ export function summarizeLearning(challenges, progress) {
     return r && r.status === "in-progress";
   }) ?? remainingChallenges[0] ?? null;
 
+  // 均分只统计「已完成且计分」的关卡：参与型关卡服务端只记 score: 0（不计分，不是 0 分），
+  // 未开始的关卡也还没有成绩，两者都不应该被当成 0 分拉低平均分。
+  const scoredRecords = challenges
+    .filter((challenge) => challenge.grading !== "participation")
+    .map((challenge) => progress[challenge.id])
+    .filter((record) => record && record.status === "completed");
+
   return {
     totalChallenges: challenges.length,
     completed,
@@ -816,7 +823,10 @@ export function summarizeLearning(challenges, progress) {
     totalAttempts,
     totalStudyMinutes,
     weakSpot,
-    averageScore: Math.round(records.reduce((sum, record) => sum + record.bestScore, 0) / records.length),
+    averageScore: scoredRecords.length > 0
+      ? Math.round(scoredRecords.reduce((sum, record) => sum + Number(record.bestScore ?? 0), 0) / scoredRecords.length)
+      : 0,
+    scoredCompleted: scoredRecords.length,
     remainingChallenges: remainingChallenges.length,
     estimatedRemainingMinutes,
     nextRecommendedChallenge: nextChallenge,
