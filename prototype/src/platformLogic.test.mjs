@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   CHALLENGES,
   buildInitialProgress,
+  challengeOrderOf,
+  findPrerequisiteTitle,
   gradeConnections,
   mergeProgressWithChallenges,
   recordAttempt,
@@ -11,18 +13,53 @@ import {
   summarizeLearning,
 } from "./platformLogic.js";
 
-test("第一章概述关卡排在电路实验之前", () => {
+test("关卡顺序按教材章节排列：章节号升序、编号连续不跳号", () => {
+  const chapterOrder = ["ch1", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7", "ch8"];
+  const chapterIndexes = CHALLENGES.map((challenge) => chapterOrder.indexOf(challenge.chapterId));
+
+  assert.deepEqual(chapterIndexes, [...chapterIndexes].sort((left, right) => left - right), "关卡必须按章节号升序排列");
   assert.deepEqual(
-    CHALLENGES.slice(0, 5).map((challenge) => challenge.id),
-    ["computer-components", "program-flow", "instruction-data", "memory-address", "data-flow"],
+    CHALLENGES.map((challenge) => challengeOrderOf(challenge.id)),
+    CHALLENGES.map((_, index) => index + 1),
+    "挑战路径编号必须 1..18 连续，不能跳号",
   );
+  assert.deepEqual(CHALLENGES.slice(0, 2).map((challenge) => challenge.id), ["computer-components", "program-flow"]);
+  assert.equal(challengeOrderOf("io-transfer"), CHALLENGES.length);
 });
 
-test("机器数编码关卡衔接全加器和多位加法器", () => {
-  const ids = CHALLENGES.map((challenge) => challenge.id);
+test("解锁链按章节顺序推进：完成一关解锁章节顺序里的下一关", () => {
+  const passed = { passed: true, errors: [], score: 100, elapsedMinutes: 5 };
+  let progress = buildInitialProgress(CHALLENGES);
+  progress = recordAttempt(progress, "computer-components", passed);
+  progress = recordAttempt(progress, "program-flow", passed);
 
-  assert.equal(ids[ids.indexOf("full-adder") + 1], "machine-number");
-  assert.equal(ids[ids.indexOf("machine-number") + 1], "multi-adder");
+  assert.equal(progress["machine-number"].status, "in-progress", "完成第二章之前的关卡后应解锁机器数编码");
+  assert.equal(progress["data-flow"].status, "locked");
+
+  progress = recordAttempt(progress, "machine-number", passed);
+  assert.equal(progress["data-flow"].status, "in-progress", "解锁链必须跟挑战路径的章节顺序一致");
+  assert.equal(progress["and-gate"].status, "locked");
+});
+
+test("未解锁关卡能查出还差哪一关，用于实验台的解锁提示", () => {
+  const progress = buildInitialProgress(CHALLENGES);
+
+  assert.equal(findPrerequisiteTitle("computer-components", progress), null, "第一关没有前置关卡");
+  assert.equal(findPrerequisiteTitle("and-gate", progress), "认识数据流");
+  assert.equal(findPrerequisiteTitle("io-transfer", progress), "三总线协作");
+
+  const afterFirst = recordAttempt(progress, "computer-components", { passed: true, errors: [], score: 100, elapsedMinutes: 5 });
+  assert.equal(findPrerequisiteTitle("program-flow", afterFirst), null);
+  assert.equal(findPrerequisiteTitle("machine-number", afterFirst), "程序运行路线");
+});
+
+test("机器数编码归入第二章，前后紧邻第一章与第三章", () => {
+  const index = CHALLENGES.findIndex((challenge) => challenge.id === "machine-number");
+  const chapterOf = (id) => CHALLENGES.find((challenge) => challenge.id === id).chapterId;
+
+  assert.equal(chapterOf("machine-number"), "ch2");
+  assert.equal(chapterOf(CHALLENGES[index - 1].id), "ch1");
+  assert.equal(chapterOf(CHALLENGES[index + 1].id), "ch3");
   assert.equal(CHALLENGES.find((challenge) => challenge.id === "machine-number").title, "机器数编码");
 });
 

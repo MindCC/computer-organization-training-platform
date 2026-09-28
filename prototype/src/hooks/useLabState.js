@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import {
   CHALLENGES, gradeConnections, recordAttempt,
-  buildInitialProgress,
+  buildInitialProgress, findPrerequisiteTitle,
 } from "../platformLogic.js";
 import {
   buildPlacementBlueprint, buildReferencePlacedComponents,
@@ -64,6 +64,16 @@ export function useLabState({
   const placementPreview = useMemo(() => scorePlacedComponents(currentChallenge, placedComponents), [currentChallenge, placedComponents]);
   const labScoring = useMemo(() => ({ connection: gradeConnections(selectedChallengeId, connections), placement: placementPreview }), [selectedChallengeId, connections, placementPreview]);
   const currentRecord = useMemo(() => progress[selectedChallengeId] ?? {}, [progress, selectedChallengeId]);
+  // 未解锁的关卡可以进来练习，但提交要被拦下（服务端也会返回 403）。
+  // 这里把拦截原因算好，实验台据此禁用「提交检测」并说明还差哪一关。
+  const prerequisiteTitle = useMemo(
+    () => findPrerequisiteTitle(selectedChallengeId, progress),
+    [progress, selectedChallengeId],
+  );
+  const submitBlocked = !allowSkipLocked && currentRecord?.status === "locked";
+  const submitBlockedReason = submitBlocked
+    ? `本关尚未解锁：请先完成「${prerequisiteTitle ?? "前置关卡"}」。可以先在这里自由练习，解锁后再提交检测。`
+    : "";
 
   // simulateChallenge / buildRealtimeDiagnostics 的签名分别是 (challengeId, inputs)
   // 与 ({ challengeId, connections, inputState, feedback })。此前传入的是 challenge 对象
@@ -113,15 +123,12 @@ export function useLabState({
 
   function selectChallenge(challengeId, { force = false } = {}) {
     const challenge = CHALLENGES.find((item) => item.id === challengeId);
-    // 教师开启「允许跳关」后必须真正放行：此前只有首页卡片放开了，实验台与步骤条
-    // 仍然拦截，点进去只会闪烁一行状态文字。
-    // force 供刷新后的恢复使用：此时学情可能尚未加载完，用本地进度判断锁定会误判；
-    // 真正锁定关卡的提交仍会被服务端拒绝。
-    if (!force && !allowSkipLocked && progress[challengeId]?.status === "locked") {
-      setStatusMessage("请先完成前置关卡。");
-      return false;
-    }
-    if (!challenge) return;
+    if (!challenge) return false;
+    // 未解锁 ≠ 打不开。教师设置里写的是「默认不允许跳关：未完成前置关卡时不能**提交**后续关卡」，
+    // 所以锁定的关卡照样可以进来练习、观察电路；只是提交检测会被拦下（服务端同样返回 403）。
+    // 此前这里直接 return false，实验台挑战路径与首页卡片又把锁定关卡禁用了，
+    // 结果 13 关之后的实验整个点不开。
+    const locked = !force && !allowSkipLocked && progress[challengeId]?.status === "locked";
     const nextBlueprint = buildPlacementBlueprint(challenge);
     setSelectedChallengeId(challengeId);
     setConnections(progress[challengeId]?.status === "completed" ? challenge.requiredConnections : []);
@@ -132,7 +139,9 @@ export function useLabState({
     setWireHoverEndpoint(null);
     setFeedback(null);
     setSimulationStep(0);
-    setStatusMessage(`已进入"${challenge.title}"实验。`);
+    setStatusMessage(locked
+      ? `已进入"${challenge.title}"（尚未解锁）：可以先在这里练习接线，提交检测会在解锁后开放。`
+      : `已进入"${challenge.title}"实验。`);
     return true;
   }
 
@@ -152,6 +161,7 @@ export function useLabState({
   }
 
   async function submitChallenge() {
+    if (submitBlocked) { setStatusMessage(submitBlockedReason); return null; }
     const connectionResult = gradeConnections(selectedChallengeId, connections);
     const placementResult = scorePlacedComponents(currentChallenge, placedComponents);
     const placementErrors = [
@@ -188,6 +198,8 @@ export function useLabState({
       circuitEdges: result.circuitEdges ?? [],
       elapsedMinutes: currentChallenge.estimatedMinutes };
     setFeedback(normalized);
+    // 未解锁关卡只做练习：不写本地进度、不提交服务端（服务端也会 403）。
+    if (submitBlocked) { setStatusMessage(submitBlockedReason); return normalized; }
     setProgress((cur) => recordAttempt(cur, selectedChallengeId, normalized));
     setActivityLog((cur) => [`${currentChallenge.title} React Flow 工作台提交${result.passed ? "通过" : "未通过"}，得分 ${result.score}。`, ...cur.slice(0, 5)]);
     setStatusMessage(result.passed ? `恭喜，${currentChallenge.title}已通过。` : "React Flow 工作台已定位当前结构中的问题。");
@@ -315,6 +327,7 @@ export function useLabState({
     realtimeDiagnostics, selectedComponentDetail, referenceComponents,
     wirePreviewCopy, wirePreviewStatus,
     selectChallenge, handleInputChange, runStep, runAll, allowSkipLocked,
+    submitBlocked, submitBlockedReason, prerequisiteTitle,
     submitChallenge, completeOverviewChallenge, handleCircuitFlowResult, resetChallenge, fillReferenceStructure,
     handleDrop, handlePaletteDragStart, handlePlacedComponentDragStart,
     handleWireDragStart, handleWireDragMove, handleWireHoverChange, handleWireDragEnd,

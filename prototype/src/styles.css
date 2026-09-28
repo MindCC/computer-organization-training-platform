@@ -1630,6 +1630,22 @@ textarea:focus-visible {
   box-shadow: 0 10px 26px rgba(28, 44, 68, 0.08);
 }
 
+/* 尚未解锁的关卡仍可点进去练习（提交检测会被拦下），所以用"淡"而不是"禁用"来表达。 */
+.lab-studio-step.locked {
+  opacity: 0.72;
+}
+
+.lab-studio-step.locked:hover {
+  background: #fbfcfe;
+  border-color: rgba(47, 111, 235, 0.16);
+  opacity: 1;
+}
+
+.lab-studio-step.locked .lab-studio-step-copy small::after {
+  content: " · 未解锁";
+  color: #b4791a;
+}
+
 .lab-studio-step.completed .lab-studio-step-number {
   background: #e4f6ec;
   border-color: rgba(36, 148, 95, 0.36);
@@ -1696,6 +1712,27 @@ textarea:focus-visible {
   font-size: 13px;
   line-height: 1.55;
   margin: 0;
+}
+
+/* 未解锁关卡：可以进来练习，但不能提交检测——提示与动作按钮同屏可见。 */
+.lab-studio-locked-notice {
+  align-items: center;
+  background: #fff8e6;
+  border: 1px solid rgba(230, 163, 35, 0.35);
+  border-radius: 8px;
+  color: #7b4d05 !important;
+  display: flex;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 8px;
+  line-height: 1.5;
+  margin: 8px 0 0 !important;
+  padding: 8px 10px;
+}
+
+.lab-studio-locked-notice svg {
+  color: #b4791a;
+  flex: none;
 }
 
 .lab-studio-workspace {
@@ -6478,6 +6515,13 @@ body {
   border-radius: 9px;
   background: #2474d8;
   box-shadow: none;
+}
+
+/* 未解锁关卡：提交检测被拦下，按钮要看得出来不能按。 */
+.primary-button:disabled {
+  background: #b9c4d3;
+  cursor: not-allowed;
+  opacity: 0.75;
 }
 
 .section-panel,

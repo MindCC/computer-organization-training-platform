@@ -33,7 +33,7 @@ function NextStepCard({ challenge, progress, onEnter }) {
   );
 }
 
-export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter, allowSkipLocked = false, projects = [], onOpenProjects, userId = "anonymous" }) {
+export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter, projects = [], onOpenProjects, userId = "anonymous" }) {
   const questModel = buildStudentQuestModel(routeGroups, nextRecommendedChallenge, progress);
   const firstUseSteps = buildFirstUseSteps(progress);
   const homeEmptyState = buildStudentHomeEmptyState(summary, routeGroups);
@@ -94,8 +94,8 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
                     <button
                       className={`route-card ${item.status}`}
                       key={item.id}
-                      disabled={item.status === "locked" && !allowSkipLocked}
                       onClick={() => navigateToChallenge(item.id)}
+                      title={item.status === "locked" ? "尚未解锁：可以进去练习，解锁后才能提交检测" : undefined}
                       type="button"
                     >
                       <div className="route-card-top">

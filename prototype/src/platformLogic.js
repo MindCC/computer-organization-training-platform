@@ -1,7 +1,7 @@
 import { encodeSignedInteger } from "./numberEncoding.js";
 import { HARDWARE_GAME_PROGRESS_ITEMS } from "./hardwareGame.js";
 
-export const CHALLENGES = [
+export const CHALLENGE_DEFINITIONS = [
   {
     id: "computer-components",
     grading: "participation",
@@ -470,6 +470,39 @@ export const CHALLENGES = [
     principle: "程序查询方式下，CPU 反复查询 I/O 接口的状态标志，就绪后才从数据缓冲寄存器读数；接口是外设与主机之间的速度缓冲带。",
   },
 ];
+
+/**
+ * 教材章节顺序：全平台统一的实验学习顺序。
+ *
+ * 章节板、课件、实验台挑战路径、解锁链、推荐下一步都按它排列。此前关卡数组按"拓扑/历史"
+ * 顺序声明（先逻辑门、后存储器），而界面按章节分组显示，于是实验台挑战路径的编号跳号
+ * （1、2、12、5、4、3…），解锁链也和界面顺序对不上。现在以章节为唯一顺序来源：
+ * 章节号小的在前，同章内保持声明顺序。
+ */
+const CHAPTER_SEQUENCE = Object.freeze(["ch1", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7", "ch8"]);
+
+export const CHALLENGES = [...CHALLENGE_DEFINITIONS].sort((left, right) => (
+  CHAPTER_SEQUENCE.indexOf(left.chapterId) - CHAPTER_SEQUENCE.indexOf(right.chapterId)
+  || CHALLENGE_DEFINITIONS.indexOf(left) - CHALLENGE_DEFINITIONS.indexOf(right)
+));
+
+/** 章节顺序里某关卡的序号（从 1 开始）；未登记返回 0。 */
+export function challengeOrderOf(challengeId) {
+  return CHALLENGES.findIndex((challenge) => challenge.id === challengeId) + 1;
+}
+
+/**
+ * 某关卡还差哪一关没完成（章节顺序里最近的未完成前置关卡）。
+ * 用于「未解锁」提示：默认不允许跳关时，前置关卡没完成就不能提交本关。
+ */
+export function findPrerequisiteTitle(challengeId, progress = {}) {
+  const index = CHALLENGES.findIndex((challenge) => challenge.id === challengeId);
+  if (index <= 0) return null;
+  for (let i = index - 1; i >= 0; i -= 1) {
+    if (progress[CHALLENGES[i].id]?.status !== "completed") return CHALLENGES[i].title;
+  }
+  return null;
+}
 
 export const LEARNING_ITEMS = [...CHALLENGES, ...HARDWARE_GAME_PROGRESS_ITEMS];
 

@@ -84,7 +84,7 @@ function valuesMatch(actual, expected) {
   return actual === expected;
 }
 
-export function CircuitFlowCanvas({ model, onResult }) {
+export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, submitBlockedReason = "" }) {
   const initialFlow = useMemo(() => circuitModelToFlow(model), [model]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialFlow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges);
@@ -237,6 +237,7 @@ export function CircuitFlowCanvas({ model, onResult }) {
   }, [selectedEdgeId, setEdges]);
 
   const submit = useCallback(() => {
+    if (submitBlocked) { setStatus(submitBlockedReason || "本关尚未解锁，暂时不能提交检测。"); return; }
     const structure = validateCircuitStructure(model, studentEdges);
     const tests = runCircuitTestCases(model, studentEdges);
     const nextReport = {
@@ -250,7 +251,7 @@ export function CircuitFlowCanvas({ model, onResult }) {
     setReport(nextReport);
     setStatus(resultSummary(structure, tests));
     onResult?.(nextReport);
-  }, [model, onResult, studentEdges]);
+  }, [model, onResult, studentEdges, submitBlocked, submitBlockedReason]);
 
   return (
     <div className="circuit-flow-workbench">
@@ -266,7 +267,7 @@ export function CircuitFlowCanvas({ model, onResult }) {
           <button className="ghost-button" onClick={fillReference} type="button">{copy.actionFill}</button>
           <button className="ghost-button" disabled={!selectedEdgeId} onClick={removeSelectedEdge} type="button">{copy.actionDelete}</button>
           <button className="ghost-button" onClick={reset} type="button">{copy.actionReset}</button>
-          <button className="primary-button" onClick={submit} type="button">{copy.actionSubmit}</button>
+          <button className="primary-button" disabled={submitBlocked} onClick={submit} title={submitBlocked ? submitBlockedReason : undefined} type="button">{copy.actionSubmit}</button>
         </div>
       </div>
 

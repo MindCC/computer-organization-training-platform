@@ -152,7 +152,8 @@ assert.equal(await page.locator(".quest-hero-stats .metric-card").count(), 4, "s
 await assertVisible(page, "学习状态");
 const lockedCard = page.locator(".route-card.locked").first();
 if (await lockedCard.isVisible().catch(() => false)) {
-  assert.equal(await lockedCard.isDisabled(), true, "locked challenge card must not be enterable");
+  // 未解锁 ≠ 打不开：默认不允许跳关只拦截「提交检测」，卡片仍可进入练习。
+  assert.equal(await lockedCard.isDisabled(), false, "locked challenge card stays enterable for practice");
 }
 await page.locator(".sidebar-nav .nav-item").filter({ hasText: "\u9519\u9898\u672c" }).click();
 await page.locator(".mistakes-layout").waitFor({ state: "visible", timeout: 10_000 });

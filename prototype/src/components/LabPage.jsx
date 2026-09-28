@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect } from "react";
 import { ArrowLeft, Cpu, Flame, GearSix, Play, SealCheck, Sparkle, Target, WarningCircle } from "@phosphor-icons/react";
-import { CHALLENGES } from "../platformLogic.js";
+import { CHALLENGES, challengeOrderOf } from "../platformLogic.js";
 import { COURSE_CHAPTERS, isParticipationChallenge } from "../courseChapters.js";
 import { getJourneyStepsForChallenge } from "../dataJourney.js";
 
@@ -138,15 +138,15 @@ export function LabPage({
             <div className="lab-studio-stepper">{LAB_STEP_CHAPTERS.map((group) => (
               <div className="lab-studio-step-chapter-group" key={group.chapter.id}>
                 <div className="lab-studio-step-chapter">{group.chapter.title}</div>
-                {group.items.map((c) => { const i = CHALLENGES.findIndex((item) => item.id === c.id); const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} disabled={!l.allowSkipLocked && r?.status === "locked"} key={c.id} onClick={() => l.selectChallenge(c.id)} type="button"><span className="lab-studio-step-number">{i + 1}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{labScoreText(c, r)}</span></button>); })}
+                {group.items.map((c) => { const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} key={c.id} onClick={() => l.selectChallenge(c.id)} title={r?.status === "locked" ? "尚未解锁：可以进去练习，解锁后才能提交检测" : undefined} type="button"><span className="lab-studio-step-number">{challengeOrderOf(c.id)}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{labScoreText(c, r)}</span></button>); })}
               </div>
             ))}</div>
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
           </aside>
           <section className="lab-studio-workspace">
-            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{cur.title}</h1><p>{labDescription(cur.id)}</p></div><div className="lab-studio-actionbar"><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></div></div>
+            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{cur.title}</h1><p>{labDescription(cur.id)}</p>{l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></div></div>
             <div className="lab-studio-inputs">{(challengeControlMeta[cur.id] ?? []).map((ctrl) => ctrl.type === "bit" ? <Toggle key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} onChange={(v) => l.handleInputChange(ctrl.key, v)} /> : <Stepper key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} min={ctrl.min} max={ctrl.max} onChange={(v) => l.handleInputChange(ctrl.key, v)} />)}</div>
-            <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} /></Suspense>)}</div>
+            <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
             {cur.id === "instruction-data" ? <CpuExecutionPanel /> : null}
             {js.length > 0 ? <DataJourneyPanel steps={js} activeStep={l.activeStep} /> : null}
             {cur.id === "memory-address" ? <MemorySystemPanel address={memoryAddress} operation={memoryOperation} state={memoryAccessState} writeValue={memoryWriteValue} onAddressChange={setMemoryAddress} onOperationChange={setMemoryOperation} onWriteValueChange={setMemoryWriteValue} /> : null}

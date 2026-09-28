@@ -77,13 +77,15 @@ await fillLoginForm(page, { username, password: "Student123!" });
 await submitLoginForm(page);
 await page.waitForTimeout(2500);
 
-// 课程首页上默认锁定的关卡，在开启跳关后应能真正进入实验台。
-// 旧实现只有首页卡片放开了开关，实验台与步骤条仍会拦截，点进去只会闪一行文字。
+// 课程首页上默认锁定的关卡，在开启跳关后应能真正进入实验台并提交。
+// 默认状态下锁定关卡也能进去练习，但会显示"尚未解锁"提示、提交按钮被禁用；
+// 开启跳关后这个提示必须消失（旧实现只有首页卡片放开了开关，实验台仍会拦截）。
 const lockedChallenge = CHALLENGES[1];
 console.log("probing locked challenge:", lockedChallenge.title);
 await openChallengeFromHome(page, lockedChallenge.title);
 await page.locator(".lab-studio").waitFor({ state: "visible", timeout: 20_000 });
 assert.ok(await page.locator(".lab-studio").count() >= 1, "locked challenge opens once skip is enabled");
+assert.equal(await page.locator(".lab-studio-locked-notice").count(), 0, "skip enabled removes the locked notice");
 console.log("opened locked challenge with skip enabled:", lockedChallenge.title);
 
 assert.equal(pageErrors.length, 0, `page errors: ${pageErrors.join(" | ")}`);
