@@ -419,6 +419,48 @@ export function migrate(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_demo_attempts_student ON demo_attempts(student_id, demo_id, created_at DESC);
   `);
+  // LLMWiki 式知识库：文档 → 分块 → FTS5 全文索引。
+  // kb_documents.analysis_json 存自动分析结果（摘要/要点/关键词），
+  // kb_index 是独立的 FTS5 虚表（不挂外部内容表），删除时按 document_id 级联清理。
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS kb_documents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      file_type TEXT NOT NULL CHECK (file_type IN ('txt', 'md', 'docx', 'pdf', 'pptx')),
+      file_size INTEGER NOT NULL DEFAULT 0,
+      char_count INTEGER NOT NULL DEFAULT 0,
+      chunk_count INTEGER NOT NULL DEFAULT 0,
+      analysis_json TEXT NOT NULL DEFAULT '{}',
+      analysis_source TEXT NOT NULL DEFAULT 'local' CHECK (analysis_source IN ('ai', 'local')),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_kb_documents_student ON kb_documents(student_id, id DESC);
+
+    CREATE TABLE IF NOT EXISTS kb_chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id INTEGER NOT NULL REFERENCES kb_documents(id) ON DELETE CASCADE,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      chunk_index INTEGER NOT NULL,
+      page_no INTEGER,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_kb_chunks_document ON kb_chunks(document_id, chunk_index);
+  `);
+  // 中文分词方案：入库前把正文切成「CJK 单字 / 拉丁整词」空格分隔序列，
+  // 用内置 unicode61 即可；检索时把查询同样切分后组短语查询，获得子串匹配语义。
+  db.exec(`
+    CREATE VIRTUAL TABLE IF NOT EXISTS kb_index USING fts5(
+      content,
+      chunk_id UNINDEXED,
+      document_id UNINDEXED,
+      student_id UNINDEXED,
+      tokenize = 'unicode61'
+    );
+  `);
   ensureColumn(db, "notes", "challenge_id", "TEXT");
   ensureColumn(db, "notes", "updated_at", "TEXT");
   ensureColumn(db, "classes", "status", "TEXT NOT NULL DEFAULT 'active'");

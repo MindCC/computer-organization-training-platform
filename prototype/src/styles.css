@@ -9064,3 +9064,389 @@ body {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/* ============ 知识库（LLMWiki 式）============ */
+.kb-layout {
+  display: grid;
+  gap: 20px;
+}
+
+.kb-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.kb-hero h1 {
+  margin: 6px 0 8px;
+}
+
+.kb-hero p {
+  margin: 0;
+  max-width: 640px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.kb-hero-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.kb-hero-stat {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 96px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.kb-hero-stat strong {
+  font-size: 1.6rem;
+  color: var(--blue);
+}
+
+.kb-hero-stat span {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.kb-upload-zone {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.kb-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.kb-file-label {
+  flex: 1 1 320px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1.5px dashed rgba(40, 109, 232, 0.45);
+  border-radius: var(--radius-md);
+  background: rgba(40, 109, 232, 0.05);
+  color: var(--ink);
+  font-size: 0.92rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.kb-file-label:hover {
+  background: rgba(40, 109, 232, 0.1);
+  border-color: var(--blue);
+}
+
+.kb-file-label-icon {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.kb-stage-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 0;
+}
+
+.kb-stage {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.kb-stage-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #cbd5e1;
+}
+
+.kb-stage.active {
+  border-color: rgba(40, 109, 232, 0.55);
+  color: var(--blue);
+}
+
+.kb-stage.active .kb-stage-dot {
+  background: var(--blue);
+  animation: kb-stage-pulse 1s ease-in-out infinite;
+}
+
+.kb-stage.done {
+  color: #16745d;
+}
+
+.kb-stage.done .kb-stage-dot {
+  background: var(--teal);
+}
+
+@keyframes kb-stage-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.kb-error {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(216, 93, 77, 0.35);
+  border-radius: 10px;
+  background: var(--danger-soft);
+  color: #b03a2e;
+  font-size: 0.88rem;
+}
+
+.kb-upload-result {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid rgba(43, 169, 142, 0.4);
+  border-radius: var(--radius-md);
+  background: var(--teal-soft);
+}
+
+.kb-upload-result-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kb-upload-result p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.kb-badge {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(102, 118, 138, 0.14);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.kb-badge.type {
+  background: rgba(40, 109, 232, 0.12);
+  color: var(--blue);
+}
+
+.kb-badge.ai {
+  background: rgba(43, 169, 142, 0.16);
+  color: #16745d;
+}
+
+.kb-meta-row {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.kb-keyword-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.kb-keyword-chip {
+  padding: 4px 11px;
+  border: 1px solid rgba(40, 109, 232, 0.3);
+  border-radius: 999px;
+  background: rgba(40, 109, 232, 0.07);
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.kb-search-bar {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.kb-search-input {
+  flex: 1 1 280px;
+  padding: 11px 14px;
+  border: 1px solid rgba(33, 55, 84, 0.22);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+
+.kb-search-input:focus {
+  outline: 2px solid rgba(40, 109, 232, 0.4);
+  border-color: var(--blue);
+}
+
+.kb-hit-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.kb-hit-count {
+  color: var(--muted);
+}
+
+.kb-hit-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.kb-hit-card header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kb-hit-loc {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.kb-snippet {
+  margin: 0;
+  line-height: 1.7;
+  color: var(--ink);
+}
+
+.kb-snippet mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: rgba(40, 109, 232, 0.18);
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.kb-hit-point {
+  padding-left: 10px;
+  border-left: 3px solid rgba(43, 169, 142, 0.5);
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.kb-doc-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.kb-doc-card {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.kb-doc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.kb-doc-title {
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+.kb-doc-summary {
+  margin: 0;
+  color: var(--ink);
+  line-height: 1.65;
+}
+
+.kb-points {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.kb-points-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 22px;
+  line-height: 1.65;
+}
+
+.kb-points-list li::marker {
+  color: var(--blue);
+  font-weight: 700;
+}
+
+.kb-doc-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+@media (max-width: 720px) {
+  .kb-hero {
+    display: grid;
+  }
+
+  .kb-search-bar {
+    flex-wrap: wrap;
+  }
+
+  .kb-doc-actions {
+    justify-content: stretch;
+  }
+
+  .kb-doc-actions button {
+    flex: 1;
+  }
+}

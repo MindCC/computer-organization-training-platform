@@ -72,6 +72,7 @@ import { createAssemblyPracticeRepository } from './assemblyPracticeRepository.j
 import { createAssemblyPracticeRouter } from './assemblyPracticeRoutes.js';
 import { createTeacherAssemblyPracticeRouter } from './teacherAssemblyPractice.js';
 import { createCoursewareUploadRouter } from "./coursewareUploadRoutes.js";
+import { createKnowledgeRouter } from "./knowledgeRoutes.js";
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 import { buildMistakeBook } from "../src/mistakeBook.js";
@@ -178,6 +179,7 @@ export function createApp(options = {}) {
     requireRole,
     dataDirectory: options.coursewareDirectory ?? path.resolve(path.dirname(db.name === ":memory:" ? process.cwd() : db.name), "courseware"),
   }));
+  app.use("/api", createKnowledgeRouter({ db, requireRole }));
 
   // Deep health check
   const _startedAt = Date.now();

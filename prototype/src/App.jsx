@@ -119,7 +119,7 @@ const navGroups = [
     items: [
       { id: "records", label: "学习记录", icon: ChartPieSlice },
       { id: "mistakes", label: "错题本", icon: BookOpen },
-      { id: "notes", label: "学习笔记", icon: Notebook },
+      { id: "notes", label: "知识库", icon: Notebook },
     ],
   },
   {

@@ -210,4 +210,39 @@ export const api = {
   }),
   coursewareNotes: (coursewareId, pageNumber) => apiRequest(`/api/courseware/uploads/${coursewareId}/notes?page=${pageNumber}`),
   addCoursewareNote: (coursewareId, payload) => apiRequest(`/api/courseware/uploads/${coursewareId}/notes`, { method: "POST", body: JSON.stringify(payload) }),
+  // 知识库（LLMWiki）API
+  knowledgeDocuments: () => apiRequest("/api/student/knowledge/documents"),
+  knowledgeDocumentDetail: (documentId) => apiRequest(`/api/student/knowledge/documents/${documentId}`),
+  deleteKnowledgeDocument: (documentId) => apiRequest(`/api/student/knowledge/documents/${documentId}`, { method: "DELETE" }),
+  searchKnowledge: (query) => apiRequest(`/api/student/knowledge/search?q=${encodeURIComponent(query)}`),
+  // 上传要走自定义 fetch：LLM 分析可能超过 apiRequest 的 15s 超时。
+  // 上传机制复用课件模式——原始二进制 + x-file-name 头，Content-Type 统一 octet-stream。
+  uploadKnowledgeDocument: async (file) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 90_000);
+    try {
+      const response = await fetch("/api/student/knowledge/upload", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "content-type": "application/octet-stream",
+          "x-file-name": encodeURIComponent(file.name),
+        },
+        body: file,
+        signal: controller.signal,
+      });
+      const contentType = response.headers.get("content-type") ?? "";
+      const body = contentType.includes("application/json") ? await response.json() : await response.text();
+      if (!response.ok) {
+        const message = typeof body === "object" ? (body?.error?.message ?? body?.error) : body;
+        throw new Error(typeof message === "string" && message ? message : `上传失败：${response.status}`);
+      }
+      return body;
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error("上传超时：文档解析或 AI 分析耗时过长，请稍后再试");
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  },
 };
