@@ -1127,36 +1127,89 @@
   }
 }
 
-/* ── 课程课件内嵌 AI 互动讲演（iframe 内嵌，不跳外链） ── */
-.courseware-embed {
+/* ── 课程课件 AI 互动讲演：播放卡片 + 全屏弹层播放 ── */
+.courseware-embed-play {
+  align-items: center;
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 10px;
-  margin-top: 10px;
-  overflow: hidden;
-}
-.courseware-embed summary {
-  align-items: center;
   cursor: pointer;
   display: flex;
-  font-weight: 700;
-  gap: 10px;
-  justify-content: space-between;
-  list-style: none;
-  padding: 11px 14px;
+  font-family: inherit;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  text-align: left;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+  width: 100%;
 }
-.courseware-embed summary::-webkit-details-marker { display: none; }
-.courseware-embed summary::before { color: var(--blue); content: "▸"; margin-right: 2px; }
-.courseware-embed[open] summary::before { content: "▾"; }
-.courseware-embed summary:hover { background: rgba(40,109,232,0.05); }
-.courseware-embed-hint {
+.courseware-embed-play:hover { border-color: rgba(40,109,232,0.5); box-shadow: 0 4px 14px rgba(31,42,56,0.1); }
+.embed-play-icon {
+  align-items: center;
+  background: var(--blue, #286de8);
+  border-radius: 8px;
+  color: #fff;
+  display: grid;
+  flex: none;
+  font-size: 14px;
+  height: 34px;
+  justify-items: center;
+  width: 34px;
+}
+.embed-play-text { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.embed-play-text strong { font-size: .95rem; }
+.embed-play-text small { color: var(--muted); font-size: .8rem; }
+.embed-play-cta {
   background: rgba(40,109,232,0.1);
   border-radius: 999px;
-  color: var(--muted);
-  font-size: .78rem;
-  font-weight: 600;
-  padding: 2px 8px;
-  white-space: nowrap;
+  color: var(--blue, #286de8);
+  flex: none;
+  font-size: .8rem;
+  font-weight: 700;
+  padding: 5px 12px;
 }
-.courseware-embed-frame iframe { border: 0; display: block; height: 560px; width: 100%; }
-@media (max-width: 760px) { .courseware-embed-frame iframe { height: 420px; } }
+
+/* 全屏播放弹层 */
+.courseware-embed-modal {
+  align-items: center;
+  background: rgba(9, 16, 30, 0.72);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 1000;
+}
+.courseware-embed-modal-body {
+  background: #0b1424;
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+  display: flex;
+  flex-direction: column;
+  height: 92vh;
+  max-width: 1400px;
+  overflow: hidden;
+  width: 96vw;
+}
+.courseware-embed-modal-head {
+  align-items: center;
+  color: #fff;
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+.courseware-embed-modal-head strong { font-size: .98rem; }
+.courseware-embed-close {
+  background: rgba(255,255,255,0.12);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 16px;
+  height: 32px;
+  line-height: 1;
+  width: 32px;
+}
+.courseware-embed-close:hover { background: rgba(255,255,255,0.24); }
+.courseware-embed-modal-body iframe { background: #fff; border: 0; flex: 1; width: 100%; }

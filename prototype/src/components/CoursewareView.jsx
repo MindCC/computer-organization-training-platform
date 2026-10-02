@@ -60,6 +60,15 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
   const [pageNumber, setPageNumber] = useState(1);
   const [notes, setNotes] = useState([]);
   const [noteDraft, setNoteDraft] = useState("");
+  const [activeEmbed, setActiveEmbed] = useState(null);   // 全屏播放的 AI 互动讲演
+
+  // ESC 关闭全屏播放
+  useEffect(() => {
+    if (!activeEmbed) return undefined;
+    const onKey = (event) => { if (event.key === "Escape") setActiveEmbed(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeEmbed]);
 
   const loadUploads = async () => {
     if (!auth?.user) return;
@@ -207,12 +216,11 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
                   <section className="courseware-embeds">
                     <strong><MonitorPlay size={14} /> AI 互动讲演</strong>
                     {ch.embeds.map((embed) => (
-                      <details className="courseware-embed" key={embed.src}>
-                        <summary title={embed.note}>{embed.title}<span className="courseware-embed-hint">内嵌播放</span></summary>
-                        <div className="courseware-embed-frame">
-                          <iframe allowFullScreen loading="lazy" src={embed.src} title={embed.title} />
-                        </div>
-                      </details>
+                      <button className="courseware-embed-play" key={embed.src} onClick={() => setActiveEmbed(embed)} type="button">
+                        <span className="embed-play-icon" aria-hidden="true">▶</span>
+                        <span className="embed-play-text"><strong>{embed.title}</strong><small>{embed.note}</small></span>
+                        <span className="embed-play-cta">全屏播放</span>
+                      </button>
                     ))}
                   </section>
                 )}
@@ -227,6 +235,18 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
         {COURSEWARE.references.map((ref, i) => <p key={i}>{i + 1}. {ref}</p>)}
         <p>在线资源：智慧树 杨泽雪 计算机组成原理与体系结构</p>
       </div>
+
+      {activeEmbed ? (
+        <div aria-label={activeEmbed.title} aria-modal="true" className="courseware-embed-modal" onClick={() => setActiveEmbed(null)} role="dialog">
+          <div className="courseware-embed-modal-body" onClick={(event) => event.stopPropagation()}>
+            <div className="courseware-embed-modal-head">
+              <strong>{activeEmbed.title}</strong>
+              <button aria-label="关闭" className="courseware-embed-close" onClick={() => setActiveEmbed(null)} type="button">✕</button>
+            </div>
+            <iframe allowFullScreen src={activeEmbed.src} title={activeEmbed.title} />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
