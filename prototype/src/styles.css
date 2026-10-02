@@ -8849,3 +8849,107 @@ body {
 
 .case-chip.pass { background: rgba(36, 148, 95, 0.14); color: var(--studio-green, #16a34a); }
 .case-chip.fail { background: rgba(186, 82, 70, 0.14); color: var(--studio-red, #b91c1c); }
+/* ── 挑战路径章节收起/展开 ── */
+.route-fold-group { display: flex; gap: 6px; }
+.route-fold-btn {
+  background: transparent;
+  border: 1px solid rgba(75, 92, 117, 0.28);
+  border-radius: 7px;
+  color: var(--muted-text);
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+}
+.route-fold-btn:hover { border-color: var(--studio-blue, #2474d8); color: var(--studio-blue, #2474d8); }
+
+.lab-studio-step-chapter {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--studio-muted, #64748b);
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  letter-spacing: 0.06em;
+  padding: 7px 10px;
+  text-align: left;
+  width: 100%;
+}
+.lab-studio-step-chapter:hover { background: rgba(47, 111, 235, 0.06); color: var(--studio-blue, #2474d8); }
+.lab-studio-step-chapter .chapter-caret { font-size: 11px; width: 12px; flex: none; }
+.lab-studio-step-chapter strong { flex: 1; font-size: 12.5px; font-weight: 800; }
+.lab-studio-step-chapter small { color: var(--studio-muted, #94a3b8); font-size: 11px; font-weight: 600; }
+.lab-studio-step-chapter.collapsed { opacity: 0.75; }
+/* ── 挑战依赖地图（仿图灵完备） ── */
+.challenge-map-wrap { display: flex; flex-direction: column; gap: 10px; height: 100%; min-height: 0; }
+.challenge-map-head { align-items: center; display: flex; justify-content: space-between; gap: 16px; }
+.challenge-map-head p { color: var(--muted-text); font-size: 12.5px; margin: 2px 0 0; }
+.challenge-map-head strong { font-size: 15px; }
+.map-legend { display: flex; flex: none; gap: 14px; font-size: 12.5px; color: var(--muted-text); }
+.map-legend span { align-items: center; display: inline-flex; gap: 6px; }
+.legend-dot { border-radius: 50%; display: inline-block; height: 10px; width: 10px; }
+.legend-dot.done { background: var(--studio-green, #16a34a); }
+.legend-dot.open { background: var(--studio-blue, #2474d8); }
+.legend-dot.locked { background: #94a3b8; }
+
+.challenge-map-canvas {
+  background: #f7f9fb;
+  border: 1px solid rgba(75, 92, 117, 0.18);
+  border-radius: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.map-node {
+  align-items: center;
+  background: #ffffff;
+  border: 2px solid #cbd5e1;
+  border-radius: 999px;
+  box-shadow: 0 3px 10px rgba(31, 42, 56, 0.12);
+  cursor: pointer;
+  display: flex;
+  gap: 7px;
+  padding: 7px 13px 7px 8px;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  user-select: none;
+}
+.map-node:hover { transform: translateY(-2px); }
+.map-node-icon {
+  align-items: center;
+  border-radius: 50%;
+  display: grid;
+  font-size: 11px;
+  font-weight: 800;
+  height: 22px;
+  justify-items: center;
+  width: 22px;
+  flex: none;
+}
+.map-node-label { font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+
+.map-node.done { border-color: var(--studio-green, #16a34a); }
+.map-node.done .map-node-icon { background: var(--studio-green, #16a34a); color: #fff; }
+.map-node.open { border-color: var(--studio-blue, #2474d8); }
+.map-node.open .map-node-icon { background: var(--studio-blue, #2474d8); color: #fff; }
+.map-node.locked { border-color: #d7dee8; opacity: 0.72; }
+.map-node.locked .map-node-icon { background: #e2e8f0; color: #64748b; }
+.map-node.locked .map-node-label { color: #94a3b8; }
+.map-node.selected {
+  border-color: var(--studio-amber, #b45309);
+  box-shadow: 0 0 0 3px rgba(180, 83, 9, 0.25), 0 6px 16px rgba(31, 42, 56, 0.16);
+}
+
+.map-edge .react-flow__edge-path { stroke: #b6c2d4; stroke-width: 2; }
+.map-edge.done .react-flow__edge-path { stroke: var(--studio-green, #16a34a); }
+/* 依赖地图连接锚点（视觉收敛，仅作连线端点） */
+.map-handle {
+  background: rgba(148, 163, 184, 0.5);
+  border: none;
+  height: 5px;
+  min-height: 0;
+  min-width: 0;
+  width: 5px;
+}

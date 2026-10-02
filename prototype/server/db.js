@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { LEARNING_ITEMS, buildInitialLearningProgress, recordAttempt, summarizeLearning } from "../src/platformLogic.js";
 import { HARDWARE_GAME_CASES, summarizeHardwareGameAttempts } from "../src/hardwareGame.js";
+import { reconcileDependencyLocks } from "../src/challengeDependencies.js";
 import { sanitizeProfile } from "./security.js";
 
 const DEFAULT_DATABASE_PATH = path.resolve("data/classroom.sqlite");
@@ -598,7 +599,8 @@ export function getStudentProgress(db, studentId) {
       timeSpentMinutes: row.time_spent_minutes,
     };
   }
-  return progress;
+  // 依赖解锁口径改为依赖驱动后，历史学情里「依赖已完成却仍 locked」的关卡就地归一（不写库）
+  return reconcileDependencyLocks(progress);
 }
 
 export function saveStudentProgress(db, studentId, progress) {

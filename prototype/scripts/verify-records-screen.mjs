@@ -13,6 +13,7 @@ import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const BASE_URL = process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
+const API_URL = process.env.QA_API_URL ?? "http://127.0.0.1:8787";
 const ARTIFACT_DIR = fileURLToPath(new URL("../qa-artifacts/", import.meta.url));
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 
@@ -56,25 +57,27 @@ try {
   check("学习树：24 细枝", twigCount === 24, `实际 ${twigCount}`);
   check("学习树：24 实验叶子", leafCount === 24, `实际 ${leafCount}`);
 
-  // 点亮状态（demo2026001 的播种学情：沿章节顺序做到「半加器」卡住，
-  // 装机挑战 game-office-pc 等也已完成）
-  const officeLeafClass = await page.locator(".tree-leaf", { hasText: "办公电脑" }).getAttribute("class");
-  const andGateClass = await page.locator(".tree-leaf", { hasText: "与门" }).getAttribute("class");
-  const halfAdderClass = await page.locator(".tree-leaf", { hasText: "半加器" }).first().getAttribute("class");
-  const fullAdderClass = await page.locator(".tree-leaf", { hasText: "全加器" }).getAttribute("class");
-  check("已完成实验点亮（办公电脑/与门）", officeLeafClass.includes("lit") && andGateClass.includes("lit"));
-  check("进行中实验高亮（半加器）", halfAdderClass.includes("active"));
-  check("未完成实验未点亮（全加器）", fullAdderClass.includes("dim"));
+  // 点亮/进行中/未解锁的渲染与 API 学情一致（演示数据是活的，按实际状态断言，不写死）
+  const progress = await (await page.request.get(`${API_URL}/api/student/progress`)).json();
+  const prog = progress.progress ?? {};
+  const entries = Object.entries(prog);
+  const leafClass = async (id) => await page.locator(`.tree-leaf[data-leaf-id='${id}']`).first().getAttribute("class").catch(() => "");
+  const completedId = entries.find(([, r]) => r?.status === "completed")?.[0];
+  const activeId = entries.find(([, r]) => r?.status === "in-progress")?.[0];
+  const lockedId = entries.find(([, r]) => r?.status === "locked")?.[0];
+  if (completedId) check(`已完成实验点亮（${completedId}）`, (await leafClass(completedId)).includes("lit"));
+  if (activeId) check(`进行中实验高亮（${activeId}）`, (await leafClass(activeId)).includes("active"));
+  if (lockedId) check(`未解锁实验未点亮（${lockedId}）`, (await leafClass(lockedId)).includes("dim"));
 
   // 统计图
   check("饼图渲染", await page.locator("[data-testid='chart-donut'] svg").count() === 1);
   check("折线图渲染（8 章刻度）", await page.locator("[data-testid='chart-line'] .line-x-label").count() === 8);
   check("柱状图渲染（8 行）", await page.locator("[data-testid='chart-bars'] .tech-bar-row").count() === 8);
 
-  // 复位视图后点击叶子进入实验（半加器为 demo2026001 的进行中关卡）
+  // 复位视图后点击一个已完成叶子进入对应实验
   await page.locator(".tree-zoom-fit").click();
   await page.waitForTimeout(250);
-  await page.locator(".tree-leaf[data-leaf-id='half-adder'] .leaf-hit").click();
+  await page.locator(`.tree-leaf[data-leaf-id='${completedId}'] .leaf-hit`).click();
   await page.waitForSelector(".lab-studio", { timeout: 15000 });
   check("点击叶子进入对应实验", true);
   await page.getByRole("button", { name: "返回课程首页" }).click();
