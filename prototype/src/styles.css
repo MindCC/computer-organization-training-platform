@@ -4087,37 +4087,90 @@ textarea:focus-visible {
   border-color: rgba(186, 82, 70, 0.18);
 }
 
+/* ---- Circuit node: colorful block-chip style (Scratch × hardware-chip) ---- */
 .circuit-flow-node {
-  background: #ffffff;
-  border: 1px solid rgba(40, 52, 70, 0.22);
-  border-radius: 8px;
-  box-shadow: 0 12px 28px rgba(31, 42, 56, 0.1);
-  min-height: 96px;
-  min-width: 150px;
-  padding: 12px 18px;
+  --node-hue: 210;
+  --node-sat: 60%;
+  --node-l1: 58%;
+  --node-l2: 46%;
+  --node-ink: #ffffff;
+  --node-chip: rgba(255, 255, 255, 0.22);
+  --node-chip-ink: #ffffff;
+
+  background: linear-gradient(180deg,
+    hsl(var(--node-hue) var(--node-sat) var(--node-l1) / 1) 0%,
+    hsl(var(--node-hue) var(--node-sat) var(--node-l2) / 1) 100%);
+  border: 1px solid hsl(var(--node-hue) calc(var(--node-sat) + 10%) calc(var(--node-l2) - 8%) / 0.6);
+  border-radius: 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12),
+    0 8px 20px rgba(31, 42, 56, 0.22);
+  color: var(--node-ink);
+  min-height: 84px;
+  min-width: 148px;
+  padding: 12px 16px 14px;
   position: relative;
 }
 
+/* Type palette: each component family gets its own block color */
+.circuit-flow-node[data-component-type="input"]    { --node-hue: 210; --node-sat: 90%; --node-l1: 60%; --node-l2: 46%; }
+.circuit-flow-node[data-component-type="output"]   { --node-hue: 145; --node-sat: 60%; --node-l1: 52%; --node-l2: 38%; }
+.circuit-flow-node[data-component-type="buffer"]   { --node-hue: 222; --node-sat: 32%; --node-l1: 52%; --node-l2: 38%; }
+.circuit-flow-node[data-component-type="and"]      { --node-hue: 152; --node-sat: 64%; --node-l1: 48%; --node-l2: 34%; }
+.circuit-flow-node[data-component-type="or"]       { --node-hue: 32;  --node-sat: 88%; --node-l1: 58%; --node-l2: 44%; }
+.circuit-flow-node[data-component-type="not"]      { --node-hue: 265; --node-sat: 60%; --node-l1: 62%; --node-l2: 48%; }
+.circuit-flow-node[data-component-type="xor"]      { --node-hue: 340; --node-sat: 72%; --node-l1: 60%; --node-l2: 46%; }
+.circuit-flow-node[data-component-type="fullAdder"]{ --node-hue: 218; --node-sat: 45%; --node-l1: 34%; --node-l2: 22%; }
+.circuit-flow-node[data-component-type="mux2"]      { --node-hue: 188; --node-sat: 70%; --node-l1: 46%; --node-l2: 32%; }
+.circuit-flow-node[data-component-type="alu1"]     { --node-hue: 262; --node-sat: 48%; --node-l1: 46%; --node-l2: 32%; }
+
 .circuit-flow-node.selected {
-  border-color: #316bdc;
-  box-shadow: 0 0 0 3px rgba(49, 107, 220, 0.16), 0 12px 28px rgba(31, 42, 56, 0.1);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.12),
+    0 0 0 3px hsl(var(--node-hue) var(--node-sat) var(--node-l1) / 0.45),
+    0 10px 26px rgba(31, 42, 56, 0.28);
+}
+
+.circuit-flow-node-head {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.circuit-flow-node-glyph {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  color: #fff;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-weight: 800;
+  height: 26px;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  min-width: 30px;
+  padding: 0 6px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .circuit-flow-node-title {
   display: grid;
   gap: 2px;
-  text-align: center;
+  text-align: left;
 }
 
 .circuit-flow-node-title strong {
-  color: var(--ink);
+  color: #ffffff;
   font-size: 15px;
-}
-
-.circuit-flow-node-title span {
-  color: var(--muted-text);
-  font-size: 11px;
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
 }
 
 .circuit-flow-port-row {
@@ -4129,28 +4182,31 @@ textarea:focus-visible {
 }
 
 .circuit-flow-port-row.input {
-  left: -7px;
+  left: -8px;
 }
 
 .circuit-flow-port-row.output {
-  right: -7px;
+  right: -8px;
 }
 
 .circuit-flow-port-row span {
-  background: #eef3f8;
-  border: 1px solid rgba(75, 92, 117, 0.14);
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 999px;
-  color: var(--muted-text);
+  color: #ffffff;
   font-size: 11px;
+  font-weight: 600;
   line-height: 1;
-  padding: 4px 6px;
+  padding: 4px 8px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
 }
 
 .circuit-flow-handle {
-  background: #316bdc;
-  border: 2px solid #ffffff;
-  height: 18px;
-  width: 18px;
+  background: #ffffff;
+  border: 3px solid hsl(var(--node-hue) var(--node-sat) var(--node-l2));
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  height: 16px;
+  width: 16px;
   z-index: 8;
 }
 
@@ -4161,11 +4217,11 @@ textarea:focus-visible {
 }
 
 .circuit-flow-handle.input {
-  background: #7a5af8;
+  background: #eaf2ff;
 }
 
 .circuit-flow-handle.output {
-  background: #2d9b73;
+  background: #eafff3;
 }
 
 .react-flow__edge.selected .react-flow__edge-path,
@@ -8749,6 +8805,44 @@ body {
   text-align: center;
 }
 
-.circuit-flow-port-value.signal-one { background: rgba(36, 148, 95, 0.16); color: var(--studio-green, #16a34a); }
-.circuit-flow-port-value.signal-zero { background: rgba(75, 92, 117, 0.14); color: var(--muted-text); }
-.circuit-flow-port-value.signal-unknown { background: rgba(217, 119, 6, 0.14); color: #b45309; }
+.circuit-flow-port-value.signal-one { background: #16a34a; color: #fff; box-shadow: 0 0 8px rgba(22, 163, 74, 0.6); }
+.circuit-flow-port-value.signal-zero { background: rgba(15, 23, 42, 0.55); color: #e2e8f0; }
+.circuit-flow-port-value.signal-unknown { background: #d97706; color: #fff; }
+/* ── 自由拼装闯关判分面板 ── */
+.freeform-grading {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(75, 92, 117, 0.18);
+  border-radius: 8px;
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+
+.freeform-grading-body { display: grid; gap: 6px; min-width: 0; }
+.freeform-grading-body > strong { font-size: 13.5px; }
+
+.freeform-errors {
+  color: var(--studio-red, #b91c1c);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.freeform-pass { color: var(--studio-green, #16a34a); font-size: 13px; font-weight: 700; margin: 0; }
+.freeform-warn { color: #b45309; font-size: 13px; margin: 0; }
+
+.freeform-cases { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.case-chip {
+  border-radius: 6px;
+  font-family: "Consolas", monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 7px;
+}
+
+.case-chip.pass { background: rgba(36, 148, 95, 0.14); color: var(--studio-green, #16a34a); }
+.case-chip.fail { background: rgba(186, 82, 70, 0.14); color: var(--studio-red, #b91c1c); }

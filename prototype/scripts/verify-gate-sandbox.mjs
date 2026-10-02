@@ -38,7 +38,7 @@ try {
   await page.waitForTimeout(1200);
 
   // 1. 切到沙盒
-  await page.locator(".sandbox-toggle").click();
+  await page.locator(".sandbox-toggle", { hasText: "逻辑门沙盒" }).click();
   await page.waitForSelector(".sandbox", { timeout: 10000 });
   check("沙盒模式可进入", await page.locator(".sandbox").count() === 1);
   check("调色板 7 个逻辑门", (await page.locator(".sandbox-gate").count()) === 7, await page.locator(".sandbox-gate").allTextContents().then((t) => t.join("|")));

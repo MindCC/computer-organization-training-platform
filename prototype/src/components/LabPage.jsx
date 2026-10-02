@@ -25,6 +25,8 @@ import { MissionSettlement } from "./classroom/student/MissionSettlement.jsx";
 import { LabAssistantPanel } from "./LabAssistantPanel.jsx";
 import { CpuExecutionPanel } from "./CpuExecutionPanel.jsx";
 import { LogicGateSandbox } from "./LogicGateSandbox.jsx";
+import { GateAssemblyChallenge } from "./GateAssemblyChallenge.jsx";
+import { freeformSpecOf } from "../circuit/freeformGrading.js";
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
 const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").then((m) => ({ default: m.OverviewExplodedView })));
@@ -124,6 +126,10 @@ export function LabPage({
     const st = statusText(l.currentRecord?.status ?? "not-started");
     const js = getJourneyStepsForChallenge(cur.id);
     const [sandboxMode, setSandboxMode] = useState(false);
+    const [assemblyMode, setAssemblyMode] = useState(false);
+    const freeformSpec = freeformSpecOf(cur.id);
+    // 切换关卡时退出自由拼装
+    useEffect(() => { setAssemblyMode(false); }, [cur.id]);
     return wrapClassroom(
       <div className="lab-studio">
         <header className="lab-studio-header">
@@ -146,9 +152,11 @@ export function LabPage({
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
           </aside>
           <section className="lab-studio-workspace">
-            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{sandboxMode ? "逻辑门沙盒" : cur.title}</h1><p>{sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : labDescription(cur.id)}</p>{!sandboxMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button className={`sandbox-toggle ${sandboxMode ? "active" : ""}`} onClick={() => setSandboxMode(!sandboxMode)} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button>{!sandboxMode ? <><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></> : null}</div></div>
+            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{sandboxMode ? "逻辑门沙盒" : assemblyMode ? `${cur.title} · 自由拼装` : cur.title}</h1><p>{sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : assemblyMode ? "自己拖门组装电路，判分通过即算过关" : labDescription(cur.id)}</p>{!sandboxMode && !assemblyMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar">{freeformSpec ? <button className={`sandbox-toggle ${assemblyMode ? "active" : ""}`} onClick={() => { setAssemblyMode(!assemblyMode); setSandboxMode(false); }} type="button">{assemblyMode ? "← 固定连线" : "🔧 自由拼装"}</button> : null}<button className={`sandbox-toggle ${sandboxMode ? "active" : ""}`} onClick={() => { setSandboxMode(!sandboxMode); setAssemblyMode(false); }} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button>{!sandboxMode && !assemblyMode ? <><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></> : null}</div></div>
             {sandboxMode ? (
               <div className="lab-studio-canvas-shell sandbox-shell"><LogicGateSandbox /></div>
+            ) : assemblyMode && freeformSpec ? (
+              <div className="lab-studio-canvas-shell sandbox-shell"><GateAssemblyChallenge challenge={cur} circuitModel={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></div>
             ) : (<>
             <div className="lab-studio-inputs">{(challengeControlMeta[cur.id] ?? []).map((ctrl) => ctrl.type === "bit" ? <Toggle key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} onChange={(v) => l.handleInputChange(ctrl.key, v)} /> : <Stepper key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} min={ctrl.min} max={ctrl.max} onChange={(v) => l.handleInputChange(ctrl.key, v)} />)}</div>
             <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
