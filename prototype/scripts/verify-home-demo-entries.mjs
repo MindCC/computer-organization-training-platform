@@ -21,7 +21,8 @@ function check(name, condition, detail = "") {
 
 /** 章节号 → 该章课堂演示页 href（与 courseware.js demos 一致） */
 const EXPECTED_DEMOS = {
-  "第 2 章": ["/demos/twos-complement.html", "/demos/arithmetic-basics.html"],
+  "第 1 章": ["/demos/intro.html"],
+  "第 2 章": ["/demos/arithmetic-basics.html"],
   "第 3 章": ["/demos/alu.html"],
   "第 4 章": ["/demos/memory-system.html"],
   "第 5 章": ["/demos/addressing.html"],
@@ -45,12 +46,14 @@ try {
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
   check("登录后进入课程首页章节板", await page.locator(".project-chapter-toggle").count() === 8);
 
-  // 逐章展开，核对演示入口数量与 href
+  // 逐章展开，核对演示入口数量与 href（第一章默认已展开，只在收起时才点开，避免盲点收起）
   for (const [chapterLabel, hrefs] of Object.entries(EXPECTED_DEMOS)) {
     const toggle = page.locator(".project-chapter-toggle", { hasText: chapterLabel });
     const board = page.locator(".project-chapter", { has: toggle });
-    await toggle.click();
-    await page.waitForTimeout(250);
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") {
+      await toggle.click();
+      await page.waitForTimeout(250);
+    }
     const entries = board.locator("a.demo-entry");
     const count = await entries.count();
     const found = [];

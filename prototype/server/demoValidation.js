@@ -5,6 +5,7 @@
  */
 
 export const DEMO_PAGES = Object.freeze([
+  { id: "intro", title: "计算机系统组成与冯·诺依曼结构", chapterId: "ch1", file: "intro.html" },
   { id: "twos-complement", title: "补码的运算", chapterId: "ch2", file: "twos-complement.html" },
   { id: "arithmetic-basics", title: "运算基础（补码与移位）", chapterId: "ch2", file: "arithmetic-basics.html" },
   { id: "alu", title: "运算器（定点乘除与浮点运算）", chapterId: "ch3", file: "alu.html" },

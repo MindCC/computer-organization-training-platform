@@ -39,6 +39,13 @@ const CHAPTER_CONTENT = {
       "常用的计算机性能指标有哪些？",
       "按照冯·诺依曼原理，现代计算机应具备那些功能？",
     ],
+    demos: [
+      {
+        title: "计算机系统组成与冯·诺依曼结构 · 课堂互动演示",
+        href: "/demos/intro.html",
+        note: "五大部件互动图、存储程序取指-译码-执行动画、软硬件组成、随堂练习",
+      },
+    ],
   },
   ch2: {
     slides: 72,
@@ -65,11 +72,6 @@ const CHAPTER_CONTENT = {
       '"在计算机中，原码和反码不能表示-1。"这种说法是否正确，为什么？',
     ],
     demos: [
-      {
-        title: "补码的运算 · 课堂互动演示",
-        href: "/demos/twos-complement.html",
-        note: "原码/反码/补码/移码对比、加减竖式动画、门电路视角、随堂练习",
-      },
       {
         title: "运算基础（补码与移位）· 合订演示",
         href: "/demos/arithmetic-basics.html",
