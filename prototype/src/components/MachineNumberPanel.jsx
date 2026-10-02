@@ -1,6 +1,6 @@
 import { buildMachineNumberExercise, encodeSignedInteger } from "../numberEncoding.js";
 
-export function MachineNumberPanel({ value }) {
+export function MachineNumberPanel({ value, onValueChange }) {
   const encoded = encodeSignedInteger(value, 4);
   const exercise = buildMachineNumberExercise();
 
@@ -32,12 +32,18 @@ export function MachineNumberPanel({ value }) {
       </div>
       <div className="machine-number-cases">
         {exercise.cases.slice(0, 5).map((item) => (
-          <article className={item.value === value ? "active" : ""} key={item.value}>
+          <button
+            className={item.value === value ? "active" : ""}
+            key={item.value}
+            onClick={() => onValueChange?.(item.value)}
+            title={`切换输入值为 ${item.value}`}
+            type="button"
+          >
             <span>{item.value}</span>
             <code>{item.expected.signMagnitude}</code>
             <code>{item.expected.onesComplement}</code>
             <code>{item.expected.twosComplement}</code>
-          </article>
+          </button>
         ))}
       </div>
       <a className="ghost-button machine-number-demo-link" href="/demos/twos-complement.html" target="_blank" rel="noreferrer">

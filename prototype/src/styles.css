@@ -9012,3 +9012,55 @@ body {
   writing-mode: vertical-rl;
 }
 .route-expand-btn:hover { background: var(--studio-blue, #2474d8); color: #fff; }
+/* ── 工作台内「点选切换数据」 ── */
+/* 机器数案例芯片：可点击切换输入值（原 article 样式搬给 button） */
+.machine-number-cases button {
+  background: #fff;
+  border: 1px solid rgba(75, 92, 117, 0.12);
+  border-radius: 8px;
+  cursor: pointer;
+  display: grid;
+  font-family: inherit;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px;
+  text-align: left;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.machine-number-cases button:hover { border-color: rgba(47, 111, 235, 0.4); }
+.machine-number-cases button.active { background: #eef6ff; border-color: rgba(47, 111, 235, 0.42); }
+
+/* 电路工作台输入节点：可点击切 0/1（手动探测） */
+.circuit-flow-node[data-component-type="input"] { cursor: pointer; }
+.circuit-flow-node[data-component-type="input"]:hover {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -2px 0 rgba(0,0,0,0.12), 0 0 0 3px rgba(47,111,235,0.28), 0 8px 20px rgba(31,42,56,0.22);
+}
+
+/* 手动探测徽章 */
+.circuit-flow-manual-badge {
+  align-self: center;
+  background: rgba(180, 83, 9, 0.12);
+  border: 1px solid rgba(180, 83, 9, 0.3);
+  border-radius: 999px;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 6px;
+  padding: 3px 8px;
+}
+/* ── 实验台整页收敛到一屏：画布弹性填充，检测面板限高内滚 ── */
+.lab-studio-workspace {
+  height: calc(100vh - 70px);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  overflow: hidden;
+}
+/* 覆盖此前的 clamp 固定高度，画布壳弹性填充工作区中部 */
+.lab-studio-canvas-shell { height: auto; min-height: 0; }
+.lab-studio-canvas-shell .circuit-flow-workbench { min-height: 0; }
+/* 检测面板限高，超出内部滚动，不顶破整页 */
+.lab-studio-inspector {
+  max-height: 340px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

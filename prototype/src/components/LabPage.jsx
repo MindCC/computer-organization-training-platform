@@ -14,7 +14,7 @@ const LAB_STEP_CHAPTERS = COURSE_CHAPTERS.map((chapter) => ({
   chapter,
   items: CHALLENGES.filter((challenge) => challenge.chapterId === chapter.id),
 })).filter((group) => group.items.length > 0);
-import { challengeRouteMeta, challengeControlMeta, labDescription } from "./labPageData.js";
+import { challengeRouteMeta, labDescription } from "./labPageData.js";
 import { MobileLabFallback } from "./MobileLabFallback.jsx";
 import { MachineNumberPanel } from "./MachineNumberPanel.jsx";
 import { MemorySystemPanel } from "./MemorySystemPanel.jsx";
@@ -213,12 +213,11 @@ export function LabPage({
             ) : assemblyMode && freeformSpec ? (
               <div className="lab-studio-canvas-shell sandbox-shell"><GateAssemblyChallenge challenge={cur} circuitModel={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></div>
             ) : (<>
-            <div className="lab-studio-inputs">{(challengeControlMeta[cur.id] ?? []).map((ctrl) => ctrl.type === "bit" ? <Toggle key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} onChange={(v) => l.handleInputChange(ctrl.key, v)} /> : <Stepper key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} min={ctrl.min} max={ctrl.max} onChange={(v) => l.handleInputChange(ctrl.key, v)} />)}</div>
             <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
             {cur.id === "instruction-data" ? <CpuExecutionPanel /> : null}
             {js.length > 0 ? <DataJourneyPanel steps={js} activeStep={l.activeStep} /> : null}
             {cur.id === "memory-address" ? <MemorySystemPanel address={memoryAddress} operation={memoryOperation} state={memoryAccessState} writeValue={memoryWriteValue} onAddressChange={setMemoryAddress} onOperationChange={setMemoryOperation} onWriteValueChange={setMemoryWriteValue} /> : null}
-            {cur.id === "machine-number" ? <MachineNumberPanel value={l.inputState.signedValue ?? -5} /> : null}
+            {cur.id === "machine-number" ? <MachineNumberPanel value={l.inputState.signedValue ?? -5} onValueChange={(v) => l.handleInputChange("signedValue", v)} /> : null}
             <div className="lab-studio-inspector">
               <section><span className="eyebrow">元件属性</span><strong>{l.selectedComponent}</strong><p>{l.selectedComponentDetail?.description ?? "选择一个元件查看端口、职责和信号走向。"}</p></section>
               <section><span className="eyebrow">实时状态</span><strong>{statusMessage}</strong><p>必要连线 {reqEdges} 条 · 测试用例 {tc || cur.requiredConnections.length} 组 · 最近得分 {labScoreText(cur, l.currentRecord)}</p></section>
@@ -234,6 +233,4 @@ export function LabPage({
   }
 }
 
-function Toggle({ label, value, onChange }) { return <label className="toggle-row"><span>{label}</span><button className={value === 0 ? "toggle-btn zero" : "toggle-btn one"} onClick={() => onChange(value === 0 ? 1 : 0)} type="button">{value === 0 ? "0" : "1"}</button></label>; }
-function Stepper({ label, value, min = 0, max, onChange }) { return <label className="stepper-row"><span>{label}</span><div className="stepper"><button onClick={() => onChange(Math.max(min, value - 1))} type="button">-</button><strong>{value}</strong><button onClick={() => onChange(Math.min(max, value + 1))} type="button">+</button></div></label>; }
 function DataJourneyPanel({ steps, activeStep }) { const ci = steps.length > 0 ? activeStep % steps.length : 0; return (<section className="data-journey-panel"><div className="section-heading"><div><span className="eyebrow">数据旅程检查点</span><h2>取指、译码、执行的课堂观察线</h2><p>按步骤观察地址、数据和控制信号如何经过寄存器与总线。</p></div></div><div className="journey-step-grid">{steps.map((s, i) => (<article className={i === ci ? "journey-step-card active" : "journey-step-card"} key={s.id}><div className="journey-step-head"><span>{String(i + 1).padStart(2, "0")}</span><strong>{s.title}</strong></div><code>{s.transfer}</code><p>{s.description}</p><div className="journey-registers">{s.registers.map((r) => <small key={r}>{r}</small>)}</div><div className="journey-checkpoint"><b>{s.checkpoint.question}</b><span>{s.checkpoint.answer}</span></div></article>))}</div></section>); }
