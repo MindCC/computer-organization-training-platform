@@ -42,6 +42,10 @@ try {
   await page.waitForSelector(".lab-studio", { timeout: 20000 });
   await page.waitForTimeout(900);
 
+  // 挑战路径章节默认收起（新交互），先「全展开」再读取全部 18 关步骤
+  await page.locator(".route-fold-btn", { hasText: "全展开" }).click();
+  await page.waitForTimeout(400);
+
   // 1. 编号连续 + 顺序与章节一致
   const steps = await page.locator(".lab-studio-step").evaluateAll((nodes) => nodes.map((node) => ({
     num: Number(node.querySelector(".lab-studio-step-number")?.textContent?.trim()),
@@ -59,7 +63,7 @@ try {
     `第 1 关 ${steps[0]?.title} / 第 18 关 ${steps.at(-1)?.title}`);
   check("最后一关编号等于关卡总数", steps.at(-1)?.num === CHALLENGES.length && steps.at(-1)?.title === "I/O 数据传送");
 
-  const groupTitles = await page.locator(".lab-studio-step-chapter").allTextContents();
+  const groupTitles = await page.locator(".lab-studio-step-chapter strong").allTextContents();
   check("章节分组按教材顺序且无重复",
     groupTitles.length === COURSE_CHAPTERS.length && groupTitles.every((title, index) => title === COURSE_CHAPTERS[index].title),
     groupTitles.join(" | "));
