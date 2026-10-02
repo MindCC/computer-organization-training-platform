@@ -7,7 +7,7 @@
 const STORAGE_KEY = "zcyl:view-session";
 
 const STUDENT_VIEWS = new Set([
-  "home", "lab", "hardware-game", "records", "mistakes", "notes", "assignments", "projects", "courseware",
+  "home", "lab", "hardware-game", "records", "mistakes", "notes", "assignments", "courseware",
 ]);
 // 教师的首页就是「教师看板」：不把 home 当作可恢复视图，
 // 否则登录态切换过程中的中间值会把教师带到学生首页。
