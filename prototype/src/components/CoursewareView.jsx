@@ -101,16 +101,47 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
 
   return (
     <div className="courseware-view">
-      <header className="courseware-header">
-        <BookOpen size={28} />
-        <div>
-          <h1>{COURSEWARE.title}</h1>
-          <p>教材：{COURSEWARE.textbook}</p>
+
+      {/* AI 互动讲演（主视图）：章节切换 + 大内嵌播放器 */}
+      <section className="courseware-lecture">
+        <div className="courseware-lecture-head">
+          <strong><MonitorPlay size={16} /> {COURSEWARE.title} · AI 互动讲演</strong>
+          <div className="lecture-chapter-tabs" role="tablist" aria-label="选择章节">
+            {COURSEWARE.chapters.map((ch) => (
+              <button
+                aria-selected={lectureChapter === ch.id}
+                className={lectureChapter === ch.id ? "active" : ""}
+                key={ch.id}
+                onClick={() => setLectureChapter(ch.id)}
+                role="tab"
+                type="button"
+              >
+                {ch.title}
+              </button>
+            ))}
+          </div>
+          <a className="ghost-button lecture-fullscreen-link" href="/courseware.html" rel="noreferrer" target="_blank"><Presentation size={15} /> 全屏演示</a>
         </div>
-        <a href="/courseware.html" target="_blank" rel="noreferrer" className="primary-button" style={{marginLeft:'auto',textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
-          <Presentation size={16} /> 全屏演示
-        </a>
-      </header>
+        {(() => {
+          const ch = COURSEWARE.chapters.find((c) => c.id === lectureChapter) ?? COURSEWARE.chapters[0];
+          const embed = (ch.embeds ?? [])[0];
+          if (embed) {
+            return (
+              <div className="courseware-lecture-player">
+                <div className="courseware-lecture-player-head"><strong>{embed.title}</strong><span>{embed.note}</span></div>
+                <iframe allowFullScreen src={embed.src} title={embed.title} />
+              </div>
+            );
+          }
+          return (
+            <div className="courseware-lecture-empty">
+              <p>本章 AI 互动讲演待补充，可先看下面的课堂互动演示。</p>
+            </div>
+          );
+        })()}
+      </section>
+
+      
 
       {auth?.user && <section className="upload-courseware-panel">
         <div>
@@ -145,43 +176,7 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
         <div className="uploaded-courseware-content"><PptxStage upload={selectedUpload} /><aside className="page-notes"><h3><NotePencil size={18} /> 第 {pageNumber} 页笔记</h3><textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="记录这一页的要点、问题或思路…" /><button type="button" className="primary-button" onClick={submitNote}>保存笔记</button><div className="page-note-list">{notes.length ? notes.map((note) => <article key={note.id}><strong>{note.authorName}{note.visibility === "private" ? "（仅自己可见）" : ""}</strong><p>{note.content}</p></article>) : <p>本页还没有笔记。</p>}</div></aside></div>
       </section>}
 
-      {/* AI 互动讲演（主视图）：章节切换 + 大内嵌播放器 */}
-      <section className="courseware-lecture">
-        <div className="courseware-lecture-head">
-          <strong><MonitorPlay size={16} /> AI 互动讲演</strong>
-          <div className="lecture-chapter-tabs" role="tablist" aria-label="选择章节">
-            {COURSEWARE.chapters.map((ch) => (
-              <button
-                aria-selected={lectureChapter === ch.id}
-                className={lectureChapter === ch.id ? "active" : ""}
-                key={ch.id}
-                onClick={() => setLectureChapter(ch.id)}
-                role="tab"
-                type="button"
-              >
-                {ch.title}
-              </button>
-            ))}
-          </div>
-        </div>
-        {(() => {
-          const ch = COURSEWARE.chapters.find((c) => c.id === lectureChapter) ?? COURSEWARE.chapters[0];
-          const embed = (ch.embeds ?? [])[0];
-          if (embed) {
-            return (
-              <div className="courseware-lecture-player">
-                <div className="courseware-lecture-player-head"><strong>{embed.title}</strong><span>{embed.note}</span></div>
-                <iframe allowFullScreen src={embed.src} title={embed.title} />
-              </div>
-            );
-          }
-          return (
-            <div className="courseware-lecture-empty">
-              <p>本章 AI 互动讲演待补充，可先看下面的课堂互动演示。</p>
-            </div>
-          );
-        })()}
-      </section>
+      
 
       {/* 课堂互动演示（8 章 demos，新窗口打开） */}
       <section className="courseware-demos">
