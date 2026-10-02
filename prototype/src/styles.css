@@ -4114,17 +4114,19 @@ textarea:focus-visible {
   position: relative;
 }
 
-/* Type palette: each component family gets its own block color */
-.circuit-flow-node[data-component-type="input"]    { --node-hue: 210; --node-sat: 90%; --node-l1: 60%; --node-l2: 46%; }
-.circuit-flow-node[data-component-type="output"]   { --node-hue: 145; --node-sat: 60%; --node-l1: 52%; --node-l2: 38%; }
+/* Type palette: each component family gets its own block color（浅色类型已压暗，保证白字对比 ≥3.5:1，投屏可读） */
+.circuit-flow-node[data-component-type="input"]    { --node-hue: 210; --node-sat: 90%; --node-l1: 48%; --node-l2: 34%; }
+.circuit-flow-node[data-component-type="output"]   { --node-hue: 145; --node-sat: 60%; --node-l1: 38%; --node-l2: 24%; }
 .circuit-flow-node[data-component-type="buffer"]   { --node-hue: 222; --node-sat: 32%; --node-l1: 52%; --node-l2: 38%; }
-.circuit-flow-node[data-component-type="and"]      { --node-hue: 152; --node-sat: 64%; --node-l1: 48%; --node-l2: 34%; }
-.circuit-flow-node[data-component-type="or"]       { --node-hue: 32;  --node-sat: 88%; --node-l1: 58%; --node-l2: 44%; }
+.circuit-flow-node[data-component-type="and"]      { --node-hue: 152; --node-sat: 64%; --node-l1: 36%; --node-l2: 22%; }
+.circuit-flow-node[data-component-type="or"]       { --node-hue: 32;  --node-sat: 88%; --node-l1: 42%; --node-l2: 28%; }
 .circuit-flow-node[data-component-type="not"]      { --node-hue: 265; --node-sat: 60%; --node-l1: 62%; --node-l2: 48%; }
 .circuit-flow-node[data-component-type="xor"]      { --node-hue: 340; --node-sat: 72%; --node-l1: 60%; --node-l2: 46%; }
 .circuit-flow-node[data-component-type="fullAdder"]{ --node-hue: 218; --node-sat: 45%; --node-l1: 34%; --node-l2: 22%; }
-.circuit-flow-node[data-component-type="mux2"]      { --node-hue: 188; --node-sat: 70%; --node-l1: 46%; --node-l2: 32%; }
+.circuit-flow-node[data-component-type="mux2"]      { --node-hue: 188; --node-sat: 70%; --node-l1: 36%; --node-l2: 22%; }
 .circuit-flow-node[data-component-type="alu1"]     { --node-hue: 262; --node-sat: 48%; --node-l1: 46%; --node-l2: 32%; }
+/* 芯片节点（chip:xxx）：深板岩 IC 块，白字高对比 */
+.circuit-flow-node[data-component-type^="chip:"]   { --node-hue: 215; --node-sat: 32%; --node-l1: 34%; --node-l2: 20%; }
 
 .circuit-flow-node.selected {
   box-shadow:

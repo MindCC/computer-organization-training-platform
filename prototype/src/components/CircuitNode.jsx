@@ -2,12 +2,29 @@ import { Handle, Position } from "@xyflow/react";
 
 function portOffset(index, total) {
   if (total <= 1) return 50;
-  return 28 + (44 * index) / Math.max(1, total - 1);
+  return 30 + (40 * index) / Math.max(1, total - 1);
 }
+
+// Logic-gate / component glyphs, styled after textbook gate symbols
+// and the hardware-chip look used in circuit-learning games.
+const TYPE_GLYPH = {
+  input: "IN",
+  output: "OUT",
+  buffer: "▸",
+  and: "&",
+  or: "≥1",
+  not: "1◯",
+  xor: "=1",
+  fullAdder: "Σ",
+  mux2: "MUX",
+  alu1: "ALU",
+};
 
 export function CircuitNode({ data, selected }) {
   const inputPorts = (data.ports ?? []).filter((port) => port.direction === "in");
   const outputPorts = (data.ports ?? []).filter((port) => port.direction === "out");
+  // 芯片节点（chip:xxx）统一用 IC 方块字形，其它按类型映射
+  const glyph = data.componentType?.startsWith("chip:") ? "▣" : (TYPE_GLYPH[data.componentType] ?? "◆");
   const valueChip = (portId) => {
     const value = data.portValues?.[portId];
     if (value === undefined || value === null) return null;
@@ -17,9 +34,11 @@ export function CircuitNode({ data, selected }) {
 
   return (
     <div className={`circuit-flow-node ${selected ? "selected" : ""}`} data-component-type={data.componentType}>
-      <div className="circuit-flow-node-title">
-        <strong>{data.label}</strong>
-        <span>{data.componentType}</span>
+      <div className="circuit-flow-node-head">
+        <span className="circuit-flow-node-glyph" aria-hidden="true">{glyph}</span>
+        <div className="circuit-flow-node-title">
+          <strong>{data.label}</strong>
+        </div>
       </div>
 
       {inputPorts.map((port, index) => (
