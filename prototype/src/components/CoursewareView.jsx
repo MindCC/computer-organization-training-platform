@@ -121,7 +121,7 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
         <div className="courseware-lecture-head">
           <strong><MonitorPlay size={16} /> {COURSEWARE.title} · AI 互动讲演</strong>
           <div className="lecture-chapter-tabs" role="tablist" aria-label="选择章节">
-            {COURSEWARE.chapters.map((ch) => (
+            {COURSEWARE.chapters.filter((ch) => (ch.embeds ?? []).length > 0).map((ch) => (
               <button
                 aria-selected={lectureChapter === ch.id}
                 className={lectureChapter === ch.id ? "active" : ""}
