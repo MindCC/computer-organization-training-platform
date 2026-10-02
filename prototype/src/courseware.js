@@ -252,6 +252,14 @@ const CHAPTER_CONTENT = {
         note: "三总线读写周期、判优三法动画（链式/计数器/独立请求）、异步握手",
       },
     ],
+    // 内嵌的 AI 互动讲演（iframe 内嵌播放，不跳转外链）
+    embeds: [
+      {
+        title: "AI互动讲演 · 第七章 总线（一）",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-K8EalX60",
+        note: "GKK AI 互动讲演，内嵌播放",
+      },
+    ],
   },
   ch8: {
     slides: 66,

@@ -1126,3 +1126,37 @@
     transition: none !important;
   }
 }
+
+/* ── 课程课件内嵌 AI 互动讲演（iframe 内嵌，不跳外链） ── */
+.courseware-embed {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+.courseware-embed summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-weight: 700;
+  gap: 10px;
+  justify-content: space-between;
+  list-style: none;
+  padding: 11px 14px;
+}
+.courseware-embed summary::-webkit-details-marker { display: none; }
+.courseware-embed summary::before { color: var(--blue); content: "▸"; margin-right: 2px; }
+.courseware-embed[open] summary::before { content: "▾"; }
+.courseware-embed summary:hover { background: rgba(40,109,232,0.05); }
+.courseware-embed-hint {
+  background: rgba(40,109,232,0.1);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+.courseware-embed-frame iframe { border: 0; display: block; height: 560px; width: 100%; }
+@media (max-width: 760px) { .courseware-embed-frame iframe { height: 420px; } }

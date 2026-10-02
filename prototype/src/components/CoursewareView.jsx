@@ -203,6 +203,19 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
                     </div>
                   </section>
                 )}
+                {ch.embeds?.length > 0 && (
+                  <section className="courseware-embeds">
+                    <strong><MonitorPlay size={14} /> AI 互动讲演</strong>
+                    {ch.embeds.map((embed) => (
+                      <details className="courseware-embed" key={embed.src}>
+                        <summary title={embed.note}>{embed.title}<span className="courseware-embed-hint">内嵌播放</span></summary>
+                        <div className="courseware-embed-frame">
+                          <iframe allowFullScreen loading="lazy" src={embed.src} title={embed.title} />
+                        </div>
+                      </details>
+                    ))}
+                  </section>
+                )}
               </div>
             )}
           </div>
