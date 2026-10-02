@@ -1534,17 +1534,21 @@ textarea:focus-visible {
 
 .lab-studio-grid {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-columns: var(--route-width, 232px) minmax(0, 1fr);
   min-height: calc(100vh - 70px);
 }
 
 .lab-studio-route {
+  align-self: start;
   background: rgba(255, 255, 255, 0.86);
   border-right: 1px solid var(--studio-border);
   display: grid;
   gap: 18px;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  max-height: calc(100vh - 70px);
+  overflow: hidden;
   padding: 18px 12px;
+  position: relative;
 }
 
 .lab-studio-route-title {
@@ -8953,3 +8957,58 @@ body {
   min-width: 0;
   width: 5px;
 }
+/* ── 挑战路径：限高内滚 + 可拖拽调宽 + 可整体收起 ── */
+.lab-studio-route .lab-studio-stepper {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.route-resize-handle {
+  cursor: col-resize;
+  height: 100%;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 14px;
+  z-index: 20;
+  touch-action: none;
+}
+.route-resize-handle::after {
+  background: rgba(47, 111, 235, 0);
+  border-radius: 2px;
+  content: "";
+  height: 56px;
+  left: 4px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  transition: background 140ms ease;
+  width: 4px;
+}
+.route-resize-handle:hover::after,
+.route-resize-handle:active::after { background: rgba(47, 111, 235, 0.6); }
+
+.lab-studio-route.collapsed {
+  align-items: flex-start;
+  border-right: 1px solid var(--studio-border);
+  display: flex;
+  gap: 0;
+  justify-content: center;
+  padding: 14px 4px;
+}
+.lab-studio-route.collapsed .lab-studio-stepper { display: none; }
+.route-expand-btn {
+  background: rgba(47, 111, 235, 0.1);
+  border: 1px solid rgba(47, 111, 235, 0.35);
+  border-radius: 8px;
+  color: var(--studio-blue, #2474d8);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  padding: 10px 6px;
+  writing-mode: vertical-rl;
+}
+.route-expand-btn:hover { background: var(--studio-blue, #2474d8); color: #fff; }

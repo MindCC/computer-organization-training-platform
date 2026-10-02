@@ -129,6 +129,22 @@ export function LabPage({
     const [sandboxMode, setSandboxMode] = useState(false);
     const [assemblyMode, setAssemblyMode] = useState(false);
     const [mapMode, setMapMode] = useState(false);
+
+    // 挑战路径：可拖拽调宽 / 可整体收起 / 高度限高内滚
+    const [routeWidth, setRouteWidth] = useState(232);
+    const [routeCollapsed, setRouteCollapsed] = useState(false);
+    const startRouteResize = (event) => {
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = routeWidth;
+      const onMove = (ev) => setRouteWidth(Math.min(560, Math.max(180, startWidth + ev.clientX - startX)));
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    };
     const freeformSpec = freeformSpecOf(cur.id);
     // 切换关卡时退出自由拼装
     useEffect(() => { setAssemblyMode(false); }, [cur.id]);
@@ -152,13 +168,17 @@ export function LabPage({
             : <><span>得分</span><strong>{l.currentRecord?.bestScore ?? 0}</strong><small>/ 100</small></>}</div>
           <div className="lab-studio-user"><span>{student.name}</span><button className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button" aria-label="打开个人设置"><GearSix size={19} /></button></div>
         </header>
-        <main className="lab-studio-grid">
-          <aside className="lab-studio-route" aria-label="挑战路径">
+        <main className="lab-studio-grid" style={{ "--route-width": routeCollapsed ? "34px" : `${routeWidth}px` }}>
+          <aside className={`lab-studio-route ${routeCollapsed ? "collapsed" : ""}`} aria-label="挑战路径">
+            {routeCollapsed ? (
+              <button aria-label="展开挑战路径" className="route-expand-btn" onClick={() => setRouteCollapsed(false)} title="展开挑战路径" type="button">▶</button>
+            ) : (<>
             <div className="lab-studio-route-title">
               <strong>挑战路径</strong>
               <span className="route-fold-group">
                 <button className="route-fold-btn" onClick={() => setAllChapters(false)} type="button">全展开</button>
                 <button className="route-fold-btn" onClick={() => setAllChapters(true)} type="button">全收起</button>
+                <button aria-label="收起挑战路径" className="route-fold-btn route-collapse-btn" onClick={() => setRouteCollapsed(true)} title="收起挑战路径" type="button">◀</button>
               </span>
             </div>
             <div className="lab-studio-stepper">{LAB_STEP_CHAPTERS.map((group) => {
@@ -181,6 +201,8 @@ export function LabPage({
               );
             })}</div>
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
+            <div aria-label="拖拽调整挑战路径宽度" aria-orientation="vertical" className="route-resize-handle" onPointerDown={startRouteResize} role="separator" title="拖拽调整宽度" />
+            </>)}
           </aside>
           <section className="lab-studio-workspace">
             <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{mapMode ? "挑战依赖地图" : sandboxMode ? "逻辑门沙盒" : assemblyMode ? `${cur.title} · 自由拼装` : cur.title}</h1><p>{mapMode ? "完成一个关卡，解锁依赖它的后续关卡（仿图灵完备）" : sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : assemblyMode ? "自己拖门组装电路，判分通过即算过关" : labDescription(cur.id)}</p>{!sandboxMode && !assemblyMode && !mapMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button className={`sandbox-toggle ${mapMode ? "active" : ""}`} onClick={() => { setMapMode(!mapMode); setSandboxMode(false); setAssemblyMode(false); }} type="button">{mapMode ? "← 返回挑战" : "🗺 依赖地图"}</button>{freeformSpec ? <button className={`sandbox-toggle ${assemblyMode ? "active" : ""}`} onClick={() => { setAssemblyMode(!assemblyMode); setSandboxMode(false); setMapMode(false); }} type="button">{assemblyMode ? "← 固定连线" : "🔧 自由拼装"}</button> : null}<button className={`sandbox-toggle ${sandboxMode ? "active" : ""}`} onClick={() => { setSandboxMode(!sandboxMode); setAssemblyMode(false); setMapMode(false); }} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button>{!sandboxMode && !assemblyMode && !mapMode ? <><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></> : null}</div></div>
