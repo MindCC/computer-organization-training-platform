@@ -1221,7 +1221,6 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 205px);
   margin: 0;
   min-height: 540px;
   padding: 14px 20px;
@@ -1263,3 +1262,7 @@
 @media (max-width: 760px) {
   .courseware-lecture { height: calc(100vh - 205px); padding: 10px 12px; }
 }
+
+
+/* ── 讲演铺满浏览器整宽（去掉课件 900px 限宽，右半不再空）── */
+.courseware-view { max-width: none; }

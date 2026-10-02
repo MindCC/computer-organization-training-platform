@@ -60,6 +60,20 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
   const [pageNumber, setPageNumber] = useState(1);
   const [notes, setNotes] = useState([]);
   const [noteDraft, setNoteDraft] = useState("");
+  const lectureRef = useRef(null);
+
+  // 讲演区按实际位置铺满到视口底部（顶栏/间隔随宽度变化，写死 calc 会错位，改为动态测量）
+  useEffect(() => {
+    const el = lectureRef.current;
+    if (!el) return undefined;
+    const apply = () => {
+      const top = el.getBoundingClientRect().top;
+      el.style.height = `${Math.max(420, window.innerHeight - top)}px`;
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, []);
 
   const loadUploads = async () => {
     if (!auth?.user) return;
@@ -103,7 +117,7 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
     <div className="courseware-view">
 
       {/* AI 互动讲演（主视图）：章节切换 + 大内嵌播放器 */}
-      <section className="courseware-lecture">
+      <section className="courseware-lecture" ref={lectureRef}>
         <div className="courseware-lecture-head">
           <strong><MonitorPlay size={16} /> {COURSEWARE.title} · AI 互动讲演</strong>
           <div className="lecture-chapter-tabs" role="tablist" aria-label="选择章节">
