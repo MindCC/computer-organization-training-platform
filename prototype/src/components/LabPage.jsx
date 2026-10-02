@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { ArrowLeft, Cpu, Flame, GearSix, Play, SealCheck, Sparkle, Target, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES, challengeOrderOf } from "../platformLogic.js";
 import { COURSE_CHAPTERS, isParticipationChallenge } from "../courseChapters.js";
@@ -24,6 +24,7 @@ import { MissionPauseOverlay } from "./classroom/student/MissionPauseOverlay.jsx
 import { MissionSettlement } from "./classroom/student/MissionSettlement.jsx";
 import { LabAssistantPanel } from "./LabAssistantPanel.jsx";
 import { CpuExecutionPanel } from "./CpuExecutionPanel.jsx";
+import { LogicGateSandbox } from "./LogicGateSandbox.jsx";
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
 const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").then((m) => ({ default: m.OverviewExplodedView })));
@@ -122,6 +123,7 @@ export function LabPage({
     const tc = l.currentCircuitModel?.testCases.length ?? 0;
     const st = statusText(l.currentRecord?.status ?? "not-started");
     const js = getJourneyStepsForChallenge(cur.id);
+    const [sandboxMode, setSandboxMode] = useState(false);
     return wrapClassroom(
       <div className="lab-studio">
         <header className="lab-studio-header">
@@ -144,7 +146,10 @@ export function LabPage({
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
           </aside>
           <section className="lab-studio-workspace">
-            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{cur.title}</h1><p>{labDescription(cur.id)}</p>{l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></div></div>
+            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{sandboxMode ? "逻辑门沙盒" : cur.title}</h1><p>{sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : labDescription(cur.id)}</p>{!sandboxMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button className={`sandbox-toggle ${sandboxMode ? "active" : ""}`} onClick={() => setSandboxMode(!sandboxMode)} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button>{!sandboxMode ? <><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></> : null}</div></div>
+            {sandboxMode ? (
+              <div className="lab-studio-canvas-shell sandbox-shell"><LogicGateSandbox /></div>
+            ) : (<>
             <div className="lab-studio-inputs">{(challengeControlMeta[cur.id] ?? []).map((ctrl) => ctrl.type === "bit" ? <Toggle key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} onChange={(v) => l.handleInputChange(ctrl.key, v)} /> : <Stepper key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} min={ctrl.min} max={ctrl.max} onChange={(v) => l.handleInputChange(ctrl.key, v)} />)}</div>
             <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
             {cur.id === "instruction-data" ? <CpuExecutionPanel /> : null}
@@ -158,6 +163,7 @@ export function LabPage({
               <LabAssistantPanel challenge={cur} connections={l.connections} inputState={l.inputState} feedback={l.feedback} realtimeDiagnostics={l.realtimeDiagnostics} />
               <section className={`realtime-diagnostics ${l.realtimeDiagnostics.status}`}><strong>实时数据流检测</strong><p>{l.realtimeDiagnostics.summary}</p><div className="diagnostic-test-list">{l.realtimeDiagnostics.testRows.map((r) => <div className={r.passed ? "passed" : "needs-work"} key={r.label}><span>{r.label}</span><small>实际：{r.actual}</small></div>)}</div>{l.realtimeDiagnostics.issues.length ? <div className="diagnostic-issues">{l.realtimeDiagnostics.issues.slice(0, 3).map((i) => <span key={`${i.type}-${i.message}`}>{i.type}</span>)}</div> : null}</section>
             </div>
+            </>)}
           </section>
         </main>
       </div>

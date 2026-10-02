@@ -1,4 +1,4 @@
-﻿import { Handle, Position } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
 
 function portOffset(index, total) {
   if (total <= 1) return 50;
@@ -8,6 +8,12 @@ function portOffset(index, total) {
 export function CircuitNode({ data, selected }) {
   const inputPorts = (data.ports ?? []).filter((port) => port.direction === "in");
   const outputPorts = (data.ports ?? []).filter((port) => port.direction === "out");
+  const valueChip = (portId) => {
+    const value = data.portValues?.[portId];
+    if (value === undefined || value === null) return null;
+    const tone = value === 1 ? "one" : value === 0 ? "zero" : "unknown";
+    return <em className={`circuit-flow-port-value signal-${tone}`}>{value === 0 || value === 1 ? value : "?"}</em>;
+  };
 
   return (
     <div className={`circuit-flow-node ${selected ? "selected" : ""}`} data-component-type={data.componentType}>
@@ -26,11 +32,13 @@ export function CircuitNode({ data, selected }) {
             type="target"
           />
           <span>{port.label}</span>
+          {valueChip(port.id)}
         </div>
       ))}
 
       {outputPorts.map((port, index) => (
         <div className="circuit-flow-port-row output" key={port.id} style={{ top: `${portOffset(index, outputPorts.length)}%` }}>
+          {valueChip(port.id)}
           <span>{port.label}</span>
           <Handle
             className="circuit-flow-handle output"

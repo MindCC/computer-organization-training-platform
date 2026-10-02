@@ -8574,3 +8574,181 @@ body {
   --studio-muted: rgba(255, 255, 255, 0.75);
   color: #ffffff;
 }
+
+/* ── 画布区高度收敛（修复留白：侧栏把关卡撑到 1800+px，画布视口却写死 560px，下面空一大截）── */
+.lab-studio-canvas-shell {
+  display: flex;
+  flex-direction: column;
+  height: clamp(600px, calc(100vh - 250px), 860px);
+}
+
+.lab-studio-canvas-shell .circuit-flow-workbench {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lab-studio-canvas-shell .circuit-flow-workbench > .circuit-flow-canvas-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.lab-studio-canvas-shell .circuit-flow-canvas {
+  height: auto;
+  min-height: 0;
+}
+
+.lab-studio-canvas-shell .react-flow {
+  height: 100%;
+}
+
+/* 窄屏单列：画布保持内容高度，避免被夹扁 */
+@media (max-width: 720px) {
+  .lab-studio-canvas-shell { height: auto; display: block; }
+  .lab-studio-canvas-shell .circuit-flow-canvas { height: 460px; }
+}
+/* ── 逻辑门沙盒 ── */
+.sandbox {
+  display: flex;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+}
+
+.sandbox-palette {
+  background: #f7f9fb;
+  border: 1px solid rgba(75, 92, 117, 0.18);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  width: 208px;
+  flex: none;
+  overflow-y: auto;
+}
+
+.sandbox-palette > strong { font-size: 15px; }
+.sandbox-palette > small { color: var(--muted-text); }
+
+.sandbox-palette-list {
+  display: grid;
+  gap: 6px;
+}
+
+.sandbox-gate {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(47, 111, 235, 0.28);
+  border-radius: 9px;
+  cursor: grab;
+  display: flex;
+  gap: 9px;
+  padding: 8px 10px;
+  transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  user-select: none;
+}
+
+.sandbox-gate:hover {
+  border-color: rgba(47, 111, 235, 0.6);
+  box-shadow: 0 4px 14px rgba(28, 44, 68, 0.14);
+  transform: translateX(3px);
+}
+
+.sandbox-gate:active { cursor: grabbing; }
+
+.sandbox-gate-icon {
+  align-items: center;
+  background: rgba(47, 111, 235, 0.1);
+  border-radius: 6px;
+  color: var(--studio-blue, #2474d8);
+  display: grid;
+  font-size: 13px;
+  font-weight: 800;
+  height: 26px;
+  justify-items: center;
+  min-width: 26px;
+}
+
+.sandbox-gate-label { font-size: 13px; font-weight: 700; }
+
+.sandbox-help {
+  border-top: 1px dashed rgba(75, 92, 117, 0.24);
+  color: var(--muted-text);
+  display: grid;
+  font-size: 12px;
+  gap: 3px;
+  line-height: 1.6;
+  margin-top: 2px;
+  padding-top: 8px;
+}
+
+.sandbox-help p { margin: 0; }
+.sandbox-help b { color: var(--studio-blue, #2474d8); }
+
+.sandbox-stage {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sandbox-status {
+  background: rgba(47, 111, 235, 0.07);
+  border: 1px solid rgba(47, 111, 235, 0.2);
+  border-radius: 8px;
+  color: var(--studio-blue, #2474d8);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 12px;
+}
+
+.sandbox-canvas {
+  background: #f7f9fb;
+  border: 1px solid rgba(75, 92, 117, 0.18);
+  border-radius: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 沙盒切换按钮 */
+.sandbox-toggle {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(47, 111, 235, 0.32);
+  border-radius: 9px;
+  color: var(--studio-blue, #2474d8);
+  display: inline-flex;
+  font-size: 14px;
+  font-weight: 700;
+  gap: 6px;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+
+.sandbox-toggle.active,
+.sandbox-toggle:hover {
+  background: var(--studio-blue, #2474d8);
+  color: #ffffff;
+}
+
+/* 端口数值小徽章（沙盒节点上） */
+.circuit-flow-port-value {
+  border-radius: 5px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1;
+  min-width: 16px;
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.circuit-flow-port-value.signal-one { background: rgba(36, 148, 95, 0.16); color: var(--studio-green, #16a34a); }
+.circuit-flow-port-value.signal-zero { background: rgba(75, 92, 117, 0.14); color: var(--muted-text); }
+.circuit-flow-port-value.signal-unknown { background: rgba(217, 119, 6, 0.14); color: #b45309; }
