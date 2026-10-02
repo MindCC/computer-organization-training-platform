@@ -219,12 +219,6 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
           </details>
         ))}
       </section>
-
-      <div className="courseware-footer">
-        <h3>参考书目</h3>
-        {COURSEWARE.references.map((ref, i) => <p key={i}>{i + 1}. {ref}</p>)}
-        <p>在线资源：智慧树 杨泽雪 计算机组成原理与体系结构</p>
-      </div>
     </div>
   );
 }
