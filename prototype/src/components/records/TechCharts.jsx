@@ -1,14 +1,14 @@
 import { useId } from "react";
 
 /**
- * 蓝色大屏统计图：全部手写 SVG，不引入图表库（守住首屏构建预算，
- * 也方便套用科技蓝的辉光与网格语言）。
+ * 学习记录统计图（浅色主题）：全部手写 SVG，不引入图表库（守住首屏构建预算）。
+ * 配色与浅色学习面板一致：白卡片 + 品牌蓝/青/琥珀点缀。
  */
 
 const DONUT_COLORS = {
-  completed: "#34d399",
-  "in-progress": "#fbbf24",
-  pending: "#3b4a6b",
+  completed: "#10b981",
+  "in-progress": "#f59e0b",
+  pending: "#cbd5e1",
 };
 
 function polar(cx, cy, radius, angleDeg) {
@@ -50,7 +50,7 @@ export function StatusDonut({ distribution }) {
       </div>
       <div className="tech-donut-body">
         <svg viewBox="0 0 120 120" role="img" aria-label={`已点亮 ${litRate}%`}>
-          <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(59,74,107,0.35)" strokeWidth="14" />
+          <circle cx="60" cy="60" r="46" fill="none" stroke="#eef2f7" strokeWidth="14" />
           {segments.filter((s) => s.count > 0).map((s) => (
             <path
               className="donut-segment"
@@ -111,15 +111,15 @@ export function ChapterScoreLine({ series }) {
       <svg preserveAspectRatio="none" viewBox={`0 0 ${LINE_W} ${LINE_H}`} role="img" aria-label="各章平均分与完成率折线图">
         <defs>
           <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="rgba(56,189,248,0.45)" />
-            <stop offset="100%" stopColor="rgba(56,189,248,0.02)" />
+            <stop offset="0%" stopColor="rgba(37,99,235,0.22)" />
+            <stop offset="100%" stopColor="rgba(37,99,235,0.02)" />
           </linearGradient>
         </defs>
         {[0, 25, 50, 75, 100].map((tick) => {
           const y = LINE_PAD.top + (LINE_H - LINE_PAD.top - LINE_PAD.bottom) * (1 - tick / 100);
           return (
             <g key={tick}>
-              <line stroke="rgba(80,110,180,0.22)" strokeDasharray="3 5" x1={LINE_PAD.left} x2={LINE_W - LINE_PAD.right} y1={y} y2={y} />
+              <line stroke="rgba(148,163,184,0.25)" strokeDasharray="3 5" x1={LINE_PAD.left} x2={LINE_W - LINE_PAD.right} y1={y} y2={y} />
               <text className="line-tick" x={LINE_PAD.left - 6} y={y + 3} textAnchor="end">{tick}</text>
             </g>
           );
@@ -141,9 +141,111 @@ export function ChapterScoreLine({ series }) {
         })}
       </svg>
       <div className="tech-legend inline">
-        <span><span className="legend-dot" style={{ background: "#38bdf8" }} />平均分</span>
-        <span><span className="legend-dot" style={{ background: "#a78bfa" }} />点亮率</span>
+        <span><span className="legend-dot" style={{ background: "#2563eb" }} />平均分</span>
+        <span><span className="legend-dot" style={{ background: "#8b5cf6" }} />点亮率</span>
       </div>
+    </div>
+  );
+}
+
+/** 各章累计学习时长（手写 SVG 柱状图，数据来自 progress.timeSpentMinutes 按章汇总）。 */
+const STUDY_W = 300;
+const STUDY_H = 150;
+const STUDY_PAD = { left: 30, right: 8, top: 18, bottom: 22 };
+
+export function ChapterStudyTimeChart({ series }) {
+  const maxMinutes = Math.max(1, ...series.map((entry) => entry.studyMinutes));
+  const innerW = STUDY_W - STUDY_PAD.left - STUDY_PAD.right;
+  const innerH = STUDY_H - STUDY_PAD.top - STUDY_PAD.bottom;
+  const slot = series.length > 0 ? innerW / series.length : 0;
+  const barW = Math.min(24, slot * 0.62);
+  const ticks = [0, 0.5, 1].map((ratio) => Math.round(maxMinutes * ratio));
+
+  return (
+    <div className="tech-chart study-time-chart" data-testid="chart-study-time">
+      <div className="tech-chart-head">
+        <strong>各章累计学习时长</strong>
+        <small>分钟 · 全部尝试合计</small>
+      </div>
+      <svg preserveAspectRatio="none" viewBox={`0 0 ${STUDY_W} ${STUDY_H}`} role="img" aria-label="各章累计学习时长柱状图">
+        {ticks.map((tick) => {
+          const y = STUDY_PAD.top + innerH - (tick / maxMinutes) * innerH;
+          return (
+            <g key={tick}>
+              <line className="study-grid-line" x1={STUDY_PAD.left} x2={STUDY_W - STUDY_PAD.right} y1={y} y2={y} />
+              <text className="study-grid-tick" x={STUDY_PAD.left - 5} y={y + 3} textAnchor="end">{tick}</text>
+            </g>
+          );
+        })}
+        {series.map((entry, index) => {
+          const height = entry.studyMinutes > 0 ? Math.max(3, (entry.studyMinutes / maxMinutes) * innerH) : 3;
+          const x = STUDY_PAD.left + index * slot + (slot - barW) / 2;
+          const y = STUDY_PAD.top + innerH - height;
+          const isMax = entry.studyMinutes === maxMinutes && entry.studyMinutes > 0;
+          return (
+            <g key={entry.chapterId}>
+              <rect
+                className={`study-bar ${entry.studyMinutes === 0 ? "empty" : isMax ? "max" : ""}`}
+                height={height}
+                rx={2.5}
+                width={barW}
+                x={x}
+                y={y}
+              >
+                <title>{`${entry.label} · ${entry.studyMinutes} 分钟`}</title>
+              </rect>
+              <text className="study-bar-value" textAnchor="middle" x={x + barW / 2} y={y - 3}>
+                {entry.studyMinutes > 0 ? entry.studyMinutes : ""}
+              </text>
+              <text className="study-bar-label" textAnchor="middle" x={x + barW / 2} y={STUDY_H - 6}>
+                {entry.number}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/** 高频错误 Top N（手写 SVG 横向条形图，数据来自 progress[*].errors 聚合）。 */
+const ERROR_ROW_H = 24;
+const ERROR_LABEL_W = 108;
+const ERROR_VALUE_W = 26;
+
+export function TopErrorsChart({ errors }) {
+  const rows = (errors ?? []).slice(0, 5);
+  const maxCount = Math.max(1, ...rows.map((row) => row.count));
+  const height = Math.max(ERROR_ROW_H, rows.length * ERROR_ROW_H + 6);
+  const trackW = 300 - ERROR_LABEL_W - ERROR_VALUE_W;
+
+  return (
+    <div className="tech-chart error-top-chart" data-testid="chart-errors">
+      <div className="tech-chart-head">
+        <strong>高频错误 Top {rows.length || 0}</strong>
+        <small>按记录中的错误类型聚合</small>
+      </div>
+      {rows.length === 0 ? (
+        <p className="chart-empty-note">暂无错误记录，继续保持。</p>
+      ) : (
+        <svg preserveAspectRatio="none" viewBox={`0 0 300 ${height}`} role="img" aria-label="高频错误类型排行">
+          {rows.map((row, index) => {
+            const y = index * ERROR_ROW_H + 4;
+            const width = Math.max(4, (row.count / maxCount) * trackW);
+            const label = row.label.length > 9 ? `${row.label.slice(0, 9)}…` : row.label;
+            return (
+              <g className="error-bar-row" key={row.label}>
+                <text className="error-bar-label" x={0} y={y + 12}>{label}</text>
+                <rect className="error-bar-track" height={12} rx={6} width={trackW} x={ERROR_LABEL_W} y={y + 2} />
+                <rect className={`error-bar ${index === 0 ? "top" : ""}`} height={12} rx={6} width={width} x={ERROR_LABEL_W} y={y + 2}>
+                  <title>{`${row.label} · ${row.count} 次`}</title>
+                </rect>
+                <text className="error-bar-count" x={ERROR_LABEL_W + trackW + 6} y={y + 12}>{row.count}</text>
+              </g>
+            );
+          })}
+        </svg>
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { CheckCircle, ClockCountdown, Flask, TreeStructure, TrendUp, WarningCircle } from "@phosphor-icons/react";
+import { CheckCircle, ClockCountdown, Flask, Sparkle, TreeStructure, TrendUp, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES } from "../platformLogic.js";
 import { COURSE_CHAPTERS, PARTICIPATION_SCORE_NOTE, isParticipationChallenge, scoreLabelOf } from "../courseChapters.js";
 import {
@@ -9,8 +9,10 @@ import {
   buildStatusDistribution,
 } from "../recordsScreenModel.js";
 import { LearningTreeCanvas } from "./records/LearningTreeCanvas.jsx";
-import { ChapterLitBars, ChapterScoreLine, StatusDonut } from "./records/TechCharts.jsx";
+import { ChapterLitBars, ChapterScoreLine, ChapterStudyTimeChart, StatusDonut, TopErrorsChart } from "./records/TechCharts.jsx";
 import { DemoPracticePanel } from "./records/DemoPracticePanel.jsx";
+import { ZoomableChart } from "./records/ChartZoomModal.jsx";
+import { KnowledgeStarMap } from "./records/KnowledgeStarMap.jsx";
 import "./records/recordsTech.css";
 
 const CHALLENGES_BY_CHAPTER = COURSE_CHAPTERS.map((chapter) => ({
@@ -29,11 +31,28 @@ function formatMinutes(minutes) {
   return hours > 0 ? `${hours}小时${rest}分` : `${rest}分钟`;
 }
 
+function errorLabelOf(error) {
+  if (typeof error === "string") return error;
+  return error?.type ?? error?.message ?? String(error);
+}
+
 export function StudentRecords({ summary, progress, activityLog, changeView, selectChallenge }) {
   const treeModel = useMemo(() => buildLearningTreeModel(progress), [progress]);
   const distribution = useMemo(() => buildStatusDistribution(progress), [progress]);
   const chapterSeries = useMemo(() => buildChapterScoreSeries(progress), [progress]);
   const kpis = useMemo(() => buildScreenKpis(summary, progress), [summary, progress]);
+  const topErrors = useMemo(() => {
+    const counts = new Map();
+    for (const record of Object.values(progress ?? {})) {
+      for (const error of record?.errors ?? []) {
+        const label = errorLabelOf(error);
+        counts.set(label, (counts.get(label) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "zh-Hans-CN"));
+  }, [progress]);
 
   if (summary.totalAttempts === 0) {
     return (
@@ -107,39 +126,68 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
         </section>
 
         <aside aria-label="学习情况统计" className="records-charts-column">
-          <StatusDonut distribution={distribution} />
-          <ChapterScoreLine series={chapterSeries} />
-          <ChapterLitBars series={chapterSeries} />
+          <ZoomableChart title="树杈点亮分布">
+            <StatusDonut distribution={distribution} />
+          </ZoomableChart>
+          <ZoomableChart title="各章得分与点亮率">
+            <ChapterScoreLine series={chapterSeries} />
+          </ZoomableChart>
+          <ZoomableChart title="章节点亮进度">
+            <ChapterLitBars series={chapterSeries} />
+          </ZoomableChart>
+          <ZoomableChart title="各章累计学习时长">
+            <ChapterStudyTimeChart series={chapterSeries} />
+          </ZoomableChart>
+          <ZoomableChart title="高频错误 Top">
+            <TopErrorsChart errors={topErrors} />
+          </ZoomableChart>
           <DemoPracticePanel />
         </aside>
       </div>
+
+      <section aria-label="知识图谱星图" className="records-panel records-star-panel">
+        <div className="records-panel-head">
+          <strong>
+            <Sparkle size={16} style={{ marginRight: 6, verticalAlign: "-3px" }} />
+            知识图谱 · 星图
+          </strong>
+          <small>18 个关卡按依赖层级连成星座</small>
+        </div>
+        <KnowledgeStarMap progress={progress} onOpenChallenge={selectChallenge} />
+      </section>
 
       <section className="section-panel">
         <div className="section-heading">
           <div>
             <h2>关卡明细</h2>
-            <p>按教材章节归组；点击可回到对应实验。"参与型"实验完成即通过，不计分。</p>
+            <p>按教材章节归组，点击章节标题可展开/收起；点击关卡可回到对应实验。"参与型"实验完成即通过，不计分。</p>
           </div>
         </div>
-        {CHALLENGES_BY_CHAPTER.map((group) => (
-          <div className="record-chapter" key={group.chapter.id}>
-            <h3 className="record-chapter-title">{group.chapter.title}</h3>
-            <div className="record-table">
-              {group.items.map((challenge) => {
-                const record = progress[challenge.id] ?? {};
-                return (
-                  <button className="record-row" key={challenge.id} onClick={() => selectChallenge(challenge.id)} title={record?.status === "locked" ? "尚未解锁：可以进去练习，解锁后才能提交检测" : undefined} type="button">
-                    <strong>{challenge.title}</strong>
-                    <span>{statusText(record.status)}</span>
-                    <span>{record.attempts ?? 0} 次尝试</span>
-                    <span title={isParticipationChallenge(challenge) ? PARTICIPATION_SCORE_NOTE : undefined}>{scoreLabelOf(challenge, record)}</span>
-                    <small>{record.errors?.at(-1) ?? "暂无错误"}</small>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+        {CHALLENGES_BY_CHAPTER.map((group, index) => {
+          const litCount = group.items.filter((challenge) => progress[challenge.id]?.status === "completed").length;
+          return (
+            <details className="record-chapter" key={group.chapter.id} open={index === 0}>
+              <summary className="record-chapter-summary">
+                <h3 className="record-chapter-title">{group.chapter.title}</h3>
+                <span className="record-chapter-meta">{litCount}/{group.items.length} 点亮 · {group.items.length} 个实验</span>
+              </summary>
+              <div className="record-table">
+                {group.items.map((challenge) => {
+                  const record = progress[challenge.id] ?? {};
+                  return (
+                    <button className="record-row" key={challenge.id} onClick={() => selectChallenge(challenge.id)} title={record?.status === "locked" ? "尚未解锁：可以进去练习，解锁后才能提交检测" : undefined} type="button">
+                      <strong>{challenge.title}</strong>
+                      <span>{statusText(record.status)}</span>
+                      <span>{record.attempts ?? 0} 次尝试</span>
+                      <span title={isParticipationChallenge(challenge) ? PARTICIPATION_SCORE_NOTE : undefined}>{scoreLabelOf(challenge, record)}</span>
+                      <small>{record.errors?.at(-1) ?? "暂无错误"}</small>
+                    </button>
+                  );
+                })}
+              </div>
+            </details>
+          );
+        })}
       </section>
 
       <section className="two-column">

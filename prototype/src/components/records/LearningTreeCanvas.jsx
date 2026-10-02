@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { layoutOrganicTree } from "../../organicTreeLayout.js";
 
 /**
- * 有机学习树画布（2026-09-19 定稿）：一棵真正的树——
- * 底部树干由粗到细，八章主枝两侧交替分出，每个实验是枝头叶子。
- * 完成点亮（青）、进行中高亮（琥珀）、未开始为芽（暗）。
+ * 有机学习树画布（浅色主题版）：一棵真正的树——
+ * 底部深色树干由粗到细，八章主枝两侧交替分出，每个实验是枝头叶子。
+ * 完成点亮（绿/青）、进行中高亮（琥珀）、未开始为灰芽。
  * 滚轮以光标为中心缩放、拖拽平移、控制器放大/缩小/复位；点击叶子进入实验。
  */
 
@@ -114,12 +114,12 @@ export function LearningTreeCanvas({ model, onOpenChallenge }) {
       <svg className="organic-tree-svg" height="100%" width="100%">
         <defs>
           <linearGradient id="treeTrunkGrad" x1="0" x2="0" y1="1" y2="0">
-            <stop offset="0%" stopColor="#27509b" />
-            <stop offset="100%" stopColor="#3b74d6" />
+            <stop offset="0%" stopColor="#4a3423" />
+            <stop offset="100%" stopColor="#6f4e37" />
           </linearGradient>
           <radialGradient id="treeGroundGrad">
-            <stop offset="0%" stopColor="rgba(56, 132, 255, 0.35)" />
-            <stop offset="100%" stopColor="rgba(56, 132, 255, 0)" />
+            <stop offset="0%" stopColor="rgba(13, 148, 136, 0.22)" />
+            <stop offset="100%" stopColor="rgba(13, 148, 136, 0)" />
           </radialGradient>
         </defs>
         <g transform={`translate(${view.x} ${view.y}) scale(${view.k})`}>
