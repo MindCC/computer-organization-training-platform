@@ -212,7 +212,9 @@ try {
   assert.equal(current.studentState.current_stage_index, 1);
   await unique(studentPage.getByText(/\u9636\u6bb5 2 \/ 4/), "stage two HUD");
 
-  const canvas = studentPage.locator("canvas").first();
+  // Review the completed 3D stage, then use the settlement's actual mission continuation.
+  await studentPage.locator(".quest-settlement").getByRole("button", { name: /下一/ }).click();
+  const canvas = studentPage.getByTestId("react-flow-circuit-canvas");
   await canvas.waitFor({ state: "visible", timeout: TIMEOUT });
   const canvasBox = await canvas.boundingBox();
   assert.ok(canvasBox && canvasBox.width >= 720, `canvas width ${canvasBox?.width ?? 0}px`);
@@ -225,7 +227,7 @@ try {
 
   await teacherPage.bringToFront();
   await click(
-    teacherPage.getByRole("button", { name: "\u5237\u65b0", exact: true }),
+    teacherPage.locator(".classroom-command-center").getByRole("button", { name: "\u5237\u65b0", exact: true }),
     "refresh overview",
   );
   // 学生网格只在「学情统计 → 学习监控」标签下渲染
@@ -266,6 +268,21 @@ try {
     state: "hidden", timeout: TIMEOUT,
   });
   console.log("PASS: pause and resume propagate to student UI");
+
+  for (const [index, challengeId] of ["program-flow", "instruction-data", "data-flow"].entries()) {
+    await click(studentPage.getByRole("button", { name: "填入参考结构", exact: true }), `reference ${challengeId}`);
+    const stage = await clickJson(studentPage, studentPage.getByRole("button", { name: "提交检测", exact: true }),
+      (response) => response.url().endsWith("/api/student/attempts") && response.request().method() === "POST", `submit ${challengeId}`);
+    assert.equal(stage.body.classroomSession.current_stage_index, index + 2);
+    assert.equal(stage.body.progress[challengeId].bestScore, 0);
+    if (index < 2) await studentPage.locator(".quest-settlement").getByRole("button", { name: /下一/ }).click();
+    else await studentPage.locator(".quest-settlement").getByRole("button", { name: "复盘本关", exact: true }).click();
+  }
+  const finished = await requireApi("/api/student/classroom/current", {}, studentJar, 200);
+  assert.equal(finished.studentState.status, "completed");
+  assert.equal(finished.studentState.stars, 3);
+  assert.equal(finished.studentState.xp, 540);
+  console.log("PASS: all four mission stages submit real canvas evidence, retain rewards and leave participation unscored");
 
   await teacherPage.bringToFront();
   await click(

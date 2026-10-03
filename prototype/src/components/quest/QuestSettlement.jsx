@@ -29,7 +29,7 @@ export function QuestSettlement({ settlement, onContinue, onReview }) {
         <span className="eyebrow">评测结算</span>
         <h2>{settlement.title}</h2>
         <p>{settlement.verified}</p>
-        <strong className="quest-settlement-score">{settlement.score} 分</strong>
+        <strong className="quest-settlement-score">{settlement.participation ? "参与型 · 探索完成" : `${settlement.score} 分`}</strong>
         <p className="quest-settlement-next">
           {settlement.nextTitle ? `已解锁：${settlement.nextTitle}` : "课程路线已完成"}
         </p>

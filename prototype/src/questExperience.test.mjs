@@ -44,6 +44,13 @@ test("settlement names the verified stage and next unlock", () => {
   assert.equal(settlement.score, 92);
 });
 
+test("participation settlement identifies completion without displaying a course score", () => {
+  const settlement = buildQuestSettlement("data-flow", { passed: true, score: 0 }, [{ items: [
+    { id: "data-flow", title: "认识数据流", participation: true },
+  ] }]);
+  assert.equal(settlement.participation, true);
+});
+
 test("student quest falls back from an unknown recommendation to the first eligible stage", () => {
   const progress = { "half-adder": { attempts: 3, status: "in-progress" } };
   const model = buildStudentQuestModel(groups, { id: "missing-stage" }, progress);

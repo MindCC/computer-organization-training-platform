@@ -14,15 +14,15 @@ function buildStarterNodes(spec) {
   const nodes = [];
   spec.inputLabels.forEach((label, index) => {
     nodes.push(makeGateNode(
-      { kind: "input", label: `输入 ${label}`, componentType: "input", ports: [outPort("out", "OUT")] },
-      { x: 40, y: 60 + index * 120 },
+      { kind: "input", label: `输入 ${label}`, componentType: "input", ioIndex:index, ports: [outPort("out", "OUT")] },
+      { x: 40, y: 60 + index * 180 },
       `input-${index + 1}`,
     ));
   });
   spec.outputLabels.forEach((label, index) => {
     nodes.push(makeGateNode(
-      { kind: "output", label: label, componentType: "output", ports: [inPort("in", "IN")] },
-      { x: 660, y: 60 + index * 120 },
+      { kind: "output", label: label, componentType: "output", ioIndex:index, ports: [inPort("in", "IN")] },
+      { x: 660, y: 60 + index * 180 },
       `output-${index + 1}`,
     ));
   });
@@ -31,37 +31,35 @@ function buildStarterNodes(spec) {
 
 /**
  * 自由拼装闯关（纯逻辑门关）：学生自己拖门组装电路，
- * 判分 = 结构（门类型齐全、I/O 数量对）+ 功能（全输入组合真值表一致）。
- * 通过后按本关标准结构上报成绩（服务端判分路径不变）。
+ * 判分 = 合法的组合电路 + 全输入组合真值表一致。
+ * 上报学生实际节点与导线，服务端重新构建端口并复算。
  */
-export function GateAssemblyChallenge({ challenge, circuitModel, onResult, submitBlocked = false, submitBlockedReason = "" }) {
+export function GateAssemblyChallenge({ challenge, circuitModel, onResult, onDraft, submitBlocked = false, submitBlockedReason = "" }) {
   const spec = useMemo(() => freeformSpecOf(challenge.id), [challenge.id]);
   const [grading, setGrading] = useState(null);
   const latestRef = useRef({ model: null, circuitEdges: [] });
   const initialNodes = useMemo(() => buildStarterNodes(spec), [spec]);
 
-  const handleCircuit = useCallback(({ model, circuitEdges }) => {
+  const handleCircuit = useCallback(({ model, circuitEdges, inputs }) => {
     latestRef.current = { model, circuitEdges };
     setGrading(gradeFreeform(model, circuitEdges, spec));
-  }, [spec]);
+    onDraft?.({model,edges:circuitEdges,inputs});
+  }, [spec,onDraft]);
 
   const submit = useCallback(() => {
     const { model, circuitEdges } = latestRef.current;
     const grade = gradeFreeform(model, circuitEdges, spec);
     setGrading(grade);
     if (!grade.passed) return;
-    // 自由拼装判分通过 → 按标准结构上扳（服务端复算同样的参考结构，照常给分）
-    const referenceEdges = (circuitModel?.requiredEdges ?? []).map((edge) => ({
-      from: { nodeId: edge.from.nodeId, portId: edge.from.portId },
-      to: { nodeId: edge.to.nodeId, portId: edge.to.portId },
-    }));
     onResult?.({
       passed: true,
       score: 100,
       errors: [],
       missing: [],
       extraConnections: [],
-      circuitEdges: referenceEdges,
+      mode:'freeform',
+      circuitNodes:model.nodes,
+      circuitEdges,
       elapsedMinutes: challenge.estimatedMinutes ?? 8,
     });
   }, [challenge, circuitModel, onResult, spec]);
@@ -92,6 +90,7 @@ export function GateAssemblyChallenge({ challenge, circuitModel, onResult, submi
                 ))}
               </div>
             ) : null}
+            {grading?.cost?<p>元件 {grading.cost.components} · 导线 {grading.cost.wires} · 逻辑深度 {grading.cost.depth} 层。通过后可继续尝试更简洁的电路。</p>:null}
           </div>
           <button
             className="primary-button"
@@ -106,7 +105,7 @@ export function GateAssemblyChallenge({ challenge, circuitModel, onResult, submi
       )}
       initialNodes={initialNodes}
       onCircuit={handleCircuit}
-      paletteDefs={GATE_DEFS}
+      paletteDefs={GATE_DEFS.filter(def=>def.kind!=='input'&&def.kind!=='output'&&(!spec.allowedGateTypes||spec.allowedGateTypes.includes(def.componentType)))}
       statusText={`自由拼装「${challenge.title}」：从左侧拖门到画布，把 ${spec.inputLabels.join("、")} 的信号变成正确的输出。`}
       submitBlocked={submitBlocked}
       submitBlockedReason={submitBlockedReason}

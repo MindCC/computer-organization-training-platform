@@ -3,6 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { fillLoginForm, submitLoginForm, gotoApp } from './lib/qaLogin.mjs';
 import { openChallengeFromHome } from './lib/qaHome.mjs';
+import { acceptCustomerOrder } from './lib/qaShop.mjs';
 
 // 由 scripts/run-browser-qa.mjs 注入实际地址（随机端口），手工运行时回落到默认开发端口。
 const baseUrl = process.env.PROTOTYPE_URL ?? process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173/';
@@ -90,6 +91,7 @@ try {
   await page.getByRole('button', { name: '返回课程首页', exact: true }).click();
   }
   await openChallengeFromHome(page, '办公电脑');
+  await acceptCustomerOrder(page);
   await page.locator('canvas[data-model-source="blender-glb"]').waitFor();
   await page.getByRole('button', { name: '打开侧板', exact: true }).click();
   await page.getByRole('button', { name: '固定主板', exact: true }).click();

@@ -17,21 +17,27 @@ export function gradeClassroomEvidence({ mission, stageIndex, payload, progress 
     }
     return {
       challengeId: stage.challengeId,
-      result: { score: 100, passed: true, errors: [], elapsedMinutes: Number(payload.result.elapsedMinutes ?? 0), completed: true },
+      result: { score: 0, classroomPoints: 100, passed: true, errors: [], elapsedMinutes: Number(payload.result.elapsedMinutes ?? 0), completed: true },
     };
   }
-  const edges = payload?.result?.edges;
+  const edges = payload?.result?.circuitEdges ?? payload?.result?.edges;
   if (!Array.isArray(edges) || edges.length > MAX_EDGES) {
     throw classroomError("INVALID_STAGE_EVIDENCE", "电路证据必须包含不超过 256 条规范连线", 400, false);
   }
   const normalized = normalizeStudentAttemptPayload(
-    { challengeId: stage.challengeId, result: { ...payload.result, circuitEdges: payload.result.edges } },
+    { challengeId: stage.challengeId, result: { ...payload.result, circuitEdges: edges } },
     LEARNING_ITEMS,
     progress,
-    false,
+    // The service has already checked the active mission and exact current stage.
+    // Classroom order differs from ordinary course prerequisites (e.g. memory-address).
+    true,
   );
   if (normalized.ok === false) {
     throw classroomError("INVALID_STAGE_EVIDENCE", normalized.error, normalized.status, false);
+  }
+  // Mission rewards measure completed activities; participation has no course grade.
+  if (LEARNING_ITEMS.find((item) => item.id === stage.challengeId)?.grading === "participation") {
+    normalized.result.classroomPoints = normalized.result.passed ? 100 : 0;
   }
   return normalized;
 }

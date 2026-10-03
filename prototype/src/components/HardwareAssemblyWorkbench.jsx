@@ -11,7 +11,7 @@ import { practiceNextStep, practiceBootFeedback } from '../assemblyPractice.js';
 
 const BOOT_STEPS = ['供电正常 · 主板已通电', 'CPU / 内存自检通过', '存储设备已识别', '显示输出就绪 · 系统启动成功'];
 
-export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCategory, onCategoryChange, onAssemblyReady, draftKey, draftStorage, practiceMode, onPracticeEvent, practicePersistence }) {
+export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCategory, onCategoryChange, onAssemblyReady, draftKey, draftStorage, practiceMode, onPracticeEvent, practicePersistence, onActionFeedback, onDeliver, deliveryPending }) {
   const [installed, setInstalled] = useState(() => loadAssemblyDraft(draftStorage, draftKey, parts));
   const [message, setMessage] = useState(() => Object.keys(installed).length ? (practiceMode?'预装主机已就绪，请根据工单症状排查。':'已恢复本订单的装配进度，请重新开机自检。') : '从左侧台面拿起零件，拖到机箱中的对应插槽。');
   const [structure, setStructure] = useState(() => readStructure(draftStorage, draftKey, installed, parts));
@@ -27,6 +27,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   const [focused, setFocused] = useState(false);
   const [hintSignature,setHintSignature]=useState(null),[targetSocket,setTargetSocket]=useState('');
   const completionLogged=useRef(false);
+  const actionFeedback=useRef(onActionFeedback);actionFeedback.current=onActionFeedback;
   const expert=Boolean(practiceMode && practiceMode!=='guided');
   const selectionKey = JSON.stringify(parts);
   const validInstalled = useMemo(() => reconcileInstallation(installed, parts), [installed, selectionKey]);
@@ -65,15 +66,17 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
     return () => clearTimeout(timer);
   }, [booting, boot?.step, signature, reducedMotion]);
   useEffect(() => { onAssemblyReady?.(powered ? selectionKey : null); }, [powered, selectionKey, onAssemblyReady]);
+  useEffect(()=>{if(powered){setMessage('主机已立放在桌旁，显示器显示开机成功。');actionFeedback.current?.({type:'ready'});}},[powered]);
   useEffect(()=>{if(powered && practiceMode && !completionLogged.current){completionLogged.current=true;onPracticeEvent?.({type:'complete'});}},[powered,practiceMode,onPracticeEvent]);
   function invalidate() { setBoot(null); completionLogged.current=false;onAssemblyReady?.(null); }
-  function feedback(result) {setMessage(result.message);onPracticeEvent?.({type:'action',ok:result.ok,message:result.message});}
+  function feedback(result) {setMessage(result.message);onPracticeEvent?.({type:'action',ok:result.ok,message:result.message});actionFeedback.current?.(result);}
   function selectPart(part){onCategoryChange(part.id);setMessage(expert?'已选择'+part.label+'，请判断安装位置。':part.hint);}
   function startBoot(){
     if(booting)return;
     if(powered){invalidate();setMessage('已关机，可以继续调整配置。');return;}
     if(!ready){if(practiceMode)feedback({ok:false,message:practiceBootFeedback(validInstalled,validStructure,parts)});return;}
     setCableMode(false);setSelectedConnector(null);
+    actionFeedback.current?.({type:'power'});
     setBoot({signature,step:0});setMessage('主机正在立起并移到桌旁，稍候查看显示器上的开机结果。');
   }
   function install(category, socket) {
@@ -164,6 +167,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
       </div>
     </div><div className="assembly-power-controls">
       <button type="button" className={'assembly-power'+(powered?' online':'')} disabled={(!practiceMode&&!ready)||booting||practiceDone} onClick={startBoot}><Power size={21}/>{practiceDone?'自检通过':powered?'关闭电源':booting?'自检中…':'开机自检'}</button>
+      {!practiceMode&&powered&&onDeliver&&<button type="button" className="assembly-deliver" disabled={deliveryPending} onClick={()=>{setFocused(false);onDeliver(selectionKey);}}>{deliveryPending?'正在交付…':'交付这台电脑'}<CheckCircle size={18}/></button>}
       <small>{practiceDone?'本轮已完成，可查看复盘或重新练习。':expert&&!hintsVisible?'自行检查装配，再尝试开机自检。':ready?'装配与必要连接已完成，可以开机自检':'还需完成：'+[...status.missing.map(id=>ASSEMBLY_PARTS.find(part=>part.id===id).label),...structuralStatus.missing].join('、')}</small>
     </div></div>
   </section>;

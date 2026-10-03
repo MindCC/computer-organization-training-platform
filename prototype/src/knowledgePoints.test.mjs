@@ -20,9 +20,9 @@ import {
   validateKnowledgePoints,
 } from "./knowledgePoints.js";
 
-test("18 个关卡生成 18 个知识点，id 唯一且互相可解析", () => {
-  assert.equal(KNOWLEDGE_POINTS.length, 18);
-  assert.equal(new Set(KNOWLEDGE_POINTS.map((kp) => kp.id)).size, 18);
+test("每个关卡生成知识点，id 唯一且互相可解析", () => {
+  assert.equal(KNOWLEDGE_POINTS.length, CHALLENGES.length);
+  assert.equal(new Set(KNOWLEDGE_POINTS.map((kp) => kp.id)).size, CHALLENGES.length);
   for (const challenge of CHALLENGES) {
     const kp = knowledgePointForChallenge(challenge.id);
     assert.ok(kp, `${challenge.id} 应有知识点`);
@@ -53,12 +53,13 @@ test("前置/后续知识点互为反查", () => {
   }
   // 顶层基础没有前置，终点 I/O 没有后续
   assert.equal(prerequisitesOf("kp-computer-components").length, 0);
-  assert.equal(dependentsOf("kp-io-transfer").length, 0);
+  assert.equal(dependentsOf("kp-io-handshake").length, 0);
+  assert.ok(dependentsOf('kp-io-transfer').length>=2);
 });
 
 test("按章聚合知识点与核心知识点文字", () => {
   const total = COURSE_CHAPTERS.reduce((sum, chapter) => sum + knowledgePointsByChapter(chapter.id).length, 0);
-  assert.equal(total, 18);
+  assert.equal(total, CHALLENGES.length);
   assert.ok(knowledgePointsByChapter("ch3").length >= 8, "第三章是门电路/运算器主体");
   for (const chapter of COURSE_CHAPTERS) {
     const core = chapterCorePoints(chapter.id);
@@ -69,8 +70,8 @@ test("按章聚合知识点与核心知识点文字", () => {
 
 test("星图布局：按 depth 分层，下层基础 y 大、上层进阶 y 小", () => {
   const model = layoutKnowledgeGraph({});
-  assert.equal(model.nodes.length, 18);
-  assert.equal(model.edges.length, 23, "CHALLENGE_DEPS 共 23 条依赖边");
+  assert.equal(model.nodes.length, CHALLENGES.length);
+  assert.equal(model.edges.length, Object.values(CHALLENGE_DEPS).reduce((count,deps)=>count+deps.length,0));
   const byId = new Map(model.nodes.map((node) => [node.id, node]));
   for (const node of model.nodes) {
     assert.ok(node.x >= 0 && node.x <= model.width, `${node.id} x 越界`);

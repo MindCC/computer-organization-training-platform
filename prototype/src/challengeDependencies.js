@@ -7,7 +7,9 @@
  *   门 → 半加 / 多路选择 → 全加 → 多位加法 / ALU
  *   机器数 → 存储器 → 指令与数据 → CPU → 总线 → I/O
  */
+import { WORKBENCH_CHALLENGES } from './workbenchChallenges.js';
 export const CHALLENGE_DEPS = Object.freeze({
+  ...Object.fromEntries(WORKBENCH_CHALLENGES.map(item=>[item.id,item.prerequisites])),
   "computer-components": [],
   "program-flow": ["computer-components"],
   "machine-number": ["program-flow"],

@@ -14,7 +14,7 @@ test("rejects impossible scores and inconsistent passed state", () => {
   assert.equal(tooHigh.status, 400);
 
   const lowPassed = normalizeStudentAttemptPayload({
-    challengeId: "data-flow",
+    challengeId: "and-gate",
     result: { score: 60, passed: true, errors: [], elapsedMinutes: 8 },
   }, LEARNING_ITEMS);
   assert.equal(lowPassed.ok, false);
@@ -72,7 +72,7 @@ test("regrades circuit attempts from submitted edges instead of trusting the cli
 
   assert.equal(valid.ok, true);
   assert.equal(valid.result.passed, true);
-  assert.equal(valid.result.score, 100);
+  assert.equal(valid.result.score, 0, '引导探索记录完成但不计分');
 });
 
 test("rejects circuit attempts that omit server-verifiable edge evidence", () => {

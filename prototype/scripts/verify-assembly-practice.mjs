@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { expect } from '@playwright/test';
 import path from 'node:path';
+import { acceptCustomerOrder,enterAssemblyPractice,openPracticeMenu } from './lib/qaShop.mjs';
 
 export async function verifyAssemblyPractice(page,artifactDir){
   await page.reload({waitUntil:'networkidle'});
   await page.locator('.topbar-nav .topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();
   const orderDrafts=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage).filter(([k])=>k.startsWith('zcyl:assembly-draft:'))));
-  await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
+  await enterAssemblyPractice(page);
   const workshop=page.getByRole('region',{name:'3D 交互装机工作台'}),review=page.getByRole('region',{name:'练习复盘',exact:true});
   const status=page.locator('.assembly-action-strip');
   await expect(status).toContainText('打开侧板');
@@ -32,7 +33,7 @@ export async function verifyAssemblyPractice(page,artifactDir){
   await page.getByRole('button',{name:'查看提示',exact:true}).click();
   await page.reload({waitUntil:'networkidle'});
   await page.locator('.topbar-nav .topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();
-  await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
+  await enterAssemblyPractice(page);
   await expect(page.locator('.practice-save-status')).toContainText('已恢复未完成练习');
   await expect(page.locator('.assembly-counter strong')).toContainText('1 /');
   await expect(page.locator('#assembly-variant')).toHaveValue('cpu-i5');
@@ -84,13 +85,15 @@ export async function verifyAssemblyPractice(page,artifactDir){
   await page.getByRole('button',{name:'返回客户订单',exact:true}).click();
   const after=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage).filter(([k])=>k.startsWith('zcyl:assembly-draft:'))));
   assert.deepEqual(after,orderDrafts,'practice must preserve all order drafts');
+  await acceptCustomerOrder(page);
   await expect(page.getByRole('button',{name:'请先完成装配与开机自检',exact:true})).toBeDisabled();
-  await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
+  await enterAssemblyPractice(page);
   await expect(review).not.toContainText('练习完成');
   await expect(page.locator('.practice-history details')).toHaveCount(5);
   await page.reload({waitUntil:'networkidle'});await page.locator('.topbar-nav .topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();
+  await openPracticeMenu(page);
   await expect(page.getByRole('button',{name:'进入装机教学练习',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
+  await enterAssemblyPractice(page);
   await expect(page.locator('.practice-history details')).toHaveCount(5);
   await expect(page.locator('.assembly-boot.online')).toHaveCount(0);
   await page.locator('.practice-history summary').first().click();

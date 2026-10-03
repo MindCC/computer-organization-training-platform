@@ -6,6 +6,7 @@ const UNKNOWN = "unknown";
 const ERROR = "error";
 
 function normalizeSignal(value) {
+  if (value === undefined || value === null || value === '') return UNKNOWN;
   if (value === 0 || value === 1) return value;
   if (value === false) return 0;
   if (value === true) return 1;
@@ -27,6 +28,38 @@ function writeOutput(values, nodeId, portId, value) {
 
 function computeNode(node, values) {
   if (node.type === "input" || node.type === "output") return;
+
+  const input=readInput(values,node.id,'in');
+  if (['increment','signOf','signMagnitude','ones4','twos4','teachingMemory','contentRom','instructionRom','opcode'].includes(node.type)) {
+    let result=UNKNOWN;
+    if (!hasUnknown(input)) {
+      if(node.type==='increment')result=input+1;
+      if(node.type==='signOf')result=Number(input<0);
+      if(node.type==='signMagnitude')result=(input<0?8:0)|Math.abs(input);
+      if(node.type==='ones4')result=input&8?8|((input&7)^7):input;
+      if(node.type==='twos4')result=input&8?(input+1)&15:input;
+      if(node.type==='contentRom')result=[3,5,9,12][input-100]??UNKNOWN;
+      if(node.type==='instructionRom')result=[8,9,10,11][input]??UNKNOWN;
+      if(node.type==='opcode')result=input&3;
+      if(node.type==='teachingMemory'){
+        const read=readInput(values,node.id,'read');
+        result=hasUnknown(read)?UNKNOWN:read===0?0:[5,9,2,12][input-100]??UNKNOWN;
+      }
+    }
+    writeOutput(values,node.id,'out',result);return;
+  }
+  if(node.type==='registerRead'){
+    for(const [source,target] of [['a','out'],['b','bOut']])writeOutput(values,node.id,target,hasUnknown(input)?UNKNOWN:readInput(values,node.id,source));
+    return;
+  }
+  if(node.type==='aluWord'){
+    const b=readInput(values,node.id,'b'),op=readInput(values,node.id,'op');
+    writeOutput(values,node.id,'out',hasUnknown(input,b,op)?UNKNOWN:[(input+b)&7,input&b,input|b,input^b][op]??UNKNOWN);return;
+  }
+  if(node.type==='nand'){
+    const a=readInput(values,node.id,'a'),b=readInput(values,node.id,'b');
+    writeOutput(values,node.id,'out',hasUnknown(a,b)?UNKNOWN:((a&b)^1));return;
+  }
 
   if (node.type === "buffer") {
     writeOutput(values, node.id, "out", readInput(values, node.id, "in"));
@@ -56,7 +89,7 @@ function computeNode(node, values) {
 
   if (node.type === "not") {
     const input = readInput(values, node.id, "in");
-    writeOutput(values, node.id, "out", input === UNKNOWN ? UNKNOWN : (input & 1) ^ 1);
+    writeOutput(values, node.id, "out", hasUnknown(input) ? UNKNOWN : (input & 1) ^ 1);
     return;
   }
 
@@ -111,7 +144,7 @@ function computeNode(node, values) {
     const inputs = Object.fromEntries(
       chipDef.ports.filter((p) => p.direction === "in").map((p) => [p.id, readInput(values, node.id, p.id)])
     );
-    if (chipDef.ports.some((p) => p.direction === "in" && inputs[p.id] === UNKNOWN)) {
+    if (chipDef.ports.some((p) => p.direction === "in" && hasUnknown(inputs[p.id]))) {
       for (const p of chipDef.ports.filter((p) => p.direction === "out")) {
         writeOutput(values, node.id, p.id, UNKNOWN);
       }
@@ -208,6 +241,7 @@ function runCircuitTestCasesWithOptions(model, studentEdges, { includeHidden }) 
     }
     return {
       name: testCase.name,
+      inputs: testCase.inputs,
       passed: simulation.status === "ok" && mismatches.length === 0,
       expected: testCase.expected,
       actual: Object.fromEntries(Object.keys(testCase.expected).map((key) => [key, simulation.values[key] ?? UNKNOWN])),

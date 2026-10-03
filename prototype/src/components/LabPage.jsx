@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useState } from "react";
-import { ArrowLeft, Cpu, Flame, GearSix, Play, SealCheck, Sparkle, Target, WarningCircle } from "@phosphor-icons/react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Flame, Play, SealCheck, Sparkle, Target, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES, challengeOrderOf } from "../platformLogic.js";
 import { COURSE_CHAPTERS, isParticipationChallenge } from "../courseChapters.js";
 import { getJourneyStepsForChallenge } from "../dataJourney.js";
@@ -28,6 +28,8 @@ import { LogicGateSandbox } from "./LogicGateSandbox.jsx";
 import { GateAssemblyChallenge } from "./GateAssemblyChallenge.jsx";
 import { ChallengeMap } from "./ChallengeMap.jsx";
 import { freeformSpecOf } from "../circuit/freeformGrading.js";
+import { describeCircuitDraft } from '../circuit/circuitDraftDiagnostics.js';
+import './labWorkbench.css';
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
 const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").then((m) => ({ default: m.OverviewExplodedView })));
@@ -35,7 +37,7 @@ const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").the
 export function LabPage({
   lab, isMobile, memoryAddress, memoryOperation, memoryWriteValue,
   setMemoryAddress, setMemoryOperation, setMemoryWriteValue,
-  memoryAccessState, setShowSettings, student, statusMessage, changeView,
+  memoryAccessState, statusMessage, changeView,
   classroomLabViewModel,
   courseGuide,
 }) {
@@ -69,7 +71,7 @@ export function LabPage({
   function wrapClassroom(children) {
     if (!cl?.active) return children;
     return (
-      <div>
+      <div className="lab-classroom-wrap">
         <MissionHud viewModel={cl} />
         <MissionPauseOverlay visible={cl.paused}>
           {children}
@@ -94,18 +96,13 @@ export function LabPage({
       </div>,
     );
   }
-  return ReactFlowLab();
+  return <ReactFlowLab l={l} cur={cur} isMobile={isMobile} memoryAddress={memoryAddress} memoryOperation={memoryOperation} memoryWriteValue={memoryWriteValue} setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue} memoryAccessState={memoryAccessState} statusMessage={statusMessage} changeView={changeView} wrapClassroom={wrapClassroom}/>;
 
   function ComputerOverviewLab() {
     return wrapClassroom(
-      <div className="lab-studio" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-        <header className="lab-studio-header">
-          <div className="lab-studio-brand"><button aria-label="返回课程首页" className="lab-studio-icon-button" onClick={() => changeView("home")} type="button"><ArrowLeft size={19} /></button><span className="lab-studio-mark"><Cpu size={24} /></span><div><strong>计算机组成探索</strong><small>3D 爆炸视图</small></div></div>
-          <div className="lab-studio-current"><span>第一章计算机概述</span><strong>{cur.title}</strong><em>探索模式</em></div>
-          <div className="lab-studio-score"><span>视角</span><strong>3D</strong><small>自由旋转</small></div>
-          <div className="lab-studio-user"><span>{student.name}</span><button aria-label="打开个人设置" className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button"><GearSix size={19} /></button></div>
-        </header>
-        <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      <div className="lab-studio lab-overview">
+        <ExperimentContext challenge={cur} record={l.currentRecord} onBack={()=>changeView('home')} overview/>
+        <div className="lab-overview-stage">
           <Suspense fallback={<div className="flow-loading">正在加载 3D 概览...</div>}>
             <OverviewExplodedView
               autoPlay={false}
@@ -119,16 +116,18 @@ export function LabPage({
     );
   }
 
-  function ReactFlowLab() {
-    const idx = CHALLENGES.findIndex((c) => c.id === cur.id);
+}
+
+function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteValue,setMemoryAddress,setMemoryOperation,setMemoryWriteValue,memoryAccessState,statusMessage,changeView,wrapClassroom}) {
     const meta = challengeRouteMeta[cur.id] ?? {};
     const reqEdges = l.currentCircuitModel?.requiredEdges.length ?? cur.requiredConnections.length;
     const tc = l.currentCircuitModel?.testCases.length ?? 0;
-    const st = statusText(l.currentRecord?.status ?? "not-started");
     const js = getJourneyStepsForChallenge(cur.id);
     const [sandboxMode, setSandboxMode] = useState(false);
     const [assemblyMode, setAssemblyMode] = useState(false);
     const [mapMode, setMapMode] = useState(false);
+    const [draft,setDraft]=useState(null);
+    const draftDiagnostics=useMemo(()=>describeCircuitDraft(draft),[draft]);
 
     // 挑战路径：可拖拽调宽 / 可整体收起 / 高度限高内滚
     const [routeWidth, setRouteWidth] = useState(232);
@@ -160,14 +159,7 @@ export function LabPage({
     const setAllChapters = (collapsed) => setCollapsedChapters(Object.fromEntries(LAB_STEP_CHAPTERS.map((group) => [group.chapter.id, collapsed])));
     return wrapClassroom(
       <div className="lab-studio">
-        <header className="lab-studio-header">
-          <div className="lab-studio-brand"><button className="lab-studio-icon-button" onClick={() => changeView("home")} type="button" aria-label="返回课程首页"><ArrowLeft size={19} /></button><span className="lab-studio-mark"><Cpu size={24} /></span><div><strong>电路实验室</strong><small>计算机组成原理实训平台</small></div></div>
-          <div className="lab-studio-current"><span>当前挑战 · {idx + 1} / {CHALLENGES.length}</span><strong>{cur.title}</strong><em>{st}</em></div>
-          <div className="lab-studio-score">{isParticipationChallenge(cur)
-            ? <><span>计分方式</span><strong>参与型</strong><small>探索完成即通过</small></>
-            : <><span>得分</span><strong>{l.currentRecord?.bestScore ?? 0}</strong><small>/ 100</small></>}</div>
-          <div className="lab-studio-user"><span>{student.name}</span><button className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button" aria-label="打开个人设置"><GearSix size={19} /></button></div>
-        </header>
+        <ExperimentContext challenge={cur} record={l.currentRecord} onBack={()=>changeView('home')}/>
         <main className="lab-studio-grid" style={{ "--route-width": routeCollapsed ? "34px" : `${routeWidth}px` }}>
           <aside className={`lab-studio-route ${routeCollapsed ? "collapsed" : ""}`} aria-label="挑战路径">
             {routeCollapsed ? (
@@ -205,32 +197,39 @@ export function LabPage({
             </>)}
           </aside>
           <section className="lab-studio-workspace">
-            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{mapMode ? "挑战依赖地图" : sandboxMode ? "逻辑门沙盒" : assemblyMode ? `${cur.title} · 自由拼装` : cur.title}</h1><p>{mapMode ? "完成一个关卡，解锁依赖它的后续关卡（仿图灵完备）" : sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : assemblyMode ? "自己拖门组装电路，判分通过即算过关" : labDescription(cur.id)}</p>{!sandboxMode && !assemblyMode && !mapMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button className={`sandbox-toggle ${mapMode ? "active" : ""}`} onClick={() => { setMapMode(!mapMode); setSandboxMode(false); setAssemblyMode(false); }} type="button">{mapMode ? "← 返回挑战" : "🗺 依赖地图"}</button>{freeformSpec ? <button className={`sandbox-toggle ${assemblyMode ? "active" : ""}`} onClick={() => { setAssemblyMode(!assemblyMode); setSandboxMode(false); setMapMode(false); }} type="button">{assemblyMode ? "← 固定连线" : "🔧 自由拼装"}</button> : null}<button className={`sandbox-toggle ${sandboxMode ? "active" : ""}`} onClick={() => { setSandboxMode(!sandboxMode); setAssemblyMode(false); setMapMode(false); }} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button>{!sandboxMode && !assemblyMode && !mapMode ? <><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></> : null}</div></div>
+            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{mapMode ? "挑战依赖地图" : sandboxMode ? "逻辑门沙盒" : assemblyMode ? `${cur.title} · 自由拼装` : cur.title}</h1><p>{mapMode ? "完成一个关卡，解锁依赖它的后续关卡（仿图灵完备）" : sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : assemblyMode ? "自己拖门组装电路，判分通过即算过关" : l.currentCircuitModel.goal}</p>{!sandboxMode && !assemblyMode && !mapMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button className={`sandbox-toggle ${mapMode ? "active" : ""}`} onClick={() => { setMapMode(!mapMode); setSandboxMode(false); setAssemblyMode(false); }} type="button">{mapMode ? "← 返回挑战" : "🗺 依赖地图"}</button>{freeformSpec ? <button className={`sandbox-toggle ${assemblyMode ? "active" : ""}`} onClick={() => { setAssemblyMode(!assemblyMode); setSandboxMode(false); setMapMode(false); }} type="button">{assemblyMode ? "← 固定连线" : "🔧 自由拼装"}</button> : null}<button className={`sandbox-toggle ${sandboxMode ? "active" : ""}`} onClick={() => { setSandboxMode(!sandboxMode); setAssemblyMode(false); setMapMode(false); }} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button></div></div>
             {mapMode ? (
               <div className="lab-studio-canvas-shell sandbox-shell"><ChallengeMap progress={l._progress} selectedId={cur.id} onEnter={(id) => { setMapMode(false); l.selectChallenge(id); }} /></div>
             ) : sandboxMode ? (
-              <div className="lab-studio-canvas-shell sandbox-shell"><LogicGateSandbox /></div>
+              <div className="lab-studio-canvas-shell sandbox-shell"><LogicGateSandbox progress={l._progress}/></div>
             ) : assemblyMode && freeformSpec ? (
-              <div className="lab-studio-canvas-shell sandbox-shell"><GateAssemblyChallenge challenge={cur} circuitModel={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></div>
+              <div className="lab-studio-canvas-shell sandbox-shell"><GateAssemblyChallenge challenge={cur} circuitModel={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} onDraft={setDraft} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></div>
             ) : (<>
-            <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
+            <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} onDraft={setDraft} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
             {cur.id === "instruction-data" ? <CpuExecutionPanel /> : null}
             {js.length > 0 ? <DataJourneyPanel steps={js} activeStep={l.activeStep} /> : null}
             {cur.id === "memory-address" ? <MemorySystemPanel address={memoryAddress} operation={memoryOperation} state={memoryAccessState} writeValue={memoryWriteValue} onAddressChange={setMemoryAddress} onOperationChange={setMemoryOperation} onWriteValueChange={setMemoryWriteValue} /> : null}
             {cur.id === "machine-number" ? <MachineNumberPanel value={l.inputState.signedValue ?? -5} onValueChange={(v) => l.handleInputChange("signedValue", v)} /> : null}
-            <div className="lab-studio-inspector">
+            <details className="lab-observation"><summary>实验观察与检测说明 <span>元件属性 · 学习状态 · AI 助教</span></summary><div className="lab-studio-inspector">
               <section><span className="eyebrow">元件属性</span><strong>{l.selectedComponent}</strong><p>{l.selectedComponentDetail?.description ?? "选择一个元件查看端口、职责和信号走向。"}</p></section>
               <section><span className="eyebrow">实时状态</span><strong>{statusMessage}</strong><p>必要连线 {reqEdges} 条 · 测试用例 {tc || cur.requiredConnections.length} 组 · 最近得分 {labScoreText(cur, l.currentRecord)}</p></section>
               <section><span className="eyebrow">检测反馈</span>{l.feedback ? l.feedback.passed ? <p className="lab-studio-feedback passed"><SealCheck size={18} weight="fill" /> 本关通过，记录已保存。</p> : <p className="lab-studio-feedback failed"><WarningCircle size={18} weight="fill" /> 发现 {l.feedback.errors.length} 类问题，请按提示修正。</p> : <p className="lab-studio-feedback neutral"><Target size={18} /> 等待提交检测。</p>}</section>
-              <LabAssistantPanel challenge={cur} connections={l.connections} inputState={l.inputState} feedback={l.feedback} realtimeDiagnostics={l.realtimeDiagnostics} />
-              <section className={`realtime-diagnostics ${l.realtimeDiagnostics.status}`}><strong>实时数据流检测</strong><p>{l.realtimeDiagnostics.summary}</p><div className="diagnostic-test-list">{l.realtimeDiagnostics.testRows.map((r) => <div className={r.passed ? "passed" : "needs-work"} key={r.label}><span>{r.label}</span><small>实际：{r.actual}</small></div>)}</div>{l.realtimeDiagnostics.issues.length ? <div className="diagnostic-issues">{l.realtimeDiagnostics.issues.slice(0, 3).map((i) => <span key={`${i.type}-${i.message}`}>{i.type}</span>)}</div> : null}</section>
-            </div>
+              <LabAssistantPanel challenge={cur} connections={(draft?.edges??[]).map(e=>`${e.from.nodeId}.${e.from.portId}->${e.to.nodeId}.${e.to.portId}`)} inputState={draft?.inputs??{}} feedback={l.feedback} realtimeDiagnostics={draftDiagnostics} />
+              <section className={`realtime-diagnostics ${draftDiagnostics.status}`}><strong>实时数据流检测</strong><p>{draftDiagnostics.summary}</p><div className="diagnostic-test-list">{draftDiagnostics.testRows.map((r) => <div className={r.passed ? "passed" : "needs-work"} key={r.label}><span>{r.label}</span><small>实际：{r.actual}</small></div>)}</div>{draftDiagnostics.issues.length ? <div className="diagnostic-issues">{draftDiagnostics.issues.slice(0, 3).map((i) => <span key={`${i.type}-${i.message}`}>{i.type}</span>)}</div> : null}</section>
+            </div></details>
             </>)}
           </section>
         </main>
       </div>
     );
-  }
+}
+
+function ExperimentContext({challenge,record,onBack,overview=false}) {
+  return <div className="lab-experiment-context" aria-label="当前实验">
+    <button className="lab-context-back" aria-label="返回课程首页" onClick={onBack} type="button"><ArrowLeft size={16}/>课程首页</button>
+    <div className="lab-studio-current"><span>{overview?'计算机组成探索':'电路实验室'} · {challengeOrderOf(challenge.id)} / {CHALLENGES.length}</span><strong>{challenge.title}</strong><em className={statusTone(record?.status??'not-started')}>{overview?'探索模式':statusText(record?.status??'not-started')}</em></div>
+    <div className="lab-studio-score">{isParticipationChallenge(challenge)?<><strong>参与型</strong><small>探索完成即通过</small></>:<><span>得分</span><strong>{record?.bestScore??0}</strong><small>/ 100</small></>}</div>
+  </div>;
 }
 
 function DataJourneyPanel({ steps, activeStep }) { const ci = steps.length > 0 ? activeStep % steps.length : 0; return (<section className="data-journey-panel"><div className="section-heading"><div><span className="eyebrow">数据旅程检查点</span><h2>取指、译码、执行的课堂观察线</h2><p>按步骤观察地址、数据和控制信号如何经过寄存器与总线。</p></div></div><div className="journey-step-grid">{steps.map((s, i) => (<article className={i === ci ? "journey-step-card active" : "journey-step-card"} key={s.id}><div className="journey-step-head"><span>{String(i + 1).padStart(2, "0")}</span><strong>{s.title}</strong></div><code>{s.transfer}</code><p>{s.description}</p><div className="journey-registers">{s.registers.map((r) => <small key={r}>{r}</small>)}</div><div className="journey-checkpoint"><b>{s.checkpoint.question}</b><span>{s.checkpoint.answer}</span></div></article>))}</div></section>); }

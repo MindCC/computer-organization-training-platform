@@ -29,6 +29,7 @@ export function circuitModelToFlow(model, { includeRequiredEdges = false } = {})
         nodeId: node.id,
         label: node.label,
         componentType: node.type,
+        inputControl: node.inputControl,
         ports: node.ports.map((port) => ({ ...port })),
       },
     })),

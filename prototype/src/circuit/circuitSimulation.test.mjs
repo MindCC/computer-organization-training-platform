@@ -5,6 +5,7 @@ import {
   AND_GATE_CIRCUIT,
   CIRCUIT_CHALLENGES,
   DATA_FLOW_CIRCUIT,
+  MUX_CIRCUIT,
   HALF_ADDER_CIRCUIT,
   NOT_GATE_CIRCUIT,
   OR_GATE_CIRCUIT,
@@ -56,25 +57,25 @@ test("非法结构会返回 error 而不是继续仿真", () => {
 
 test("hidden test cases affect passed but not cases array", () => {
   // Public-only: passes public cases
-  const publicResult = runCircuitTestCases(DATA_FLOW_CIRCUIT, DATA_FLOW_CIRCUIT.requiredEdges);
+  const publicResult = runCircuitTestCases(MUX_CIRCUIT, MUX_CIRCUIT.requiredEdges);
   assert.equal(publicResult.passed, true);
   assert.equal(publicResult.publicPassed, true);
   assert.equal(publicResult.cases.length, 2); // only public
 
   // All: includes hidden, backward-compat .cases still public-only
-  const allResult = runAllCircuitTests(DATA_FLOW_CIRCUIT, DATA_FLOW_CIRCUIT.requiredEdges);
+  const allResult = runAllCircuitTests(MUX_CIRCUIT, MUX_CIRCUIT.requiredEdges);
   assert.equal(allResult.passed, true);
   assert.equal(allResult.publicPassed, true);
   assert.equal(allResult.hiddenPassed, true);
-  assert.equal(allResult.hiddenCount, 1);
-  assert.equal(allResult.hiddenPassedCount, 1);
+  assert.equal(allResult.hiddenCount, 6);
+  assert.equal(allResult.hiddenPassedCount, 6);
   assert.equal(allResult.cases.length, 2); // .cases is public-only for BC
-  assert.equal(allResult.allCases.length, 3); // allCases includes hidden
+  assert.equal(allResult.allCases.length, 8); // allCases includes hidden
 });
 
 test("hidden test cases fail when edges are wrong", () => {
-  const badEdges = DATA_FLOW_CIRCUIT.requiredEdges.slice(0, 1); // incomplete
-  const result = runAllCircuitTests(DATA_FLOW_CIRCUIT, badEdges);
+  const badEdges = MUX_CIRCUIT.requiredEdges.slice(0, 1); // incomplete
+  const result = runAllCircuitTests(MUX_CIRCUIT, badEdges);
   assert.equal(result.passed, false);
   assert.equal(result.hiddenPassed, false);
   assert.equal(result.hiddenPassedCount, 0);

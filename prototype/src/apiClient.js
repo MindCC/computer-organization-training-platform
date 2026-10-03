@@ -43,10 +43,11 @@ function delay(ms) {
 }
 
 async function fetchWithTimeout(path, options) {
+  const { timeoutMs = REQUEST_TIMEOUT_MS, ...fetchOptions } = options;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(path, { ...options, signal: controller.signal });
+    return await fetch(path, { ...fetchOptions, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }

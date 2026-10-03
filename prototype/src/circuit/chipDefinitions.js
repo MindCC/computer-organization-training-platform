@@ -5,7 +5,14 @@
  * is unlocked and can be used as a component in higher-level challenges.
  */
 
+import { NEW_BOOLEAN_SPECS } from './curriculumCircuits.js';
+import { WORKBENCH_LESSONS } from '../workbenchChallenges.js';
 export const CHIP_DEFINITIONS = Object.freeze({
+  ...Object.fromEntries(Object.entries(NEW_BOOLEAN_SPECS).map(([id,spec])=>[id,{
+    id,challengeId:id,label:WORKBENCH_LESSONS[id].title,description:'已完成电路的可复用组合元件',
+    ports:[...spec.inputLabels.map((label,i)=>({id:`i${i}`,label,direction:'in'})),...spec.outputLabels.map((label,i)=>({id:`o${i}`,label,direction:'out'}))],
+    simulation:inputs=>Object.fromEntries(spec.evaluate(spec.inputLabels.map((_,i)=>inputs[`i${i}`])).map((value,i)=>[`o${i}`,value])),
+  }])),
   "half-adder": {
     id: "half-adder",
     challengeId: "half-adder",

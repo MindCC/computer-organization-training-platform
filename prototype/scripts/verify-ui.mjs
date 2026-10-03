@@ -83,7 +83,7 @@ await assertVisible(page, "当前任务");
 await page.getByRole("button", { name: "登录", exact: true }).click();
 await page.locator(".login-portal").waitFor({ state: "visible", timeout: 30_000 });
 await assertVisible(page, text.appTitle);
-await assertVisible(page, "装配知识，运行你的第一台计算机");
+await assertVisible(page, "把原理，亲手装出来。");
 await assertVisible(page, "学生入口");
 await assertVisible(page, "教师入口");
 assert.equal(await page.locator(".login-portal").count(), 1);

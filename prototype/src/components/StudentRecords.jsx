@@ -120,7 +120,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
               <TreeStructure size={16} style={{ marginRight: 6, verticalAlign: "-3px" }} />
               章节学习树
             </strong>
-            <small>树干 → 八章树枝 → 实验树杈</small>
+            <small>{treeModel.chapters.length} 个章节 · {treeModel.totals.total} 个实验</small>
           </div>
           <LearningTreeCanvas model={treeModel} onOpenChallenge={selectChallenge} />
         </section>
@@ -151,7 +151,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
             <Sparkle size={16} style={{ marginRight: 6, verticalAlign: "-3px" }} />
             知识图谱 · 星图
           </strong>
-          <small>18 个关卡按依赖层级连成星座</small>
+          <small>{CHALLENGES.length} 个关卡按依赖层级连成星座</small>
         </div>
         <KnowledgeStarMap progress={progress} onOpenChallenge={selectChallenge} />
       </section>

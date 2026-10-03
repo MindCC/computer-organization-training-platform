@@ -1,3 +1,5 @@
+import { CURRICULUM_CIRCUITS } from './curriculumCircuits.js';
+import { upgradeCircuits } from './upgradeCircuits.js';
 const signal = "bit";
 
 function inputNode(id, label, x, y, portLabel = label) {
@@ -478,7 +480,7 @@ export const IO_TRANSFER_CIRCUIT = {
   ],
 };
 
-export const CIRCUIT_CHALLENGES = [
+export const CIRCUIT_CHALLENGES = [...upgradeCircuits([
   COMPUTER_COMPONENTS_CIRCUIT,
   PROGRAM_FLOW_CIRCUIT,
   INSTRUCTION_DATA_CIRCUIT,
@@ -497,7 +499,7 @@ export const CIRCUIT_CHALLENGES = [
   CPU_DATAPATH_CIRCUIT,
   SYSTEM_BUS_CIRCUIT,
   IO_TRANSFER_CIRCUIT,
-];
+]), ...CURRICULUM_CIRCUITS];
 
 export function getCircuitChallenge(id) {
   return CIRCUIT_CHALLENGES.find((challenge) => challenge.id === id) ?? null;

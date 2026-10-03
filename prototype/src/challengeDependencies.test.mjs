@@ -6,7 +6,7 @@ import { CHALLENGES, buildInitialProgress, recordAttempt } from "./platformLogic
 
 const passed = { passed: true, errors: [], score: 100, elapsedMinutes: 5 };
 
-test("18 个关卡都有依赖定义且无环", () => {
+test("全部课程关卡都有依赖定义且无环", () => {
   const ids = CHALLENGES.map((c) => c.id);
   for (const id of ids) assert.ok(id in CHALLENGE_DEPS, `${id} 缺少依赖定义`);
   // 依赖必须指向已有关卡

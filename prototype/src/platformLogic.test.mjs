@@ -21,10 +21,10 @@ test("关卡顺序按教材章节排列：章节号升序、编号连续不跳�
   assert.deepEqual(
     CHALLENGES.map((challenge) => challengeOrderOf(challenge.id)),
     CHALLENGES.map((_, index) => index + 1),
-    "挑战路径编号必须 1..18 连续，不能跳号",
+    "挑战路径编号必须连续，不能跳号",
   );
   assert.deepEqual(CHALLENGES.slice(0, 2).map((challenge) => challenge.id), ["computer-components", "program-flow"]);
-  assert.equal(challengeOrderOf("io-transfer"), CHALLENGES.length);
+  assert.equal(challengeOrderOf("io-handshake"), CHALLENGES.length);
 });
 
 test("解锁链按章节顺序推进：完成一关解锁章节顺序里的下一关", () => {
@@ -53,13 +53,14 @@ test("未解锁关卡能查出还差哪一关，用于实验台的解锁提示",
   assert.equal(findPrerequisiteTitle("machine-number", afterFirst), "程序运行路线");
 });
 
-test("机器数编码归入第二章，前后紧邻第一章与第三章", () => {
+test("机器数编码与校验归入第二章，按课程顺序进入第三章", () => {
   const index = CHALLENGES.findIndex((challenge) => challenge.id === "machine-number");
   const chapterOf = (id) => CHALLENGES.find((challenge) => challenge.id === id).chapterId;
 
   assert.equal(chapterOf("machine-number"), "ch2");
   assert.equal(chapterOf(CHALLENGES[index - 1].id), "ch1");
-  assert.equal(chapterOf(CHALLENGES[index + 1].id), "ch3");
+  assert.equal(CHALLENGES[index+1].id,'parity-check');
+  assert.equal(chapterOf(CHALLENGES[index + 2].id), "ch3");
   assert.equal(CHALLENGES.find((challenge) => challenge.id === "machine-number").title, "机器数编码");
 });
 
@@ -145,7 +146,7 @@ test("学习概览能统计完成率、尝试次数和高频错误", () => {
 
   const summary = summarizeLearning(CHALLENGES, progress);
 
-  assert.equal(summary.totalChallenges, 18);
+  assert.equal(summary.totalChallenges, CHALLENGES.length);
   assert.equal(summary.totalAttempts, 1);
   assert.equal(summary.weakSpot, "缺少进位输入");
 });

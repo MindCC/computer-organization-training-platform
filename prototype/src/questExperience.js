@@ -70,6 +70,7 @@ export function buildQuestSettlement(challengeId, result = {}, routeGroups = [])
     title: `${stage.title}已通过`,
     verified: "评测条件已全部满足",
     score: Number.isFinite(score) ? score : 100,
+    participation: stage.participation === true || stage.grading === "participation",
     nextId: next?.id ?? null,
     nextTitle: next?.title ?? "课程路线",
     errors: result.errors ?? [],

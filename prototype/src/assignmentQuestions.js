@@ -1,7 +1,7 @@
 /**
  * 课后作业「按章练习」题库 —— 8 章静态题库 + 代码判分。
  *
- * 每章 5~10 题，题型混合：choice（单选）/ truefalse（判断）/ fill（填空）。
+ * 每章至少 5 题，按知识点覆盖调整上限；choice / truefalse / fill 混合。
  * 每题都标注对应知识点 kpId（见 knowledgePoints.js），判分全部由代码计算：
  *   - choice / truefalse：与标准答案精确比对；
  *   - fill：关键词组匹配（组内同义词任一命中），多空题按命中组数比例给分；
@@ -11,6 +11,7 @@
 
 import { COURSE_CHAPTERS } from "./courseChapters.js";
 import { KNOWLEDGE_POINTS, knowledgePointOf } from "./knowledgePoints.js";
+import { CURRICULUM_QUESTIONS } from './circuit/curriculumQuestions.js';
 
 export const QUESTION_TYPES = Object.freeze(["choice", "truefalse", "fill"]);
 
@@ -417,6 +418,7 @@ export const ASSIGNMENT_QUESTIONS = Object.freeze([
     answer: "执行算术运算",
     analysis: "I/O 接口负责数据缓冲、信号转换、设备选择等；算术运算是运算器（ALU）的职责。",
   },
+  ...CURRICULUM_QUESTIONS,
 ]);
 
 const VALID_CHAPTER_IDS = new Set(COURSE_CHAPTERS.map((chapter) => chapter.id));
@@ -426,6 +428,8 @@ const KP_IDS = new Set(KNOWLEDGE_POINTS.map((kp) => kp.id));
 export function questionsForChapter(chapterId) {
   return ASSIGNMENT_QUESTIONS.filter((question) => question.chapterId === chapterId);
 }
+
+export function chapterQuestionLimit(chapterId){return Math.max(10,KNOWLEDGE_POINTS.filter(kp=>kp.chapterId===chapterId).length+2);}
 
 export function questionOf(questionId) {
   return ASSIGNMENT_QUESTIONS.find((question) => question.id === questionId) ?? null;
@@ -507,7 +511,7 @@ export function chapterMasteryOf(chapterId, answers = {}) {
   return total > 0 ? Math.round((earned / total) * 100) : 0;
 }
 
-/** 题库自检（单测调用）：每章 5~10 题、kpId 有效且与题目章节一致、答案合法。 */
+/** 题库自检：章内知识点覆盖、适量题目、有效章节和合法答案。 */
 export function validateQuestionBank() {
   const errors = [];
   const ids = new Set();
@@ -531,7 +535,8 @@ export function validateQuestionBank() {
   }
   for (const chapter of COURSE_CHAPTERS) {
     const count = questionsForChapter(chapter.id).length;
-    if (count < 5 || count > 10) errors.push(`${chapter.id} 题量 ${count} 不在 5~10`);
+    const limit=chapterQuestionLimit(chapter.id);
+    if (count < 5 || count > limit) errors.push(`${chapter.id} 题量 ${count} 不在 5~${limit}`);
   }
   for (const kp of KNOWLEDGE_POINTS) {
     if (questionsForKp(kp.id).length === 0) errors.push(`知识点 ${kp.id} 没有练习题`);

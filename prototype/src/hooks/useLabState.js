@@ -41,6 +41,7 @@ export function useLabState({
   persistStudentAttempt,
   isMobile,
   allowSkipLocked = false,
+  classroomChallengeId = null,
   challengeRouteMeta,
   challengeControlMeta,
 }) {
@@ -70,7 +71,7 @@ export function useLabState({
     () => findPrerequisiteTitle(selectedChallengeId, progress),
     [progress, selectedChallengeId],
   );
-  const submitBlocked = !allowSkipLocked && currentRecord?.status === "locked";
+  const submitBlocked = !allowSkipLocked && classroomChallengeId !== selectedChallengeId && currentRecord?.status === "locked";
   const submitBlockedReason = submitBlocked
     ? `本关尚未解锁：请先完成「${prerequisiteTitle ?? "前置关卡"}」。可以先在这里自由练习，解锁后再提交检测。`
     : "";
@@ -193,9 +194,10 @@ export function useLabState({
   }
 
   async function handleCircuitFlowResult(result) {
-    const normalized = { passed: result.passed, errors: result.structure?.errors ?? [], score: result.score,
+    const normalized = { passed: result.passed, errors: result.structure?.errors ?? result.errors ?? [], score: currentChallenge.grading==='participation'?0:result.score,
       missing: result.structure?.missingEdges ?? [], extraConnections: result.structure?.extraEdges ?? [],
       circuitEdges: result.circuitEdges ?? [],
+      ...(result.mode==='freeform'?{mode:result.mode,circuitNodes:result.circuitNodes}:{}),
       elapsedMinutes: currentChallenge.estimatedMinutes };
     setFeedback(normalized);
     // 未解锁关卡只做练习：不写本地进度、不提交服务端（服务端也会 403）。

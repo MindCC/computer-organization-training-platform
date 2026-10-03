@@ -1,6 +1,7 @@
 import { encodeSignedInteger } from "./numberEncoding.js";
 import { HARDWARE_GAME_PROGRESS_ITEMS } from "./hardwareGame.js";
-import { isUnlocked } from "./challengeDependencies.js";
+import { isUnlocked, dependenciesOf } from "./challengeDependencies.js";
+import { WORKBENCH_CHALLENGES } from './workbenchChallenges.js';
 
 export const CHALLENGE_DEFINITIONS = [
   {
@@ -480,6 +481,7 @@ export const CHALLENGE_DEFINITIONS = [
  * （1、2、12、5、4、3…），解锁链也和界面顺序对不上。现在以章节为唯一顺序来源：
  * 章节号小的在前，同章内保持声明顺序。
  */
+CHALLENGE_DEFINITIONS.push(...WORKBENCH_CHALLENGES);
 const CHAPTER_SEQUENCE = Object.freeze(["ch1", "ch2", "ch3", "ch4", "ch5", "ch6", "ch7", "ch8"]);
 
 export const CHALLENGES = [...CHALLENGE_DEFINITIONS].sort((left, right) => (
@@ -497,12 +499,8 @@ export function challengeOrderOf(challengeId) {
  * 用于「未解锁」提示：默认不允许跳关时，前置关卡没完成就不能提交本关。
  */
 export function findPrerequisiteTitle(challengeId, progress = {}) {
-  const index = CHALLENGES.findIndex((challenge) => challenge.id === challengeId);
-  if (index <= 0) return null;
-  for (let i = index - 1; i >= 0; i -= 1) {
-    if (progress[CHALLENGES[i].id]?.status !== "completed") return CHALLENGES[i].title;
-  }
-  return null;
+  const missing=dependenciesOf(challengeId).find(id=>progress[id]?.status!=='completed');
+  return CHALLENGES.find(challenge=>challenge.id===missing)?.title??null;
 }
 
 export const LEARNING_ITEMS = [...CHALLENGES, ...HARDWARE_GAME_PROGRESS_ITEMS];
@@ -769,6 +767,7 @@ export function gradeConnections(challengeId, connections) {
   if (!challenge) {
     return { passed: false, errors: [{ type: "未知关卡", message: "没有找到当前关卡配置。" }], score: 0 };
   }
+  if(challenge.requiredConnections.length===0)return {passed:false,score:0,errors:[{type:'需要电路证据',message:'请在电路工作台搭建并提交端口连线，不能用空连接记录完成本关。'}],missing:[],extraConnections:[]};
 
   const selected = new Set(connections);
   const missing = challenge.requiredConnections.filter((connection) => !selected.has(connection));

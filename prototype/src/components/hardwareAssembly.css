@@ -67,6 +67,8 @@
 .assembly-secondary { background: #f2f7f4; border: 1px solid #adc6bc; border-radius: 5px; padding: 9px 11px; color: #186154; font-size: 11px; white-space: nowrap; }
 .assembly-integrated { font-size: 10px; color: #56736a; max-width: 180px; margin: 0 0 5px; }
 .assembly-power-controls { border-left: 1px solid #d8e2dd; padding-left: 18px; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+.assembly-deliver { display:flex; align-items:center; justify-content:center; gap:7px; border:1px solid #147c68; border-radius:6px; padding:11px 8px; background:#e4f5ed; color:#12634f; font-size:13px; font-weight:650; cursor:pointer; }
+.assembly-deliver:disabled { opacity:.55; cursor:wait; }
 .assembly-power { display: flex; align-items: center; justify-content: center; gap: 8px; background: #147c68; border: 1px solid #147c68; color: #fff; border-radius: 6px; padding: 14px 10px; font-size: 13px; font-weight: 600; }
 .assembly-power:disabled { background: #e1e7e4; border-color: #d0d9d4; color: #8b9d95; cursor: not-allowed; }
 .assembly-power.online { background: #213d45; border-color: #213d45; }

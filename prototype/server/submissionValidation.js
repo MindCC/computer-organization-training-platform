@@ -2,6 +2,8 @@ import { gradeHardwareBuild, isHardwareGameCase } from "../src/hardwareGame.js";
 import { getCircuitChallenge } from "../src/circuit/challengeCircuitModel.js";
 import { validateCircuitStructure } from "../src/circuit/circuitValidation.js";
 import { runCircuitTestCases, runAllCircuitTests } from "../src/circuit/circuitSimulation.js";
+import { normalizeFreeformNodes } from '../src/circuit/gateCatalog.js';
+import { freeformSpecOf, gradeFreeform } from '../src/circuit/freeformGrading.js';
 
 const MAX_RESULT_BYTES = 64 * 1024;
 const MAX_ELAPSED_MINUTES = 240;
@@ -9,6 +11,7 @@ const PASSING_SCORE = 80;
 
 export function normalizeStudentAttemptPayload(payload = {}, learningItems = [], progress = null, skipPrerequisiteCheck = false) {
   const challengeId = String(payload.challengeId ?? "");
+  const participation=learningItems.find(challenge=>challenge.id===challengeId)?.grading==='participation';
   if (!learningItems.some((challenge) => challenge.id === challengeId)) {
     return { ok: false, status: 400, error: "未知关卡" };
   }
@@ -51,7 +54,7 @@ export function normalizeStudentAttemptPayload(payload = {}, learningItems = [],
   }
 
   const passed = Boolean(result.passed);
-  if (passed && score < PASSING_SCORE) {
+  if (passed && score < PASSING_SCORE && !participation) {
     return { ok: false, status: 400, error: "passed cannot be true when score is below 80" };
   }
 
@@ -80,6 +83,13 @@ export function normalizeStudentAttemptPayload(payload = {}, learningItems = [],
     if (!circuitEdges) {
       return { ok: false, status: 400, error: "circuit edge evidence is required" };
     }
+    if(result.mode==='freeform'){
+      const spec=freeformSpecOf(challengeId),nodes=normalizeFreeformNodes(result.circuitNodes);
+      if(!spec||!nodes)return {ok:false,status:400,error:'自由拼装节点证据无效'};
+      const grade=gradeFreeform({nodes,requiredEdges:[],testCases:[]},circuitEdges,spec);
+      return {ok:true,challengeId,result:{mode:'freeform',passed:grade.passed,score:grade.passed?100:0,errors:grade.structuralErrors.length?grade.structuralErrors:grade.passed?[]:[{type:'功能不符',message:grade.message}],circuitNodes:nodes,circuitEdges,elapsedMinutes}};
+    }
+    if(result.circuitNodes!=null)return {ok:false,status:400,error:'自定义节点需要自由拼装提交模式'};
     const structure = validateCircuitStructure(circuitModel, circuitEdges);
     const tests = runAllCircuitTests(circuitModel, circuitEdges);
     const serverPassed = structure.passed && tests.passed;
@@ -88,8 +98,8 @@ export function normalizeStudentAttemptPayload(payload = {}, learningItems = [],
       challengeId,
       result: {
         passed: serverPassed,
-        score: serverPassed ? 100 : structure.score,
-        errors: structure.errors,
+        score: participation ? 0 : serverPassed ? 100 : Math.min(79,structure.score),
+        errors: [...structure.errors,...(structure.passed?tests.allCases.filter(t=>!t.passed).slice(0,1):[]).map(t=>({type:'输出不符',message:`${t.name}：期望 ${JSON.stringify(t.expected)}，实际 ${JSON.stringify(t.actual)}`}))],
         missing: structure.missingEdges,
         extraConnections: structure.extraEdges,
         circuitEdges,

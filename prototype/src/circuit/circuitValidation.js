@@ -31,6 +31,17 @@ export function canConnectPorts(model, connection, existingEdges = []) {
     };
   }
 
+  if ((from.port.width ?? 1) !== (to.port.width ?? 1)) {
+    return {ok:false,type:'信号位宽不匹配',message:`这两个端口分别为 ${from.port.width??1} 位和 ${to.port.width??1} 位，请连接相同位宽的信号。`};
+  }
+  const reaches=(id,seen=new Set())=>{
+    if(id===connection.from.nodeId)return true;
+    if(seen.has(id))return false;
+    seen.add(id);
+    return existingEdges.filter(e=>e.from.nodeId===id).some(e=>reaches(e.to.nodeId,seen));
+  };
+  if(reaches(connection.to.nodeId))return {ok:false,type:'组合电路环路',message:'组合电路不能形成反馈环路；寄存器旧值请使用明确的 Q 输入。'};
+
   const duplicateDriver = existingEdges.find((edge) => edge.to.nodeId === connection.to.nodeId && edge.to.portId === connection.to.portId);
   if (duplicateDriver) {
     return {
@@ -65,8 +76,9 @@ export function validateCircuitStructure(model, studentEdges = []) {
     validEdges.push(cloneEdge(edge));
   }
 
-  const missingEdges = (model?.requiredEdges ?? []).filter((required) => !validEdges.some((edge) => sameEdge(required, edge)));
-  const extraEdges = validEdges.filter((edge) => !requiredEdgeMatch(model, edge));
+  const functional=model?.gradingMode==='functional';
+  const missingEdges = (model?.requiredEdges ?? []).filter((required) => !validEdges.some((edge) => functional ? portKey(edge.to.nodeId,edge.to.portId)===portKey(required.to.nodeId,required.to.portId) : sameEdge(required, edge)));
+  const extraEdges = functional ? [] : validEdges.filter((edge) => !requiredEdgeMatch(model, edge));
 
   for (const edge of missingEdges) {
     errors.push({

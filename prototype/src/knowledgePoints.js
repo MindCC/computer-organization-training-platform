@@ -1,7 +1,7 @@
 /**
  * 知识点模型 —— 课后作业「按章练习」与知识星图共用。
  *
- * 粒度：一个关卡 = 一个知识点（18 个），知识点的依赖关系直接镜像
+ * 粒度：一个课程关卡 = 一个知识点，知识点的依赖关系直接镜像
  * `challengeDependencies.js` 的 CHALLENGE_DEPS，保证星图与关卡解锁链完全一致：
  *   - id = `kp-<challengeId>`，deps 为前置知识点的 kp id；
  *   - depth = dependencyDepth(challengeId)，0 层是最底层基础，层越高越进阶；

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { CHALLENGES } from "../platformLogic.js";
+import { WORKBENCH_CHALLENGES } from '../workbenchChallenges.js';
 
 import {
   AND_GATE_CIRCUIT,
@@ -21,7 +22,7 @@ import {
 const expectedIds = ["computer-components", "program-flow", "instruction-data", "memory-address", "data-flow", "and-gate", "or-gate", "not-gate", "xor-gate", "half-adder", "full-adder", "machine-number", "multi-adder", "mux", "alu", "cpu-datapath", "system-bus", "io-transfer"];
 
 test("结构化模型覆盖基础门到运算器路线关卡", () => {
-  assert.deepEqual(CIRCUIT_CHALLENGES.map((challenge) => challenge.id), expectedIds);
+  assert.deepEqual(CIRCUIT_CHALLENGES.map((challenge) => challenge.id), [...expectedIds,...WORKBENCH_CHALLENGES.map(item=>item.id)]);
   assert.equal(getCircuitChallenge("computer-components"), COMPUTER_COMPONENTS_CIRCUIT);
   assert.equal(getCircuitChallenge("program-flow"), PROGRAM_FLOW_CIRCUIT);
   assert.equal(getCircuitChallenge("instruction-data"), INSTRUCTION_DATA_CIRCUIT);
@@ -106,5 +107,6 @@ test("\u5b58\u50a8\u5668\u4e0e\u5730\u5740\u8bbf\u95ee\u5173\u5361\u8986\u76d6 M
   assert.equal(challenge.nodes.some((node) => node.label === "\u5730\u5740\u5bc4\u5b58\u5668MAR"), true);
   assert.equal(challenge.nodes.some((node) => node.label === "\u4e3b\u5b58\u5355\u5143"), true);
   assert.equal(challenge.nodes.some((node) => node.label === "\u6570\u636e\u5bc4\u5b58\u5668MDR"), true);
-  assert.equal(challenge.requiredEdges.length, 5);
+  assert.equal(challenge.requiredEdges.length, 6);
+  assert.ok(challenge.requiredEdges.some(e=>e.to.nodeId==='memory-cell'&&e.to.portId==='read'));
 });

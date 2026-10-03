@@ -7,7 +7,16 @@ import { fileURLToPath } from "node:url";
 
 const allowedVerifiers = new Set([
   "scripts/verify-ui.mjs",
+  "scripts/verify-lab-workbench.mjs",
+  "scripts/verify-workbench-curriculum.mjs",
+  "scripts/verify-login-design.mjs",
+  "scripts/verify-home-design.mjs",
+  "scripts/verify-learning-tree.mjs",
+  "scripts/verify-records-screen.mjs",
   "scripts/verify-3d.mjs",
+  "scripts/verify-hardware-story.mjs",
+  "scripts/verify-shop-story.mjs",
+  "scripts/verify-custom-customer.mjs",
   "scripts/verify-performance.mjs",
   "scripts/verify-classroom.mjs",
   "scripts/verify-production-modules.mjs",
@@ -29,6 +38,8 @@ const allowedVerifiers = new Set([
 ]);
 const verifier = String(process.argv[2] ?? "").replaceAll("\\", "/");
 const production = process.argv.includes('--production');
+const liveAi = process.argv.includes('--live-ai');
+if(liveAi && verifier!=='scripts/verify-custom-customer.mjs')throw new Error('Live AI is only enabled for the dedicated custom customer check');
 if (!allowedVerifiers.has(verifier)) {
   throw new Error("Unsupported verifier: " + verifier);
 }
@@ -129,7 +140,7 @@ try {
     env: {
       DATABASE_PATH: databasePath,
       PORT: String(apiPort),
-      DEEPSEEK_API_KEY: "",
+      DEEPSEEK_API_KEY: liveAi ? (process.env.DEEPSEEK_API_KEY??'') : "",
       PUBLIC_BASE_URL: appUrl,
       NODE_ENV: production ? 'production' : 'development',
       SESSION_SECRET: 'isolated-browser-qa-session-secret',

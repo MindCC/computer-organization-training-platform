@@ -5,6 +5,7 @@ import { COURSE_CHAPTERS } from "./courseChapters.js";
 import { KNOWLEDGE_POINTS } from "./knowledgePoints.js";
 import {
   ASSIGNMENT_QUESTIONS,
+  chapterQuestionLimit,
   chapterMasteryOf,
   gradeChapterQuestions,
   gradeQuestion,
@@ -15,11 +16,11 @@ import {
   validateQuestionBank,
 } from "./assignmentQuestions.js";
 
-test("题库结构合法：每章 5~10 题、答案合法、每个知识点都有题", () => {
+test("题库结构合法：按章知识点调整题量、答案合法、每个知识点都有题", () => {
   assert.deepEqual(validateQuestionBank(), []);
   for (const chapter of COURSE_CHAPTERS) {
     const questions = questionsForChapter(chapter.id);
-    assert.ok(questions.length >= 5 && questions.length <= 10, `${chapter.id} 题量 ${questions.length}`);
+    assert.ok(questions.length >= 5 && questions.length <= chapterQuestionLimit(chapter.id), `${chapter.id} 题量 ${questions.length}`);
     const types = new Set(questions.map((question) => question.type));
     assert.ok(types.size >= 2, `${chapter.id} 题型要混合`);
   }
@@ -89,7 +90,7 @@ test("答案与题目逻辑自洽（抽核关键题）", () => {
   assert.equal(questionOf("ch2-q07").answer, "11111011", "-5 的 8 位补码");
   assert.equal(questionOf("ch3-q05").answer, "true", "S=A⊕B, C=A·B");
   assert.equal(questionOf("ch6-q04").answer, "false", "PC 存下一条指令地址而非当前指令");
-  assert.equal(ASSIGNMENT_QUESTIONS.length, 58, "题库总量 58 题");
+  assert.equal(ASSIGNMENT_QUESTIONS.length, 70, "保留 58 道原题并新增 12 道关卡练习");
 });
 
 /** 从题库自身推导正确答案（仅用于构造全对答案表，不校验内容）。 */

@@ -283,7 +283,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       }
       const allStageScores = mission.stages.map((stage, index) => {
         if (index < stageIndex) return prevResult.stageScores?.[index] ?? 0;
-        if (index === stageIndex) return graded.result.score;
+        if (index === stageIndex) return graded.result.classroomPoints ?? graded.result.score;
         return NaN;
       });
       const completedScoreCount = allStageScores.filter((s) => Number.isFinite(s)).length;

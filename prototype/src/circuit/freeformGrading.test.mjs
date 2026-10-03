@@ -56,12 +56,13 @@ test("与门：正确拼装（结构+功能）全部通过", () => {
   assert.deepEqual(grade.cases.map((item) => item.expected[0]), [0, 0, 0, 1]);
 });
 
-test("与门：用错门（放成或门）报结构错误", () => {
+test("与门：放成或门时用真值表反例指出功能错误", () => {
   const { nodes, edges } = andGateCircuit({ replaceGate: "or" });
   const grade = gradeFreeform({ nodes, requiredEdges: [], testCases: [] }, edges, FREEFORM_SPECS["and-gate"]);
 
   assert.equal(grade.passed, false);
-  assert.equal(grade.structuralErrors.some((error) => error.type === "缺少门"), true);
+  assert.equal(grade.cases.some(item=>!item.passed),true);
+  assert.match(grade.message,/输出不对/);
 });
 
 test("与门：一根输入没连 → 输出算不出（未知信号）", () => {

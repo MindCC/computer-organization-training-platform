@@ -1,0 +1,89 @@
+.hardware-story-game { --story-ink:#173541; --story-line:#cadbd6; }
+.hardware-story-game .hardware-game-hero { padding:16px 20px; margin-bottom:0; }
+.hardware-story-game .hardware-game-hero h1 { font-size:24px; }
+.hardware-story-game .hardware-game-hero p { font-size:12px; }
+.hardware-story-game .hardware-hero-status { min-width:0; }
+.hardware-sound-toggle { display:flex; align-items:center; gap:8px; padding:9px 12px; border:1px solid var(--story-line); border-radius:7px; background:#f3f8f5; color:var(--story-ink); font-size:12px; cursor:pointer; }
+.hardware-stage-bar { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); list-style:none; margin:0; padding:10px 16px; border:1px solid var(--story-line); border-radius:10px; background:#edf4ef; gap:10px; }
+.hardware-stage-bar li { display:flex; align-items:center; gap:9px; color:#71817e; font-size:12px; }
+.hardware-stage-bar li>span { width:24px; height:24px; display:grid; place-items:center; border:1px solid #c5d4cb; border-radius:50%; font-size:11px; }
+.hardware-stage-bar li.current { color:#123f39; font-weight:700; }
+.hardware-stage-bar li.current>span { background:#173f3b; border-color:#173f3b; color:white; }
+.hardware-stage-bar li.done { color:#16876b; }
+.hardware-story-game .hardware-game-layout { grid-template-columns:minmax(0,1fr); gap:12px; }
+.hardware-story-game .hardware-mission-rail { display:block; }
+.hardware-story-game .hardware-mission-card { display:none; }
+.hardware-story-game .hardware-case-rail { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:10px 12px; box-shadow:none; }
+.hardware-story-game .hardware-case-rail>.eyebrow { display:none; }
+.hardware-story-game .hardware-case-group { display:flex; align-items:center; gap:6px; margin:0; }
+.hardware-story-game .hardware-case-group>strong { font-size:10px; writing-mode:vertical-rl; color:#667b75; }
+.hardware-story-game .hardware-case { margin:0; padding:7px 10px; min-width:115px; }
+.hardware-story-game .hardware-case span { font-size:12px; }
+.hardware-story-game .hardware-case small { font-size:9px; }
+.hardware-story-game .hardware-training-entry { padding:8px 12px; margin:0; font-size:11px; }
+.hardware-customer-story { border:1px solid var(--story-line); border-radius:12px; overflow:hidden; background:#fff; color:var(--story-ink); }
+.hardware-customer-story>header { display:flex; align-items:center; gap:12px; padding:15px 18px; background:#f1f6f1; }
+.hardware-customer-story>header>svg { color:#217864; flex-shrink:0; }
+.hardware-customer-story small { color:#617970; font-size:11px; }
+.hardware-customer-story h2 { margin:2px 0 0; font-size:18px; }
+.hardware-customer-story h2 span { margin-left:12px; font-size:12px; font-weight:400; }
+.hardware-customer-story>header>button { margin-left:auto; display:flex; align-items:center; gap:6px; padding:7px 10px; border:1px solid var(--story-line); border-radius:6px; background:white; color:#31564b; font-size:11px; cursor:pointer; }
+.hardware-conversation { display:grid; gap:14px; padding:18px; }
+.hardware-customer-line { margin:0; font-size:17px; line-height:1.7; max-width:850px; }
+.hardware-dialogue-choices { display:flex; flex-wrap:wrap; gap:8px; }
+.hardware-dialogue-choices button { display:flex; align-items:center; gap:8px; padding:10px 13px; border:1px solid #c6d7d0; background:#f8fbf8; border-radius:7px; color:#284a40; cursor:pointer; font-size:12px; }
+.hardware-dialogue-choices button[aria-pressed=true] { background:#e1f2e8; border-color:#73b49d; }
+.hardware-dialogue-reply { padding:12px 15px; border-left:3px solid #7ba68c; background:#f2f6f1; }
+.hardware-dialogue-reply p { margin:5px 0 0; font-size:13px; line-height:1.65; }
+.hardware-offers { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.hardware-offers article { display:grid; grid-template-rows:auto auto 1fr auto; gap:8px; padding:13px; border:1px solid var(--story-line); border-radius:9px; }
+.hardware-offers article>div { display:flex; justify-content:space-between; gap:10px; }
+.hardware-offers article>div b { color:#147660; }
+.hardware-offers p { margin:0; font-size:12px; line-height:1.6; }
+.hardware-offers button { display:flex; align-items:center; justify-content:center; gap:8px; padding:8px; border:1px solid #7bb29d; background:#eaf5ee; color:#205a48; border-radius:6px; cursor:pointer; }
+.hardware-order-note { display:flex; align-items:center; gap:12px; padding:13px 18px; background:#f8faf7; border-top:1px solid var(--story-line); }
+.hardware-order-note>svg { flex-shrink:0; color:#4e7766; }
+.hardware-order-note>div { flex:1; min-width:0; }
+.hardware-order-note strong { font-size:12px; }
+.hardware-order-note p { font-size:11px; line-height:1.6; margin:4px 0 0; color:#62726c; }
+.hardware-order-note .primary-button { flex-shrink:0; font-size:12px; padding:10px 15px; }
+.hardware-order-accepted { display:flex; align-items:center; gap:6px; font-size:12px; color:#18795e; white-space:nowrap; }
+.hardware-story-storage { padding:8px 18px; margin:0; color:#85652b; font-size:12px; }
+.hardware-delivery { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:18px; border:1px solid var(--story-line); border-radius:12px; background:#f6faf6; color:var(--story-ink); }
+.hardware-delivery.completed { border-color:#7aaf8e; background:#eaf5e8; }
+.hardware-delivery small { font-size:11px; color:#557264; }
+.hardware-delivery h2 { font-size:18px; margin:4px 0 7px; }
+.hardware-delivery p { font-size:12px; line-height:1.65; margin:4px 0; }
+.hardware-delivery-actions { display:grid; gap:8px; flex-shrink:0; }
+.hardware-delivery-actions>button:not(.primary-button) { display:flex; align-items:center; justify-content:center; gap:8px; background:white; border:1px solid #95b9a1; border-radius:7px; padding:10px; cursor:pointer; color:#2c6045; }
+.hardware-receipt-metrics { display:flex; gap:20px; flex-wrap:wrap; margin-top:12px; font-size:12px; }
+.hardware-receipt-metrics b { margin-left:7px; font-size:16px; }
+.hardware-business-details { border:1px solid var(--story-line); border-radius:9px; overflow:hidden; background:white; }
+.hardware-business-details>summary { cursor:pointer; padding:12px 16px; font-size:12px; color:#526c63; }
+.hardware-business-details .hardware-business-panel { border:0; border-top:1px solid var(--story-line); border-radius:0; box-shadow:none; }
+.hardware-story-game button:focus-visible,.hardware-story-game summary:focus-visible { outline:3px solid #398a70; outline-offset:3px; }
+@media(min-width:1101px) { .hardware-story-game .hardware-game-main { gap:12px; } .hardware-story-game .assembly-viewport { height:clamp(400px,52vh,620px); } .hardware-customer-story.accepted>header { padding:9px 16px; } }
+@media(max-width:700px) {
+  .hardware-story-game .hardware-game-hero { padding:12px; gap:8px; }
+  .hardware-story-game .hardware-game-hero h1 { font-size:20px; }
+  .hardware-story-game .hardware-hero-status { border:0; padding:0; }
+  .hardware-sound-toggle { font-size:10px; padding:7px; }
+  .hardware-stage-bar { gap:5px; padding:8px; }
+  .hardware-stage-bar li { flex-direction:column; gap:5px; font-size:10px; text-align:center; }
+  .hardware-story-game .hardware-case-group { flex-wrap:wrap; }
+  .hardware-story-game .hardware-case-group>strong { display:none; }
+  .hardware-story-game .hardware-case { min-width:0; flex:1 0 100px; }
+  .hardware-story-game .hardware-case-rail { overflow:visible; }
+  .hardware-offers { grid-template-columns:1fr; }
+  .hardware-conversation { padding:12px; }
+  .hardware-customer-line { font-size:15px; }
+  .hardware-dialogue-choices { display:grid; }
+  .hardware-order-note { flex-wrap:wrap; padding:12px; gap:8px; }
+  .hardware-order-note .primary-button { width:100%; }
+  .hardware-customer-story>header { padding:12px; gap:8px; }
+  .hardware-customer-story>header>button { max-width:110px; }
+  .hardware-customer-story h2 span { display:block; margin:3px 0 0; font-size:11px; }
+  .hardware-delivery { flex-direction:column; align-items:stretch; padding:13px; gap:12px; }
+  .hardware-receipt-metrics { gap:10px; }
+}
+@media(prefers-reduced-motion:reduce) { .hardware-story-game * { scroll-behavior:auto; } }

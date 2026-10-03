@@ -6339,7 +6339,11 @@ body {
 }
 
 .brand {
-  width: 318px;
+  position: relative;
+  width: 250px;
+  height: 46px;
+  flex-shrink: 0;
+  overflow: hidden;
   color: var(--ink);
 }
 
@@ -6354,21 +6358,23 @@ body {
 
 .brand-logo {
   position: absolute;
-  left: -14px;
-  top: -36px;
+  left: -32px;
+  top: -47px;
   width: 176px;
   height: 176px;
   border-radius: 12px;
   object-fit: cover;
+  pointer-events: none;
 }
 
 .brand-wordmark {
   position: absolute;
-  left: -12px;
-  top: -52px;
+  left: -30px;
+  top: -66px;
   width: 320px;
   height: 176px;
   object-fit: contain;
+  pointer-events: none;
 }
 
 .brand strong {
@@ -6419,6 +6425,8 @@ body {
 .profile-button small {
   color: var(--muted);
 }
+
+.profile-button > span { white-space: nowrap; }
 
 .profile-menu {
   color: var(--ink);
@@ -7437,6 +7445,27 @@ body {
   }
 }
 
+/* Shared navigation keeps its own row before desktop content becomes cramped. */
+@media (max-width: 1200px) {
+  .topbar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+
+  .topbar-nav {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    order: 3;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .topbar-nav::-webkit-scrollbar { display: none; }
+  .topbar-nav-item { flex: none; }
+}
+
 @media (max-width: 780px) {
   .topbar {
     min-height: 64px;
@@ -7594,9 +7623,9 @@ body {
 
 /* ─── Quest Student Home ─── */
 
-/* 首页背景图提升到整个视口：铺满屏幕，滚动时固定 */
+/* Homepage reading surface; workshop imagery lives in its own bounded scene. */
 .home-shell {
-  background: url("/home/bg-interior.png") center / cover fixed no-repeat;
+  background: #f4f7f8;
 }
 
 .quest-student-home {
@@ -8618,26 +8647,6 @@ body {
 .teacher-backup-confirm button { justify-self:start; }
 .teacher-backup-message { margin:0; font-size:13px; color:var(--ink-muted,#64748b); }
 
-/* ─── TEMP 实验：课程首页面板透明（让 /home/bg-interior.png 背景透出） ─── */
-.quest-student-home .current-quest-panel,
-.quest-student-home .quest-stat-card.metric-card,
-.quest-student-home .project-chapter-board,
-.quest-student-home .project-chapter,
-.quest-student-home .project-chapter-toggle,
-.quest-student-home .route-map-sidebar-card {
-  background: transparent;
-}
-
-/* TEMP 实验：首页背景偏暗，文字调亮 */
-.quest-student-home {
-  --ink: #ffffff;
-  --ink-strong: #ffffff;
-  --muted: rgba(255, 255, 255, 0.8);
-  --ink-muted: rgba(255, 255, 255, 0.75);
-  --studio-muted: rgba(255, 255, 255, 0.75);
-  color: #ffffff;
-}
-
 /* ── 画布区高度收敛（修复留白：侧栏把关卡撑到 1800+px，画布视口却写死 560px，下面空一大截）── */
 .lab-studio-canvas-shell {
   display: flex;
@@ -9048,22 +9057,7 @@ body {
   margin-left: 6px;
   padding: 3px 8px;
 }
-/* ── 实验台整页收敛到一屏：画布弹性填充，检测面板限高内滚 ── */
-.lab-studio-workspace {
-  height: calc(100vh - 70px);
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  overflow: hidden;
-}
-/* 覆盖此前的 clamp 固定高度，画布壳弹性填充工作区中部 */
-.lab-studio-canvas-shell { height: auto; min-height: 0; }
-.lab-studio-canvas-shell .circuit-flow-workbench { min-height: 0; }
-/* 检测面板限高，超出内部滚动，不顶破整页 */
-.lab-studio-inspector {
-  max-height: 340px;
-  min-height: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
+/* 实验画布高度与观察区折叠由 components/labWorkbench.css 管理。 */
 
 /* ============ 知识库（LLMWiki 式）============ */
 .kb-layout {

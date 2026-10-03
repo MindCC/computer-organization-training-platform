@@ -8,14 +8,14 @@
  */
 
 export const ORGANIC_TREE_LAYOUT = Object.freeze({
-  width: 2200,
+  width: 2000,
   height: 1600,
   groundY: 1540,
-  trunkCenterX: 1100,
-  trunkBaseWidth: 48,
-  trunkTopWidth: 10,
-  branchBaseWidth: 14,
-  branchTipWidth: 4,
+  trunkCenterX: 1000,
+  trunkBaseWidth: 72,
+  trunkTopWidth: 7,
+  branchBaseWidth: 18,
+  branchTipWidth: 3,
   twigBaseWidth: 5,
   twigTipWidth: 1.8,
   branchStartT: 0.14,
@@ -104,47 +104,6 @@ export function ribbonPath(line) {
   return `${forward} ${backward} Z`;
 }
 
-function rotate(tx, ty, angleRad) {
-  const cos = Math.cos(angleRad);
-  const sin = Math.sin(angleRad);
-  return { x: tx * cos - ty * sin, y: tx * sin + ty * cos };
-}
-
-function buildBranchCurve(anchor, side, length, rand) {
-  const up = -Math.PI / 2;
-  // 枝越长越横向伸展，避免向上弯进上一根同侧树枝的领地
-  const spreadMag = Math.min(1.35, 0.85 + rand() * 0.2 + length / 2600);
-  const dirAngle = up + spreadMag * side;
-  const bend = (0.2 + rand() * 0.16) * -side; // 向竖直方向回弯
-  const points = [{ x: anchor.x, y: anchor.y, w: anchor.w }];
-  let dir = { x: Math.cos(dirAngle), y: Math.sin(dirAngle) };
-  let cursor = { x: anchor.x, y: anchor.y };
-  const segments = 3;
-  for (let i = 1; i <= segments; i += 1) {
-    const step = (length / segments) * (i === segments ? 0.92 : 1);
-    cursor = { x: cursor.x + dir.x * step, y: cursor.y + dir.y * step };
-    points.push({
-      x: cursor.x,
-      y: cursor.y,
-      w: anchor.w + (anchor.tipWidth - anchor.w) * (i / segments),
-    });
-    dir = rotate(dir.x, dir.y, bend * (i / segments));
-  }
-  return sampleSpline(points, 12);
-}
-
-function buildTwigCurve(start, dirAngle, length, rand) {
-  const midBend = (rand() - 0.5) * 0.5;
-  const dir = { x: Math.cos(dirAngle), y: Math.sin(dirAngle) };
-  const bent = rotate(dir.x, dir.y, midBend);
-  const p = [
-    { x: start.x, y: start.y, w: start.w },
-    { x: start.x + dir.x * length * 0.55, y: start.y + dir.y * length * 0.55, w: start.w * 0.7 },
-    { x: start.x + bent.x * length, y: start.y + bent.y * length, w: start.tipWidth },
-  ];
-  return sampleSpline(p, 6);
-}
-
 /**
  * 主入口：把 buildLearningTreeModel 的结果排成一棵有机树。
  * @returns {{
@@ -158,23 +117,23 @@ export function layoutOrganicTree(model, options = {}) {
   const rand = createSeededRandom(layout.seed);
   const cx = layout.trunkCenterX;
   const gy = layout.groundY;
+  const sx = layout.width / ORGANIC_TREE_LAYOUT.width;
+  const sy = layout.height / ORGANIC_TREE_LAYOUT.height;
 
   // ── 树干：S 形微弯、由粗到细 ──
   const trunkControls = [
     { x: cx, y: gy, w: layout.trunkBaseWidth },
-    { x: cx - 18, y: gy - 240, w: 38 },
-    { x: cx + 18, y: gy - 480, w: 30 },
-    { x: cx - 14, y: gy - 700, w: 23 },
-    { x: cx + 10, y: gy - 900, w: 17 },
-    { x: cx - 6, y: gy - 1070, w: 13 },
-    { x: cx, y: gy - 1210, w: layout.trunkTopWidth },
+    { x: cx - 24 * sx, y: gy - 240 * sy, w: 54 },
+    { x: cx + 20 * sx, y: gy - 480 * sy, w: 38 },
+    { x: cx - 12 * sx, y: gy - 720 * sy, w: 26 },
+    { x: cx + 16 * sx, y: gy - 930 * sy, w: 17 },
+    { x: cx - 6 * sx, y: gy - 1130 * sy, w: 10 },
+    { x: cx + 12 * sx, y: gy - 1300 * sy, w: layout.trunkTopWidth },
   ];
   const trunkLine = sampleSpline(trunkControls, 14);
   const trunk = { path: ribbonPath(trunkLine) };
 
-  // ── 章节分配到两侧：保持章号自下而上，同时让两侧叶数大致均衡 ──
   const chapters = model?.chapters ?? [];
-  const sides = balanceSides(chapters);
 
   // ── 主枝 ──
   const branches = [];
@@ -183,18 +142,20 @@ export function layoutOrganicTree(model, options = {}) {
   chapters.forEach((chapter, index) => {
     const t = count === 1 ? 0.5 : layout.branchStartT + (index / (count - 1)) * (layout.branchEndT - layout.branchStartT);
     const anchor = pointAtFraction(trunkLine, t);
-    const side = sides.get(chapter.id) ?? (index % 2 === 0 ? -1 : 1);
+    const side = index % 2 === 0 ? -1 : 1;
     const leafCount = chapter.items.length;
-    const length = 150 + leafCount * 52 + rand() * 40;
-    const branchLine = buildBranchCurve(
-      { x: anchor.x, y: anchor.y, w: layout.branchBaseWidth, tipWidth: layout.branchTipWidth },
-      side,
-      length,
-      rand,
-    );
+    // 两排交错的细枝为密集章节留出空间，不让某一章把整棵树拉偏。
+    const length = Math.max(490, 230 + (Math.ceil(leafCount / 2) - 1) * 100) * sx;
+    const rise = (110 + rand() * 25) * sy;
+    const branchLine = sampleSpline([
+      { x: anchor.x, y: anchor.y, w: layout.branchBaseWidth },
+      { x: anchor.x + side * length * .26, y: anchor.y - rise * .5, w: 12 },
+      { x: anchor.x + side * length * .66, y: anchor.y - rise * .85, w: 7 },
+      { x: anchor.x + side * length, y: anchor.y - rise, w: layout.branchTipWidth },
+    ], 14);
     const tip = pointAtFraction(branchLine, 1);
 
-    branches.push({
+    const branch = {
       id: `branch-${chapter.id}`,
       chapterId: chapter.id,
       number: chapter.number,
@@ -204,24 +165,24 @@ export function layoutOrganicTree(model, options = {}) {
       allLit: chapter.allLit,
       side,
       path: ribbonPath(branchLine),
-      label: branchLabelPosition(branchLine, side),
+      label: { x: anchor.x + side * 130 * sx, y: anchor.y + 12 * sy, anchor: side < 0 ? "end" : "start" },
       tip,
-    });
+    };
+    branches.push(branch);
 
     // ── 细枝（每个实验一根）与枝头叶子 ──
     chapter.items.forEach((leaf, leafIndex) => {
-      const s = leafCount === 1 ? 0.6 : 0.22 + (leafIndex / (leafCount - 1)) * 0.75;
+      const rowIndex = Math.floor(leafIndex / 2);
+      const rows = Math.ceil(leafCount / 2);
+      const s = rows <= 1 ? .94 : .3 + rowIndex / (rows - 1) * .66;
       const base = pointAtFraction(branchLine, s);
-      const branchAngle = Math.atan2(base.ty, base.tx);
-      const alternator = leafIndex % 2 === 0 ? 1 : -1;
-      const twigAngle = branchAngle + alternator * (0.5 + rand() * 0.45);
-      const twigLength = 55 + rand() * 35;
-      const twigLine = buildTwigCurve(
-        { x: base.x, y: base.y, w: layout.twigBaseWidth, tipWidth: layout.twigTipWidth },
-        twigAngle,
-        twigLength,
-        rand,
-      );
+      const direction = leafIndex % 2 === 0 ? -1 : 1;
+      const reach = (75 + rand() * 12) * sy;
+      const twigLine = sampleSpline([
+        { x: base.x, y: base.y, w: layout.twigBaseWidth },
+        { x: base.x + side * 22 * sx, y: base.y + direction * reach * .55, w: 3 },
+        { x: base.x + side * 48 * sx, y: base.y + direction * reach, w: layout.twigTipWidth },
+      ], 8);
       const twigTip = pointAtFraction(twigLine, 1);
       twigs.push({
         id: `twig-${leaf.id}`,
@@ -234,52 +195,20 @@ export function layoutOrganicTree(model, options = {}) {
         scoreLabel: leaf.scoreLabel,
         path: ribbonPath(twigLine),
         tip: { x: twigTip.x, y: twigTip.y },
-        label: leafLabelPosition(twigTip, twigAngle, side),
+        label: { x: twigTip.x + side * 32 * sx, y: twigTip.y, anchor: side < 0 ? "end" : "start" },
+        angle: side * direction * 35,
         side,
       });
     });
+    const points = [anchor, tip, ...twigs.filter((twig) => twig.chapterId === chapter.id).map((twig) => twig.tip)];
+    const minX = Math.min(...points.map((point) => point.x)) - 65 * sx;
+    const minY = Math.min(...points.map((point) => point.y)) - 65 * sy;
+    branch.bounds = {
+      x: minX, y: minY,
+      width: Math.max(...points.map((point) => point.x)) + 65 * sx - minX,
+      height: Math.max(...points.map((point) => point.y)) + 80 * sy - minY,
+    };
   });
 
-  return { width: layout.width, height: layout.height, groundY: gy, trunk, branches, twigs };
-}
-
-/** 贪心把章节分到叶数较少的一侧；并列时交给当前章号较小的一侧，保证确定性。 */
-function balanceSides(chapters) {
-  const sides = new Map();
-  let leftLoad = 0;
-  let rightLoad = 0;
-  for (const chapter of chapters) {
-    const leaves = chapter.items.length;
-    const side = leftLoad === rightLoad
-      ? (chapter.number % 2 === 1 ? -1 : 1)
-      : leftLoad < rightLoad ? -1 : 1;
-    sides.set(chapter.id, side);
-    if (side === -1) leftLoad += leaves;
-    else rightLoad += leaves;
-  }
-  return sides;
-}
-
-/** 章节标签放在主枝起始段的外侧，避开树干与邻枝。 */
-function branchLabelPosition(branchLine, side) {
-  const base = pointAtFraction(branchLine, 0.12);
-  // 取垂直于枝方向、指向画布外侧的法线
-  const nx = -base.ty;
-  const ny = base.tx;
-  const sign = Math.sign(nx) === side ? 1 : -1;
-  const offset = 40;
-  return {
-    x: base.x + nx * sign * offset,
-    y: base.y + ny * sign * offset,
-    anchor: side === -1 ? "end" : "start",
-  };
-}
-
-function leafLabelPosition(tip, twigAngle, side) {
-  const distance = 26;
-  return {
-    x: tip.x + Math.cos(twigAngle) * distance,
-    y: tip.y + Math.sin(twigAngle) * distance,
-    anchor: side === -1 ? "end" : "start",
-  };
+  return { width: layout.width, height: layout.height, groundY: gy, trunkCenterX: cx, trunk, branches, twigs };
 }

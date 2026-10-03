@@ -8,6 +8,7 @@ import { verifyAssemblyPractice } from './verify-assembly-practice.mjs';
 import { verifyAssemblyPracticeSync } from './verify-assembly-practice-sync.mjs';
 import { fillLoginForm, submitLoginForm, gotoApp } from './lib/qaLogin.mjs';
 import { openChallengeFromHome } from './lib/qaHome.mjs';
+import { acceptCustomerOrder } from './lib/qaShop.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const baseUrl = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
@@ -218,6 +219,7 @@ try {
   // 结算层可能在导航回首页时才渲染，先关掉再继续点击导航。
   await dismissQuestSettlement(fallbackPage);
   await fallbackPage.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "硬件配置挑战" }).click();
+  await acceptCustomerOrder(fallbackPage);
   await fallbackPage.waitForSelector(".assembly-workshop", { timeout: 20_000 });
   check("Builder explains unavailable WebGL", await fallbackPage.locator(".assembly-fallback").isVisible());
   await fallbackPage.getByRole('button', { name: '打开侧板', exact: true }).click();

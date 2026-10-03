@@ -20,6 +20,7 @@ import {
   flowEdgesToCircuitEdges,
 } from "../circuit/reactFlowMapping.js";
 import { CircuitNode } from "./CircuitNode.jsx";
+import { useCircuitViewport } from './useCircuitViewport.js';
 import { CircuitBridgeEdge } from "./CircuitBridgeEdge.jsx";
 
 const nodeTypes = { circuitNode: CircuitNode };
@@ -37,6 +38,7 @@ export const GATE_DEFS = [
   { kind: "input", label: "输入开关", componentType: "input", icon: "⏻", desc: "点一下切换 0/1", ports: [outPort("out", "OUT")] },
   { kind: "output", label: "输出灯", componentType: "output", icon: "💡", desc: "显示计算结果", ports: [inPort("in", "IN")] },
   { kind: "and", label: "与门 AND", componentType: "and", icon: "&", desc: "两个都为 1 才出 1", ports: [inPort("a", "A"), inPort("b", "B"), outPort("c", "C")] },
+  { kind: "nand", label: "与非门 NAND", componentType: "nand", icon: "&○", desc: "与结果取反；可构建其他门", ports: [inPort("a", "A"), inPort("b", "B"), outPort("out", "Y")] },
   { kind: "or", label: "或门 OR", componentType: "or", icon: "≥1", desc: "任一为 1 就出 1", ports: [inPort("a", "A"), inPort("b", "B"), outPort("out", "Y")] },
   { kind: "not", label: "非门 NOT", componentType: "not", icon: "1", desc: "把输入取反", ports: [inPort("in", "IN"), outPort("out", "OUT")] },
   { kind: "xor", label: "异或门 XOR", componentType: "xor", icon: "=1", desc: "不一样才出 1", ports: [inPort("a", "A"), inPort("b", "B"), outPort("s", "S")] },
@@ -56,6 +58,7 @@ export function makeGateNode(def, position, idSuffix = null) {
       label: def.label,
       componentType: def.componentType,
       ports: def.ports.map((port) => ({ ...port })),
+      ioIndex: def.ioIndex,
     },
   };
 }
@@ -81,7 +84,8 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [inputValues, setInputValues] = useState({});
   const [status, setStatus] = useState(statusText);
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, fitView } = useReactFlow();
+  const viewportRef=useCircuitViewport(fitView);
 
   const model = useMemo(() => ({
     nodes: nodes.map((node) => ({
@@ -90,6 +94,7 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
       label: node.data.label,
       position: node.position,
       ports: node.data.ports,
+      ioIndex: node.data.ioIndex,
     })),
     requiredEdges: [],
     testCases: [],
@@ -116,6 +121,7 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
     ...node,
     data: {
       ...node.data,
+      onToggle:node.data.componentType==='input'?()=>toggleInput(node.id):undefined,
       portValues: Object.fromEntries(
         node.data.ports.map((port) => [port.id, simulation.values?.[`${node.id}.${port.id}`]]),
       ),
@@ -212,7 +218,7 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
 
       <div className="sandbox-stage">
         <div className="sandbox-status" role="status">{status}</div>
-        <div className="sandbox-canvas">
+        <div ref={viewportRef} className="sandbox-canvas" onDragOver={onDragOver} onDrop={onDrop}>
           <ReactFlow
             connectionMode={ConnectionMode.Loose}
             deleteKeyCode={["Backspace", "Delete"]}
@@ -224,8 +230,6 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
             nodeTypes={nodeTypes}
             nodes={displayNodes}
             onConnect={onConnect}
-            onDragOver={onDragOver}
-            onDrop={onDrop}
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             onNodesChange={onNodesChange}

@@ -5,7 +5,7 @@ import { createSeededRandom } from "../../organicTreeLayout.js";
 
 /**
  * 知识图谱 · 星图（手写 SVG，浅色主题）：
- * - 18 个关卡 = 18 颗星，依赖关系（CHALLENGE_DEPS）= 星座连线；
+ * - 每个课程关卡对应一颗星，依赖关系（CHALLENGE_DEPS）对应星座连线；
  * - 按依赖层级（dependencyDepth）从左到右分层布局，层内纵向散布并加确定性抖动，
  *   营造真实星图的星座感；背景点缀一层极淡的「远星」；
  * - 状态着色：已完成=亮星（青色四角星芒）、进行中=琥珀脉冲、未解锁/未开始=暗星；
@@ -91,7 +91,7 @@ export function KnowledgeStarMap({ progress = {}, onOpenChallenge }) {
       <svg
         className="star-map-svg"
         role="img"
-        aria-label="知识图谱星图：18 个关卡按依赖层级连成星座"
+        aria-label={`知识图谱星图：${CHALLENGES.length} 个关卡按依赖层级连成星座`}
         viewBox={`0 0 ${STAR_W} ${STAR_H}`}
       >
         {bgDots.map((dot) => (

@@ -1,176 +1,74 @@
-source visual truth path: `C:\Users\shaolijiang\.codex\generated_images\019ebc2e-da9e-7462-8e90-c8ddd4d7ca0a\ig_09ff2ff1aab324b7016a2c1e3a1ba08191896b9cd984c3a338.png`
-source requirements path: `D:\workspace\zcyl_training\docs\superpowers\specs\2026-06-12-computer-organization-training-platform-design.md`
-implementation screenshot path: `D:\workspace\zcyl_training\prototype\qa-artifacts\desktop-home.png`
-implementation screenshot path: `D:\workspace\zcyl_training\prototype\qa-artifacts\desktop-lab-data-flow.png`
-implementation screenshot path: `D:\workspace\zcyl_training\prototype\qa-artifacts\desktop-lab-pass.png`
-implementation screenshot path: `D:\workspace\zcyl_training\prototype\qa-artifacts\desktop-lab-multi-adder.png`
-implementation screenshot path: `D:\workspace\zcyl_training\prototype\qa-artifacts\desktop-records.png`
-implementation screenshot path: `D:\workspace\zcyl_training\prototype\qa-artifacts\mobile-home.png`
-viewport: `1440 x 1040 desktop, 390 x 900 mobile`
-state: `course homepage with circuit route map, fullscreen lab screens with draggable component instances, explicit component drag handles, drag-wire circuit interaction, removable connection chips, visible target slots with auto-snap placement, explicit wire target indicator, internal-structure study cards, distinct lab canvases for data-flow/full-adder/multi-adder, learning records after pass, mobile homepage with vertical route flow`
-full-view comparison evidence: `Compared the selected Guided Path visual direction, the requirements document, the public Turing Complete product references, and the latest user feedback against the rendered homepage, three different fullscreen experiment workbenches, draggable component placement behavior, explicit drag-handle affordances, drag-wire connection behavior, removable/reconnectable wires, visible target-slot overlays with auto-snap, explicit wire-target guidance, placement-plus-connection grading, internal-structure study guidance, records, notes/settings smoke flow, and mobile layout. The prototype keeps the ivory surface, navy/mint palette, serif-led hierarchy, guided educational cards, and full Chinese product copy while shifting the homepage from generic lesson cards to a circuit-route learning map and the lab area from one repeated board to challenge-specific fullscreen circuit workspaces.`
-focused region comparison evidence: `Focused checks covered the homepage hero without personal-name callout, six-stage circuit route map, desktop route connectors, mobile vertical route flow, the single-channel data-flow canvas, the branched full-adder canvas with floating component instances, explicit component drag handles, drag-wire endpoint interaction, removable connection chips, target slots, explicit wire target indicator copy, internal structure study card copy, the chained multi-adder canvas, fullscreen lab chrome, pass feedback, learning metrics, saved note flow, and profile/settings modal.`
-
-**Findings**
-- No actionable P0, P1, or P2 issues remain.
-
-**Open Questions**
-- The current implementation is a frontend prototype with local mock student state. Real account persistence, server-side auth, and teacher/admin APIs remain out of scope for the first-version requirements document.
-
-**Implementation Checklist**
-- Done: implemented Chinese course homepage, six guided arithmetic-unit challenges, experiment workbench, dynamic signal steps, connection grading, error localization, pass summary, learning records, notes, and profile/settings flow.
-- Done: reshaped the homepage into a circuit route map so each challenge now reads as a distinct assembly stage rather than uniform course cards.
-- Done: removed the student's personal name from the homepage hero and switched the header account chip to a neutral learning-archive label.
-- Done: rebuilt the lab canvas so each challenge now has its own circuit skeleton, signal path, and node placement instead of reusing one generic board.
-- Done: promoted the challenge experience into a fullscreen lab screen so the canvas, controls, palette, and guidance no longer compete for the same cramped dashboard space.
-- Done: made palette components placeable on the board as draggable floating instances and added automated verification for placement plus repositioning.
-- Done: added visible target slots, duplicate-component instance labels, auto-snap placement, and placement-aware grading so students can tell where each component belongs before wiring it.
-- Done: replaced the old click-to-connect flow with drag-wire endpoint interaction so the lab feels closer to a real circuit-building workspace.
-- Done: added removable connection chips, reconnect verification, and live valid/invalid wire preview states so wiring edits are understandable instead of brittle.
-- Done: added explicit component drag handles so placed parts have an obvious place to grab instead of competing with the pin interaction area.
-- Done: added an explicit wire-target indicator plus endpoint target highlighting so students can see which endpoint they are currently aiming at.
-- Done: added an internal-structure study card linked to the selected full-adder stage so students can connect external wiring with internal logic roles.
-- Done: added Playwright UI smoke coverage for homepage, multiple lab variants, records, note saving, settings update, and mobile layout.
-- Done: fixed the desktop lab layout so the inspector panel no longer overlaps the workbench at 1440px, and converted the mobile route map into a vertical flow instead of a squeezed horizontal strip.
-
-**Follow-up Polish**
-- [P3] If this moves beyond prototype, replace the large generated avatar/illustrations with optimized production assets to reduce build size.
-- [P3] Add a real persistence layer so user settings and notes survive browser refresh across devices.
-
-patches made since the previous QA pass:
-- Rebuilt `App.jsx` from homepage-only into a full student-side interactive platform.
-- Added `platformLogic.js` and tests for simulation, grading, progress, structural conflicts, and study-time summaries.
-- Replaced `styles.css` with responsive full-platform styling.
-- Added `scripts/verify-ui.mjs` and saved QA screenshots in `qa-artifacts`.
-- Updated document language metadata and page title to Chinese.
-- Reworked the homepage progression area into a circuit-route map with differentiated stage thumbnails and connectors.
-- Reworked the lab workbench into challenge-specific canvases with dedicated node positions, branch paths, and multi-stage verification screenshots.
-- Split the lab out into a dedicated fullscreen screen with a large dropzone, side guidance rail, and draggable placed-component layer on top of the circuit skeleton.
-- Added pure wiring helpers, drag-wire smoke coverage, removable wire verification, and component study-card logic for full-adder stages.
-- Adjusted the mobile breakpoint so the route map becomes a vertical learning flow instead of causing horizontal overflow.
+# 装机店第一方案 · 设计验收
 
 final result: passed
 
-## 2026-09-14 Teacher analytics reference-style redesign
+## 追加：自定义客户工坊（2026-10-03）
 
-source visual truth path: `C:\Users\SHAOLI~1\AppData\Local\Temp\codex-clipboard-082c1834-31ae-46cc-a3e6-2a9013e2fe31.png`
-implementation screenshot path: `D:\workspace\zcyl_training\prototype\qa-artifacts-current\teacher-reference-style.png`
-comparison image path: `D:\workspace\zcyl_training\prototype\qa-artifacts-current\teacher-reference-comparison.png`
-viewport: `1920 x 946 CSS px, deviceScaleFactor 1`
-source pixels: `1920 x 947`; implementation pixels: `1920 x 946`; density normalization: `both compared at 960 x 473 in the combined image`
-state: `teacher signed in, 学情统计 workspace, 学情洞察 selected, chapter coverage visible`
+- 保留暖阳装机店、海军蓝导航、象牙白底部对话、青绿选择；新增原创透明人物资产，不写固定经历。输入界面位于右侧，人物位于左侧，手机版上下排列。
+- 已检查 `qa-artifacts/custom-customer-editor.png`、`custom-customer-dialogue.png`、`custom-customer-offers.png`、`custom-customer-receipt.png`、`custom-customer-mobile.png`：人物清楚、中文需求和选项可读，无横向溢出。
+- 第一方案参考、最终自由订单方案页及人物编辑页已在同一工具输出中比较；新页面沿用暖阳店铺、人物层、海军蓝标题与青绿/象牙白对话语言，人物和输入流程按本次需求新增。
+- 已修正生成按钮裁切（输入页改为内容高度）和方案按钮原生灰色样式（独立青绿/描边按钮）。最终截图无遗留 P0/P1/P2。
+- 真实 DeepSeek 完整生成通过（`custom-ai-live.json`，source=ai），需求未输入前只显示人物表单。分支可点选，成本与报价由真实目录计算。
+- 最终自由订单生产 Edge 流程 PASS：失败保留输入、实际 AI 对话、选配、Blender GLB、安装/接线、开机并立起主机、断网重试、服务器验收、关机后迟到回执不恢复成功、刷新后重新开机、390px 手机、回原剧本。
+- 相关逻辑/API/恢复 23/23；最终生产构建通过。原小林首日生产流程再次 PASS；原 3D 内核和资产沿用下面的 32/32 证据。初始 JS 467625B / 512000B，增量 3D gzip 198790B / 225280B。
+- 限制：默认一张原创形象，自选图片可替换外观；AI 在生成时一次产出分支，补充需求会重新生成订单。验收完成文案由实际验收状态决定。
 
-full-view comparison evidence: `The combined image shows the supplied reference and implementation in one frame. Both use a narrow primary rail, a wider secondary analysis menu, a slim class-selection toolbar, white content surfaces, pale-blue selected states, thin gray dividers, compact sans-serif typography, and high information density without stacked floating cards.`
+## 比较目标
 
-focused region comparison evidence: `The top navigation and class filter were checked for alignment, border weight, selected-state color and control height. The statistics region was checked for title hierarchy, chapter-row spacing, progress visibility and the four-metric strip. These elements are readable in the full-width combined image, so no additional crop was required.`
+- Source visual truth: `art-source/shop-story/concepts/display-1-reception.png`，第一张实际展示结果 `exec-7ae0fbe9-f739-4c8a-b73e-55ca2d57853f`。
+- Implementation capture: `qa-artifacts/shop-reception.png`，生产版本稳定 Edge。
+- State: 小林到店、需求尚未询问、无展开面板。
+- Browser viewport: 初始 1527×1213；按页面外壳占用补偿，捕获独立店铺内容区 1487×1058。比较不包含平台顶栏或浏览器 chrome。
+- Source 与 implementation：1487 × 1058 实际像素；CSS 内容区同尺寸，deviceScaleFactor=1。页面视口经外壳宽高补偿后获取对应内容区截图。
+- 两张图片已在同一工具输出中打开比较。首轮参考保留暖阳店铺、深蓝工作台、大人物与底部对话；人物改为独立透明站姿资产，支持表情切换。
 
-**Findings**
-- No actionable P0, P1 or P2 differences remain.
-- [P3] The implementation retains the platform's horizontal identity bar and domain-specific chapter progress instead of reproducing the reference product's chart data. This is intentional: it preserves existing navigation and real course functionality while applying the reference's visual system.
+## Findings / comparison history
 
-**Required fidelity surfaces**
-- Fonts and typography: Manrope with Microsoft YaHei/PingFang fallbacks gives comparable compact hierarchy and Chinese legibility; wrapping and optical weights remain clear.
-- Spacing and layout rhythm: primary and secondary rails, 82 px toolbar, 28-36 px content padding, flat sections and one-pixel dividers match the reference's density.
-- Colors and visual tokens: white and pale-gray surfaces, #2563eb blue active states and restrained teal progress preserve the supplied light analytics character.
-- Image quality and asset fidelity: the reference introduces no content imagery required by this screen; the existing production logo and avatar assets were retained, with the existing Phosphor icon set used for controls.
-- Copy and content: labels remain specific to the computer-organization teaching product; class selection, export, refresh, workspaces and progress data remain functional.
+- [P2 / resolved，2026-10-03 学习树反馈] 重新平衡八章树形，用带叶脉的真实叶形替代圆点；章节标签固定字号并移到树冠两侧，避免遮挡实验，详细名称和成绩放在章节列表。保留缩放、拖动及实验导航；新增章节聚焦，统计图与明细保留，窄屏自然换行。生产专项覆盖五种宽度，记录页回归 40/40，几何与数据模型 16/16；证据：[学习树设计与 QA](docs/learning-tree-design-2026-10-03.md)。
+- [P2 / resolved，2026-10-03 登录设计反馈] 紫黑与金色登录页与当前浅色平台不一致。已改为品牌白色栏、暖阳装机工坊、简洁表单和青绿操作，保留学生/教师/演示登录。实际浏览 Vercel、Linear、Notion 后借鉴层级与留白；复查桌面、短视口及手机截图，登录按钮不需要滚动。真实登录、错误重试、密码显示、等待防重、键盘及游客返回专项 PASS，pageerror 为空。证据：[登录页设计与 QA](docs/login-design-2026-10-03.md)。
+- [P2 / resolved，2026-10-03 顶栏一致性反馈] 电路与 3D 探索复用装机页同一平台顶栏，关卡信息移到浅色上下文条。窄窗口主导航换行，Logo 完整显示且不遮挡点击，挑战路径吸顶跟随实际顶栏高度；3D 场景占剩余空间。专项覆盖共享导航与头像菜单、装机/首页切换、机器数及探索页，原 3D 回归 32/32；证据见 [实验页 QA](docs/lab-workbench-phet-2026-10-03.md)。
+- [P1 / resolved，2026-10-03 实验截图反馈] 电路工作区固定一屏，画布被压缩并被父容器裁切。已恢复自然滚动与独立画布高度，说明折叠到下方，增加可退出的放大模式；浅色模块、真实开关/灯、逻辑门符号与信号图例统一。生产专项通过实际拖线、键盘、探测、评分结算、17 个固定电路模型及沙盒；尺寸变化后自动适配全部元件。截图与验证说明：[电路工作台 QA](docs/lab-workbench-phet-2026-10-03.md)。
+- [P1 / resolved，2026-10-03 用户交付反馈] 已开机后在柜台重选同一方案会清空父级交付状态，导致 3D 显示“开机成功”却不能交付；首单也缺少直接接待下一位客户的入口。现保留相同配置的真实开机状态，专注装机内增加“交付这台电脑”，实际同步验收后可直接接待阿宁。切换客户时先恢复该订单再挂载对话，避免沿用上一位客户的接单状态。新增生产浏览器回归在修复前复现失败，修复后完整首日 PASS，覆盖同方案重新确认、关机失效、专注模式交付、断网重试、真实同步回执、下一位客户、返回订单与刷新。证据：`qa-artifacts/shop-delivery-before.log`、`shop-delivery-after.log`、`shop-handover.png`、`shop-next-customer.png`；浏览器 pageerror 为空。
+- [P2 / resolved，2026-10-03 用户截图反馈] 悬浮客户缩略图盖住方案台词和均衡方案价格，工作台入口下沿也被对话框盖住。缩略图已移入标题行正常布局，入口锚定对话框上沿并留 16px 间距。新增位置检查在修复前失败，修复后于 1366×768、1527×1213、390×844 全部通过；方案与报价状态无重叠。`shop-offers-1366.png`、`shop-offers-1527.png`、`shop-offers-390.png` 已目视复查，完整首日生产流程再次 PASS。
+- [P2 / resolved] 初版对话栏与选择按钮偏小：初版下沿面板约 200px，参考约 267px；按钮约 50px、文字 15px，参考约 80px、文字约 21px。已调整大屏的面板内边距、台词字体、按钮高度与字号。最终 `shop-reception.png` 与 `shop-dialogue.png` 中面板约 259px、按钮 80px，台词与三个选择清楚同屏，无裁切。
+- [P2 / resolved] 初版标题栏过紧：初版店名、芯片图标与日期小于参考；已增大字号与图标，恢复日期间距。最终同状态截图显示 29px 标题、38px 芯片图标、16px 日期，保留紧凑导航层级。
+- [P3] 人物姿势由手撑柜台改为手持帆布包，保持同一脸型、头发、衣服和配色，便于独立人物与表情切换。属于实现中的有意姿态变化。
+- [P2 / resolved] 导师在前景和背景重复出现：首轮打烊截图可见两个老赵。已生成同构图的无人物背景 `public/shop-story/shop-empty.webp`，导师对白切换该背景。最终 `shop-evening.png` 已目视复查，只有前景老赵，后方补齐工作桌与货架。
+- [P2 / resolved] 原 3D 专注模式受店铺高度样式影响：生产回归发现画布不足视口一半。已将店铺画布高度限定在 `.assembly-workshop:not(.focused)`，恢复原专注模式规则。最终生产回归 32/32，通过专注模式画布比例、鼠标拖拽、键盘、拆装、线缆、启动、草稿恢复和教学同步检查。
 
-**Comparison history**
-- [P1 fixed] The prior teacher view retained dark outer chrome and a large status banner, visually conflicting with the reference. Teacher-only chrome is now light and the redundant banner is removed.
-- [P2 fixed] The prior layout used multiple rounded, shadowed cards. It now uses flat white sections separated by light rules.
-- [P2 fixed] Class selection and actions were split across cards. They now share one compact toolbar with refresh and one-click export.
-- Post-fix evidence: `teacher-reference-comparison.png` shows the corrected navigation, toolbar, white content plane and compact chapter rows in the same frame as the source.
+## Required fidelity surfaces
 
-**Implementation Checklist**
-- Done: scoped the light visual treatment to the teacher dashboard so student screens are unchanged.
-- Done: preserved two-level teacher navigation and all existing tab behavior.
-- Done: preserved collapsible class creation, assignments, course construction and classroom reports.
-- Done: retained chapter completion, student detail, classroom monitoring, assistant and assembly-practice data flows.
+- Fonts / typography：系统中文字体与 Manrope；参考是粗无衬线中文标题。已联合打开原图、最终同状态整图与对话局部图复查标题、台词、选项、字重与换行；单行首句和三个选项清楚可读。相较参考的按钮字重轻微差异归为 P3。
+- Spacing / rhythm：店铺占主画面，顶部紧凑品牌栏、底部单一象牙白对话区，避免统计卡；最终按钮与面板比例已复查。移动端 `shop-mobile.png` 是 390×939 全页，角色上方、台词下方、纵向选项，不发生横向溢出。
+- Colors / tokens：海军蓝、青绿、象牙白，场景木色和暖阳保留。
+- Image quality：背景、老赵、小林均由内置 ImageGen 参照第一图生成；WebP 保留人物 alpha；主体不以代码图形替代。背景采用 cover，视口变窄时保留工作台。
+- Copy / content：首句与参考一致；用途、容量、预算选项一致；工单、报价与服务端结果由 DOM/真实逻辑呈现。
 
-**Follow-up Polish**
-- [P3] A later iteration could add real time-series charts once the backend exposes day-level visit and study-frequency data.
+## Post-fix evidence
 
-final result: passed
+- 2026-10-03 交付修复：生产构建与完整首日交付回归通过；`node scripts/run-browser-qa.mjs scripts/verify-3d.mjs --production` 再次 32/32 通过，包含精细模型加载、专注模式、鼠标/键盘装配、接线、自检、恢复和教学流程。证据：`qa-artifacts/shop-delivery-3d.log`。相关装配/工单/首日状态逻辑 23/23 通过。
+- Full-view comparison：原图与 `qa-artifacts/shop-reception.png` 在同一比较输入内打开，均为 1487×1058 原始像素。
+- Focused comparison：同时打开 `qa-artifacts/shop-dialogue.png`（1414×259），对照原图下方对话区，检查标题、台词、80px 按钮、图标、留白和真实中文内容；图像未经重绘。
+- Secondary states：`shop-quote.png`、`shop-handover.png`、`shop-evening.png`、`shop-mobile.png`；最终打烊图已再次打开，导师不重复。
+- Browser interactions：开店、提示分支、纠正冒进推荐、三项调查、两个真实配置、报价确认、实际安装/接线/开机、断网待同步、同步成功、表情变化、售后选择、打烊、关机失效、刷新、手机、对话记录、课堂订单、教学入口；最终首日脚本 PASS。
+- Console：新首日脚本收集 pageerror 并断言空；原生产 3D 回归也通过。
+- Logic：相关套件 40 项通过；最后阅读恢复改动的 3 项专项复查通过。初始 JavaScript 467572B / 512000B；增量 3D gzip 198794B / 225280B。
+- 之前平台模块的验收记录保存在 `docs/design-qa-before-shop-2026-10-03.md`。
 
-## 2026-07-19 Precision Workshop redesign
+## Implementation checklist
 
-Reference: `C:\Users\shaolijiang\.codex\generated_images\019f7516-3c10-7020-a8cf-9e38f0d43a5c\exec-7045b40c-41f5-459f-a366-cccb44d39cac.png`
+- [x] 同状态、同内容区尺寸对比。
+- [x] 首日主流程可操作并接受真实服务端回执。
+- [x] 专注模式与原有 3D/练习功能回归。
+- [x] 手机重排、键盘焦点和对话面板 Esc。
+- [x] 无遗留 P0/P1/P2。
 
-Implementation captures:
-- `qa-artifacts/product-design-desktop.png`
-- `qa-artifacts/product-design-mobile.png`
-- `qa-artifacts/precision-workshop-desktop.png`
+## Follow-up polish / limits
 
-Viewports and state:
-- Reference comparison: 1488 x 1058
-- Desktop acceptance: 1366 x 768
-- Mobile acceptance: 390 x 844
-- Demo student, office PC challenge, memory catalog open, 16GB memory selected
+- 2026-10-03 首页可读性优化：删除透明面板/白字的临时样式，恢复实体浅色面板、深色正文和青绿色操作；重排当前任务、进度与章节路线，长说明允许换行。五种窗口、文字对比度、八章与36实验入口、演示联动、游客引导、全部完成显示及完整课堂流程通过。检查报告：`docs/home-design-2026-10-03.md`，首屏：`qa-artifacts/home-preview.png`。
 
-Comparison findings:
-- [P1 fixed] The profile menu stayed open across navigation and obscured the parts catalog. It now closes on navigation, challenge entry, and logout.
-- [P2 fixed] The student overview did not use the shared metric-card contract and retained its old eyebrow label. It now exposes four shared metric cards and the localized task label.
-- [P2 fixed] The mobile bottom navigation exposed a native horizontal scrollbar. Touch scrolling remains available while the native scrollbar is hidden.
-- [Pass] The final full and focused views have no cropped hardware, overlapping panels, placeholder boxes, broken spacing, or blocking interaction defects.
+- 2026-10-03 工作台课程扩展：原 18 关审查并扩展至 30 关，任务、三层提示、真实数值/传播、功能反例、自由拼装证据和完成元件复用均已接入。详细报告：`docs/workbench-curriculum-2026-10-03.md`。保留浅色公共顶栏、自然滚动与原有3D。参与型结算不显示0分，课堂阶段正确延续任务。最终验收日志列于报告。
 
-Functional evidence:
-- Four numbered hotspots select CPU, memory, storage, and GPU catalogs.
-- Catalog choices update selection state, budget use, score, quote, and profit.
-- The workbench uses a real raster assembly asset and contains no placeholder canvas boxes.
-- Desktop and mobile layouts have no document-level horizontal overflow.
-- The mobile navigation remains fixed and reachable.
-- The profile menu does not persist into the hardware challenge.
-
-final result: passed
-
-## 2026-07-19 Quest Learning Map redesign
-
-Reference: `D:\workspace\zcyl_training\docs\superpowers\specs\2026-07-19-quest-learning-map-platform-redesign.md`
-
-Viewports and state:
-- Desktop acceptance: 1366 x 768
-- Mobile acceptance: 390 x 844
-- Demo student with no progress, teacher with one imported student
-
-Implementation evidence:
-- Login portal with student/teacher role tabs and guided copy
-- Student home shows CurrentQuestPanel with dominant action, QuestMap with horizontal route track, FirstUseGuide with dismissible steps
-- QuestSettlement overlay appears after passing challenge with next-unlock and continue actions
-- Teacher dashboard shows cohort quest overview with progress bars, setup checklist, intervention groups
-- Unit tests: 239 passing (questExperience 10, questMotion 2, teacherQuest 6, courseRoute 7, +214 existing)
-- Build passes with no errors
-- Motion primitives respect prefers-reduced-motion
-
-Pending full UI QA verification:
-- [ ] Run `npm run qa:ui` to verify complete browser flows
-- [ ] Verify first-use guide dismisses and persists
-- [ ] Verify settlement continues to next challenge
-- [ ] Verify teacher quest overview renders correctly
-- [ ] Verify mobile layout at 390 x 844
-- [ ] Verify reduced-motion behavior
-- [ ] Run `npm run qa:classroom` and `npm run qa:classroom-load` for regression
-
-final result: pending browser verification
-
-## 2026-09-12 Gate status
-
-The 2026-07-19 entry above predates several follow-up refactors: the student-side `QuestMap` route
-component was retired (the home route now lives in `CurrentQuestPanel` plus the chapter list), and
-the teacher dashboard was split into 教学活动 / 学情统计 workspaces with 学情洞察 / 学习监控 /
-学情分析助手 / 学情明细 statistics tabs, whose class picker is a `<select>` driven through
-`scripts/helpers/select-teacher-class.mjs`. Its pending checklist is resolved on the committed
-revision of this file:
-
-- Unit tests: `npm test` (79 test files) passes.
-- Build: `npm run build` and `npm run qa:build-budget` pass (first-screen JS under budget).
-- Browser gates: `npm run qa:ui`, `npm run qa:3d`, `npm run qa:classroom`, `npm run qa:teacher`,
-  `npm run qa:performance`, `npm run qa:teacher-fixes`, `npm run qa:overview-exploration` and
-  `npm run qa:middle-pan` pass; the dashboard gates switch workspace tabs through
-  `scripts/lib/qaTeacherWorkspace.mjs` before asserting.
-- Deep scenarios: audit, sessions, completion, mistakes, empty-states, offline-env, xray and
-  skip-locked pass; completion, mistakes, empty-states and overview-exploration sign in as the
-  seeded demo students, so they are run through `scripts/run-browser-qa.mjs` with `--seed-demo`.
-- `qa:teacher-fixes` uploads `scripts/fixtures/sample-deck.pptx`: the fixture is tracked, because
-  `qa-artifacts/` is a local artifact directory and must not be a dependency.
-
-final result: passed
+- P3：人物采用手持帆布包的独立站姿，参考是倚柜台姿势；同一角色的脸型、头发、服装和配色保留。
+- P3：小头像的身体裁切与参考略有不同，不影响对话和交互。
+- 已制作首日营业日；其余五位客户仍保留原有课堂订单入口，完整后续故事与跨日经营账本另按方案迭代，未宣称全部六章完成。

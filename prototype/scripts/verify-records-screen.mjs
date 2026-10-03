@@ -1,14 +1,14 @@
 /**
  * 学习记录页回归（2026-10 浅色化大改版后更新）：
  * 1. 页面渲染：标题、KPI、学习树画布、饼图/折线/柱状图齐全；
- * 2. 学习树按章节生长：1 树干 + 8 树枝 + 24 树杈，完成的实验点亮；
+ * 2. 学习树按章节生长：1 树干 + 8 树枝 + 全部课程/硬件实验叶子，完成的实验点亮；
  * 3. 画布可缩放（控制器放大后视口 scale 变化）；
  * 4. 点击树杈进入对应实验；保留 .record-table/.record-row 明细契约；
  * 5. 浅色主题：浅底 #f6f8fb、白卡片、深色正文、深色树干 + 绿/琥珀/灰叶子；
  * 6. 关卡明细按章节可折叠（details/summary，默认第一章展开）；
  * 7. 图表点击弹出大图弹层，关闭后收回；
  * 8. 新增图表：各章累计学习时长柱状图、高频错误 Top；
- * 9. 知识星图：18 颗星 + 依赖连线，状态着色正确，点星进入实验。
+ * 9. 知识星图：全部课程关卡 + 依赖连线，状态着色正确，点星进入实验。
  *
  * 运行：node scripts/verify-records-screen.mjs
  * 前置：API(8787) 与 Vite(5173) 已启动，且已 seed 演示班级（demo2026001 / Student123!）。
@@ -17,12 +17,13 @@ import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { CHALLENGE_DEPS } from "../src/challengeDependencies.js";
+import { CHALLENGES, LEARNING_ITEMS } from "../src/platformLogic.js";
 
 const EXPECTED_STAR_COUNT = Object.keys(CHALLENGE_DEPS).length;
 const EXPECTED_EDGE_COUNT = Object.values(CHALLENGE_DEPS).reduce((sum, deps) => sum + deps.length, 0);
 
-const BASE_URL = process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
-const API_URL = process.env.QA_API_URL ?? "http://127.0.0.1:8787";
+const BASE_URL = process.env.PROTOTYPE_APP_URL ?? process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
+const API_URL = process.env.PROTOTYPE_API_URL ?? process.env.QA_API_URL ?? "http://127.0.0.1:8787";
 const ARTIFACT_DIR = fileURLToPath(new URL("../qa-artifacts/", import.meta.url));
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 
@@ -63,20 +64,20 @@ try {
   const kpiBg = await page.locator(".records-kpi").first().evaluate((el) => getComputedStyle(el).backgroundColor);
   check("KPI 白底卡片", kpiBg === "rgb(255, 255, 255)", kpiBg);
   const trunkStop = await page.locator("#treeTrunkGrad stop").first().getAttribute("stop-color");
-  check("树干深色渐变（#4a3423）", trunkStop?.toLowerCase() === "#4a3423", trunkStop ?? "未取到");
+  check("树干深色渐变（#493a2c）", trunkStop?.toLowerCase() === "#493a2c", trunkStop ?? "未取到");
 
   // 学习树画布结构（真正的树：树干 + 主枝 + 枝头叶子）
   await page.waitForSelector(".learning-tree-canvas .organic-tree-svg", { timeout: 15000 });
   await page.waitForSelector(".tree-leaf", { timeout: 15000 });
   const trunkCount = await page.locator(".tree-trunk").count();
   const branchCount = await page.locator(".tree-branch").count();
-  const chapterLabelCount = await page.locator(".tree-chapter").count();
+  const chapterLabelCount = await page.locator(".tree-chapter-label").count();
   const twigCount = await page.locator(".tree-twig").count();
   const leafCount = await page.locator(".tree-leaf").count();
   check("学习树：1 树干", trunkCount === 1);
   check("学习树：8 章节主枝", branchCount === 8 && chapterLabelCount === 8, `主枝 ${branchCount} / 标签 ${chapterLabelCount}`);
-  check("学习树：24 细枝", twigCount === 24, `实际 ${twigCount}`);
-  check("学习树：24 实验叶子", leafCount === 24, `实际 ${leafCount}`);
+  check("学习树包含全部实验细枝", twigCount === LEARNING_ITEMS.length, `实际 ${twigCount}`);
+  check("学习树包含全部实验叶子", leafCount === LEARNING_ITEMS.length, `实际 ${leafCount}`);
 
   // 点亮/进行中/未解锁的渲染与 API 学情一致（演示数据是活的，按实际状态断言，不写死）
   const progress = await (await page.request.get(`${API_URL}/api/student/progress`)).json();
@@ -93,12 +94,12 @@ try {
   // 浅色叶子配色：完成=绿、未开始=灰芽（按实际学情取代表节点断言 computed fill）
   if (completedId) {
     const litFill = await page.locator(`.tree-leaf[data-leaf-id='${completedId}'] .leaf-dot`).evaluate((el) => getComputedStyle(el).fill);
-    check("点亮叶子为绿色（#10b981）", litFill === "rgb(16, 185, 129)", litFill);
+    check("点亮叶子为绿色（#138777）", litFill === "rgb(19, 135, 119)", litFill);
   }
   const dimLeaf = page.locator(".tree-leaf.dim .leaf-dot").first();
   if (await dimLeaf.count() > 0) {
     const dimFill = await dimLeaf.evaluate((el) => getComputedStyle(el).fill);
-    check("未点亮叶子为灰芽（#cbd5e1）", dimFill === "rgb(203, 213, 225)", dimFill);
+    check("未点亮叶子为灰绿（#c7d0c0）", dimFill === "rgb(199, 208, 192)", dimFill);
   }
 
   // 统计图
@@ -125,7 +126,7 @@ try {
   await page.waitForSelector("[data-testid='knowledge-star-map'] .star-node", { timeout: 15000 });
   const starCount = await page.locator(".star-node").count();
   const starEdgeCount = await page.locator(".star-edge").count();
-  check(`知识星图：${EXPECTED_STAR_COUNT} 颗关卡星`, starCount === EXPECTED_STAR_COUNT && EXPECTED_STAR_COUNT === 18, `实际 ${starCount} / 期望 18`);
+  check(`知识星图：${EXPECTED_STAR_COUNT} 颗关卡星`, starCount === EXPECTED_STAR_COUNT, `实际 ${starCount}`);
   check(`知识星图：依赖星座连线 ${EXPECTED_EDGE_COUNT} 条（= CHALLENGE_DEPS 全量依赖）`, starEdgeCount === EXPECTED_EDGE_COUNT, `实际 ${starEdgeCount}`);
   const starState = async (id) => await page.locator(`.star-node[data-challenge-id='${id}']`).first().getAttribute("data-star-state").catch(() => "");
   if (completedId) check(`星图已完成=亮星（${completedId}）`, (await starState(completedId)) === "lit");
@@ -136,7 +137,7 @@ try {
   await page.locator(".star-node[data-challenge-id='program-flow']").click();
   await page.waitForSelector(".lab-studio", { timeout: 15000 });
   check("点击星星进入对应实验", true);
-  await page.getByRole("button", { name: "返回课程首页" }).click();
+  await page.getByRole("button", { name: "课程首页", exact: true }).click();
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
   await page.waitForSelector(".records-screen .tree-leaf", { timeout: 15000 });
@@ -147,7 +148,7 @@ try {
   await page.locator(`.tree-leaf[data-leaf-id='${completedId}'] .leaf-hit`).click();
   await page.waitForSelector(".lab-studio", { timeout: 15000 });
   check("点击叶子进入对应实验", true);
-  await page.getByRole("button", { name: "返回课程首页" }).click();
+  await page.getByRole("button", { name: "课程首页", exact: true }).click();
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
   await page.waitForSelector(".records-screen .tree-leaf", { timeout: 15000 });
@@ -174,7 +175,7 @@ try {
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   const rowCount = await page.locator(".record-table .record-row").count();
-  check("章节化关卡明细保留（.record-table .record-row）", rowCount === 18, `实际 ${rowCount} 行`);
+  check("章节化关卡明细保留（.record-table .record-row）", rowCount === CHALLENGES.length, `实际 ${rowCount} 行`);
 
   // ── 关卡明细可折叠：默认第一章展开，其余收起；summary 可切换 ──
   const chapterGroupCount = await page.locator("details.record-chapter").count();
@@ -188,7 +189,7 @@ try {
   check("点击章节标题收起该组", await page.locator("details.record-chapter[open]").count() === 0);
   check("收起后该组行不可见（DOM 仍在，契约不破）",
     !(await firstGroup.locator(".record-row").first().isVisible())
-    && (await page.locator(".record-table .record-row").count()) === 18);
+    && (await page.locator(".record-table .record-row").count()) === CHALLENGES.length);
   await page.locator("details.record-chapter .record-chapter-summary").nth(1).click();
   await page.waitForTimeout(200);
   check("可展开其它章节", await page.locator("details.record-chapter[open]").count() === 1);

@@ -1,16 +1,20 @@
 import { simulateCircuit } from "./circuitSimulation.js";
+import { NEW_BOOLEAN_SPECS } from './curriculumCircuits.js';
+import { BASIC_GATE_TYPES } from './gateCatalog.js';
+import { canConnectPorts } from './circuitValidation.js';
+import { circuitCost } from './circuitCost.js';
 
 /**
  * 自由拼装闯关的判分规格（仅纯逻辑门关适用）。
  *
  * 判分思路（不看固定节点 id，只看结构与功能）：
- * 1. 结构：学生电路里必须出现 requiredGateTypes 指定的门类型，且输入/输出灯数量与规格一致；
+ * 1. 结构：合法组合元件、准确的 I/O 数量、位宽、方向、单一驱动和无环路；
  * 2. 功能：枚举全部输入组合，把学生电路当黑盒仿真，比较输出与真值表。
  *
- * 学生自己放的输入开关按 y 坐标从上到下映射到 inputLabels，
- * 输出灯按 y 坐标从上到下映射到 outputLabels。
+ * 关卡 I/O 用稳定 ioIndex 映射，拖动位置不会改变逻辑角色；旧沙盒兼容按 y 排序。
  */
 export const FREEFORM_SPECS = {
+  ...NEW_BOOLEAN_SPECS,
   "and-gate": {
     inputLabels: ["A", "B"],
     outputLabels: ["输出"],
@@ -58,6 +62,9 @@ export const FREEFORM_SPECS = {
   },
 };
 
+// Functional puzzles accept De Morgan / NAND and other equivalent solutions.
+for(const spec of Object.values(FREEFORM_SPECS))spec.requiredGateTypes=[];
+
 export function freeformSpecOf(challengeId) {
   return FREEFORM_SPECS[challengeId] ?? null;
 }
@@ -70,7 +77,7 @@ function nodesOfType(model, type) {
   return (model?.nodes ?? [])
     .filter((node) => node.type === type)
     .slice()
-    .sort((left, right) => left.position.y - right.position.y || left.position.x - right.position.x);
+    .sort((left, right) => (left.ioIndex??left.position.y) - (right.ioIndex??right.position.y) || left.position.x - right.position.x);
 }
 
 /** 结构检查：门类型齐全 + 输入/输出数量与规格一致。 */
@@ -84,12 +91,15 @@ export function checkFreeformStructure(model, spec) {
 
   const inputs = nodesOfType(model, "input");
   const outputs = nodesOfType(model, "output");
-  if (inputs.length < spec.inputLabels.length) {
+  if (inputs.length !== spec.inputLabels.length) {
     errors.push({ type: "输入不足", message: `需要 ${spec.inputLabels.length} 个输入开关（当前 ${inputs.length} 个）。` });
   }
-  if (outputs.length < spec.outputLabels.length) {
+  if (outputs.length !== spec.outputLabels.length) {
     errors.push({ type: "输出不足", message: `需要 ${spec.outputLabels.length} 个输出灯（当前 ${outputs.length} 个）。` });
   }
+
+  const allowed=spec.allowedGateTypes??BASIC_GATE_TYPES;
+  if((model?.nodes??[]).some(n=>!['input','output',...allowed].includes(n.type)))errors.push({type:'元件限制',message:`本关允许的门：${allowed.join(' / ')}。`});
 
   return { ok: errors.length === 0, errors, inputs, outputs };
 }
@@ -99,6 +109,13 @@ export function checkFreeformStructure(model, spec) {
  * 返回 { passed, structuralErrors, cases, message }
  */
 export function gradeFreeform(model, circuitEdges, spec) {
+  if(!spec)return {passed:false,structuralErrors:[{type:'未知任务',message:'本关没有自由拼装任务。'}],cases:[],message:'未知任务'};
+  const accepted=[];
+  for(const edge of circuitEdges??[]){
+    const check=canConnectPorts(model,edge,accepted);
+    if(!check.ok)return {passed:false,structuralErrors:[{type:check.type,message:check.message}],cases:[],message:check.message};
+    accepted.push(edge);
+  }
   const structure = checkFreeformStructure(model, spec);
   if (!structure.ok) {
     return {
@@ -138,5 +155,5 @@ export function gradeFreeform(model, circuitEdges, spec) {
       ? "有输出没算出来：检查门与门之间是不是都连上线了（存在未知信号）。"
       : `输入 ${JSON.stringify(firstFailure?.inputs)} 时输出不对：期望 ${firstFailure?.expected.join("/")}，实际 ${firstFailure?.actual.join("/")}。`;
 
-  return { passed, structuralErrors: [], cases, message };
+  return { passed, structuralErrors: [], cases, message, cost:passed?circuitCost(model,circuitEdges):null };
 }

@@ -11,7 +11,7 @@ export function MissionHud({ viewModel }) {
     <div className="mission-hud" role="status" aria-label="任务状态">
       <div className="mission-hud-left">
         <span className="mission-hud-stage">
-          阶段 {stageIndex + 1} / 4
+          阶段 {Math.min(stageIndex + 1, viewModel.mission?.stages?.length ?? 4)} / {viewModel.mission?.stages?.length ?? 4}
         </span>
         <strong>{currentStage?.title ?? title}</strong>
         <span className={`mission-hud-status ${paused ? "paused" : ""}`}>{statusLabel}</span>

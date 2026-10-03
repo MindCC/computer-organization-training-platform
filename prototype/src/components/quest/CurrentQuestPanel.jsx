@@ -10,8 +10,8 @@ export function CurrentQuestPanel({ stage, record, onEnter }) {
   return (
     <section className="current-quest-panel">
       <div className="current-quest-info">
-        <span className="eyebrow">当前任务</span>
-        <h1>{stage.title}</h1>
+        <div className="current-quest-kicker"><span className="eyebrow">当前任务</span><span>{stage.groupTitle}</span></div>
+        <h2>{stage.title}</h2>
         {stage.description ? <p>{stage.description}</p> : null}
         <div className="quest-facts">
           <span className="quest-fact">
@@ -24,7 +24,7 @@ export function CurrentQuestPanel({ stage, record, onEnter }) {
           </span>
           <span className="quest-fact">
             <Target aria-hidden="true" size={16} />
-            通过全部评测条件
+            {stage.participation ? "参与型 · 完成探索" : "通过全部评测条件"}
           </span>
           {bestScore > 0 ? (
             <span className="quest-fact quest-fact-score">最佳 {bestScore} 分</span>

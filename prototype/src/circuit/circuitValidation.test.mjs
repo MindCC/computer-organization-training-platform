@@ -49,13 +49,12 @@ test("同一输入端不能被重复驱动", () => {
   assert.equal(result.type, "输入端重复驱动");
 });
 
-test("多余但方向合法的连接会被扣分并标为结构冲突", () => {
+test("功能关的方向合法替代连线交给真值表判定，不再强制参考导线", () => {
   const result = validateCircuitStructure(HALF_ADDER_CIRCUIT, [
     ...HALF_ADDER_CIRCUIT.requiredEdges.filter((edge) => edge.id !== "input-a-to-and-a"),
     { from: { nodeId: "input-b", portId: "out" }, to: { nodeId: "and-1", portId: "a" } },
   ]);
 
-  assert.equal(result.passed, false);
-  assert.equal(result.extraEdges.length, 1);
-  assert.equal(result.errors.some((error) => error.type === "结构冲突"), true);
+  assert.equal(result.passed, true);
+  assert.equal(result.extraEdges.length, 0);
 });

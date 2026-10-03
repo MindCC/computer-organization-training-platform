@@ -373,6 +373,8 @@ export function createNativeComputerScene(container, options = {}) {
   }
 
   function render(time) {
+    // Keep the assembly state alive at the counter without drawing a hidden WebGL scene.
+    if(!container.clientWidth||!container.clientHeight||document.hidden){previousTime=time;frameId=requestAnimationFrame(render);return;}
     const delta=Math.min(.05,Math.max(1/120,(time-previousTime)/1000));previousTime=time;
     if (cameraTransition) {
       const amount = viewState.reducedMotion ? 1 : .13;

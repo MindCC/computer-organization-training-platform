@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
 import { openChallengeFromHome } from "./lib/qaHome.mjs";
+import { enterAssemblyPractice } from './lib/qaShop.mjs';
 
 const baseUrl = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
 const apiUrl = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:8787";
@@ -192,6 +193,8 @@ try {
   assert.deepEqual(pageErrors, [], "performance QA must not emit page errors");
   async function openAssembly() {
     await page.locator('.topbar-nav .topbar-nav-item').filter({ hasText: '硬件配置挑战' }).click();
+    const accept=page.getByRole('button',{name:'接下工单 · 开始装机',exact:true});
+    if(await accept.count())await accept.click();
     await page.locator('.assembly-workshop canvas[data-model-source="blender-glb"]').waitFor({ state: 'visible' });
   }
   async function leaveAssembly() {
@@ -232,7 +235,7 @@ try {
   assert.deepEqual(pageErrors, [], 'assembly QA must not emit page errors');
   const beforePractice=await collectHeap(cdp);
   for(let cycle=0;cycle<10;cycle++){
-    await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();
+    await enterAssemblyPractice(page);
     await page.locator('.assembly-practice canvas[data-model-source="blender-glb"]').waitFor();
     await page.getByRole('combobox',{name:'练习模式',exact:true}).selectOption('guided');
     await page.getByRole('combobox',{name:'练习模式',exact:true}).selectOption('fault');

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createClass, createUser, migrate, openDatabase, addStudentToClass } from "./db.js";
+import { createClass, createUser, migrate, openDatabase, addStudentToClass, getStudentProgress } from "./db.js";
+import { getCircuitChallenge } from "../src/circuit/challengeCircuitModel.js";
 import { createClassroomSessionRepository } from "./classroomSessionRepository.js";
 import { createClassroomSessionService, ALLOWED_TRANSITIONS, computeActiveSeconds, calculateRewards, calculateBadges } from "./classroomSessionService.js";
 
@@ -12,6 +13,39 @@ function makeContext() {
   const service = createClassroomSessionService({ db, now: () => nowValue, repository });
   return { db, repository, service, advanceMs: (ms) => { nowValue += ms; } };
 }
+
+test("four classroom stages preserve rewards and idempotency without scoring participation labs", () => {
+  const ctx = makeContext();
+  try {
+    const teacher = createUser(ctx.db, { username: "curriculum-t", displayName: "T", role: "teacher", passwordHash: "pw" });
+    const student = createUser(ctx.db, { username: "curriculum-s", displayName: "S", role: "student", passwordHash: "pw" });
+    const classRow = createClass(ctx.db, teacher.id, "课程工作台班");
+    addStudentToClass(ctx.db, classRow.id, student.id);
+    const session = ctx.service.createDraft({ teacherId: teacher.id, classId: classRow.id,
+      config: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80 } });
+    ctx.service.start({ teacherId: teacher.id, sessionId: session.id });
+    ctx.service.enterStudent({ studentId: student.id, sessionId: session.id });
+    const ids = ["computer-components", "program-flow", "instruction-data", "data-flow"];
+    let last;
+    let payload;
+    for (const [index, challengeId] of ids.entries()) {
+      payload = { clientSubmissionId: `curriculum-stage-${index}`, challengeId, result: index === 0
+        ? { completed: true, elapsedMinutes: 1 }
+        : { score: 0, passed: true, circuitEdges: getCircuitChallenge(challengeId).requiredEdges, elapsedMinutes: 1 } };
+      last = ctx.service.submitAttempt({ studentId: student.id, payload });
+      assert.equal(last.studentState.current_stage_index, index + 1);
+      assert.equal(getStudentProgress(ctx.db, student.id)[challengeId].bestScore, 0);
+    }
+    assert.equal(last.studentState.status, "completed");
+    assert.equal(last.summary.stars, 3);
+    assert.equal(last.summary.xp, 540);
+    assert.deepEqual(JSON.parse(last.studentState.result_json).stageScores, [100, 100, 100, 100]);
+    const duplicate = ctx.service.submitAttempt({ studentId: student.id, payload });
+    assert.equal(duplicate.duplicateResult.passed, true);
+    assert.equal(duplicate.studentState.xp, 540);
+    assert.equal(duplicate.studentState.current_stage_index, 4);
+  } finally { ctx.db.close(); }
+});
 
 test("ALLOWED_TRANSITIONS enforces only approved state changes", () => {
   assert.deepEqual([...ALLOWED_TRANSITIONS.draft], ["live"]);

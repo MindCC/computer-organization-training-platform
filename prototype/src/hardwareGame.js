@@ -92,6 +92,12 @@ export function gradeHardwareBuild(caseId, selection) {
     return { passed: false, score: 0, errors: [{ type: "\u672a\u77e5\u6848\u4f8b", message: "\u6ca1\u6709\u627e\u5230\u5f53\u524d\u786c\u4ef6\u914d\u7f6e\u6848\u4f8b\u3002" }] };
   }
 
+  return gradeHardwareOrder(gameCase, selection);
+}
+
+// Free customer orders use server-owned targets; classroom callers retain their case IDs.
+export function gradeHardwareOrder(gameCase, selection) {
+
   const parts = resolveSelectedParts(selection);
   const metrics = buildHardwareMetrics(parts);
   const errors = buildHardwareErrors(gameCase.targets, metrics);

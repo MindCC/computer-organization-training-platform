@@ -10,7 +10,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { simulateCircuit, runCircuitTestCases } from "../circuit/circuitSimulation.js";
+import { simulateCircuit, runAllCircuitTests } from "../circuit/circuitSimulation.js";
 import { canConnectPorts, validateCircuitStructure } from "../circuit/circuitValidation.js";
 import {
   circuitEdgeToFlowEdge,
@@ -21,6 +21,8 @@ import {
 import { CircuitNode } from "./CircuitNode.jsx";
 import { CircuitBridgeEdge } from "./CircuitBridgeEdge.jsx";
 import { findWireBridgeMarkers } from "../circuit/wireIntersections.js";
+import { useCircuitViewport } from './useCircuitViewport.js';
+import { ArrowsOut, ArrowsIn, ArrowCounterClockwise, ArrowClockwise, Trash, ArrowBendUpRight } from '@phosphor-icons/react';
 
 const nodeTypes = { circuitNode: CircuitNode };
 const edgeTypes = { bridge: CircuitBridgeEdge };
@@ -46,7 +48,7 @@ const copy = {
   statusFailed: "\u672a\u901a\u8fc7",
   statusPassed: "\u901a\u8fc7",
   testCases: "\u6d4b\u8bd5\u7528\u4f8b",
-  title: "React Flow \u5de5\u4f5c\u53f0",
+  title: "电路工作台",
   unknown: "\u672a\u77e5",
 };
 
@@ -57,7 +59,7 @@ function resultSummary(structure, tests) {
 }
 
 function formatSignal(value) {
-  if (value === 0 || value === 1) return String(value);
+  if (Number.isFinite(value)) return String(value);
   if (value === "error") return "ERR";
   return "?";
 }
@@ -84,7 +86,7 @@ function valuesMatch(actual, expected) {
   return actual === expected;
 }
 
-export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, submitBlockedReason = "" }) {
+export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = false, submitBlockedReason = "" }) {
   const initialFlow = useMemo(() => circuitModelToFlow(model), [model]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialFlow.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges);
@@ -94,6 +96,28 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
   const [manualMode, setManualMode] = useState(false);
   const [status, setStatus] = useState(() => `拖动两个端口即可连接，系统会自动识别输出端和输入端，完成${model.title}结构。`);
   const [report, setReport] = useState(null);
+  const [hintLevel,setHintLevel]=useState(0);
+  const [traceIndex,setTraceIndex]=useState(null);
+  const [expanded,setExpanded]=useState(false);
+  const [showValues,setShowValues]=useState(true),[showLabels,setShowLabels]=useState(true);
+  const flowApi=useRef(null);
+  const canvasRef=useCircuitViewport(options=>flowApi.current?.fitView(options));
+  const workbenchRef=useRef(null);
+  useEffect(()=>{
+    if(!expanded)return;
+    const previous=document.body.style.overflow;document.body.style.overflow='hidden';
+    const escape=event=>{
+      if(event.key==='Escape'){event.preventDefault();setExpanded(false);}
+      if(event.key==='Tab'){
+        const focusable=[...workbenchRef.current.querySelectorAll('button:not(:disabled),input:not(:disabled),[tabindex]:not([tabindex="-1"])')].filter(element=>element.getClientRects().length);
+        const first=focusable[0],last=focusable.at(-1);
+        if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
+        else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}
+      }
+    };
+    window.addEventListener('keydown',escape);
+    return ()=>{document.body.style.overflow=previous;window.removeEventListener('keydown',escape);};
+  },[expanded]);
 
   // Undo/redo history stack
   const MAX_HISTORY = 50;
@@ -157,28 +181,43 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
       (model.nodes ?? []).filter((n) => n.type === "input").map((n) => [`${n.id}.out`, manualInputs[n.id] ?? 0]),
     );
   }, [manualMode, manualInputs, model.nodes, selectedCase]);
-  const liveSimulation = useMemo(
+  const fullSimulation = useMemo(
     () => simulateCircuit(model, studentEdges, effectiveInputs),
     [model, effectiveInputs, studentEdges],
   );
+  useEffect(()=>{onDraft?.({model,edges:studentEdges,inputs:effectiveInputs});},[model,studentEdges,effectiveInputs,onDraft]);
+  useEffect(()=>{setTraceIndex(null);setReport(null);},[effectiveInputs,studentEdges]);
+  const liveSimulation=traceIndex===null?fullSimulation:{...fullSimulation,values:fullSimulation.steps[traceIndex]?.values??effectiveInputs};
+  const setInputValue=useCallback((nodeId,value)=>{
+    setManualMode(true);
+    setManualInputs(Object.fromEntries(model.nodes.filter(n=>n.type==='input').map(n=>[n.id,n.id===nodeId?value:effectiveInputs[`${n.id}.out`]??0])));
+    setStatus('手动探测：改变输入并观察真实输出；公开用例可恢复预设输入。');
+  },[effectiveInputs,model.nodes]);
+
+  const toggleInput=useCallback(nodeId=>{
+    const currentValue=effectiveInputs[`${nodeId}.out`]??0;
+    setManualMode(true);
+    setManualInputs(Object.fromEntries(model.nodes.filter(node=>node.type==='input').map(node=>[node.id,node.id===nodeId?(currentValue?0:1):effectiveInputs[`${node.id}.out`]??0])));
+    setStatus('手动探测：切换开关，观察输出灯和导线的信号变化。点右侧用例可回到预设场景。');
+  },[effectiveInputs,model.nodes]);
 
   // 给每个节点挂当前端口值：画布上每个门/输入都实时显示信号（点输入节点可切 0/1）
   const displayNodes = useMemo(() => nodes.map((node) => ({
     ...node,
     data: {
       ...node.data,
+      onToggle:node.data.componentType==='input'?()=>toggleInput(node.id):undefined,
+      onValueChange:node.data.componentType==='input'?value=>setInputValue(node.id,value):undefined,
       portValues: Object.fromEntries(
         (node.data.ports ?? []).map((port) => [port.id, liveSimulation.values?.[`${node.id}.${port.id}`]]),
       ),
     },
-  })), [nodes, liveSimulation.values]);
+  })), [nodes, liveSimulation.values,toggleInput,setInputValue]);
 
   const onNodeClick = useCallback((_event, node) => {
-    if (node.data?.componentType !== "input") return;
-    setManualMode(true);
-    setManualInputs((current) => ({ ...current, [node.id]: (current[node.id] ?? 0) ? 0 : 1 }));
-    setStatus("手动探测：已切换输入值，观察各端口和导线的信号变化。点右侧用例可回到预设场景。");
-  }, []);
+    if (node.data?.componentType !== "input"||node.data.inputControl) return;
+    toggleInput(node.id);
+  }, [toggleInput]);
   const liveExpectedEntries = Object.entries(selectedCase?.expected ?? {});
   const liveCasePassed = liveExpectedEntries.length > 0
     && liveExpectedEntries.every(([key, expected]) => valuesMatch(liveSimulation.values?.[key], expected));
@@ -250,7 +289,7 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
     pushHistory([]);
     setSelectedEdgeId(null);
     setReport(null);
-    setStatus(`已重置${model.title} React Flow 画布。`);
+    setStatus(`已重置${model.title}电路画布。`);
   }, [model, setEdges]);
 
   const removeSelectedEdge = useCallback(() => {
@@ -268,11 +307,12 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
   const submit = useCallback(() => {
     if (submitBlocked) { setStatus(submitBlockedReason || "本关尚未解锁，暂时不能提交检测。"); return; }
     const structure = validateCircuitStructure(model, studentEdges);
-    const tests = runCircuitTestCases(model, studentEdges);
+    const tests = runAllCircuitTests(model, studentEdges);
+    const failure=tests.allCases.find(item=>!item.passed);
     const nextReport = {
       passed: structure.passed && tests.passed,
-      score: structure.passed && tests.passed ? 100 : structure.score,
-      structure,
+      score: structure.passed && tests.passed ? 100 : Math.min(79,structure.score),
+      structure:{...structure,errors:[...structure.errors,...(structure.passed&&failure?[{type:'输出不符',message:`${failure.name}：存在输出与目标不符，请查看反例。`}]:[])]},
       tests,
       circuitEdges: studentEdges,
     };
@@ -283,32 +323,43 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
   }, [model, onResult, studentEdges, submitBlocked, submitBlockedReason]);
 
   return (
-    <div className="circuit-flow-workbench">
+    <div ref={workbenchRef} role={expanded?'dialog':'region'} aria-modal={expanded?true:undefined} aria-label={model.title+'电路工作台'} className={'circuit-flow-workbench'+(expanded?' expanded':'')} data-show-values={showValues} data-show-labels={showLabels}>
       <div className="circuit-flow-toolbar">
         <div>
-          <span className="eyebrow">{copy.title}</span>
-          <h3>{model.title}</h3>
-          <p>{model.goal}</p>
+          <strong className="circuit-workbench-title">{copy.title}</strong>
         </div>
         <div className="circuit-flow-actions">
-          <button className="ghost-button" disabled={!canUndo} onClick={undo} title="Ctrl+Z" type="button">↩ 撤销</button>
-          <button className="ghost-button" disabled={!canRedo} onClick={redo} title="Ctrl+Y" type="button">↪ 重做</button>
-          <button className="ghost-button" onClick={fillReference} type="button">{copy.actionFill}</button>
-          <button className="ghost-button" disabled={!selectedEdgeId} onClick={removeSelectedEdge} type="button">{copy.actionDelete}</button>
+          <button className="ghost-button" disabled={!canUndo} onClick={undo} title="Ctrl+Z" type="button"><ArrowCounterClockwise size={17}/>撤销</button>
+          <button className="ghost-button" disabled={!canRedo} onClick={redo} title="Ctrl+Y" type="button"><ArrowClockwise size={17}/>重做</button>
+          <button className="ghost-button" onClick={fillReference} type="button"><ArrowBendUpRight size={17}/>{copy.actionFill}</button>
+          <button className="ghost-button" disabled={!selectedEdgeId} onClick={removeSelectedEdge} type="button"><Trash size={17}/>{copy.actionDelete}</button>
           <button className="ghost-button" onClick={reset} type="button">{copy.actionReset}</button>
           <button className="primary-button" disabled={submitBlocked} onClick={submit} title={submitBlocked ? submitBlockedReason : undefined} type="button">{copy.actionSubmit}</button>
+          <button className="ghost-button circuit-expand-button" onClick={()=>setExpanded(current=>!current)} type="button">{expanded?<ArrowsIn size={17}/>:<ArrowsOut size={17}/>} {expanded?'退出放大':'放大工作台'}</button>
         </div>
       </div>
 
+      <section className="workbench-mission" aria-label="关卡任务">
+        <div><small>{model.section??'课程电路挑战'} · {model.gradingMode==='functional'?'功能等价方案均可通过':'引导探索'}</small><p>{model.goal}</p><span>公开样例 {model.testCases.length} 组 · 完整检测 {model.testCases.length+(model.hiddenTestCases?.length??0)} 组</span></div>
+        <button type="button" className="ghost-button" disabled={hintLevel>=(model.hints?.length??0)} onClick={()=>setHintLevel(level=>level+1)}>提示 {hintLevel}/{model.hints?.length??0}</button>
+        {hintLevel>0?<ol className="workbench-hints">{model.hints.slice(0,hintLevel).map((hint,index)=><li key={index}>{hint}</li>)}</ol>:null}
+      </section>
+      <div className="workbench-trace-controls"><button type="button" onClick={()=>setTraceIndex(index=>index===null?0:Math.min(fullSimulation.steps.length-1,index+1))}>单步传播</button><button type="button" onClick={()=>setTraceIndex(null)}>运行到结果</button><span>{traceIndex===null?'实时结果':`传播步骤 ${traceIndex+1}/${fullSimulation.steps.length}`}</span></div>
+
       <div className="circuit-flow-status" aria-live="polite">{status}</div>
 
+      <div className="circuit-view-options"><span className="circuit-signal-key"><i className="one"/>1 高电平<i className="zero"/>0 低电平<i className="unknown"/>? 未知</span><label><input type="checkbox" checked={showValues} onChange={event=>setShowValues(event.target.checked)}/>信号数值</label><label><input type="checkbox" checked={showLabels} onChange={event=>setShowLabels(event.target.checked)}/>端口名称</label><small>拖动端口连线 · 点击开关探测</small></div>
+
       <div className="circuit-flow-canvas-grid">
-        <div className="circuit-flow-canvas" data-testid="react-flow-circuit-canvas">
+        <div ref={canvasRef} className="circuit-flow-canvas" data-testid="react-flow-circuit-canvas">
           <ReactFlow
             connectionMode={ConnectionMode.Loose}
             edges={displayEdges}
             edgeTypes={edgeTypes}
             fitView
+            fitViewOptions={{padding:.2,maxZoom:1.3}}
+            minZoom={.2}
+            onInit={api=>{flowApi.current=api;}}
             nodes={displayNodes}
             nodeTypes={nodeTypes}
             onConnect={onConnect}
@@ -328,10 +379,11 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
               <strong>{copy.casePanel}</strong>
               <span>{model.testCases.length} {copy.testCases}</span>
             </div>
-            <div className="circuit-flow-case-tabs" role="tablist" aria-label={copy.testCases}>
+            <div className="circuit-flow-case-tabs" role="group" aria-label={copy.testCases}>
               {model.testCases.map((testCase, index) => (
                 <button
                   className={index === selectedCaseIndex && !manualMode ? "active" : ""}
+                  aria-pressed={index===selectedCaseIndex&&!manualMode}
                   key={testCase.name}
                   onClick={() => { setSelectedCaseIndex(index); setManualMode(false); }}
                   type="button"
@@ -343,16 +395,16 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
             </div>
             {selectedCase ? (
               <div className={`circuit-flow-case-detail ${liveCasePassed ? "passed" : "failed"}`}>
-                <strong>{selectedCase.name}</strong>
-                <span>{liveCasePassed ? copy.statusPassed : copy.statusFailed}</span>
+                <strong>{manualMode?'自由探测':selectedCase.name}</strong>
+                <span>{manualMode?'观察中':liveCasePassed ? copy.statusPassed : copy.statusFailed}</span>
               </div>
             ) : null}
-            <SignalList label={copy.input} model={model} values={selectedCase?.inputs ?? {}} />
-            <CompareList
+            <SignalList label={copy.input} model={model} values={effectiveInputs} />
+            {manualMode?<SignalList label={copy.output} model={model} values={Object.fromEntries(model.nodes.filter(node=>node.type==='output').flatMap(node=>node.ports.filter(port=>port.direction==='in').map(port=>[`${node.id}.${port.id}`,liveSimulation.values?.[`${node.id}.${port.id}`]])))}/>:<CompareList
               actual={liveSimulation.values ?? {}}
               expected={selectedCase?.expected ?? {}}
               model={model}
-            />
+            />}
           </section>
 
           <section className="circuit-flow-signal-panel">
@@ -383,7 +435,8 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
       {report ? (
         <div className={`circuit-flow-report ${report.passed ? "passed" : "failed"}`}>
           <strong>{report.passed ? "\u672c\u5173\u901a\u8fc7" : "\u4ecd\u9700\u4fee\u6b63"}</strong>
-          <span>{copy.score}{"\uff1a"}{report.structure.score} {"\u00b7"} {copy.testCases}{"\uff1a"}{report.tests.cases.filter((item) => item.passed).length}/{report.tests.cases.length}</span>
+          <span>完整检测：{report.tests.allCases.filter(item=>item.passed).length}/{report.tests.allCases.length} 组通过</span>
+          {report.tests.allCases.find(item=>!item.passed)?<small className="workbench-counterexample">反例 · {Object.entries(report.tests.allCases.find(item=>!item.passed).inputs).map(([key,value])=>`${portLabel(model,key)}=${value}`).join('，')}；{report.tests.allCases.find(item=>!item.passed).mismatches.map(([key,expected])=>`${portLabel(model,key)} 应为 ${expected}，实际 ${formatSignal(report.tests.allCases.find(item=>!item.passed).actual[key])}`).join('；')}</small>:null}
           {report.structure.errors.length > 0 ? <small>{report.structure.errors[0].message}</small> : null}
         </div>
       ) : null}

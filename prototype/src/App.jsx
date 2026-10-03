@@ -495,6 +495,14 @@ export function App() {
   const [importCredentials, setImportCredentials] = useState([]);
   const pendingDestinationRef = useRef(null);
   const [activeView, setActiveView] = useState("home");
+  const platformTopbarRef=useRef(null);
+  useEffect(()=>{
+    const element=platformTopbarRef.current;
+    if(!element||typeof ResizeObserver==='undefined')return;
+    const observer=new ResizeObserver(()=>element.parentElement?.style.setProperty('--platform-nav-height',`${element.getBoundingClientRect().height}px`));
+    observer.observe(element);
+    return ()=>observer.disconnect();
+  },[activeView,showLogin,auth.status]);
   const [progress, setProgress] = useState(() => buildInitialLearningProgress());
   const [allowSkipLocked, setAllowSkipLocked] = useState(false);
   const [activityLog, setActivityLog] = useState([
@@ -539,14 +547,15 @@ export function App() {
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
   const [questSettlement, setQuestSettlement] = useState(null);
   const prevFeedbackRef = useRef(null);
-  const lab = useLabState({
-    progress, setProgress, activityLog, setActivityLog,
-    setStatusMessage, persistStudentAttempt, isMobile, allowSkipLocked,
-  });
-
   const classroomSession = useClassroomSession({
     userId: auth.user?.id,
     enabled: auth.user?.role === "student",
+  });
+  const lab = useLabState({
+    progress, setProgress, activityLog, setActivityLog,
+    setStatusMessage, persistStudentAttempt, isMobile, allowSkipLocked,
+    classroomChallengeId: classroomSession.viewModel.active && !classroomSession.viewModel.ended
+      ? classroomSession.viewModel.currentStage?.challengeId : null,
   });
 
   const teacherSession = useTeacherSession({
@@ -939,7 +948,8 @@ export function App() {
       ...current.slice(0, 5),
     ]);
     setStatusMessage(result.passed ? selectedCase.title + " \u5df2\u8fbe\u6210\u5ba2\u6237\u76ee\u6807\u3002" : "\u5df2\u627e\u5230\u914d\u7f6e\u74f6\u9888\uff0c\u8bf7\u6839\u636e\u53cd\u9988\u8c03\u6574\u3002");
-    await persistStudentAttempt(selectedCase.id, result);
+    const saved = await persistStudentAttempt(selectedCase.id, result);
+    return { result, synced: Boolean(saved) };
   }
 
   async function enterClassroomMission(sessionId) {
@@ -962,6 +972,7 @@ export function App() {
       if (saved.progress) {
         setProgress({ ...buildInitialLearningProgress(), ...saved.progress });
       }
+      return saved;
     } catch (error) {
       setStatusMessage("\u63d0\u4ea4\u5df2\u5728\u672c\u9875\u8bb0\u5f55\uff0c\u4f46\u540c\u6b65\u670d\u52a1\u5668\u5931\u8d25\uff1a" + error.message);
     }
@@ -1030,37 +1041,9 @@ export function App() {
     return renderLogin();
   }
 
-  if (activeView === "lab") {
+  function renderPlatformTopbar() {
     return (
-      <div className="app-shell lab-mode-shell">
-        <ErrorBoundary fallback={(
-          <LabFeatureFallback
-            challenge={lab.currentChallenge}
-            completed={lab.currentRecord?.status === "completed"}
-            onBack={() => changeView("home")}
-            onComplete={lab.completeOverviewChallenge}
-          />
-        )}>
-          <Suspense fallback={<FeatureLoading label="正在加载实验工作台..." />}>
-            <LabPage lab={lab} isMobile={isMobile}
-              memoryAddress={memoryAddress} memoryOperation={memoryOperation} memoryWriteValue={memoryWriteValue}
-              setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue}
-              memoryAccessState={memoryAccessState} setShowSettings={setShowSettings}
-              student={student} statusMessage={statusMessage} changeView={changeView}
-              courseGuide={activeCourseGuide}
-              classroomLabViewModel={{ ...classroomSession.viewModel, submitAttempt: classroomSession.submit }} />
-          </Suspense>
-        </ErrorBoundary>
-        {renderSettingsModal()}
-        {renderQuestSettlement()}
-      </div>
-    );
-  }
-
-  return (
-    <ErrorBoundary>
-    <div className={activeView === "teacher" ? "app-shell teacher-reference-shell" : activeView === "home" ? "app-shell home-shell" : "app-shell"}>
-      <header className="topbar">
+      <header ref={platformTopbarRef} className="topbar">
         <button className="brand" onClick={() => changeView("home")} type="button">
           <img className="brand-wordmark" src="/home/wordmark.png" alt="芯游记" />
           <img className="brand-logo" src="/home/logo.png" alt="芯游记" />
@@ -1069,7 +1052,7 @@ export function App() {
         <nav className="topbar-nav" aria-label="主导航">
           {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["home", "teacher", "courseware"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware"].includes(item.id)).map(({ id, icon: Icon, label }) => (
             <button
-              className={activeView === id ? "topbar-nav-item active" : "topbar-nav-item"}
+              className={(activeView === id || (activeView === "lab" && id === "home")) ? "topbar-nav-item active" : "topbar-nav-item"}
               key={id}
               onClick={() => changeView(id)}
               type="button"
@@ -1111,6 +1094,41 @@ export function App() {
           </div> : <button className="ghost-button" onClick={() => requestLogin()} type="button">登录</button>}
         </div>
       </header>
+    );
+  }
+
+  if (activeView === "lab") {
+    return (
+      <div className={'app-shell lab-mode-shell'+(lab.currentChallenge?.id==='computer-components'?' lab-overview-shell':'')}>
+        {renderPlatformTopbar()}
+        <ErrorBoundary fallback={(
+          <LabFeatureFallback
+            challenge={lab.currentChallenge}
+            completed={lab.currentRecord?.status === "completed"}
+            onBack={() => changeView("home")}
+            onComplete={lab.completeOverviewChallenge}
+          />
+        )}>
+          <Suspense fallback={<FeatureLoading label="正在加载实验工作台..." />}>
+            <LabPage lab={lab} isMobile={isMobile}
+              memoryAddress={memoryAddress} memoryOperation={memoryOperation} memoryWriteValue={memoryWriteValue}
+              setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue}
+              memoryAccessState={memoryAccessState}
+              statusMessage={statusMessage} changeView={changeView}
+              courseGuide={activeCourseGuide}
+              classroomLabViewModel={{ ...classroomSession.viewModel, submitAttempt: classroomSession.submit }} />
+          </Suspense>
+        </ErrorBoundary>
+        {renderSettingsModal()}
+        {renderQuestSettlement()}
+      </div>
+    );
+  }
+
+  return (
+    <ErrorBoundary>
+    <div className={activeView === "teacher" ? "app-shell teacher-reference-shell" : activeView === "home" ? "app-shell home-shell" : "app-shell"}>
+      {renderPlatformTopbar()}
 
       <div className="workspace">
         <main className="dashboard">
@@ -1214,10 +1232,13 @@ export function App() {
     if (!questSettlement) return null;
     return (
       <QuestSettlement
-        settlement={questSettlement}
+        settlement={classroomSession.viewModel.active && !classroomSession.viewModel.ended
+          ? { ...questSettlement, nextTitle: classroomSession.viewModel.currentStage?.title ?? "课堂任务已完成" }
+          : questSettlement}
         onReview={() => setQuestSettlement(null)}
         onContinue={() => {
-          const nextId = questSettlement.nextId;
+          const nextId = classroomSession.viewModel.active && !classroomSession.viewModel.ended
+            ? classroomSession.viewModel.currentStage?.challengeId : questSettlement.nextId;
           setQuestSettlement(null);
           if (nextId) {
             navigateToChallenge(nextId);

@@ -68,6 +68,7 @@ test("放大后的树冠叶子互不叠压：任意两叶端点间距 ≥ 60", (
 test("章节主枝自下而上按章号沿树干分布，且左右两侧均衡", () => {
   const tree = layoutOrganicTree(model);
   const ordered = [...tree.branches].sort((a, b) => a.number - b.number);
+  ordered.forEach((branch, index) => assert.equal(branch.side, index % 2 === 0 ? -1 : 1));
 
   // 取每个主枝标签 y（靠近树干锚点）：章号越大位置越高（y 越小）
   for (let i = 1; i < ordered.length; i += 1) {
@@ -78,6 +79,20 @@ test("章节主枝自下而上按章号沿树干分布，且左右两侧均衡",
   const left = tree.branches.filter((branch) => branch.side === -1).reduce((sum, branch) => sum + branch.total, 0);
   const right = tree.branches.filter((branch) => branch.side === 1).reduce((sum, branch) => sum + branch.total, 0);
   assert.equal(Math.abs(left - right) <= 10, true, `两侧叶数差异过大：左 ${left} 右 ${right}`);
+});
+
+test("密集章节仍保持舒展树形，并提供完整的章节聚焦边界", () => {
+  const tree = layoutOrganicTree(model);
+  for (const branch of tree.branches) {
+    const leaves = tree.twigs.filter((twig) => twig.chapterId === branch.chapterId);
+    assert.ok(branch.bounds.width > 0 && branch.bounds.height > 0);
+    for (const leaf of leaves) {
+      assert.ok(leaf.tip.x >= branch.bounds.x && leaf.tip.x <= branch.bounds.x + branch.bounds.width);
+      assert.ok(leaf.tip.y >= branch.bounds.y && leaf.tip.y <= branch.bounds.y + branch.bounds.height);
+    }
+  }
+  const spans = tree.branches.map((branch) => Math.abs(branch.tip.x - tree.trunkCenterX));
+  assert.ok(Math.max(...spans) / Math.min(...spans) < 2, "章节数量不同也不应造成树冠一边倒");
 });
 
 test("点亮状态与章节归属传递到细枝", () => {
