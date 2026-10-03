@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Sparkle, Spinner } from "@phosphor-icons/react";
 import { api } from "../apiClient.js";
 
@@ -10,8 +10,18 @@ export function LabAssistantPanel({ challenge, connections, inputState, feedback
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const requestSeqRef = useRef(0);
+
+  // 切换关卡时重置：清空上一关的讲解与错误，并让在途的旧请求失效（否则旧关卡内容会盖到新关卡上）
+  useEffect(() => {
+    requestSeqRef.current += 1;
+    setReport(null);
+    setError("");
+    setLoading(false);
+  }, [challenge.id]);
 
   const requestHint = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
     setLoading(true);
     setError("");
     try {
@@ -22,18 +32,18 @@ export function LabAssistantPanel({ challenge, connections, inputState, feedback
         feedback,
         realtimeDiagnostics,
       });
-      setReport(result);
+      if (seq === requestSeqRef.current) setReport(result);
     } catch (err) {
-      setError(err?.message ?? "AI 助教暂时无法响应，请稍后再试。");
+      if (seq === requestSeqRef.current) setError(err?.message ?? "AI 助教暂时无法响应，请稍后再试。");
     } finally {
-      setLoading(false);
+      if (seq === requestSeqRef.current) setLoading(false);
     }
   }, [challenge.id, connections, inputState, feedback, realtimeDiagnostics]);
 
   const hint = report?.hint;
 
   return (
-    <section className="lab-assistant-panel" aria-label="AI 实验助教">
+    <section className="lab-assistant-panel" aria-label="AI 实验助教" data-challenge={challenge.id}>
       <div className="lab-assistant-head">
         <Sparkle size={18} weight="fill" />
         <strong>AI 实验助教</strong>

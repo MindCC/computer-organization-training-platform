@@ -90,6 +90,8 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [selectedCaseIndex, setSelectedCaseIndex] = useState(0);
+  const [manualInputs, setManualInputs] = useState({});   // 手动探测：点输入节点切换 0/1
+  const [manualMode, setManualMode] = useState(false);
   const [status, setStatus] = useState(() => `拖动两个端口即可连接，系统会自动识别输出端和输入端，完成${model.title}结构。`);
   const [report, setReport] = useState(null);
 
@@ -148,10 +150,35 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
 
   const studentEdges = useMemo(() => flowEdgesToCircuitEdges(edges), [edges]);
   const selectedCase = model.testCases[Math.min(selectedCaseIndex, model.testCases.length - 1)] ?? model.testCases[0] ?? null;
+  // 手动探测时用手动输入（点输入节点切的 0/1），否则用选中用例的输入
+  const effectiveInputs = useMemo(() => {
+    if (!manualMode) return selectedCase?.inputs ?? {};
+    return Object.fromEntries(
+      (model.nodes ?? []).filter((n) => n.type === "input").map((n) => [`${n.id}.out`, manualInputs[n.id] ?? 0]),
+    );
+  }, [manualMode, manualInputs, model.nodes, selectedCase]);
   const liveSimulation = useMemo(
-    () => simulateCircuit(model, studentEdges, selectedCase?.inputs ?? {}),
-    [model, selectedCase, studentEdges],
+    () => simulateCircuit(model, studentEdges, effectiveInputs),
+    [model, effectiveInputs, studentEdges],
   );
+
+  // 给每个节点挂当前端口值：画布上每个门/输入都实时显示信号（点输入节点可切 0/1）
+  const displayNodes = useMemo(() => nodes.map((node) => ({
+    ...node,
+    data: {
+      ...node.data,
+      portValues: Object.fromEntries(
+        (node.data.ports ?? []).map((port) => [port.id, liveSimulation.values?.[`${node.id}.${port.id}`]]),
+      ),
+    },
+  })), [nodes, liveSimulation.values]);
+
+  const onNodeClick = useCallback((_event, node) => {
+    if (node.data?.componentType !== "input") return;
+    setManualMode(true);
+    setManualInputs((current) => ({ ...current, [node.id]: (current[node.id] ?? 0) ? 0 : 1 }));
+    setStatus("手动探测：已切换输入值，观察各端口和导线的信号变化。点右侧用例可回到预设场景。");
+  }, []);
   const liveExpectedEntries = Object.entries(selectedCase?.expected ?? {});
   const liveCasePassed = liveExpectedEntries.length > 0
     && liveExpectedEntries.every(([key, expected]) => valuesMatch(liveSimulation.values?.[key], expected));
@@ -184,6 +211,8 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
     setEdges(nextFlow.edges);
     setSelectedEdgeId(null);
     setSelectedCaseIndex(0);
+    setManualInputs({});
+    setManualMode(false);
     setReport(null);
     setStatus(`\u62d6\u52a8\u4e24\u4e2a\u7aef\u53e3\u5373\u53ef\u8fde\u63a5\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u8bc6\u522b\u8f93\u51fa\u7aef\u548c\u8f93\u5165\u7aef\uff0c\u5b8c\u6210${model.title}\u7ed3\u6784\u3002`);
   }, [model, setEdges, setNodes]);
@@ -280,11 +309,12 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
             edges={displayEdges}
             edgeTypes={edgeTypes}
             fitView
-            nodes={nodes}
+            nodes={displayNodes}
             nodeTypes={nodeTypes}
             onConnect={onConnect}
             onEdgesChange={onEdgesChange}
             onEdgeClick={(_, edge) => setSelectedEdgeId(edge.id)}
+            onNodeClick={onNodeClick}
             onNodesChange={onNodesChange}
           >
             <Background gap={18} />
@@ -301,14 +331,15 @@ export function CircuitFlowCanvas({ model, onResult, submitBlocked = false, subm
             <div className="circuit-flow-case-tabs" role="tablist" aria-label={copy.testCases}>
               {model.testCases.map((testCase, index) => (
                 <button
-                  className={index === selectedCaseIndex ? "active" : ""}
+                  className={index === selectedCaseIndex && !manualMode ? "active" : ""}
                   key={testCase.name}
-                  onClick={() => setSelectedCaseIndex(index)}
+                  onClick={() => { setSelectedCaseIndex(index); setManualMode(false); }}
                   type="button"
                 >
                   {index + 1}
                 </button>
               ))}
+              {manualMode ? <span className="circuit-flow-manual-badge" title="正在手动探测，点用例返回预设场景">手动探测中</span> : null}
             </div>
             {selectedCase ? (
               <div className={`circuit-flow-case-detail ${liveCasePassed ? "passed" : "failed"}`}>

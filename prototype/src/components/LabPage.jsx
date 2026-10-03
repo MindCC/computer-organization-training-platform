@@ -14,7 +14,7 @@ const LAB_STEP_CHAPTERS = COURSE_CHAPTERS.map((chapter) => ({
   chapter,
   items: CHALLENGES.filter((challenge) => challenge.chapterId === chapter.id),
 })).filter((group) => group.items.length > 0);
-import { challengeRouteMeta, challengeControlMeta, labDescription } from "./labPageData.js";
+import { challengeRouteMeta, labDescription } from "./labPageData.js";
 import { MobileLabFallback } from "./MobileLabFallback.jsx";
 import { MachineNumberPanel } from "./MachineNumberPanel.jsx";
 import { MemorySystemPanel } from "./MemorySystemPanel.jsx";
@@ -25,6 +25,9 @@ import { MissionSettlement } from "./classroom/student/MissionSettlement.jsx";
 import { LabAssistantPanel } from "./LabAssistantPanel.jsx";
 import { CpuExecutionPanel } from "./CpuExecutionPanel.jsx";
 import { LogicGateSandbox } from "./LogicGateSandbox.jsx";
+import { GateAssemblyChallenge } from "./GateAssemblyChallenge.jsx";
+import { ChallengeMap } from "./ChallengeMap.jsx";
+import { freeformSpecOf } from "../circuit/freeformGrading.js";
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
 const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").then((m) => ({ default: m.OverviewExplodedView })));
@@ -124,6 +127,37 @@ export function LabPage({
     const st = statusText(l.currentRecord?.status ?? "not-started");
     const js = getJourneyStepsForChallenge(cur.id);
     const [sandboxMode, setSandboxMode] = useState(false);
+    const [assemblyMode, setAssemblyMode] = useState(false);
+    const [mapMode, setMapMode] = useState(false);
+
+    // 挑战路径：可拖拽调宽 / 可整体收起 / 高度限高内滚
+    const [routeWidth, setRouteWidth] = useState(232);
+    const [routeCollapsed, setRouteCollapsed] = useState(false);
+    const startRouteResize = (event) => {
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = routeWidth;
+      const onMove = (ev) => setRouteWidth(Math.min(560, Math.max(180, startWidth + ev.clientX - startX)));
+      const onUp = () => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", onUp);
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", onUp);
+    };
+    const freeformSpec = freeformSpecOf(cur.id);
+    // 切换关卡时退出自由拼装
+    useEffect(() => { setAssemblyMode(false); }, [cur.id]);
+
+    // 章节收起/展开：默认只展开当前关所在的章
+    const [collapsedChapters, setCollapsedChapters] = useState(() => Object.fromEntries(
+      LAB_STEP_CHAPTERS.map((group) => [group.chapter.id, group.chapter.id !== cur.chapterId]),
+    ));
+    useEffect(() => {
+      setCollapsedChapters((current) => ({ ...current, [cur.chapterId]: false }));
+    }, [cur.chapterId]);
+    const toggleChapter = (chapterId) => setCollapsedChapters((current) => ({ ...current, [chapterId]: !current[chapterId] }));
+    const setAllChapters = (collapsed) => setCollapsedChapters(Object.fromEntries(LAB_STEP_CHAPTERS.map((group) => [group.chapter.id, collapsed])));
     return wrapClassroom(
       <div className="lab-studio">
         <header className="lab-studio-header">
@@ -134,28 +168,56 @@ export function LabPage({
             : <><span>得分</span><strong>{l.currentRecord?.bestScore ?? 0}</strong><small>/ 100</small></>}</div>
           <div className="lab-studio-user"><span>{student.name}</span><button className="lab-studio-icon-button" onClick={() => setShowSettings(true)} type="button" aria-label="打开个人设置"><GearSix size={19} /></button></div>
         </header>
-        <main className="lab-studio-grid">
-          <aside className="lab-studio-route" aria-label="挑战路径">
-            <div className="lab-studio-route-title"><strong>挑战路径</strong><span>共 {CHALLENGES.length} 关</span></div>
-            <div className="lab-studio-stepper">{LAB_STEP_CHAPTERS.map((group) => (
-              <div className="lab-studio-step-chapter-group" key={group.chapter.id}>
-                <div className="lab-studio-step-chapter">{group.chapter.title}</div>
-                {group.items.map((c) => { const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} key={c.id} onClick={() => l.selectChallenge(c.id)} title={r?.status === "locked" ? "尚未解锁：可以进去练习，解锁后才能提交检测" : undefined} type="button"><span className="lab-studio-step-number">{challengeOrderOf(c.id)}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{labScoreText(c, r)}</span></button>); })}
-              </div>
-            ))}</div>
+        <main className="lab-studio-grid" style={{ "--route-width": routeCollapsed ? "34px" : `${routeWidth}px` }}>
+          <aside className={`lab-studio-route ${routeCollapsed ? "collapsed" : ""}`} aria-label="挑战路径">
+            {routeCollapsed ? (
+              <button aria-label="展开挑战路径" className="route-expand-btn" onClick={() => setRouteCollapsed(false)} title="展开挑战路径" type="button">▶</button>
+            ) : (<>
+            <div className="lab-studio-route-title">
+              <strong>挑战路径</strong>
+              <span className="route-fold-group">
+                <button className="route-fold-btn" onClick={() => setAllChapters(false)} type="button">全展开</button>
+                <button className="route-fold-btn" onClick={() => setAllChapters(true)} type="button">全收起</button>
+                <button aria-label="收起挑战路径" className="route-fold-btn route-collapse-btn" onClick={() => setRouteCollapsed(true)} title="收起挑战路径" type="button">◀</button>
+              </span>
+            </div>
+            <div className="lab-studio-stepper">{LAB_STEP_CHAPTERS.map((group) => {
+              const collapsed = collapsedChapters[group.chapter.id] ?? false;
+              const doneCount = group.items.filter((c) => (l._progress?.[c.id]?.status) === "completed").length;
+              return (
+                <div className="lab-studio-step-chapter-group" key={group.chapter.id}>
+                  <button
+                    aria-expanded={!collapsed}
+                    className={`lab-studio-step-chapter ${collapsed ? "collapsed" : ""}`}
+                    onClick={() => toggleChapter(group.chapter.id)}
+                    type="button"
+                  >
+                    <span className="chapter-caret">{collapsed ? "▸" : "▾"}</span>
+                    <strong>{group.chapter.title}</strong>
+                    <small>{doneCount}/{group.items.length}</small>
+                  </button>
+                  {collapsed ? null : group.items.map((c) => { const r = l._progress?.[c.id] ?? {}; const m = challengeRouteMeta[c.id] ?? {}; const sel = c.id === l.selectedChallengeId; return (<button className={`lab-studio-step ${statusTone(r?.status ?? "not-started")} ${sel ? "selected" : ""}`} key={c.id} onClick={() => l.selectChallenge(c.id)} title={r?.status === "locked" ? "尚未解锁：可以进去练习，解锁后才能提交检测" : undefined} type="button"><span className="lab-studio-step-number">{challengeOrderOf(c.id)}</span><span className="lab-studio-step-copy"><strong>{c.title}</strong><small>{m.focus ?? c.shortTitle}</small></span><span className="lab-studio-step-score">{labScoreText(c, r)}</span></button>); })}
+                </div>
+              );
+            })}</div>
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
+            <div aria-label="拖拽调整挑战路径宽度" aria-orientation="vertical" className="route-resize-handle" onPointerDown={startRouteResize} role="separator" title="拖拽调整宽度" />
+            </>)}
           </aside>
           <section className="lab-studio-workspace">
-            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{sandboxMode ? "逻辑门沙盒" : cur.title}</h1><p>{sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : labDescription(cur.id)}</p>{!sandboxMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button className={`sandbox-toggle ${sandboxMode ? "active" : ""}`} onClick={() => setSandboxMode(!sandboxMode)} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button>{!sandboxMode ? <><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></> : null}</div></div>
-            {sandboxMode ? (
+            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{mapMode ? "挑战依赖地图" : sandboxMode ? "逻辑门沙盒" : assemblyMode ? `${cur.title} · 自由拼装` : cur.title}</h1><p>{mapMode ? "完成一个关卡，解锁依赖它的后续关卡（仿图灵完备）" : sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : assemblyMode ? "自己拖门组装电路，判分通过即算过关" : labDescription(cur.id)}</p>{!sandboxMode && !assemblyMode && !mapMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button className={`sandbox-toggle ${mapMode ? "active" : ""}`} onClick={() => { setMapMode(!mapMode); setSandboxMode(false); setAssemblyMode(false); }} type="button">{mapMode ? "← 返回挑战" : "🗺 依赖地图"}</button>{freeformSpec ? <button className={`sandbox-toggle ${assemblyMode ? "active" : ""}`} onClick={() => { setAssemblyMode(!assemblyMode); setSandboxMode(false); setMapMode(false); }} type="button">{assemblyMode ? "← 固定连线" : "🔧 自由拼装"}</button> : null}<button className={`sandbox-toggle ${sandboxMode ? "active" : ""}`} onClick={() => { setSandboxMode(!sandboxMode); setAssemblyMode(false); setMapMode(false); }} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button>{!sandboxMode && !assemblyMode && !mapMode ? <><button onClick={l.runStep} type="button"><Play size={17} weight="fill" />单步执行</button><button onClick={l.runAll} type="button"><Flame size={17} weight="fill" />自动运行</button></> : null}</div></div>
+            {mapMode ? (
+              <div className="lab-studio-canvas-shell sandbox-shell"><ChallengeMap progress={l._progress} selectedId={cur.id} onEnter={(id) => { setMapMode(false); l.selectChallenge(id); }} /></div>
+            ) : sandboxMode ? (
               <div className="lab-studio-canvas-shell sandbox-shell"><LogicGateSandbox /></div>
+            ) : assemblyMode && freeformSpec ? (
+              <div className="lab-studio-canvas-shell sandbox-shell"><GateAssemblyChallenge challenge={cur} circuitModel={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></div>
             ) : (<>
-            <div className="lab-studio-inputs">{(challengeControlMeta[cur.id] ?? []).map((ctrl) => ctrl.type === "bit" ? <Toggle key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} onChange={(v) => l.handleInputChange(ctrl.key, v)} /> : <Stepper key={ctrl.key} label={ctrl.label} value={l.inputState[ctrl.key]} min={ctrl.min} max={ctrl.max} onChange={(v) => l.handleInputChange(ctrl.key, v)} />)}</div>
             <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
             {cur.id === "instruction-data" ? <CpuExecutionPanel /> : null}
             {js.length > 0 ? <DataJourneyPanel steps={js} activeStep={l.activeStep} /> : null}
             {cur.id === "memory-address" ? <MemorySystemPanel address={memoryAddress} operation={memoryOperation} state={memoryAccessState} writeValue={memoryWriteValue} onAddressChange={setMemoryAddress} onOperationChange={setMemoryOperation} onWriteValueChange={setMemoryWriteValue} /> : null}
-            {cur.id === "machine-number" ? <MachineNumberPanel value={l.inputState.signedValue ?? -5} /> : null}
+            {cur.id === "machine-number" ? <MachineNumberPanel value={l.inputState.signedValue ?? -5} onValueChange={(v) => l.handleInputChange("signedValue", v)} /> : null}
             <div className="lab-studio-inspector">
               <section><span className="eyebrow">元件属性</span><strong>{l.selectedComponent}</strong><p>{l.selectedComponentDetail?.description ?? "选择一个元件查看端口、职责和信号走向。"}</p></section>
               <section><span className="eyebrow">实时状态</span><strong>{statusMessage}</strong><p>必要连线 {reqEdges} 条 · 测试用例 {tc || cur.requiredConnections.length} 组 · 最近得分 {labScoreText(cur, l.currentRecord)}</p></section>
@@ -171,6 +233,4 @@ export function LabPage({
   }
 }
 
-function Toggle({ label, value, onChange }) { return <label className="toggle-row"><span>{label}</span><button className={value === 0 ? "toggle-btn zero" : "toggle-btn one"} onClick={() => onChange(value === 0 ? 1 : 0)} type="button">{value === 0 ? "0" : "1"}</button></label>; }
-function Stepper({ label, value, min = 0, max, onChange }) { return <label className="stepper-row"><span>{label}</span><div className="stepper"><button onClick={() => onChange(Math.max(min, value - 1))} type="button">-</button><strong>{value}</strong><button onClick={() => onChange(Math.min(max, value + 1))} type="button">+</button></div></label>; }
 function DataJourneyPanel({ steps, activeStep }) { const ci = steps.length > 0 ? activeStep % steps.length : 0; return (<section className="data-journey-panel"><div className="section-heading"><div><span className="eyebrow">数据旅程检查点</span><h2>取指、译码、执行的课堂观察线</h2><p>按步骤观察地址、数据和控制信号如何经过寄存器与总线。</p></div></div><div className="journey-step-grid">{steps.map((s, i) => (<article className={i === ci ? "journey-step-card active" : "journey-step-card"} key={s.id}><div className="journey-step-head"><span>{String(i + 1).padStart(2, "0")}</span><strong>{s.title}</strong></div><code>{s.transfer}</code><p>{s.description}</p><div className="journey-registers">{s.registers.map((r) => <small key={r}>{r}</small>)}</div><div className="journey-checkpoint"><b>{s.checkpoint.question}</b><span>{s.checkpoint.answer}</span></div></article>))}</div></section>); }

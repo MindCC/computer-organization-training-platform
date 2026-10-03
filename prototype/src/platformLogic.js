@@ -1,5 +1,6 @@
 import { encodeSignedInteger } from "./numberEncoding.js";
 import { HARDWARE_GAME_PROGRESS_ITEMS } from "./hardwareGame.js";
+import { isUnlocked } from "./challengeDependencies.js";
 
 export const CHALLENGE_DEFINITIONS = [
   {
@@ -809,10 +810,13 @@ export function recordAttempt(progress, challengeId, result) {
   if (result.passed) {
     current.status = "completed";
     current.completedAt = "刚刚";
-    const index = CHALLENGES.findIndex((challenge) => challenge.id === challengeId);
-    const nextChallenge = index >= 0 ? CHALLENGES[index + 1] : null;
-    if (nextChallenge && next[nextChallenge.id].status === "locked") {
-      next[nextChallenge.id].status = "in-progress";
+    // 依赖驱动解锁（仿图灵完备）：一个关卡的全部依赖都完成后即解锁，
+    // 不再是线性「下一关」。同一层级的关卡（如四个逻辑门）会一起解锁。
+    for (const challenge of CHALLENGES) {
+      const record = next[challenge.id];
+      if (record && record.status === "locked" && isUnlocked(challenge.id, next)) {
+        record.status = "in-progress";
+      }
     }
   } else if (current.status === "locked") {
     current.status = "in-progress";

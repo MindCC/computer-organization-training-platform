@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, CaretRight, ArrowSquareOut, Lightbulb, Flask, MonitorPlay, Presentation, Star, UploadSimple, NotePencil } from "@phosphor-icons/react";
+import { BookOpen, MonitorPlay, Presentation, UploadSimple, NotePencil } from "@phosphor-icons/react";
 import { init as initPptxPreview } from "pptx-preview";
 import { COURSEWARE } from "../courseware.js";
 import { api } from "../apiClient.js";
@@ -52,7 +52,7 @@ function PptxStage({ upload }) {
 }
 
 export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [], selectedTeacherClassId, onSelectTeacherClass }) {
-  const [expanded, setExpanded] = useState(null);
+  const [lectureChapter, setLectureChapter] = useState(() => COURSEWARE.chapters.find((c) => (c.embeds ?? []).length > 0)?.id ?? COURSEWARE.chapters[0]?.id ?? null);
   const [uploads, setUploads] = useState([]);
   const [selectedUpload, setSelectedUpload] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -60,6 +60,20 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
   const [pageNumber, setPageNumber] = useState(1);
   const [notes, setNotes] = useState([]);
   const [noteDraft, setNoteDraft] = useState("");
+  const lectureRef = useRef(null);
+
+  // 讲演区按实际位置铺满到视口底部（顶栏/间隔随宽度变化，写死 calc 会错位，改为动态测量）
+  useEffect(() => {
+    const el = lectureRef.current;
+    if (!el) return undefined;
+    const apply = () => {
+      const top = el.getBoundingClientRect().top;
+      el.style.height = `${Math.max(420, window.innerHeight - top)}px`;
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    return () => window.removeEventListener("resize", apply);
+  }, []);
 
   const loadUploads = async () => {
     if (!auth?.user) return;
@@ -101,16 +115,47 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
 
   return (
     <div className="courseware-view">
-      <header className="courseware-header">
-        <BookOpen size={28} />
-        <div>
-          <h1>{COURSEWARE.title}</h1>
-          <p>教材：{COURSEWARE.textbook}</p>
+
+      {/* AI 互动讲演（主视图）：章节切换 + 大内嵌播放器 */}
+      <section className="courseware-lecture" ref={lectureRef}>
+        <div className="courseware-lecture-head">
+          <strong><MonitorPlay size={16} /> {COURSEWARE.title} · AI 互动讲演</strong>
+          <div className="lecture-chapter-tabs" role="tablist" aria-label="选择章节">
+            {COURSEWARE.chapters.filter((ch) => (ch.embeds ?? []).length > 0).map((ch) => (
+              <button
+                aria-selected={lectureChapter === ch.id}
+                className={lectureChapter === ch.id ? "active" : ""}
+                key={ch.id}
+                onClick={() => setLectureChapter(ch.id)}
+                role="tab"
+                type="button"
+              >
+                {ch.title}
+              </button>
+            ))}
+          </div>
+          <a className="ghost-button lecture-fullscreen-link" href="/courseware.html" rel="noreferrer" target="_blank"><Presentation size={15} /> 全屏演示</a>
         </div>
-        <a href="/courseware.html" target="_blank" rel="noreferrer" className="primary-button" style={{marginLeft:'auto',textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
-          <Presentation size={16} /> 全屏演示
-        </a>
-      </header>
+        {(() => {
+          const ch = COURSEWARE.chapters.find((c) => c.id === lectureChapter) ?? COURSEWARE.chapters[0];
+          const embed = (ch.embeds ?? [])[0];
+          if (embed) {
+            return (
+              <div className="courseware-lecture-player">
+                <div className="courseware-lecture-player-head"><strong>{embed.title}</strong><span>{embed.note}</span></div>
+                <iframe allowFullScreen src={embed.src} title={embed.title} />
+              </div>
+            );
+          }
+          return (
+            <div className="courseware-lecture-empty">
+              <p>本章 AI 互动讲演待补充，可先看下面的课堂互动演示。</p>
+            </div>
+          );
+        })()}
+      </section>
+
+      
 
       {auth?.user && <section className="upload-courseware-panel">
         <div>
@@ -145,75 +190,35 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
         <div className="uploaded-courseware-content"><PptxStage upload={selectedUpload} /><aside className="page-notes"><h3><NotePencil size={18} /> 第 {pageNumber} 页笔记</h3><textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="记录这一页的要点、问题或思路…" /><button type="button" className="primary-button" onClick={submitNote}>保存笔记</button><div className="page-note-list">{notes.length ? notes.map((note) => <article key={note.id}><strong>{note.authorName}{note.visibility === "private" ? "（仅自己可见）" : ""}</strong><p>{note.content}</p></article>) : <p>本页还没有笔记。</p>}</div></aside></div>
       </section>}
 
-      <div className="courseware-chapters">
-        {COURSEWARE.chapters.map((ch) => (
-          <div className={`courseware-chapter ${expanded === ch.id ? "expanded" : ""}`} key={ch.id}>
-            <button className="chapter-header" onClick={() => setExpanded(expanded === ch.id ? null : ch.id)}>
-              <CaretRight size={16} className={`chevron ${expanded === ch.id ? "rotated" : ""}`} />
-              <div>
-                <strong>{ch.title}</strong>
-                <span><Presentation size={12} /> {ch.slides} 页PPT · {ch.sections?.length ?? 0} 个小节</span>
-              </div>
-            </button>
-            {expanded === ch.id && (
-              <div className="chapter-body">
-                <section>
-                  <strong><Star size={14} /> 小节内容</strong>
-                  <div className="section-grid">
-                    {ch.sections?.map((s, i) => (
-                      <div className="section-chip" key={i}>{s}</div>
-                    ))}
-                  </div>
-                </section>
-                <section>
-                  <strong><Lightbulb size={14} /> 核心知识点</strong>
-                  <ul>{ch.keyPoints?.map((kp, i) => <li key={i}>{kp}</li>)}</ul>
-                </section>
-                <section>
-                  <strong><Lightbulb size={14} /> 教学目标</strong>
-                  <ul>{ch.objectives.map((o, i) => <li key={i}>{o}</li>)}</ul>
-                </section>
-                {ch.discussionQuestions.length > 0 && (
-                  <section>
-                    <strong>思考题</strong>
-                    <ol>{ch.discussionQuestions.map((q, i) => <li key={i}>{q}</li>)}</ol>
-                  </section>
-                )}
-                {ch.linkedChallenges.length > 0 && (
-                  <section>
-                    <strong><Flask size={14} /> 关联实验</strong>
-                    <div className="linked-challenges">
-                      {ch.linkedChallenges.map((cid) => (
-                        <button key={cid} className="ghost-button" onClick={() => navigateToChallenge?.(cid)}>
-                          <ArrowSquareOut size={14} /> 进入实验 →
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                )}
-                {ch.demos?.length > 0 && (
-                  <section>
-                    <strong><MonitorPlay size={14} /> 课堂演示</strong>
-                    <div className="linked-challenges">
-                      {ch.demos.map((demo) => (
-                        <a key={demo.href} className="ghost-button" href={demo.href} target="_blank" rel="noreferrer" title={demo.note}>
-                          <ArrowSquareOut size={14} /> {demo.title}（新窗口）
-                        </a>
-                      ))}
-                    </div>
-                  </section>
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      
 
-      <div className="courseware-footer">
-        <h3>参考书目</h3>
-        {COURSEWARE.references.map((ref, i) => <p key={i}>{i + 1}. {ref}</p>)}
-        <p>在线资源：智慧树 杨泽雪 计算机组成原理与体系结构</p>
-      </div>
+      {/* 课堂互动演示（8 章 demos，新窗口打开） */}
+      <section className="courseware-demos">
+        <strong><MonitorPlay size={16} /> 课堂互动演示</strong>
+        <div className="courseware-demo-grid">
+          {COURSEWARE.chapters.flatMap((ch) => (ch.demos ?? []).map((demo) => (
+            <a key={demo.href} className="courseware-demo-card" href={demo.href} target="_blank" rel="noreferrer" title={demo.note}>
+              <span className="demo-card-chapter">{ch.title}</span>
+              <strong>{demo.title}</strong>
+              <small>{demo.note}</small>
+            </a>
+          )))}
+        </div>
+      </section>
+
+      {/* 章节大纲（压缩折叠，不再是稀疏大列表） */}
+      <section className="courseware-outline">
+        <strong><BookOpen size={16} /> 章节大纲</strong>
+        {COURSEWARE.chapters.map((ch) => (
+          <details className="outline-chapter" key={ch.id}>
+            <summary>{ch.title}<span>{ch.slides} 页PPT · {(ch.sections ?? []).length} 小节</span></summary>
+            <div className="outline-body">
+              {(ch.sections ?? []).length > 0 ? <div className="section-grid">{ch.sections.map((s, i) => <div className="section-chip" key={i}>{s}</div>)}</div> : null}
+              {(ch.keyPoints ?? []).length > 0 ? <ul className="outline-points">{ch.keyPoints.map((kp, i) => <li key={i}>{kp}</li>)}</ul> : null}
+            </div>
+          </details>
+        ))}
+      </section>
     </div>
   );
 }

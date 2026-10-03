@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>计算机系统组成与冯·诺依曼结构 · 课堂互动演示</title>
+<style>
+  :root{
+    --bg:#f8fafc; --panel:#ffffff; --ink:#0f172a; --muted:#475569;
+    --line:#cbd5e1; --accent:#2563eb;
+    --ok-bg:#dcfce7; --ok-ink:#166534; --ok-bd:#16a34a;
+    --bad-bg:#fee2e2; --bad-ink:#991b1b; --bad-bd:#dc2626;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Microsoft YaHei","PingFang SC","Noto Sans CJK SC",sans-serif;
+    line-height:1.6; padding:18px 24px 40px;
+  }
+  header{
+    display:flex; flex-wrap:wrap; align-items:center; gap:16px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:14px 20px; margin-bottom:18px; box-shadow:0 1px 3px rgba(15,23,42,.06);
+  }
+  header h1{font-size:1.45rem; flex:1 1 320px;}
+  .mode-switch{display:flex; gap:8px;}
+  .mode-btn{
+    font-size:1.05rem; padding:8px 22px; border-radius:8px; cursor:pointer;
+    border:2px solid var(--line); background:#f1f5f9; color:var(--muted); font-weight:600;
+  }
+  .mode-btn.active{border-color:var(--accent); background:#dbeafe; color:#1e40af;}
+  section.card{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:18px 22px; margin-bottom:18px; box-shadow:0 1px 3px rgba(15,23,42,.05);
+  }
+  section.card h2{
+    font-size:1.2rem; margin-bottom:12px; padding-left:10px;
+    border-left:5px solid var(--accent);
+  }
+  .hidden{display:none !important;}
+
+  /* ---------- 五大部件互动图 ---------- */
+  .diagram-wrap{display:flex; gap:18px; flex-wrap:wrap;}
+  .diagram-box{flex:1 1 620px; min-width:320px;}
+  .diagram{position:relative; width:100%; height:360px;}
+  .diagram svg{position:absolute; inset:0; width:100%; height:100%; pointer-events:none;}
+  .link-line{stroke:#94a3b8; stroke-width:2.5; fill:none;}
+  .link-line.flow{stroke:var(--accent); stroke-width:4; stroke-dasharray:10 8; animation:dashmove 0.8s linear infinite;}
+  @keyframes dashmove{to{stroke-dashoffset:-18;}}
+  .part{
+    position:absolute; width:150px; padding:12px 8px; text-align:center; cursor:pointer;
+    border-radius:12px; border:3px solid; font-weight:700; font-size:1.1rem;
+    transition:transform .15s, box-shadow .15s; user-select:none;
+  }
+  .part small{display:block; font-weight:500; font-size:.8rem; color:var(--muted); margin-top:2px;}
+  .part:hover{transform:translateY(-3px);}
+  .part.selected{box-shadow:0 0 0 4px rgba(37,99,235,.35); transform:translateY(-3px);}
+  .part.active{box-shadow:0 0 0 5px rgba(37,99,235,.45), 0 6px 18px rgba(15,23,42,.18); transform:scale(1.06);}
+  .part[data-part="alu"]{background:#dbeafe; border-color:#2563eb; color:#1e3a8a;}
+  .part[data-part="cu"]{background:#ede9fe; border-color:#7c3aed; color:#4c1d95;}
+  .part[data-part="mem"]{background:#dcfce7; border-color:#16a34a; color:#14532d;}
+  .part[data-part="input"]{background:#fef3c7; border-color:#d97706; color:#78350f;}
+  .part[data-part="output"]{background:#ffe4e6; border-color:#e11d48; color:#881337;}
+  .info-panel{
+    flex:1 1 280px; min-width:260px; background:#f1f5f9; border:1px solid var(--line);
+    border-radius:12px; padding:16px 18px;
+  }
+  .info-panel h3{font-size:1.15rem; margin-bottom:8px;}
+  .info-panel .duty{font-weight:700; margin-bottom:8px;}
+  .info-panel .eg{color:var(--muted);}
+  .info-panel .hint{color:var(--muted); font-style:italic;}
+
+  /* ---------- 存储程序动画 ---------- */
+  .anim-controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+  .btn{
+    font-size:1rem; padding:8px 20px; border-radius:8px; cursor:pointer; font-weight:600;
+    border:2px solid var(--accent); background:var(--accent); color:#fff;
+  }
+  .btn.secondary{background:#fff; color:var(--accent);}
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+  .step-track{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+  .step-chip{
+    padding:6px 12px; border-radius:999px; font-size:.9rem; font-weight:600;
+    background:#f1f5f9; border:1px solid var(--line); color:var(--muted);
+  }
+  .step-chip.now{background:#dbeafe; border-color:var(--accent); color:#1e40af;}
+  .step-chip.done{background:var(--ok-bg); border-color:var(--ok-bd); color:var(--ok-ink);}
+  .anim-desc{
+    min-height:3.2em; background:#f1f5f9; border:1px solid var(--line); border-radius:10px;
+    padding:10px 14px; font-size:1.05rem;
+  }
+  .anim-desc b{color:var(--accent);}
+
+  /* ---------- 知识小结 ---------- */
+  .summary-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px;}
+  .summary-item{background:#f1f5f9; border:1px solid var(--line); border-radius:10px; padding:12px 16px;}
+  .summary-item h4{margin-bottom:6px; color:#1e40af;}
+  .tag{display:inline-block; background:#dbeafe; color:#1e40af; border-radius:6px; padding:1px 8px; font-size:.85rem; font-weight:700; margin-right:6px;}
+
+  /* ---------- 课堂练习 ---------- */
+  .quiz-stats{display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px;}
+  .stat{
+    background:#f1f5f9; border:1px solid var(--line); border-radius:10px;
+    padding:8px 18px; font-size:1rem; font-weight:600;
+  }
+  .stat b{color:var(--accent); font-size:1.15rem;}
+  .quiz-qtype{display:inline-block; background:#ede9fe; color:#5b21b6; border-radius:6px; padding:2px 10px; font-size:.88rem; font-weight:700; margin-bottom:10px;}
+  .quiz-question{font-size:1.2rem; font-weight:700; margin-bottom:16px;}
+  .quiz-choices{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:10px; margin-bottom:16px;}
+  .quiz-choice{
+    text-align:left; font-size:1.05rem; padding:12px 16px; border-radius:10px; cursor:pointer;
+    border:2px solid var(--line); background:#fff; color:var(--ink); font-weight:600;
+    transition:border-color .12s, background .12s;
+  }
+  .quiz-choice .lab{display:inline-block; min-width:1.6em; font-weight:800; color:var(--accent);}
+  .quiz-choice:hover:not(:disabled){border-color:var(--accent); background:#eff6ff;}
+  .quiz-choice.selected{border-color:var(--accent); background:#dbeafe;}
+  .quiz-choice.correct{background:var(--ok-bg); border-color:var(--ok-bd); color:var(--ok-ink);}
+  .quiz-choice.wrong{background:var(--bad-bg); border-color:var(--bad-bd); color:var(--bad-ink);}
+  .quiz-choice:disabled{cursor:default; opacity:.95;}
+  .quiz-feedback{
+    min-height:2.4em; border-radius:10px; padding:10px 14px; font-size:1.05rem; font-weight:600;
+    margin-bottom:14px; border:1px dashed var(--line); color:var(--muted);
+  }
+  .quiz-feedback.ok{background:var(--ok-bg); border:1px solid var(--ok-bd); color:var(--ok-ink);}
+  .quiz-feedback.bad{background:var(--bad-bg); border:1px solid var(--bad-bd); color:var(--bad-ink);}
+  .quiz-actions{display:flex; gap:10px;}
+  footer{color:var(--muted); font-size:.9rem; text-align:center; margin-top:10px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>计算机系统组成与冯·诺依曼结构 · 课堂互动演示</h1>
+  <div class="mode-switch" role="tablist">
+    <button id="modeDemo" class="mode-btn active" type="button">演 示</button>
+    <button id="modeQuiz" class="mode-btn" type="button">课堂练习</button>
+  </div>
+</header>
+
+<!-- ================= 演示模式 ================= -->
+<main id="demoSection">
+
+  <section class="card">
+    <h2>一、冯·诺依曼结构：五大功能部件（点击部件查看说明）</h2>
+    <div class="diagram-wrap">
+      <div class="diagram-box">
+        <div class="diagram" id="diagram">
+          <svg id="wires" aria-hidden="true"></svg>
+          <div class="part" data-part="cu"     style="left:calc(50% - 75px); top:6px;">控制器<small>Control Unit</small></div>
+          <div class="part" data-part="input"  style="left:2%;  top:180px;">输入设备<small>Input</small></div>
+          <div class="part" data-part="alu"    style="left:calc(38% - 75px); top:180px;">运算器<small>ALU</small></div>
+          <div class="part" data-part="mem"    style="left:calc(68% - 75px); top:180px;">存储器<small>Memory</small></div>
+          <div class="part" data-part="output" style="right:2%; top:180px;">输出设备<small>Output</small></div>
+        </div>
+      </div>
+      <aside class="info-panel" id="partInfo">
+        <p class="hint">👆 点击左侧任一彩色部件，这里将显示它的职责与举例。</p>
+      </aside>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>二、存储程序原理动画：一条指令的旅行</h2>
+    <div class="anim-controls">
+      <button id="animPlay" class="btn" type="button">▶ 播放</button>
+      <button id="animStep" class="btn secondary" type="button">单步 ▷</button>
+      <button id="animReset" class="btn secondary" type="button">↺ 重置</button>
+    </div>
+    <div class="step-track" id="stepTrack"></div>
+    <div class="anim-desc" id="animDesc">点击「播放」自动演示，或点击「单步」逐段观察：程序与数据先以二进制存入存储器，随后控制器取指、译码，运算器执行，结果写回并输出。</div>
+  </section>
+
+  <section class="card">
+    <h2>三、知识小结：硬件 + 软件</h2>
+    <div class="summary-grid">
+      <div class="summary-item">
+        <h4><span class="tag">硬件</span>五大部件</h4>
+        运算器、控制器、存储器、输入设备、输出设备。运算器与控制器合称中央处理器（CPU），CPU 与主存储器合称主机，输入/输出设备统称外部设备。
+      </div>
+      <div class="summary-item">
+        <h4><span class="tag">软件</span>两类软件</h4>
+        系统软件（如操作系统、编译程序，管理并支持整机运行）与应用软件（面向具体任务，如办公软件、学习 App）。
+      </div>
+      <div class="summary-item">
+        <h4><span class="tag">核心思想</span>存储程序</h4>
+        程序与数据以二进制形式同等存放在存储器中，计算机自动按地址取出指令并执行——这正是冯·诺依曼结构的核心思想。
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ================= 课堂练习模式 ================= -->
+<main id="quizSection" class="hidden">
+  <section class="card">
+    <h2>课堂练习 · 随机出题</h2>
+    <div class="quiz-stats">
+      <div class="stat">已答 <b id="statTotal">0</b> 题</div>
+      <div class="stat">答对 <b id="statCorrect">0</b> 题</div>
+      <div class="stat">当前连对 <b id="statStreak">0</b></div>
+      <div class="stat">最佳连对 <b id="statBest">0</b></div>
+    </div>
+    <div id="quizType" class="quiz-qtype"></div>
+    <div id="quizQuestion" class="quiz-question"></div>
+    <div id="quizChoices" class="quiz-choices"></div>
+    <div id="quizFeedback" class="quiz-feedback">选择一个答案，然后点击「提交答案」。</div>
+    <div class="quiz-actions">
+      <button id="quizSubmit" class="btn" type="button">提交答案</button>
+      <button id="quizNext" class="btn secondary" type="button">下一题 ➜</button>
+    </div>
+  </section>
+</main>
+
+<footer>计算机组成原理实训平台 · 第一章 绪论 · 课堂互动演示页</footer>
+
+<script>
+"use strict";
+/* ============================================================
+ * 数据层：五大部件（一切 quiz 正确答案都由这些数据现场推导）
+ * ============================================================ */
+const PARTS = [
+  { id:"alu",    name:"运算器", duty:"完成算术运算与逻辑运算", short:"做算术/逻辑运算",
+    eg:"核心电路是 ALU（算术逻辑单元），例如做加减乘除、与/或/非、比较大小。" },
+  { id:"cu",     name:"控制器", duty:"按地址取出指令、译码并发出控制信号，协调各部件工作", short:"取指译码、发号施令",
+    eg:"核心包括程序计数器 PC、指令寄存器 IR 与译码器，是整机的“指挥中枢”。" },
+  { id:"mem",    name:"存储器", duty:"以二进制形式存放程序与数据，并按地址读写", short:"按地址存取程序和数据",
+    eg:"如内存（RAM）、高速缓存 Cache；程序与数据在这里被同等对待。" },
+  { id:"input",  name:"输入设备", duty:"把程序、数据和命令转换成二进制信息送入计算机", short:"把信息送入计算机",
+    eg:"键盘、鼠标、扫描仪等，是人向计算机传递信息的桥梁。" },
+  { id:"output", name:"输出设备", duty:"把计算机的处理结果转换成人们可识别的形式输出", short:"把结果呈现给人",
+    eg:"显示器、打印机、音箱等，把二进制结果变成文字、图像和声音。" },
+];
+const partById = id => PARTS.find(p => p.id === id);
+
+/* 冯·诺依曼结构动画步骤（from/to 为部件 id） */
+const ANIM_STEPS = [
+  { from:"input",  to:"mem",    label:"装入",   text:"<b>① 装入：</b>程序与数据经输入设备转换为二进制，一起存入<b>存储器</b>——这就是“存储程序”。" },
+  { from:"mem",    to:"cu",     label:"取指",   text:"<b>② 取指：</b>控制器按程序计数器 PC 给出的地址，从<b>存储器</b>中取出一条指令。" },
+  { from:"cu",     to:"alu",    label:"译码",   text:"<b>③ 译码：</b>控制器分析指令含义，向<b>运算器</b>等部件发出相应的控制信号。" },
+  { from:"mem",    to:"alu",    label:"执行",   text:"<b>④ 执行：</b>运算器从存储器取来操作数，完成算术或逻辑运算。" },
+  { from:"alu",    to:"mem",    label:"写回",   text:"<b>⑤ 写回：</b>运算结果写回<b>存储器</b>保存。" },
+  { from:"mem",    to:"output", label:"输出",   text:"<b>⑥ 输出：</b>最终结果由<b>输出设备</b>呈现。控制器继续取下一条指令，周而复始。" },
+];
+
+/* 判断题题库（ok 字段即运行时判分依据） */
+const TF_POOL = [
+  { text:"程序和数据都以二进制形式存放在同一个存储器中。", ok:true  },
+  { text:"“存储程序、程序控制”是冯·诺依曼结构的核心思想。", ok:true  },
+  { text:"运算器负责从存储器中取出指令并进行译码。", ok:false },   // 这是控制器的职责
+  { text:"控制器负责完成加法、逻辑与等具体运算。", ok:false },     // 这是运算器的职责
+  { text:"运算器与控制器合称为中央处理器（CPU）。", ok:true  },
+  { text:"在冯·诺依曼结构中，指令与数据采用不同的进制存储。", ok:false }, // 都是二进制
+  { text:"操作系统属于应用软件。", ok:false },                     // 属于系统软件
+  { text:"软件可分为系统软件与应用软件两大类。", ok:true  },
+  { text:"键盘、鼠标属于输出设备。", ok:false },                   // 输入设备
+  { text:"计算机自动按地址逐条取出指令执行，无需人工逐步干预。", ok:true  },
+];
+
+/* ============================================================
+ * 工具
+ * ============================================================ */
+const $ = sel => document.querySelector(sel);
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+/* ============================================================
+ * 模式切换
+ * ============================================================ */
+const demoSection = $("#demoSection"), quizSection = $("#quizSection");
+const modeDemo = $("#modeDemo"), modeQuiz = $("#modeQuiz");
+function setMode(mode){
+  const demo = mode === "demo";
+  demoSection.classList.toggle("hidden", !demo);
+  quizSection.classList.toggle("hidden", demo);
+  modeDemo.classList.toggle("active", demo);
+  modeQuiz.classList.toggle("active", !demo);
+  if(demo){ stopAnim(); }
+  else if(!quizState.current){ nextQuizQuestion(); }
+}
+modeDemo.addEventListener("click", () => setMode("demo"));
+modeQuiz.addEventListener("click", () => setMode("quiz"));
+
+/* ============================================================
+ * 部件互动图：连线 + 点击说明
+ * ============================================================ */
+const diagram = $("#diagram"), wires = $("#wires");
+/* 需要画出的连接（含动画会用到的高亮连线） */
+const WIRE_PAIRS = [
+  ["input","alu"], ["alu","mem"], ["mem","output"],
+  ["cu","alu"], ["cu","mem"], ["cu","input"], ["cu","output"],
+];
+function centerOf(partEl){
+  const dr = diagram.getBoundingClientRect();
+  const r = partEl.getBoundingClientRect();
+  return { x: r.left - dr.left + r.width/2, y: r.top - dr.top + r.height/2 };
+}
+function drawWires(){
+  wires.innerHTML = "";
+  for(const [a,b] of WIRE_PAIRS){
+    const pa = diagram.querySelector(`.part[data-part="${a}"]`);
+    const pb = diagram.querySelector(`.part[data-part="${b}"]`);
+    const ca = centerOf(pa), cb = centerOf(pb);
+    const line = document.createElementNS("http://www.w3.org/2000/svg","line");
+    line.setAttribute("x1", ca.x); line.setAttribute("y1", ca.y);
+    line.setAttribute("x2", cb.x); line.setAttribute("y2", cb.y);
+    line.setAttribute("class", "link-line");
+    line.dataset.from = a; line.dataset.to = b;
+    wires.appendChild(line);
+  }
+}
+window.addEventListener("resize", drawWires);
+
+const partInfo = $("#partInfo");
+document.querySelectorAll(".part").forEach(el => {
+  el.addEventListener("click", () => {
+    document.querySelectorAll(".part").forEach(p => p.classList.remove("selected"));
+    el.classList.add("selected");
+    const p = partById(el.dataset.part);
+    partInfo.innerHTML =
+      `<h3>${p.name}</h3>
+       <p class="duty">职责：${p.duty}。</p>
+       <p class="eg">举例：${p.eg}</p>`;
+  });
+});
+
+/* ============================================================
+ * 存储程序原理动画
+ * ============================================================ */
+const stepTrack = $("#stepTrack"), animDesc = $("#animDesc");
+const animPlay = $("#animPlay"), animStep = $("#animStep"), animReset = $("#animReset");
+let animIdx = -1;        // 当前演示到第几步（-1 = 未开始）
+let animTimer = null;
+
+ANIM_STEPS.forEach((s,i) => {
+  const chip = document.createElement("span");
+  chip.className = "step-chip";
+  chip.textContent = `${i+1}. ${s.label}`;
+  stepTrack.appendChild(chip);
+});
+
+function clearHighlights(){
+  document.querySelectorAll(".part").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".link-line").forEach(l => l.classList.remove("flow"));
+}
+function renderAnim(){
+  clearHighlights();
+  stepTrack.querySelectorAll(".step-chip").forEach((c,i) => {
+    c.classList.toggle("done", i < animIdx);
+    c.classList.toggle("now",  i === animIdx);
+  });
+  if(animIdx >= 0 && animIdx < ANIM_STEPS.length){
+    const s = ANIM_STEPS[animIdx];
+    animDesc.innerHTML = s.text;
+    partById(s.from) && diagram.querySelector(`.part[data-part="${s.from}"]`).classList.add("active");
+    partById(s.to)   && diagram.querySelector(`.part[data-part="${s.to}"]`).classList.add("active");
+    document.querySelectorAll(".link-line").forEach(l => {
+      if(l.dataset.from === s.from && l.dataset.to === s.to) l.classList.add("flow");
+    });
+  } else if(animIdx >= ANIM_STEPS.length){
+    animDesc.innerHTML = "✅ 一个指令周期演示完毕：取指 → 译码 → 执行 → 写回/输出，循环往复，程序便自动运行起来。点击「重置」再看一遍。";
+    stepTrack.querySelectorAll(".step-chip").forEach(c => c.classList.add("done"));
+    stopAnim();
+  }
+}
+function stepAnim(){
+  if(animIdx >= ANIM_STEPS.length) return;
+  animIdx++;
+  renderAnim();
+}
+function stopAnim(){
+  if(animTimer){ clearInterval(animTimer); animTimer = null; }
+  animPlay.textContent = "▶ 播放";
+}
+animPlay.addEventListener("click", () => {
+  if(animTimer){ stopAnim(); return; }
+  if(animIdx >= ANIM_STEPS.length){ animIdx = -1; }
+  if(animIdx < 0) stepAnim();
+  animPlay.textContent = "⏸ 暂停";
+  animTimer = setInterval(() => {
+    stepAnim();
+    if(animIdx >= ANIM_STEPS.length) stopAnim();
+  }, 1600);
+});
+animStep.addEventListener("click", () => { stopAnim(); stepAnim(); });
+animReset.addEventListener("click", () => {
+  stopAnim(); animIdx = -1; clearHighlights();
+  stepTrack.querySelectorAll(".step-chip").forEach(c => c.classList.remove("now","done"));
+  animDesc.textContent = "点击「播放」自动演示，或点击「单步」逐段观察：程序与数据先以二进制存入存储器，随后控制器取指、译码，运算器执行，结果写回并输出。";
+});
+
+/* ============================================================
+ * 课堂练习：题目生成（答案全部由 JS 现场计算，绝不写死）
+ * ============================================================ */
+const quizState = { total:0, correct:0, streak:0, best:0, current:null, answered:false };
+window.__quizState = quizState;
+
+/* 题型 1：随机抽一个部件，问它的职责 */
+function genDutyQuestion(){
+  const target = pick(PARTS);
+  const distractors = shuffle(PARTS.filter(p => p.id !== target.id)).slice(0,3);
+  const options = shuffle([target, ...distractors]);
+  return {
+    type:"部件职责",
+    question:`「${target.name}」的主要职责是什么？`,
+    choices: options.map(p => p.duty + "。"),
+    answer: options.findIndex(p => p.id === target.id),   // 现场计算正确选项位置
+    explain:`${target.name}：${target.duty}。${target.eg}`,
+  };
+}
+
+/* 题型 2：给出功能描述，选出所属部件 */
+function genPartQuestion(){
+  const target = pick(PARTS);
+  const distractors = shuffle(PARTS.filter(p => p.id !== target.id)).slice(0,3);
+  const options = shuffle([target, ...distractors]);
+  return {
+    type:"功能归属",
+    question:`在冯·诺依曼结构中，负责“${target.short}”的部件是？`,
+    choices: options.map(p => p.name),
+    answer: options.findIndex(p => p.id === target.id),   // 现场计算正确选项位置
+    explain:`“${target.short}”是「${target.name}」的工作。${target.eg}`,
+  };
+}
+
+/* 题型 3：判断描述对错（考点含五大部件、存储程序、软硬件区分） */
+function genTrueFalseQuestion(){
+  const item = pick(TF_POOL);
+  return {
+    type:"判断对错",
+    question:`判断：${item.text}`,
+    choices:["正确","错误"],
+    answer: item.ok ? 0 : 1,                               // 由题面真伪现场推导
+    explain: item.ok ? "该说法正确。" : "该说法错误。" ,
+  };
+}
+
+const GENERATORS = [genDutyQuestion, genPartQuestion, genTrueFalseQuestion];
+function generateQuestion(){ return pick(GENERATORS)(); }
+
+/* ---------- quiz 渲染与交互 ---------- */
+const quizTypeEl = $("#quizType"), quizQuestionEl = $("#quizQuestion");
+const quizChoicesEl = $("#quizChoices"), quizFeedbackEl = $("#quizFeedback");
+const quizSubmitBtn = $("#quizSubmit"), quizNextBtn = $("#quizNext");
+const LABELS = ["A","B","C","D"];
+
+function renderStats(){
+  $("#statTotal").textContent = quizState.total;
+  $("#statCorrect").textContent = quizState.correct;
+  $("#statStreak").textContent = quizState.streak;
+  $("#statBest").textContent = quizState.best;
+}
+function nextQuizQuestion(){
+  quizState.current = generateQuestion();
+  quizState.answered = false;
+  quizTypeEl.textContent = "题型：" + quizState.current.type;
+  quizQuestionEl.textContent = quizState.current.question;
+  quizChoicesEl.innerHTML = "";
+  quizState.current.choices.forEach((text, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "quiz-choice";
+    btn.dataset.idx = idx;
+    btn.innerHTML = `<span class="lab">${LABELS[idx]}</span>${text}`;
+    btn.addEventListener("click", () => {
+      if(quizState.answered) return;
+      quizChoicesEl.querySelectorAll(".quiz-choice").forEach(b => b.classList.remove("selected"));
+      btn.classList.add("selected");
+    });
+    quizChoicesEl.appendChild(btn);
+  });
+  quizFeedbackEl.className = "quiz-feedback";
+  quizFeedbackEl.textContent = "选择一个答案，然后点击「提交答案」。";
+}
+function submitQuizAnswer(){
+  if(quizState.answered || !quizState.current) return;
+  const selected = quizChoicesEl.querySelector(".quiz-choice.selected");
+  if(!selected){
+    quizFeedbackEl.className = "quiz-feedback bad";
+    quizFeedbackEl.textContent = "请先选择一个选项再提交。";
+    return;
+  }
+  quizState.answered = true;
+  const chosenIdx = Number(selected.dataset.idx);
+  const isCorrect = chosenIdx === quizState.current.answer;   // 现场判分
+  quizState.total++;
+  if(isCorrect){
+    quizState.correct++;
+    quizState.streak++;
+    quizState.best = Math.max(quizState.best, quizState.streak);
+  } else {
+    quizState.streak = 0;
+  }
+  quizChoicesEl.querySelectorAll(".quiz-choice").forEach(b => {
+    const i = Number(b.dataset.idx);
+    b.disabled = true;
+    b.classList.remove("selected");
+    if(i === quizState.current.answer) b.classList.add("correct");
+    else if(i === chosenIdx) b.classList.add("wrong");
+  });
+  quizFeedbackEl.className = "quiz-feedback " + (isCorrect ? "ok" : "bad");
+  quizFeedbackEl.textContent =
+    (isCorrect ? "✅ 回答正确！" : `❌ 回答错误，正确答案是 ${LABELS[quizState.current.answer]}。`)
+    + " " + quizState.current.explain;
+  renderStats();
+  window.__platformLink?.recordQuizAnswer(isCorrect);
+}
+quizSubmitBtn.addEventListener("click", submitQuizAnswer);
+quizNextBtn.addEventListener("click", nextQuizQuestion);
+
+/* ---------- 初始化 ---------- */
+drawWires();
+renderStats();
+</script>
+<script src="./platform-link.js"></script>
+</body>
+</html>

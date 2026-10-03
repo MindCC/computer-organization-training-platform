@@ -25,7 +25,7 @@ try {
   const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
   const page = await context.newPage();
 
-  // 1. 登录 → 课件 ch5 有演示入口
+  // 1. 登录 → 课件「课堂互动演示」区有演示入口（新的讲演视图布局，演示卡直接可见）
   await page.goto(`${BASE_URL}/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "登录", exact: true }).click();
   await page.locator("#login-username").fill("demo2026001");
@@ -33,9 +33,9 @@ try {
   await page.locator(".login-submit").click();
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "课程课件" }).click();
-  await page.locator(".chapter-header", { hasText: "第五章" }).click();
-  const demoLink = page.locator(".chapter-body .linked-challenges a[href='/demos/addressing.html']");
-  check("课件 ch5 含寻址演示入口", await demoLink.count() === 1);
+  await page.waitForSelector(".courseware-demo-grid", { timeout: 15000 });
+  const demoLink = page.locator(".courseware-demo-card[href='/demos/addressing.html']");
+  check("课件课堂互动演示含寻址演示入口", await demoLink.count() === 1);
 
   // 2. 新标签打开演示页：徽标显示已连接学情
   const [demoPage] = await Promise.all([

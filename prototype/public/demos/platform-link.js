@@ -11,6 +11,7 @@
   "use strict";
 
   var PAGE_MAP = {
+    "intro.html": { id: "intro", title: "计算机系统组成与冯·诺依曼结构" },
     "twos-complement.html": { id: "twos-complement", title: "补码的运算" },
     "arithmetic-basics.html": { id: "arithmetic-basics", title: "运算基础（补码与移位）" },
     "memory-system.html": { id: "memory-system", title: "存储器系统" },

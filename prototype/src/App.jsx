@@ -17,7 +17,6 @@ import {
   SealCheck,
   Sparkle,
   Star,
-  Target,
   TrendUp,
   WarningCircle,
 } from "@phosphor-icons/react";
@@ -95,8 +94,6 @@ const TeacherStudioDashboard = lazy(() => import("./components/TeacherDashboard.
   .then((module) => ({ default: module.TeacherStudioDashboard })));
 const StudentAssignments = lazy(() => import("./components/StudentAssignments.jsx")
   .then((module) => ({ default: module.StudentAssignments })));
-const StudentProjects = lazy(() => import("./components/StudentProjects.jsx")
-  .then((module) => ({ default: module.StudentProjects })));
 const CoursewareView = lazy(() => import("./components/CoursewareView.jsx")
   .then((module) => ({ default: module.CoursewareView })));
 const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
@@ -122,7 +119,7 @@ const navGroups = [
     items: [
       { id: "records", label: "学习记录", icon: ChartPieSlice },
       { id: "mistakes", label: "错题本", icon: BookOpen },
-      { id: "notes", label: "学习笔记", icon: Notebook },
+      { id: "notes", label: "知识库", icon: Notebook },
     ],
   },
   {
@@ -130,7 +127,6 @@ const navGroups = [
     label: "拓展协作",
     items: [
       { id: "assignments", label: "课后作业", icon: Notebook },
-      { id: "projects", label: "小组项目", icon: Target },
     ],
   },
   {
@@ -1127,7 +1123,7 @@ export function App() {
             </div>
           ) : null}
 
-          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} projects={studentProjects} onOpenProjects={() => changeView("projects")} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
+          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
           {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
           {activeView === "mistakes" ? <MistakeBookPage navigateToChallenge={navigateToChallenge} changeView={changeView} /> : null}
           {activeView === "hardware-game" ? (
@@ -1160,7 +1156,6 @@ export function App() {
             />
           ) : null}
           {activeView === "assignments" ? <StudentAssignments /> : null}
-          {activeView === "projects" ? <StudentProjects /> : null}
           {activeView === "courseware" ? <CoursewareView navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
           {activeView === "teacher" ? (
             <ErrorBoundary>

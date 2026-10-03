@@ -80,7 +80,9 @@ try {
     stepChapters.join(" | "),
   );
 
-  // 6. 新实验也在实验台步骤条中注册
+  // 6. 新实验也在实验台步骤条中注册（章节默认收起，先全展开再读）
+  await page.locator(".route-fold-btn", { hasText: "全展开" }).click();
+  await page.waitForTimeout(300);
   const stepperText = await page.locator(".lab-studio-stepper").innerText();
   check(
     "步骤条注册三个新实验",
