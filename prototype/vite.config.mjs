@@ -2,6 +2,7 @@ import { realpathSync } from "node:fs";
 import path from "node:path";
 import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
+import { hostedDemoMiddleware } from "./src/shared/demoNavigation.js";
 
 const apiProxyTarget =
   process.env.PROTOTYPE_API_PROXY_TARGET ?? "http://127.0.0.1:8787";
@@ -40,5 +41,5 @@ export default defineConfig({
       clientFiles: ["./src/main.jsx"],
     },
   },
-  plugins: [react()],
+  plugins: [react(), { name:"platform-demo-navigation", configureServer(server) { server.middlewares.use(hostedDemoMiddleware); }, configurePreviewServer(server) { server.middlewares.use(hostedDemoMiddleware); } }],
 });

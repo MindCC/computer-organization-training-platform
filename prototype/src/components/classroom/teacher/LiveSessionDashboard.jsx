@@ -6,7 +6,7 @@ function formatTime(seconds) {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-export function LiveSessionDashboard({ viewModel, onControl, onRefresh, lastUpdatedAt }) {
+export function LiveSessionDashboard({ viewModel, onControl, onRefresh, lastUpdatedAt, busy = false }) {
   const { title, status, paused } = viewModel;
 
   return (
@@ -26,27 +26,28 @@ export function LiveSessionDashboard({ viewModel, onControl, onRefresh, lastUpda
           <button className="ghost-button" onClick={onRefresh} type="button">
             <ArrowClockwise size={14} /> 刷新
           </button>
+          {busy && <span role="status">正在更新课堂…</span>}
           {status === "draft" && (
-            <button className="primary-button" onClick={() => onControl("start")} type="button">
+            <button disabled={busy} className="primary-button" onClick={() => onControl("start")} type="button">
               <Play size={16} /> 开始课堂
             </button>
           )}
           {status === "live" && (
             <>
-              <button className="secondary-button" onClick={() => onControl("pause")} type="button">
+              <button disabled={busy} className="secondary-button" onClick={() => onControl("pause")} type="button">
                 <Pause size={16} /> 暂停
               </button>
-              <button className="danger-button" onClick={() => onControl("end")} type="button">
+              <button disabled={busy} className="danger-button" onClick={() => onControl("end")} type="button">
                 <Stop size={16} /> 结束课堂
               </button>
             </>
           )}
           {status === "paused" && (
             <>
-              <button className="primary-button" onClick={() => onControl("resume")} type="button">
+              <button disabled={busy} className="primary-button" onClick={() => onControl("resume")} type="button">
                 <Play size={16} /> 恢复
               </button>
-              <button className="danger-button" onClick={() => onControl("end")} type="button">
+              <button disabled={busy} className="danger-button" onClick={() => onControl("end")} type="button">
                 <Stop size={16} /> 结束课堂
               </button>
             </>

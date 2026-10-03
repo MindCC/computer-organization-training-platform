@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../apiClient.js";
+import { BookOpen, CaretRight, FileText, FolderSimple, MagnifyingGlass, SidebarSimple, SortAscending, UploadSimple } from "@phosphor-icons/react";
+import "./knowledgeWorkspace.css";
 
 const FILE_TYPE_LABELS = { txt: "TXT", md: "MD", docx: "DOCX", pdf: "PDF", pptx: "PPTX" };
 const UPLOAD_ACCEPT = ".txt,.md,.docx,.pdf,.pptx";
@@ -58,9 +60,24 @@ function formatKbDate(createdAt) {
  * 支持全文检索与摘要/要点/关键词查看。组件自管数据（App 传入的旧笔记 props 一律忽略）。
  */
 export function NotesPage() {
+  const [mode, setMode] = useState("files");
+  const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia("(max-width: 720px)").matches);
+  const [selectedId, setSelectedId] = useState(null);
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+  const [fileFilter, setFileFilter] = useState("");
+  const [sortByName, setSortByName] = useState(false);
+  const [closedFolders, setClosedFolders] = useState(() => new Set());
+  const [contentMode, setContentMode] = useState("analysis");
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
+  const [detailVersion, setDetailVersion] = useState(0);
+  const [focusedChunk, setFocusedChunk] = useState(null);
   const [documents, setDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [listVersion,setListVersion]=useState(0);
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -81,10 +98,12 @@ export function NotesPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);setLoadError('');
     api.knowledgeDocuments()
       .then((result) => {
         if (cancelled) return;
         setDocuments(result.documents ?? []);
+        setSelectedId(current=>(result.documents??[]).some(document=>document.id===current)?current:result.documents?.[0]?.id ?? null);
         setLoadError("");
       })
       .catch((error) => {
@@ -97,7 +116,29 @@ export function NotesPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [listVersion]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDetail(null); setDetailError("");
+    if (selectedId === null) { setDetailLoading(false); return; }
+    setDetailLoading(true);
+    api.knowledgeDocumentDetail(selectedId)
+      .then(result => { if (!cancelled) setDetail(result.document); })
+      .catch(error => { if (!cancelled) setDetailError(`正文加载失败：${error.message}`); })
+      .finally(() => { if (!cancelled) setDetailLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedId, detailVersion]);
+
+  function openDocument(id, chunkId = null) {
+    setSelectedId(id); setMode("files"); setContentMode(chunkId ? "body" : "analysis");
+    setFocusedChunk(chunkId); setConfirmingDeleteId(null);
+    if (window.matchMedia("(max-width: 720px)").matches) setSidebarOpen(false);
+  }
+
+  function toggleFolder(type) {
+    setClosedFolders(current => { const next = new Set(current); if (next.has(type)) next.delete(type); else next.add(type); return next; });
+  }
 
   useEffect(() => () => {
     for (const timer of stageTimersRef.current) clearTimeout(timer);
@@ -128,6 +169,7 @@ export function NotesPage() {
       const document = result.document;
       setDocuments((current) => [document, ...current.filter((item) => item.id !== document.id)]);
       setUploadResult(document);
+      setSelectedId(document.id);
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
@@ -178,6 +220,8 @@ export function NotesPage() {
     try {
       await api.deleteKnowledgeDocument(documentId);
       setDocuments((current) => current.filter((item) => item.id !== documentId));
+      setSelectedId(current => current === documentId ? documents.find(item => item.id !== documentId)?.id ?? null : current);
+      if (selectedIdRef.current === documentId) { setFocusedChunk(null); setContentMode("analysis"); }
       setSearchHits((current) => (Array.isArray(current) ? current.filter((hit) => hit.documentId !== documentId) : current));
       setUploadResult((current) => (current?.id === documentId ? null : current));
       setConfirmingDeleteId(null);
@@ -189,35 +233,46 @@ export function NotesPage() {
   }
 
   const totalChunks = documents.reduce((sum, document) => sum + (document.chunkCount ?? 0), 0);
+  const activeDocument = documents.find(document => document.id === selectedId);
+  const filteredDocuments = documents.filter(document => `${document.title} ${document.originalName}`.toLowerCase().includes(fileFilter.trim().toLowerCase()));
+  if (sortByName) filteredDocuments.sort((a,b) => a.title.localeCompare(b.title,"zh-CN"));
+  const folders = Object.entries(FILE_TYPE_LABELS).filter(([type]) => filteredDocuments.some(document => document.fileType === type));
 
   return (
-    <div className="kb-layout">
-      <section className="section-panel kb-hero">
-        <div>
-          <span className="eyebrow">知识库 · LLMWiki</span>
-          <h1>把课程资料建成可检索的个人知识库。</h1>
-          <p>
-            上传 TXT / MD / DOCX / PDF / PPTX 文件，系统自动解析正文、分块并建立全文索引，
-            同时为每篇文档生成摘要、要点与关键词。
-          </p>
+    <div className={`kb-layout kb-vault${sidebarOpen ? "" : " is-collapsed"}`}>
+      <nav className="kb-ribbon" aria-label="知识库工具">
+        {[{id:"files",label:"我的文档",icon:FolderSimple},{id:"search",label:"全文检索",icon:MagnifyingGlass},{id:"upload",label:"上传文档",icon:UploadSimple}].map(({id,label,icon:Icon}) => <button key={id} type="button" title={label} aria-label={label} aria-pressed={mode === id} onClick={() => setMode(id)}><Icon size={21} /></button>)}
+        <span className="kb-ribbon-bottom"><BookOpen size={20} /></span>
+      </nav>
+      {sidebarOpen ? <aside className="kb-vault-sidebar" id="kb-file-sidebar" aria-label="知识库文件导航">
+        <header className="kb-vault-heading"><span className="kb-vault-mark"><BookOpen size={20} /></span><div><strong>我的知识库</strong><small>课程资料与学习笔记</small></div></header>
+        <div className="kb-sidebar-tabs" role="tablist" aria-label="知识库区域">
+          <button type="button" role="tab" aria-selected={mode === "files"} onClick={() => setMode("files")}>文件</button>
+          <button type="button" role="tab" aria-selected={mode === "search"} onClick={() => setMode("search")}>搜索</button>
+          <button type="button" role="tab" aria-selected={mode === "upload"} onClick={() => setMode("upload")}>导入</button>
         </div>
-        <div className="kb-hero-stats">
-          <div className="kb-hero-stat">
-            <strong>{documents.length}</strong>
-            <span>篇文档</span>
-          </div>
-          <div className="kb-hero-stat">
-            <strong>{totalChunks}</strong>
-            <span>个知识块</span>
-          </div>
+        <label className="kb-file-filter"><MagnifyingGlass size={16} /><input aria-label="筛选文档名称" placeholder="查找文件…" value={fileFilter} onChange={event => setFileFilter(event.target.value)} /></label>
+        <div className="kb-explorer-heading"><span>文件导航 <small>{documents.length}</small></span><button type="button" aria-label="按文件名称排序" title={sortByName ? "切换为最新导入优先" : "按文件名称排序"} aria-pressed={sortByName} onClick={() => setSortByName(value => !value)}><SortAscending size={17} /></button></div>
+        <div className="kb-file-tree">
+          {loading ? <p className="kb-explorer-empty">正在加载文件…</p> : null}
+          {folders.map(([type,label]) => <div className="kb-file-folder" key={type}>
+            <button className="kb-folder-toggle" type="button" aria-expanded={!closedFolders.has(type)} aria-controls={`kb-folder-${type}`} onClick={() => toggleFolder(type)}><CaretRight size={12} className={closedFolders.has(type) ? "" : "is-open"} /><FolderSimple size={17} /><span>{label} 文档</span><small>{filteredDocuments.filter(document => document.fileType === type).length}</small></button>
+            {!closedFolders.has(type) ? <ul id={`kb-folder-${type}`}>{filteredDocuments.filter(document => document.fileType === type).map(document => <li key={document.id}><button className="kb-file-entry" type="button" aria-current={selectedId === document.id && mode === "files" ? "page" : undefined} title={document.originalName} onClick={() => openDocument(document.id)}><FileText size={16} /><span>{document.title}</span></button></li>)}</ul> : null}
+          </div>)}
+          {!loading && !filteredDocuments.length ? <p className="kb-explorer-empty">{fileFilter ? "没有匹配的文件" : "还没有资料，先导入一份讲义吧。"}</p> : null}
         </div>
-      </section>
+        <button className="kb-sidebar-import" type="button" onClick={() => setMode("upload")}><UploadSimple size={17} /> 导入课程资料</button>
+        <footer className="kb-vault-foot"><span>{documents.length} 篇文档</span><span>{totalChunks} 个知识块</span></footer>
+      </aside> : null}
+      <div className="kb-vault-main">
+        <header className="kb-workspace-tabs"><button type="button" className="kb-sidebar-toggle" aria-label={sidebarOpen ? "收起文件侧栏" : "展开文件侧栏"} aria-expanded={sidebarOpen} aria-controls="kb-file-sidebar" onClick={() => setSidebarOpen(value => !value)}><SidebarSimple size={19} /></button><div className="kb-active-tab"><FileText size={16} /><span>{mode === "upload" ? "导入资料" : mode === "search" ? "搜索知识库" : activeDocument?.title ?? "知识库"}</span></div><span className="kb-workspace-hint">个人学习空间</span></header>
+        <div className="kb-workspace-content">
 
-      <section className="section-panel kb-upload-panel">
+      {mode === "upload" ? <section className="section-panel kb-upload-panel">
         <div className="section-heading">
           <div>
             <h2>上传文档</h2>
-            <small>解析正文 → 分块 → 全文索引 → 自动分析</small>
+            <small>导入讲义、复习提纲或实验报告，自动整理摘要与知识要点。</small>
           </div>
         </div>
         <div className="kb-upload-zone">
@@ -272,6 +327,7 @@ export function NotesPage() {
               <span>{uploadResult.chunkCount} 个知识块</span>
               <span>{uploadResult.charCount} 字</span>
             </div>
+            <button type="button" className="ghost-button" onClick={() => openDocument(uploadResult.id)}>阅读这份文档</button>
             {uploadResult.analysis?.keywords?.length ? (
               <div className="kb-keyword-row">
                 {uploadResult.analysis.keywords.map((keyword) => (
@@ -281,9 +337,9 @@ export function NotesPage() {
             ) : null}
           </div>
         ) : null}
-      </section>
+      </section> : null}
 
-      <section className="section-panel kb-search-panel">
+      {mode === "search" ? <section className="section-panel kb-search-panel">
         <div className="section-heading">
           <div>
             <h2>全文检索</h2>
@@ -324,6 +380,7 @@ export function NotesPage() {
                     </span>
                   </header>
                   <p className="kb-snippet"><HighlightedSnippet text={hit.snippet} /></p>
+                  <button className="ghost-button kb-hit-open" type="button" onClick={() => openDocument(hit.documentId,hit.chunkId)}>打开对应原文</button>
                   {hit.relatedPoint ? (
                     <small className="kb-hit-point">关联要点：{hit.relatedPoint}</small>
                   ) : null}
@@ -332,26 +389,28 @@ export function NotesPage() {
             </div>
           )
         ) : null}
-      </section>
+      </section> : null}
 
-      <section className="section-panel kb-documents-panel">
+      {mode === "files" ? <section className="section-panel kb-documents-panel">
         <div className="section-heading">
           <div>
-            <h2>我的文档</h2>
-            <small>{documents.length} 篇</small>
+            <span className="kb-breadcrumb">我的知识库 / {activeDocument ? `${FILE_TYPE_LABELS[activeDocument.fileType]} 文档` : "开始阅读"}</span>
+            <h1>{activeDocument?.title ?? "让知识，有自己的位置。"}</h1>
           </div>
+          {activeDocument ? <div className="kb-reading-tabs" role="tablist" aria-label="文档视图"><button type="button" role="tab" aria-selected={contentMode === "analysis"} onClick={() => setContentMode("analysis")}>摘要与要点</button><button type="button" role="tab" aria-selected={contentMode === "body"} onClick={() => { setContentMode("body"); setFocusedChunk(null); }}>文档正文</button></div> : null}
         </div>
-        {loadError ? <p className="kb-error" role="alert">{loadError}</p> : null}
+        {loadError ? <div className="kb-error" role="alert"><p>{loadError}</p><button type="button" className="ghost-button" onClick={()=>setListVersion(v=>v+1)}>重试加载文档</button></div> : null}
         {loading ? (
           <div className="empty-state"><p>正在加载知识库…</p></div>
         ) : documents.length === 0 ? (
           <div className="empty-state">
             <strong>知识库还是空的</strong>
             <p>上传第一份课程资料（讲义、复习提纲、实验报告都可以），系统会自动生成摘要与关键词。</p>
+            <button type="button" className="primary-button" onClick={() => setMode("upload")}>导入第一份资料</button>
           </div>
         ) : (
           <div className="kb-doc-list">
-            {documents.map((document) => {
+            {documents.filter(document => document.id === selectedId).map((document) => {
               const expanded = expandedIds.has(document.id);
               const keyPoints = document.analysis?.keyPoints ?? [];
               return (
@@ -369,17 +428,17 @@ export function NotesPage() {
                     <span>{formatFileSize(document.fileSize)}</span>
                     <span>{formatKbDate(document.createdAt)}</span>
                   </div>
-                  {document.analysis?.summary ? (
+                  {contentMode === "analysis" && document.analysis?.summary ? (
                     <p className="kb-doc-summary">{document.analysis.summary}</p>
                   ) : null}
-                  {document.analysis?.keywords?.length ? (
+                  {contentMode === "analysis" && document.analysis?.keywords?.length ? (
                     <div className="kb-keyword-row">
                       {document.analysis.keywords.map((keyword) => (
                         <span className="kb-keyword-chip" key={keyword}>{keyword}</span>
                       ))}
                     </div>
                   ) : null}
-                  {keyPoints.length ? (
+                  {contentMode === "analysis" && keyPoints.length ? (
                     <div className="kb-points">
                       <button
                         className="ghost-button kb-points-toggle"
@@ -398,6 +457,12 @@ export function NotesPage() {
                       ) : null}
                     </div>
                   ) : null}
+                  {contentMode === "body" ? <div className="kb-reading-body">
+                    {detailLoading ? <p role="status">正在加载文档正文…</p> : null}
+                    {detailError ? <div className="kb-error" role="alert">{detailError}<button type="button" className="ghost-button" onClick={() => setDetailVersion(value => value+1)}>重新加载正文</button></div> : null}
+                    {focusedChunk ? <div className="kb-focused-chunk"><span>正在查看检索命中的原文</span><button type="button" className="ghost-button" onClick={() => setFocusedChunk(null)}>查看全部正文</button></div> : null}
+                    {detail?.chunks?.filter(chunk => !focusedChunk || chunk.id === focusedChunk).map(chunk => <section className="kb-reading-chunk" key={chunk.id} data-chunk-id={chunk.id}><small>{chunk.pageNo != null ? `第 ${chunk.pageNo} 页 · ` : ""}片段 {chunk.chunkIndex+1}</small><p>{chunk.content}</p></section>)}
+                  </div> : null}
                   <div className="kb-doc-actions">
                     {confirmingDeleteId === document.id ? (
                       <>
@@ -426,7 +491,10 @@ export function NotesPage() {
             })}
           </div>
         )}
-      </section>
+      </section> : null}
+      </div>
+      <footer className="kb-reading-status"><span>{mode === "files" && activeDocument ? `${activeDocument.originalName} · ${activeDocument.charCount} 字` : "TXT · MD · DOCX · PDF · PPTX"}</span><span>{mode === "files" && activeDocument ? `${activeDocument.chunkCount} 个知识块` : "支持全文检索"}</span></footer>
+      </div>
     </div>
   );
 }

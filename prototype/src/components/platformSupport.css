@@ -1,0 +1,19 @@
+.platform-support-shade { position:fixed; inset:0; z-index:1500; display:flex; justify-content:flex-end; background:#142d3359; padding:16px; }
+.platform-support { width:min(520px,100%); max-height:100%; overflow:auto; background:#fafcfb; border:1px solid #d3e2da; border-radius:18px; padding:26px; box-shadow:0 20px 60px #18363a30; color:#203a36; }
+.platform-support>header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding-bottom:20px; border-bottom:1px solid #dce6df; }
+.support-kicker,.support-task-label { font-size:12px; color:#376b61; font-weight:600; }
+.platform-support h1 { display:flex; align-items:center; gap:8px; font-size:25px; margin:8px 0 0; }
+.platform-support h2 { font-size:18px; margin:8px 0 12px; }
+.support-intro,.support-task p,.support-guide p,.support-empty p { color:#526a62; font-size:14px; line-height:1.85; overflow-wrap:anywhere; }
+.support-task { margin:16px 0; padding:20px; border:1px solid #d9e5dc; border-radius:12px; background:white; }
+.support-task.current { background:#edf7f1; border-left:3px solid #177d73; }
+.support-task button { margin-top:6px; }
+.support-empty { padding:30px 14px; text-align:center; }
+.support-empty>svg { color:#177d73; }
+.support-guide { border-bottom:1px solid #dce6df; padding:17px 2px; }
+.support-guide summary { font-size:15px; font-weight:650; cursor:pointer; }
+.support-guide p { margin:12px 0 0; }
+.support-links { display:flex; flex-wrap:wrap; gap:10px; padding-top:22px; }
+.support-error { color:#9b402b; padding:12px 0; }
+.platform-support button:focus-visible,.platform-support summary:focus-visible { outline:3px solid #177d73; outline-offset:4px; }
+@media(max-width:600px) { .platform-support-shade { padding:8px; } .platform-support { padding:20px; border-radius:12px; } }

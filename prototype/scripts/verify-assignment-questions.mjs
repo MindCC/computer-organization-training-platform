@@ -3,7 +3,7 @@
  * 1. 演示学生登录 → 课后作业 → 模式切换「按章练习 / 教师作业」都在；
  * 2. 按章练习：章节 Tab（8 章）→ 第三章有 10 题，每题带知识点 chip；
  * 3. 答一道单选题（与门 A=1,B=0 → 0）→ 提交判分 → 该题判对、显示解析与得分/掌握度；
- * 4. 判分结果写入 localStorage（前端本地持久化）；
+ * 4. 判分结果同步账户并缓存到按用户隔离的存储；
  * 5. 打开知识星图 → 渲染 18 颗星 + 23 条依赖连线，状态着色类名存在；
  * 6. 点题目上的知识点 chip → 星图自动展开并高亮定位该知识点（前置/后续 chip 出现）；
  * 7. 教师作业板块原功能仍在（作业卡列表或空状态正常渲染）；
@@ -71,9 +71,11 @@ try {
   const summaryText = await page.locator(".practice-summary").innerText();
   check("显示得分与掌握度", /得分\s*\d+\s*\/\s*\d+/.test(summaryText) && /掌握度/.test(summaryText), summaryText.replace(/\s+/g, " ").slice(0, 60));
 
-  // 4. 本地持久化
-  const stored = await page.evaluate(() => localStorage.getItem("zcyl:chapter-practice-v1"));
-  check("判分结果写入 localStorage", Boolean(stored && stored.includes("ch3-q01")));
+  // 4. 账户同步与按用户隔离的缓存
+  const state = await page.evaluate(async () => (await fetch("/api/student/chapter-practice")).json());
+  check("判分结果同步到账户", Boolean(state.graded?.["ch3-q01"]));
+  const stored = await page.evaluate(async () => { const {user} = await (await fetch("/api/auth/me")).json(); return localStorage.getItem(`zcyl:chapter-practice-v2:${user.id}`); });
+  check("练习缓存按账号隔离", Boolean(stored && stored.includes("ch3-q01")));
 
   // 5. 打开知识星图
   await page.locator(".summary-actions .ghost-button", { hasText: "知识星图" }).click();

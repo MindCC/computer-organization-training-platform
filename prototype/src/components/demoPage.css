@@ -1,0 +1,12 @@
+.demo-mode-shell .workspace { padding:0; }
+.demo-mode-shell .dashboard { padding:0; gap:0; max-width:none; }
+.hosted-demo { width:100%; min-width:0; background:#f6f8f5; }
+.hosted-demo-context { display:flex; gap:18px; align-items:center; padding:14px 24px; background:#fff; border-bottom:1px solid #dbe5e0; }
+.hosted-demo-title { flex:1; min-width:0; }
+.hosted-demo-title span { font-size:12px; color:#5c7970; }
+.hosted-demo-title h1 { margin:4px 0 0; font-size:19px; color:#183a32; line-height:1.4; }
+.hosted-demo-actions { display:flex; gap:10px; flex-wrap:wrap; }
+.hosted-demo-frame { display:block; width:100%; height:calc(100dvh - var(--platform-nav-height,90px) - 105px); min-height:620px; border:0; background:#f5f7fa; }
+.hosted-demo-loading { margin:0; padding:8px 24px; color:#527369; font-size:13px; }
+@media(max-width:900px) { .hosted-demo-context { flex-wrap:wrap; gap:12px; padding:12px 16px; } .hosted-demo-title { flex:1 1 55%; } .hosted-demo-actions { width:100%; } .hosted-demo-frame { min-height:680px; } }
+@media(max-width:480px) { .hosted-demo-title { flex-basis:100%; order:-1; } .hosted-demo-actions { width:auto; } .hosted-demo-context button { padding:9px 12px; font-size:13px; } }

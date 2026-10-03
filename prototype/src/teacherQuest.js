@@ -4,7 +4,7 @@ export function buildTeacherQuestModel(routeGroups = [], students = []) {
   const stages = routeGroups.flatMap((group) =>
     group.items.map((item) => {
       const reached = students.filter(
-        (s) => s.progress?.[item.id]?.status && s.progress[item.id].status !== "not-started",
+        (s) => ['in-progress','completed'].includes(s.progress?.[item.id]?.status) || (s.progress?.[item.id]?.attempts??0)>0,
       ).length;
 
       const completed = students.filter(
@@ -44,9 +44,9 @@ function determineBlocker(challengeId, students) {
   const errors = {};
   for (const s of students) {
     const p = s.progress?.[challengeId];
-    if (!p || p.status === "completed" || p.status === "not-started") continue;
-    for (const err of p.errors ?? []) {
-      errors[err] = (errors[err] ?? 0) + 1;
+    if (!p || p.status === "completed" || (p.attempts??0)===0) continue;
+    for (const label of new Set((p.errors??[]).map(err=>typeof err==='string'?err:err?.type??err?.message??'待检查'))) {
+      errors[label] = (errors[label] ?? 0) + 1;
     }
   }
 
@@ -54,7 +54,7 @@ function determineBlocker(challengeId, students) {
   if (top) return `高频错误：「${top[0]}」（${top[1]} 人）`;
 
   const notEntered = students.filter(
-    (s) => !s.progress?.[challengeId] || s.progress[challengeId].status === "not-started",
+    (s) => !s.progress?.[challengeId] || ((s.progress[challengeId].attempts??0)===0&&!['in-progress','completed'].includes(s.progress[challengeId].status)),
   ).length;
 
   if (notEntered > 0 && notEntered === students.length) return "无人进入本关";

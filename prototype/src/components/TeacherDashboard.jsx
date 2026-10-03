@@ -110,7 +110,7 @@ export function TeacherStudioDashboard({
           {workspace === 'statistics' && <header className="statistics-heading"><span className="eyebrow">学情统计</span><h2>{({ overview: '章节完成度与班级概览', monitor: '课堂完成度与报告', assistant: 'AI 学情分析', students: '学生学习明细', practice: '装机练习与操作复盘' })[statistic]}</h2><p>基于当前班级的真实学习记录，查看完成情况与教学反馈。</p></header>}
 
           {(workspace === 'teaching' || statistic === 'monitor') && (
-            <ClassroomCommandCenter teacherSession={teacherSession} statistics={workspace === 'statistics' && statistic === 'monitor'} showSetup={workspace === 'teaching'} />
+            <ClassroomCommandCenter key={selectedTeacherClassId} teacherSession={teacherSession} statistics={workspace === 'statistics' && statistic === 'monitor'} showSetup={workspace === 'teaching'} />
           )}
           {workspace==='statistics'&&statistic==='practice'&&(selectedTeacherClassId?<TeacherAssemblyPractice key={selectedTeacherClassId} classId={selectedTeacherClassId}/>:<p>请先选择班级以查看装机练习。</p>)}
 
@@ -123,6 +123,7 @@ export function TeacherStudioDashboard({
               classSummary={classOverview?.summary}
               teacherSession={teacherSession}
               sections={["coverage"]}
+              key={`coverage:${selectedTeacherClassId}`} onOpenStudent={openTeacherStudentDetail}
             />
           ) : null}
           <TeacherClassSummary classOverview={classOverview} students={students} hardwareSummary={hardwareSummary} />
@@ -136,18 +137,19 @@ export function TeacherStudioDashboard({
               classSummary={classOverview?.summary}
               teacherSession={teacherSession}
               sections={["checklist"]}
+              key={`checklist:${selectedTeacherClassId}`}
             />
           ) : null}
           {selectedTeacherClassId ? (
             <details className="teacher-section-disclosure">
               <summary><span><ClipboardText size={18} />课后作业管理</span><small>布置、批改与查看完成情况</small></summary>
-              <div className="teacher-section-disclosure-body"><TeacherAssignments classId={selectedTeacherClassId} /></div>
+              <div className="teacher-section-disclosure-body"><TeacherAssignments key={selectedTeacherClassId} classId={selectedTeacherClassId} /></div>
             </details>
           ) : null}
           {selectedTeacherClassId ? (
             <details className="teacher-section-disclosure">
               <summary><span><ChalkboardTeacher size={18} />课程建设与项目评价</span><small>课程草稿、小组项目与成果评价</small></summary>
-              <div className="teacher-section-disclosure-body"><TeacherCourseWorkbench classId={selectedTeacherClassId} students={students} /></div>
+              <div className="teacher-section-disclosure-body"><TeacherCourseWorkbench key={selectedTeacherClassId} classId={selectedTeacherClassId} students={students} /></div>
             </details>
           ) : null}
           </div>
@@ -170,6 +172,7 @@ export function TeacherStudioDashboard({
               classSummary={classOverview?.summary}
               teacherSession={teacherSession}
               sections={["groups"]}
+              key={`groups:${selectedTeacherClassId}`} onOpenStudent={openTeacherStudentDetail}
             />
           ) : null}
           </div>

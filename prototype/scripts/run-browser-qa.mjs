@@ -7,11 +7,15 @@ import { fileURLToPath } from "node:url";
 
 const allowedVerifiers = new Set([
   "scripts/verify-ui.mjs",
+  "scripts/verify-platform-audit.mjs",
   "scripts/verify-lab-workbench.mjs",
   "scripts/verify-workbench-curriculum.mjs",
   "scripts/verify-login-design.mjs",
   "scripts/verify-home-design.mjs",
   "scripts/verify-learning-tree.mjs",
+  "scripts/verify-learning-integration.mjs",
+  "scripts/verify-knowledge-base.mjs",
+  "scripts/verify-demo-linkage.mjs",
   "scripts/verify-records-screen.mjs",
   "scripts/verify-3d.mjs",
   "scripts/verify-hardware-story.mjs",

@@ -7,14 +7,15 @@
  * 前置：API(8787) 与 Vite(5173) 已启动，演示班级已 seed。
  */
 import { createRequire } from "node:module";
+import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const require = createRequire(new URL("../package.json", import.meta.url));
 const { chromium } = require("playwright");
 
-const BASE_URL = process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
-const API_URL = process.env.QA_API_URL ?? "http://127.0.0.1:8787";
+const BASE_URL = process.env.PROTOTYPE_APP_URL ?? process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
+const API_URL = process.env.PROTOTYPE_API_URL ?? process.env.QA_API_URL ?? "http://127.0.0.1:8787";
 const ARTIFACT_DIR = fileURLToPath(new URL("../qa-artifacts/", import.meta.url));
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 
@@ -44,10 +45,12 @@ function check(name, condition, detail = "") {
   console.log(`${condition ? "✔" : "✖"} ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
-const browser = await chromium.launch({ headless: true });
+let browser;
+try { browser = await chromium.launch({channel:"msedge",headless:true}); } catch { browser = await chromium.launch({headless:true}); }
 try {
   const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
   const page = await context.newPage();
+  const pageErrors = []; page.on("pageerror",error => pageErrors.push(error.message));
 
   // 0. 登录演示学生
   await page.goto(`${BASE_URL}/`, { waitUntil: "domcontentloaded" });
@@ -67,12 +70,13 @@ try {
   // 1. 进入知识库页（路由 id 仍为 notes，nav 文案为「知识库」）
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "知识库" }).click();
   await page.waitForSelector(".kb-layout", { timeout: 15000 });
-  check("知识库页渲染（上传区/检索区/文档列表）",
-    await page.locator(".kb-upload-panel").count() === 1
-    && await page.locator(".kb-search-panel").count() === 1
+  check("知识库显示左侧工具栏、文件侧栏与主阅读区",
+    await page.locator(".kb-ribbon").count() === 1
+    && await page.locator(".kb-vault-sidebar").count() === 1
     && await page.locator(".kb-documents-panel").count() === 1);
 
   // 2. 上传 .md 测试文件 → 等待分析结果卡
+  await page.locator(".kb-ribbon").getByRole("button",{name:"上传文档",exact:true}).click();
   await page.setInputFiles(".kb-file-input", FIXTURE_PATH);
   await page.locator(".kb-upload-submit").click();
   await page.waitForSelector(".kb-upload-result", { timeout: 60000 });
@@ -83,10 +87,11 @@ try {
   check("结果卡显示知识块数（≥2 块）", /[2-9]\d* 个知识块/.test(resultText), resultText.match(/\d+ 个知识块/)?.[0] ?? "无");
 
   // 3. 文档列表：标题、块数、摘要、关键词、要点、删除按钮
+  await page.getByRole("button",{name:"阅读这份文档",exact:true}).click();
   const docCard = page.locator(".kb-doc-card", { hasText: DOC_TITLE }).first();
   await docCard.waitFor({ state: "visible", timeout: 10000 });
   const cardText = await docCard.innerText();
-  check("文档列表出现新文档（含标题与摘要）", cardText.includes(DOC_TITLE) && cardText.length > 60);
+  check("主阅读区显示文档标题与摘要，侧栏选中对应文件", (await page.locator(".kb-documents-panel h1").innerText()) === DOC_TITLE && cardText.length > 60 && (await page.locator('.kb-file-entry[aria-current="page"]').innerText()).includes(DOC_TITLE));
   check("文档卡显示块数与 MD 类型徽标", /块/.test(cardText) && (await docCard.locator(".kb-badge.type").innerText()) === "MD");
   check("文档卡含关键词 chips", await docCard.locator(".kb-keyword-chip").count() >= 3);
 
@@ -96,6 +101,7 @@ try {
   check("要点可展开且 ≥3 条", pointCount >= 3, `${pointCount} 条`);
 
   // 5. UI 检索：命中块 + 高亮 + 关联要点
+  await page.locator(".kb-ribbon").getByRole("button",{name:"全文检索",exact:true}).click();
   await page.locator(".kb-search-input").fill("紫晶缓存");
   await page.locator(".kb-search-submit").click();
   await page.waitForSelector(".kb-hit-card", { timeout: 10000 });
@@ -126,18 +132,62 @@ try {
     && apiDetail.chunks.length === apiDetail.chunkCount);
 
   // 7. 删除：UI 两步确认 → 卡片消失；API 文档与索引同步消失
+  await firstHit.getByRole("button",{name:"打开对应原文",exact:true}).click();
+  await page.waitForSelector(".kb-reading-chunk",{timeout:10000});
+  check("搜索结果定位到实际原文片段", await page.locator(".kb-reading-chunk").count() === 1 && (await page.locator(".kb-reading-chunk").innerText()).includes("紫晶缓存"));
+  await page.getByRole("button",{name:"查看全部正文",exact:true}).click();
+  check("正文视图显示真实完整分块", await page.locator(".kb-reading-chunk").count() === apiDetail.chunkCount);
+  await page.getByRole("tab",{name:"摘要与要点",exact:true}).click();
+
+  // Actual second upload makes file switching and grouping observable.
+  await page.locator(".kb-ribbon").getByRole("button",{name:"上传文档",exact:true}).click();
+  await page.setInputFiles(".kb-file-input",{name:"指令流水线-验收.txt",mimeType:"text/plain",buffer:Buffer.from("流水线将指令划分为取指、译码、执行、访存和写回。数据冒险可以通过旁路和停顿解决。控制冒险可以通过分支预测降低影响。", "utf8")});
+  await page.locator(".kb-upload-submit").click();
+  await page.waitForSelector(".kb-upload-result",{timeout:60000});
+  await page.getByRole("button",{name:"阅读这份文档",exact:true}).click();
+  check("侧栏按真实文件类型分组", await page.locator(".kb-file-folder").count() === 2 && await page.locator(".kb-file-entry").count() === 2);
+  await page.getByRole("textbox",{name:"筛选文档名称"}).fill("流水线");
+  check("侧栏文件名称筛选可用", await page.locator(".kb-file-entry").count() === 1 && (await page.locator(".kb-file-entry").innerText()).includes("流水线"));
+  await page.getByRole("textbox",{name:"筛选文档名称"}).fill("");
+  await page.locator(".kb-file-entry").filter({hasText:DOC_TITLE}).focus();
+  await page.keyboard.press("Enter");
+  check("侧栏键盘切换文件会更新主阅读区", (await page.locator(".kb-documents-panel h1").innerText()) === DOC_TITLE);
+  await page.getByRole("button",{name:"收起文件侧栏",exact:true}).click();
+  check("左侧文件导航可以收起", await page.locator(".kb-vault-sidebar").count() === 0);
+  await page.getByRole("button",{name:"展开文件侧栏",exact:true}).click();
+  check("侧栏可以重新展开且选中文件保留", await page.locator('.kb-file-entry[aria-current="page"]').count() === 1);
+  const folder = page.locator(".kb-folder-toggle").filter({hasText:"TXT 文档"});
+  await folder.click(); check("文件分组支持折叠", await folder.getAttribute("aria-expanded") === "false"); await folder.click();
+  const pointToggle = docCard.locator(".kb-points-toggle");
+  if (await pointToggle.getAttribute("aria-expanded") === "true") await pointToggle.click();
+  for (const width of [1366,1093,768,390,320]) {
+    await page.setViewportSize({width,height:width<500?844:768});
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${width} px 不应出现页面横向溢出`);
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:`${ARTIFACT_DIR}/knowledge-obsidian-${width}.png`,fullPage:true});
+  }
+  check("五种窗口宽度无页面横向溢出",true);
+  await page.reload();await page.waitForSelector(".kb-vault",{timeout:15000});
+  if (await page.locator(".kb-vault-sidebar").count() === 0) await page.getByRole("button",{name:"展开文件侧栏",exact:true}).click();
+  await page.locator(".kb-file-entry").filter({hasText:DOC_TITLE}).click();
+  await page.locator(".kb-ribbon").getByRole("button",{name:"全文检索",exact:true}).click();
+  await page.locator(".kb-search-input").fill("紫晶缓存"); await page.locator(".kb-search-submit").click();
+  await page.locator(".kb-hit-open").first().click(); await page.waitForSelector(".kb-reading-chunk");
   await docCard.locator(".kb-delete-button").click();
   await docCard.locator(".kb-confirm-delete").click();
   await page.waitForFunction(
-    (title) => ![...document.querySelectorAll(".kb-doc-card")].some((card) => card.innerText.includes(title)),
+    (title) => document.querySelector(".kb-documents-panel h1")?.textContent !== title
+      && ![...document.querySelectorAll(".kb-doc-card")].some((card) => card.textContent.includes(title)),
     DOC_TITLE,
     { timeout: 10000 },
   );
   check("删除后文档卡从列表消失", true);
+  check("删除正在阅读的检索文档后切回有效资料", (await page.locator(".kb-documents-panel h1").innerText()) === "指令流水线-验收" && (await page.locator(".kb-doc-summary").innerText()).includes("流水线"));
   const afterDocs = (await (await page.request.get(`${API_URL}/api/student/knowledge/documents`)).json()).documents ?? [];
   const afterSearch = (await (await page.request.get(`${API_URL}/api/student/knowledge/search?q=${encodeURIComponent("紫晶缓存")}`)).json()).hits ?? [];
   check("API 文档列表已不含该文档", !afterDocs.some((item) => item.title === DOC_TITLE));
   check("删除后全文索引同步清除（search 0 命中）", afterSearch.length === 0, `${afterSearch.length} hits`);
+  check("上述知识库交互无运行错误",pageErrors.length===0,pageErrors.join(" | "));
 
   await context.close();
 } finally {

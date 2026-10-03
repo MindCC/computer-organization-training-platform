@@ -92,3 +92,12 @@ test("teacher quest handles empty students", () => {
   assert.equal(model.stages[0].reached, 0);
   assert.equal(model.stages[0].blocker, "暂无集中卡点");
 });
+
+test('unlocked and locked zero-attempt records are not counted as students entering an experiment',()=>{
+  const model=buildTeacherQuestModel(routes,[{progress:{'and-gate':{status:'unlocked',attempts:0}}},{progress:{'and-gate':{status:'locked',attempts:0}}}]);
+  assert.equal(model.stages[0].reached,0);assert.equal(model.stages[0].blocker,'无人进入本关');
+});
+test('blocker evidence accepts structured errors and counts each affected student once',()=>{
+  const model=buildTeacherQuestModel(routes,[{progress:{'and-gate':{status:'in-progress',attempts:2,errors:[{type:'接线缺失'},{type:'接线缺失'}]}}}]);
+  assert.equal(model.stages[0].blocker,'高频错误：「接线缺失」（1 人）');
+});

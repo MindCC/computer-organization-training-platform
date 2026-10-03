@@ -34,7 +34,7 @@ function NextStepCard({ challenge, progress, onEnter }) {
   );
 }
 
-export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, classroomViewModel, onClassroomEnter, projects = [], onOpenProjects, userId = "anonymous" }) {
+export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, navigateToChallenge, summary, notes, onOpenKnowledge, classroomViewModel, onClassroomEnter, projects = [], onOpenProjects, userId = "anonymous" }) {
   const questModel = buildStudentQuestModel(routeGroups, nextRecommendedChallenge, progress);
   const firstUseSteps = buildFirstUseSteps(progress);
   const homeEmptyState = buildStudentHomeEmptyState(summary, routeGroups);
@@ -257,7 +257,7 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
           </div>
 
           <div className="route-map-sidebar-card">
-            <strong>最近笔记</strong>
+            <strong>最近资料</strong>
             {notes.length > 0 ? (
               <div className="route-map-note-list">
                 {notes.slice(0, 2).map((note) => (
@@ -268,8 +268,9 @@ export function StudentHome({ progress, routeGroups, nextRecommendedChallenge, n
                 ))}
               </div>
             ) : (
-              <p className="empty-state">暂无笔记</p>
+              <p className="empty-state">导入课程资料后，可以在知识库阅读和检索。</p>
             )}
+            <button type="button" className="ghost-button" onClick={onOpenKnowledge}>打开知识库</button>
           </div>
         </aside>
       </div>

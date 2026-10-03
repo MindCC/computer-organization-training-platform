@@ -19,14 +19,14 @@ export class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return this.props.fallback || (
-        <div style={{ padding: "2rem", textAlign: "center" }}>
-          <h2>页面出错了</h2>
-          <p>{this.state.error?.message || "未知错误"}</p>
+        <section className="section-panel feature-error" role="alert">
+          <h2>这个页面暂时无法打开</h2>
+          <p>请刷新后重试。服务器中已保存的记录不会被删除。</p>
           <button onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
-            style={{ marginTop: "1rem", padding: "0.5rem 1.5rem", borderRadius: "8px", border: "none", cursor: "pointer" }}>
+            type="button" className="primary-button">
             刷新页面
           </button>
-        </div>
+        </section>
       );
     }
     return this.props.children;

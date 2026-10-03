@@ -76,7 +76,8 @@ import { createKnowledgeRouter } from "./knowledgeRoutes.js";
 import { createCustomCustomerRouter } from './customCustomerRoutes.js';
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
-import { buildMistakeBook } from "../src/mistakeBook.js";
+import { buildUnifiedMistakeBook, createLearningPracticeRouter } from "./learningPractice.js";
+import { hostedDemoMiddleware } from "../src/shared/demoNavigation.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_NAME = "zcyl_session";
@@ -170,6 +171,7 @@ export function createApp(options = {}) {
   // Feature routers must run after global logging and CSRF middleware.
   app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole }));
   app.use("/api", createAssignmentRouter({ service: assignmentService, requireRole }));
+  app.use("/api", createLearningPracticeRouter({ db, requireRole }));
   app.use("/api", createCourseWorkbenchRouter({ service: courseWorkbenchService, requireRole, audit }));
   app.use("/api", createLabRunRouter({ service: labRunService, requireRole, audit }));
   app.use("/api", createCpuPracticeRouter({ service: cpuPracticeService, requireRole, audit }));
@@ -629,27 +631,7 @@ export function createApp(options = {}) {
   });
 
   app.get("/api/student/mistakes", requireRole("student"), (req, res) => {
-    const rows = db.prepare(`
-      SELECT challenge_id AS challengeId, score, passed, errors_json AS errorsJson, created_at AS createdAt
-      FROM challenge_attempts
-      WHERE student_id = ?
-      ORDER BY created_at ASC
-    `).all(req.user.id);
-    const titleMap = {};
-    for (const item of LEARNING_ITEMS) titleMap[item.id] = item.title;
-    const attempts = rows.map((row) => {
-      let errors = [];
-      try { errors = row.errorsJson ? JSON.parse(row.errorsJson) : []; } catch { errors = []; }
-      return {
-        challengeId: row.challengeId,
-        score: row.score,
-        passed: Boolean(row.passed),
-        errors: Array.isArray(errors) ? errors : [],
-        createdAt: row.createdAt,
-      };
-    });
-    const book = buildMistakeBook(attempts, titleMap);
-    res.json(book);
+    res.json(buildUnifiedMistakeBook(db, req.user.id));
   });
 
   // 课堂演示页练习成绩（独立静态页，成绩独立存储，不与关卡提交互冒充）
@@ -800,6 +782,7 @@ export function createApp(options = {}) {
 
   if (options.serveStatic !== false) {
     const distDir = options.distDir ?? path.resolve(__dirname, "../dist");
+    app.use(hostedDemoMiddleware);
     app.use(express.static(distDir));
     app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(distDir, "index.html")));
   }

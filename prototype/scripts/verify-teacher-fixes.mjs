@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import { selectTeacherClass } from "./helpers/select-teacher-class.mjs";
 
 /**
@@ -150,6 +150,19 @@ try {
   }, { timeout: 20_000 });
   const slideText = await page.locator(".pptx-render-host").innerText();
   assert.ok(slideText.includes("前端渲染验证"), "pptx renders text content in the browser");
+  const noteInput=page.getByRole('textbox',{name:'本页笔记内容',exact:true});
+  await noteInput.fill('笔记失败后保留，成功后同步。');
+  await page.route('**/api/courseware/uploads/*/notes',async route=>{if(route.request().method()==='POST')await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'笔记保存故障注入'})});else await route.continue();});
+  await page.getByRole('button',{name:'保存笔记',exact:true}).click();await expect(page.locator('.page-notes')).toContainText('保存失败');await expect(noteInput).toHaveValue('笔记失败后保留，成功后同步。');
+  await page.unroute('**/api/courseware/uploads/*/notes');await page.getByRole('button',{name:'保存笔记',exact:true}).click();await expect(page.locator('.page-note-list')).toContainText('笔记失败后保留，成功后同步。');await expect(noteInput).toHaveValue('');
+  // A second upload verifies drafts stay with their file, rather than moving with the reader.
+  await noteInput.fill('第一份课件的未保存草稿');
+  await page.locator('.upload-label input[type=file]').setInputFiles(samplePptx);
+  await expect(page.locator('.uploaded-courseware')).toHaveCount(2);
+  await page.locator('.uploaded-courseware').first().click();await expect(noteInput).toHaveValue('');await noteInput.fill('第二份课件的未保存草稿');
+  await page.locator('.uploaded-courseware').last().click();await expect(noteInput).toHaveValue('第一份课件的未保存草稿');
+  await expect(page.locator('.page-note-list')).toContainText('笔记失败后保留，成功后同步。');
+  console.log('PASS courseware note failure/retry and per-file draft isolation');
   await page.screenshot({ path: path.join(artifactDir, "fix-pptx-render.png"), fullPage: true });
 
   assert.deepEqual(pageErrors, [], "no uncaught page errors");

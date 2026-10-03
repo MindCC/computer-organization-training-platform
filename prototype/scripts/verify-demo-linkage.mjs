@@ -6,11 +6,11 @@
  * 前置：API(8787) 与 Vite(5173) 已启动，演示班级已 seed。
  */
 import { chromium } from "playwright";
-import { mkdirSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { mkdirSync, existsSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const BASE_URL = process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
-const API_URL = process.env.QA_API_URL ?? "http://127.0.0.1:8787";
+const BASE_URL = process.env.PROTOTYPE_APP_URL ?? process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
+const API_URL = process.env.PROTOTYPE_API_URL ?? process.env.QA_API_URL ?? "http://127.0.0.1:8787";
 const ARTIFACT_DIR = fileURLToPath(new URL("../qa-artifacts/", import.meta.url));
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 
@@ -20,7 +20,8 @@ function check(name, condition, detail = "") {
   console.log(`${condition ? "✔" : "✖"} ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
-const browser = await chromium.launch({ headless: true });
+let browser;
+try { browser = await chromium.launch({channel:"msedge",headless:true}); } catch { browser = await chromium.launch({headless:true}); }
 try {
   const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
   const page = await context.newPage();
@@ -43,22 +44,25 @@ try {
     demoLink.click(),
   ]);
   await demoPage.waitForLoadState("domcontentloaded");
-  await demoPage.waitForSelector("#platform-link-badge", { timeout: 15000 });
-  const badge = await demoPage.locator("#platform-link-badge").innerText();
+  await demoPage.waitForSelector(".hosted-demo-frame", { timeout: 15000 });
+  const demoFrame = await (await demoPage.locator(".hosted-demo-frame").elementHandle()).contentFrame();
+  await demoFrame.waitForSelector("#platform-link-badge", { timeout: 15000 });
+  const badge = await demoFrame.locator("#platform-link-badge").innerText();
   check("演示页徽标显示已连接学情", badge.includes("已连接学情"), badge);
 
   // 3. 答 5 题（强制题型 + 全部答对）→ 成批提交
-  await demoPage.evaluate(() => { window.__forceQuizType = "eacalc"; });
-  await demoPage.locator('[data-mode="quiz"]').click();
+  await demoFrame.evaluate(() => { window.__forceQuizType = "eacalc"; });
+  await demoFrame.locator('[data-mode="quiz"]').click();
   for (let i = 0; i < 5; i++) {
-    const answer = await demoPage.evaluate(() => window.__quizState.current.answer);
-    await demoPage.locator(`.quiz-choice[data-idx="${answer}"]`).click();
-    await demoPage.locator("#quizSubmit").click();
+    const answer = await demoFrame.evaluate(() => window.__quizState.current.answer);
+    await demoFrame.locator(`.quiz-choice[data-idx="${answer}"]`).click();
+    await demoFrame.locator("#quizSubmit").click();
     await demoPage.waitForTimeout(150);
     await demoPage.keyboard.press("Enter"); // 下一题
     await demoPage.waitForTimeout(150);
   }
-  const badgeAfter = await demoPage.locator("#platform-link-badge").innerText();
+  await demoFrame.waitForFunction(() => document.querySelector("#platform-link-badge")?.textContent.includes("已存 1 批"));
+  const badgeAfter = await demoFrame.locator("#platform-link-badge").innerText();
   check("徽标显示已存批次", badgeAfter.includes("已存 1 批"), badgeAfter);
 
   // 4. demo-attempts 汇总入账（走 API 直连校验）
@@ -70,18 +74,21 @@ try {
   // 4b. 第三章运算器演示页同样联动（章节新增演示页须通过服务端白名单）
   const aluPage = await context.newPage();
   await aluPage.goto(`${BASE_URL}/demos/alu.html`, { waitUntil: "domcontentloaded" });
-  await aluPage.waitForSelector("#platform-link-badge", { timeout: 15000 });
-  check("运算器演示页徽标已连接学情", (await aluPage.locator("#platform-link-badge").innerText()).includes("已连接学情"));
-  await aluPage.evaluate(() => { window.__forceQuizType = "concept"; });
-  await aluPage.locator('[data-mode="quiz"]').click();
+  await aluPage.waitForSelector(".hosted-demo-frame", { timeout: 15000 });
+  const aluFrame = await (await aluPage.locator(".hosted-demo-frame").elementHandle()).contentFrame();
+  await aluFrame.waitForSelector("#platform-link-badge", { timeout: 15000 });
+  check("运算器演示页徽标已连接学情", (await aluFrame.locator("#platform-link-badge").innerText()).includes("已连接学情"));
+  await aluFrame.evaluate(() => { window.__forceQuizType = "concept"; });
+  await aluFrame.locator('[data-mode="quiz"]').click();
   for (let i = 0; i < 5; i++) {
-    const answer = await aluPage.evaluate(() => window.__quizState.current.answer);
-    await aluPage.locator(`.quiz-choice[data-idx="${answer}"]`).click();
-    await aluPage.locator("#quizSubmit").click();
+    const answer = await aluFrame.evaluate(() => window.__quizState.current.answer);
+    await aluFrame.locator(`.quiz-choice[data-idx="${answer}"]`).click();
+    await aluFrame.locator("#quizSubmit").click();
     await aluPage.waitForTimeout(150);
     await aluPage.keyboard.press("Enter");
     await aluPage.waitForTimeout(150);
   }
+  await aluFrame.waitForFunction(() => document.querySelector("#platform-link-badge")?.textContent.includes("已存 1 批"));
   const aluApi = await (await page.request.get(`${API_URL}/api/student/demo-attempts`)).json();
   const alu = (aluApi.demos ?? []).find((d) => d.demoId === "alu");
   check("运算器练习成绩入账 demo-attempts", Boolean(alu) && alu.batches >= 1 && alu.totalCorrect >= 5, JSON.stringify(alu ?? null));
@@ -104,7 +111,10 @@ try {
   const standalone = await context.newPage();
   const errors = [];
   standalone.on("pageerror", (err) => errors.push(String(err)));
-  await standalone.goto("file:///E:/workspace/addressing-demo/index.html");
+  const original = "E:/workspace/addressing-demo/index.html";
+  const standalonePath = existsSync(original) ? original : fileURLToPath(new URL("../public/demos/addressing.html",import.meta.url));
+  if (!existsSync(original)) console.log("原 E 盘文件不在当前环境，使用未修改的发布 HTML 验证独立文件模式。");
+  await standalone.goto(pathToFileURL(standalonePath).href);
   await standalone.waitForSelector("#platform-link-badge", { timeout: 15000 });
   const standaloneBadge = await standalone.locator("#platform-link-badge").innerText();
   check("独立版徽标显示独立模式且无错误", standaloneBadge.includes("独立模式") && errors.length === 0, `${standaloneBadge} | errors=${errors.length}`);

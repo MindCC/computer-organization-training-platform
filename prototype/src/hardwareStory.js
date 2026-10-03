@@ -13,7 +13,7 @@ const emptyStory = () => ({accepted:false,asked:[]});
 export function storyProfile(caseId) {
   const order=HARDWARE_GAME_CASES.find(item=>item.id===caseId)??HARDWARE_GAME_CASES[0];
   const customer=CUSTOMERS[order.id];
-  return {...customer,questions:[
+  return {...customer,...(order.id==='game-student-pc'?{portrait:'/shop-story/aning.webp',portraitAlt:'阿宁，穿米白衬衫与蓝色T恤，背帆布书包、手持笔记本的新生'}:{}),questions:[
     {id:'usage',label:'主要用电脑做什么？',answer:`${order.customer} 处理器目标为 ${order.targets.cpu}，存储速度目标为 ${order.targets.storageSpeed}。`,note:'用途与响应速度'},
     {id:'capacity',label:'内存和资料容量需要多少？',answer:`这张工单需要至少 ${order.targets.memory}GB 内存和 ${order.targets.storageCapacity}GB 存储空间。请按资料与软件的实际需求来选。`,note:'内存与资料空间'},
     {id:'budget',label:'预算最多能到多少？',answer:`元件预算最多 ${order.targets.budget} 元。能满足需求的经济方案最好，也想听听预算内更均衡的选择。`,note:'预算上限'},

@@ -31,9 +31,12 @@
 .assignment-mode-switch .mode-tab:not(.active):hover { color: var(--navy); }
 
 /* 章节 Tab */
-.chapter-practice { display: flex; flex-direction: column; gap: 14px; }
+.student-assignments, .assignment-view { min-width: 0; max-width: 100%; }
+.chapter-practice { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .chapter-tabs {
   display: flex;
+  width: 100%;
+  min-width: 0;
   gap: 6px;
   overflow-x: auto;
   padding-bottom: 4px;
@@ -268,6 +271,9 @@
 .kp-question-link:hover { text-decoration: underline; }
 
 @media (max-width: 760px) {
+  .student-assignments, .assignment-view { padding: 12px; }
+  .assignment-card, .assignment-view-header { flex-wrap: wrap; gap: 12px; }
+  .assignment-card-status, .assignment-actions { flex-wrap: wrap; }
   .kg-legend-hint { margin-left: 0; width: 100%; }
   .practice-summary .summary-actions { margin-left: 0; width: 100%; }
   .kp-enter-btn { margin-left: 0; }

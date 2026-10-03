@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../apiClient.js";
 import { createRandomId } from "../shared/randomId.js";
+import { useSessionScope } from './useSessionScope.js';
 import {
   pendingSubmissionKey,
   readPendingSubmission,
@@ -13,15 +14,23 @@ import {
 const POLL_MS = 15_000;
 
 export function useClassroomSession({ userId, enabled, apiClient = api, storage = localStorage }) {
-  const [viewModel, setViewModel] = useState({ active: false });
+  const { scope, isCurrent } = useSessionScope(userId, enabled);
+  const [scopedModel, updateModel] = useState(null);
+  const viewModel = scopedModel?.scope === scope ? scopedModel.value : { active: false };
+  const setViewModel = useCallback(value => {
+    if (!isCurrent()) return;
+    updateModel(previous => ({ scope, value: typeof value === 'function' ? value(previous?.scope === scope ? previous.value : { active: false }) : value }));
+  }, [scope]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const polling = useRef(null);
+  useEffect(() => { setError(null); setLoading(false); }, [scope]);
 
   const poll = useCallback(async () => {
     if (!enabled || !userId) return;
     try {
       const data = await apiClient.currentClassroom();
+      if (!isCurrent()) return;
       if (data) {
         const { session, studentState, mission, remainingSeconds } = data;
         const vm = buildClassroomViewModel({ session, studentState, mission, remainingSeconds });
@@ -29,11 +38,12 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
         setError(null);
       }
     } catch (err) {
+      if (!isCurrent()) return;
       if (err.code === "SESSION_NOT_FOUND") {
         setViewModel({ active: false });
       }
     }
-  }, [enabled, userId, apiClient]);
+  }, [enabled, userId, apiClient, scope, setViewModel]);
 
   useEffect(() => {
     if (!enabled || !userId) return;
@@ -46,6 +56,7 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
   }, [enabled, userId, poll]);
 
   const enter = useCallback(async (sessionId) => {
+    if (!isCurrent()) throw new Error('请先登录学生账号');
     setLoading(true);
     setError(null);
     try {
@@ -54,14 +65,15 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
       setViewModel(vm);
       return data;
     } catch (err) {
-      setError(err);
+      if (isCurrent()) setError(err);
       throw err;
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [apiClient]);
+  }, [apiClient, scope, setViewModel]);
 
   const submit = useCallback(async (payload) => {
+    if (!isCurrent()) throw new Error('学生账号已切换，请重新进入课堂');
     const clientSubmissionId = payload.clientSubmissionId ?? createRandomId("classroom");
     const submission = { ...payload, clientSubmissionId };
     const key = pendingSubmissionKey({
@@ -85,14 +97,14 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
       } else {
         clearPendingSubmission(storage, key);
       }
-      setError(err);
+      if (isCurrent()) setError(err);
       throw err;
     }
-  }, [apiClient, userId, viewModel.sessionId, viewModel.currentStage, storage]);
+  }, [apiClient, userId, viewModel.sessionId, viewModel.currentStage, storage, scope, setViewModel]);
 
   useEffect(() => {
     const handleOnline = async () => {
-      if (!enabled || !userId) return;
+      if (!enabled || !userId || !isCurrent()) return;
       const stageId = viewModel.currentStage?.id;
       if (!stageId || !viewModel.sessionId) return;
       const key = pendingSubmissionKey({ userId, sessionId: viewModel.sessionId, stageId });
@@ -104,7 +116,7 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
         if (result.classroomSession) {
           setViewModel((prev) => mergeClassroomSubmission(prev, result.classroomSession));
         }
-        setError(null);
+        if (isCurrent()) setError(null);
       } catch (err) {
         if (err.code === "SESSION_PAUSED" || err.code === "SESSION_ENDED" || err.code === "STAGE_MISMATCH") {
           clearPendingSubmission(storage, key);
@@ -113,7 +125,7 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
     };
     window.addEventListener("online", handleOnline);
     return () => window.removeEventListener("online", handleOnline);
-  }, [enabled, userId, viewModel.sessionId, viewModel.currentStage, apiClient, storage]);
+  }, [enabled, userId, viewModel.sessionId, viewModel.currentStage, apiClient, storage, scope, setViewModel]);
 
   return { viewModel, loading, error, enter, submit, refresh: poll };
 }

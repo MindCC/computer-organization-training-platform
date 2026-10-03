@@ -9,6 +9,7 @@ function PptxStage({ upload }) {
   const hostRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryVersion, setRetryVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -22,7 +23,7 @@ function PptxStage({ upload }) {
         const response = await fetch(`/api/courseware/uploads/${upload.id}/file`, { credentials: "include" });
         if (!response.ok) {
           const body = await response.json().catch(() => ({}));
-          throw new Error(body.error ?? `课件加载失败：${response.status}`);
+          throw new Error((typeof body.error === 'string' ? body.error : body.error?.message) ?? `课件加载失败：${response.status}`);
         }
         const buffer = await response.arrayBuffer();
         if (cancelled) return;
@@ -40,12 +41,12 @@ function PptxStage({ upload }) {
       cancelled = true;
       try { previewer?.destroy?.(); } catch { /* ignore teardown races */ }
     };
-  }, [upload.id]);
+  }, [upload.id, retryVersion]);
 
   return (
     <div className="pptx-stage">
       {loading && <div className="pptx-stage-empty">正在渲染课件…</div>}
-      {!loading && error && <div className="pptx-stage-error">{error}</div>}
+      {!loading && error && <div className="pptx-stage-error" role="alert"><p>{error}</p><button className="ghost-button" type="button" onClick={()=>setRetryVersion(value=>value+1)}>重试渲染课件</button></div>}
       <div ref={hostRef} className="pptx-render-host" hidden={loading || Boolean(error)} />
     </div>
   );
@@ -59,7 +60,14 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
   const [uploadMessage, setUploadMessage] = useState("");
   const [pageNumber, setPageNumber] = useState(1);
   const [notes, setNotes] = useState([]);
-  const [noteDraft, setNoteDraft] = useState("");
+  const [noteDrafts, setNoteDrafts] = useState({});
+  const noteKey=`${selectedUpload?.id}:${pageNumber}`;
+  const noteDraft=noteDrafts[noteKey]??'';
+  const setNoteDraft=value=>setNoteDrafts(current=>({...current,[noteKey]:typeof value==='function'?value(current[noteKey]??''):value}));
+  const [savingNote,setSavingNote]=useState(false),[noteLoading,setNoteLoading]=useState(false),[noteError,setNoteError]=useState(''),[noteVersion,setNoteVersion]=useState(0);
+  const [uploadsLoading,setUploadsLoading]=useState(false),[uploadsError,setUploadsError]=useState('');
+  const noteTarget=useRef(null),savePending=useRef(false);
+  noteTarget.current=`${selectedUpload?.id}:${pageNumber}`;
   const lectureRef = useRef(null);
 
   // 讲演区按实际位置铺满到视口底部（顶栏/间隔随宽度变化，写死 calc 会错位，改为动态测量）
@@ -77,18 +85,23 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
 
   const loadUploads = async () => {
     if (!auth?.user) return;
+    setUploadsLoading(true);setUploadsError('');
     try {
       const result = await api.coursewareUploads();
       setUploads(result.uploads ?? []);
-    } catch (error) { setUploadMessage(error.message); }
+    } catch (error) { setUploadsError(`课件列表加载失败：${error.message}`); } finally {setUploadsLoading(false);}
   };
   useEffect(() => { loadUploads(); }, [auth?.user?.id]);
   useEffect(() => {
+    let cancelled=false;setNotes([]);setNoteError('');
     if (!selectedUpload) return;
+    setNoteLoading(true);
     api.coursewareNotes(selectedUpload.id, pageNumber)
-      .then((result) => setNotes(result.notes ?? []))
-      .catch((error) => setUploadMessage(error.message));
-  }, [selectedUpload?.id, pageNumber]);
+      .then((result) => {if(!cancelled)setNotes(result.notes ?? []);})
+      .catch((error) => {if(!cancelled)setNoteError(`本页笔记加载失败：${error.message}`);})
+      .finally(()=>{if(!cancelled)setNoteLoading(false);});
+    return()=>{cancelled=true;};
+  }, [selectedUpload?.id, pageNumber,noteVersion]);
 
   const upload = async (event) => {
     const file = event.target.files?.[0];
@@ -104,13 +117,14 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
     finally { setUploading(false); }
   };
   const submitNote = async () => {
-    if (!selectedUpload || !noteDraft.trim()) return;
+    if (!selectedUpload || !noteDraft.trim()||savePending.current) return;
+    const target=noteTarget.current,content=noteDraft;
+    savePending.current=true;setSavingNote(true);setNoteError('');
     try {
-      await api.addCoursewareNote(selectedUpload.id, { pageNumber, content: noteDraft });
-      setNoteDraft("");
-      const result = await api.coursewareNotes(selectedUpload.id, pageNumber);
-      setNotes(result.notes ?? []);
-    } catch (error) { setUploadMessage(error.message); }
+      await api.addCoursewareNote(selectedUpload.id, { pageNumber, content });
+      if(noteTarget.current===target){setNoteDraft(current=>current===content?'':current);setNoteVersion(v=>v+1);setUploadMessage(`第 ${pageNumber} 页笔记已保存。`);}
+    } catch (error) {if(noteTarget.current===target)setNoteError(`笔记保存失败：${error.message}。内容已保留，可重试。`);}
+    finally {savePending.current=false;setSavingNote(false);}
   };
 
   return (
@@ -181,13 +195,15 @@ export function CoursewareView({ navigateToChallenge, auth, teacherClasses = [],
           <label className="primary-button upload-label"><UploadSimple size={16} /> {uploading ? "上传中…" : "选择 PPTX"}<input aria-label="上传 PPTX 课件" type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation" onChange={upload} disabled={uploading || (auth.user.role === "teacher" && !selectedTeacherClassId)} /></label>
         </div>
         {uploadMessage && <p className="courseware-message">{uploadMessage}</p>}
+        {uploadsLoading&&<p role="status">正在读取课件列表…</p>}
+        {uploadsError&&<div className="form-error" role="alert"><p>{uploadsError}</p><button type="button" className="ghost-button" onClick={loadUploads}>重试加载课件</button></div>}
         {auth.user.role === "teacher" && !selectedTeacherClassId && <p className="courseware-message">尚未选择发布班级：在上方选择要发布的班级后即可上传（没有班级请先到「教师指挥台」创建）。</p>}
         {uploads.length > 0 && <div className="uploaded-courseware-list">{uploads.map((item) => <button type="button" key={item.id} className={selectedUpload?.id === item.id ? "uploaded-courseware active" : "uploaded-courseware"} onClick={() => { setSelectedUpload(item); setPageNumber(1); }}><Presentation size={16} /><span>{item.originalName}</span><small>{item.status === "ready" ? "可演示" : item.status === "processing" ? "转换中" : "转换失败"}</small></button>)}</div>}
       </section>}
 
       {selectedUpload?.status === "ready" && <section className="uploaded-courseware-stage">
         <div className="uploaded-courseware-toolbar"><strong>{selectedUpload.originalName} · {selectedUpload.slideCount} 页</strong><label>当前页 <input type="number" min="1" max={selectedUpload.slideCount} value={pageNumber} onChange={(event) => setPageNumber(Math.min(selectedUpload.slideCount, Math.max(1, Number(event.target.value) || 1)))} /></label></div>
-        <div className="uploaded-courseware-content"><PptxStage upload={selectedUpload} /><aside className="page-notes"><h3><NotePencil size={18} /> 第 {pageNumber} 页笔记</h3><textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="记录这一页的要点、问题或思路…" /><button type="button" className="primary-button" onClick={submitNote}>保存笔记</button><div className="page-note-list">{notes.length ? notes.map((note) => <article key={note.id}><strong>{note.authorName}{note.visibility === "private" ? "（仅自己可见）" : ""}</strong><p>{note.content}</p></article>) : <p>本页还没有笔记。</p>}</div></aside></div>
+        <div className="uploaded-courseware-content"><PptxStage upload={selectedUpload} /><aside className="page-notes"><h3><NotePencil size={18} /> 第 {pageNumber} 页笔记</h3><textarea aria-label="本页笔记内容" disabled={savingNote} value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="记录这一页的要点、问题或思路…" /><button type="button" className="primary-button" disabled={savingNote||!noteDraft.trim()} onClick={submitNote}>{savingNote?"正在保存…":"保存笔记"}</button>{noteError&&<div className="form-error" role="alert"><p>{noteError}</p><button className="ghost-button" type="button" onClick={()=>setNoteVersion(v=>v+1)}>重试加载本页笔记</button></div>}{noteLoading&&<p role="status">正在读取本页笔记…</p>}<div className="page-note-list">{notes.length ? notes.map((note) => <article key={note.id}><strong>{note.authorName}{note.visibility === "private" ? "（仅自己可见）" : ""}</strong><p>{note.content}</p></article>) : !noteLoading&&!noteError&&<p>本页还没有笔记。</p>}</div></aside></div>
       </section>}
 
       

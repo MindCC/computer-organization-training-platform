@@ -69,19 +69,21 @@ import { buildMemoryAccessState } from "./memorySystem.js";
 import { api } from "./apiClient.js";
 import { statusText, statusTone, formatMinutes, formatEndpointLabel } from "./components/labUtils.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
-import { LoginPortal } from "./components/auth/LoginPortal.jsx";
 import { QuestSettlement } from "./components/quest/QuestSettlement.jsx";
 import { buildQuestSettlement } from "./questExperience.js";
 import { useLabState } from "./hooks/useLabState.js";
 import { clearViewSession, readViewSession, resolveRestorableView, writeViewSession } from "./viewSession.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
+import { useViewHistory } from './hooks/useViewHistory.js';
 import { getActiveGuideForChallenge } from "./courseWorkbenchState.js";
 import avatarImage from "./assets/alex-chen-avatar.webp";
 import labIllustration from "./assets/lab-circuit-illustration.webp";
 
 const NotesPage = lazy(() => import("./components/NotesPage.jsx")
   .then((module) => ({ default: module.NotesPage })));
+const LoginPortal=lazy(()=>import('./components/auth/LoginPortal.jsx').then(module=>({default:module.LoginPortal})));
+const PlatformSupport = lazy(() => import('./components/PlatformSupport.jsx').then(module=>({default:module.PlatformSupport})));
 const StudentHome = lazy(() => import("./components/StudentHome.jsx")
   .then((module) => ({ default: module.StudentHome })));
 const StudentRecords = lazy(() => import("./components/StudentRecords.jsx")
@@ -94,6 +96,8 @@ const TeacherStudioDashboard = lazy(() => import("./components/TeacherDashboard.
   .then((module) => ({ default: module.TeacherStudioDashboard })));
 const StudentAssignments = lazy(() => import("./components/StudentAssignments.jsx")
   .then((module) => ({ default: module.StudentAssignments })));
+const DemoPage = lazy(() => import("./components/DemoPage.jsx")
+  .then((module) => ({ default: module.DemoPage })));
 const CoursewareView = lazy(() => import("./components/CoursewareView.jsx")
   .then((module) => ({ default: module.CoursewareView })));
 const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
@@ -163,20 +167,6 @@ function LabFeatureFallback({ challenge, completed, onBack, onComplete }) {
 }
 
 
-const initialNotes = [
-  {
-    id: 1,
-    title: "全加器的关键",
-    content: "全加器比半加器多了 Cin，Cout 表示是否需要向更高位进位。",
-    tag: "全加器",
-  },
-  {
-    id: 2,
-    title: "数据通路复盘",
-    content: "先确认输入端，再看中间部件，最后检查输出端是否接到目标。",
-    tag: "数据流",
-  },
-];
 
 const challengeRouteMeta = {
   "data-flow": {
@@ -489,12 +479,15 @@ function buildTeacherAssistantInsights(classOverview, selectedClass) {
 
 export function App() {
   const [auth, setAuth] = useState({ status: "loading", user: null });
+  const activeUserRef=useRef(null);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [showLogin, setShowLogin] = useState(false);
   const [importCredentials, setImportCredentials] = useState([]);
   const pendingDestinationRef = useRef(null);
-  const [activeView, setActiveView] = useState("home");
+  const [demoId, setDemoId] = useState(() => new URLSearchParams(window.location.search).get("demo"));
+  const [activeView, setActiveView] = useState(demoId ? "demo" : "home");
+  const [studyTarget, setStudyTarget] = useState(null);
   const platformTopbarRef=useRef(null);
   useEffect(()=>{
     const element=platformTopbarRef.current;
@@ -505,22 +498,30 @@ export function App() {
   },[activeView,showLogin,auth.status]);
   const [progress, setProgress] = useState(() => buildInitialLearningProgress());
   const [allowSkipLocked, setAllowSkipLocked] = useState(false);
-  const [activityLog, setActivityLog] = useState([
-    "完成半加器实验，得分 100。",
-    "数据流基础测验得分 85。",
-    "进入全加器实验，当前缺少进位输入。",
-  ]);
-  const [notes, setNotes] = useState(initialNotes);
+  const [activityLog, setActivityLog] = useState([]);
+  const [notes, setNotes] = useState([]);
   const [studentProjects, setStudentProjects] = useState([]);
-  const [noteDraft, setNoteDraft] = useState("全加器实验中，Cin 会影响和位，也会参与 Cout 的判断。");
-  const [noteSearchQuery, setNoteSearchQuery] = useState("");
-  const [noteFilterTag, setNoteFilterTag] = useState("");
-  const [editingNoteId, setEditingNoteId] = useState(null);
-  const [editingNoteDraft, setEditingNoteDraft] = useState({ title: "", content: "", tag: "" });
-  const [noteError, setNoteError] = useState("");
-  const [statusMessage, setStatusMessage] = useState("已同步最新学习进度。");
+  const [statusMessage, setStatusMessage] = useState("欢迎来到芯游记，选择章节开始探索。");
   const [showUserPanel, setShowUserPanel] = useState(false);
+  useEffect(() => {
+    if (!showUserPanel) return;
+    const closeOutside = event => { if (!event.target.closest('.profile-wrap')) setShowUserPanel(false); };
+    const closeOnEscape = event => { if (event.key === 'Escape') { setShowUserPanel(false); document.querySelector('.profile-button')?.focus(); } };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeOnEscape); };
+  }, [showUserPanel]);
   const [showSettings, setShowSettings] = useState(false);
+  const [supportPanel,setSupportPanel]=useState(null);
+  const [roleDataError,setRoleDataError]=useState('');
+  const [roleDataLoading,setRoleDataLoading]=useState(false);
+  const [bootstrapVersion,setBootstrapVersion]=useState(0);
+  const [online,setOnline]=useState(()=>navigator.onLine);
+  useEffect(()=>{
+    const update=()=>setOnline(navigator.onLine);
+    window.addEventListener('online',update);window.addEventListener('offline',update);
+    return()=>{window.removeEventListener('online',update);window.removeEventListener('offline',update);};
+  },[]);
   const [student, setStudent] = useState({
     name: "",
     goal: "\u5b8c\u6210\u516d\u4e2a\u8fd0\u7b97\u5668\u5173\u5361",
@@ -605,6 +606,16 @@ export function App() {
   const [initialViewSession] = useState(() => readViewSession());
   // 恢复结论落地前不要写回，避免同样的覆盖
   const restoreSettledRef = useRef(false);
+  useViewHistory({user:auth.user,enabled:auth.status!=='loading'&&auth.status!=='error'&&!showLogin,route:{view:activeView,challengeId:activeView==='lab'?lab.selectedChallengeId:null,caseId:activeView==='hardware-game'?selectedHardwareCaseId:null,demoId:activeView==='demo'?demoId:null,studyTarget:activeView==='assignments'?studyTarget:null},restore:route=>{
+    if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demo'].includes(route.view))return false;
+    if(!auth.user&&!['home','courseware','demo'].includes(route.view))return false;
+    if(auth.user?.role==='teacher'&&!['home','teacher','courseware','demo'].includes(route.view))return false;
+    if(auth.user?.role==='student'&&route.view==='teacher')return false;
+    if(route.view==='lab'&&!lab.selectChallenge(route.challengeId))return false;
+    if(route.view==='hardware-game'&&!HARDWARE_GAME_CASES.some(item=>item.id===route.caseId))return false;
+    if(route.caseId)setSelectedHardwareCaseId(route.caseId);
+    setDemoId(route.demoId??null);setStudyTarget(route.studyTarget??null);setShowUserPanel(false);setSupportPanel(null);setQuestSettlement(null);setActiveView(route.view);window.scrollTo(0,0);return true;
+  }});
 
   useEffect(() => {
     let cancelled = false;
@@ -612,11 +623,15 @@ export function App() {
       try {
         const { user } = await api.me();
         if (cancelled) return;
+        activeUserRef.current=user;
         setAuth({ status: "authenticated", user });
-        await loadRoleData(user);
+        try { await loadRoleData(user); } catch (error) { if(!cancelled)setRoleDataError(`学习数据同步失败：${error.message}`); }
+        if(cancelled||activeUserRef.current?.id!==user.id)return;
         // 刷新后回到原页面：只恢复当前身份允许停留的视图
         const restored = resolveRestorableView(initialViewSession, user.role);
-        if (restored?.view === "lab" && restored.challengeId && user.role === "student") {
+        if (demoId) {
+          setActiveView("demo");
+        } else if (restored?.view === "lab" && restored.challengeId && user.role === "student") {
           pendingLabRestoreRef.current = restored.challengeId;
           setActiveView("lab");
         } else if (restored) {
@@ -624,15 +639,18 @@ export function App() {
         } else if (user.role === "teacher") {
           setActiveView("teacher");
         }
-      } catch {
-        if (!cancelled) setAuth({ status: "anonymous", user: null });
+      } catch (error) {
+        if (!cancelled) {
+          setAuth({ status: error.status===401 ? "anonymous" : "error", user: null });
+          if(error.status!==401)setRoleDataError(`课堂服务连接失败：${error.message}`);
+        }
       } finally {
         restoreSettledRef.current = true;
       }
     }
     bootstrap();
     return () => { cancelled = true; };
-  }, []);
+  }, [bootstrapVersion]);
 
   // 记住当前页面，供刷新后恢复。
   // 登录过程中会先出现「已登录但仍是默认视图」的中间提交，此时不要记录，
@@ -668,20 +686,25 @@ export function App() {
   async function loadRoleData(user = auth.user) {
     if (!user) return;
     if (user.role === "student") {
-      const [{ progress: nextProgress, allowSkipLocked }, { notes: nextNotes }, { projects }] = await Promise.all([api.studentProgress(), api.listNotes(), api.studentProjects()]);
-      setProgress({ ...buildInitialLearningProgress(), ...nextProgress });
-      setAllowSkipLocked(Boolean(allowSkipLocked));
-      setNotes(nextNotes);
-      setStudentProjects(projects ?? []);
+      const results = await Promise.allSettled([api.studentProgress(), api.knowledgeDocuments(), api.studentProjects()]);
+      if(activeUserRef.current?.id!==user.id)return;
+      if(results[0].status==='fulfilled') {
+        setProgress({ ...buildInitialLearningProgress(), ...results[0].value.progress });
+        setAllowSkipLocked(Boolean(results[0].value.allowSkipLocked));
+      }
+      if(results[1].status==='fulfilled')setNotes((results[1].value.documents??[]).map(document=>({id:document.id,title:document.title,content:document.analysis?.summary??''})));
+      if(results[2].status==='fulfilled')setStudentProjects(results[2].value.projects??[]);
       setStudent({
         name: user.displayName,
         goal: user.profile?.goal ?? "\u5b8c\u6210\u516d\u4e2a\u8fd0\u7b97\u5668\u5173\u5361",
         mode: user.profile?.mode ?? "\u5f3a\u5f15\u5bfc\u6a21\u5f0f",
       });
-      return;
+      if(results.some(result=>result.status==='rejected'))throw new Error('部分学习记录未能读取，请重试同步。');
+      setRoleDataError('');setStatusMessage('已同步当前账号的学习进度与资料。'); return;
     }
     if (user.role === "teacher") {
       await refreshTeacherClasses();
+      setRoleDataError('');
     }
   }
 
@@ -692,7 +715,9 @@ export function App() {
   }
 
   async function refreshTeacherClasses(preferredClassId = selectedTeacherClassIdRef.current) {
+    const teacherId=activeUserRef.current?.id;
     const { classes } = await api.teacherClasses();
+    if(activeUserRef.current?.id!==teacherId||activeUserRef.current?.role!=='teacher')return;
     setTeacherClasses(classes);
     const nextClassId = classes.some((item) => item.id === preferredClassId)
       ? preferredClassId
@@ -748,10 +773,14 @@ export function App() {
   }
 
   async function completeLogin(user, destination) {
+    activeUserRef.current=user;
+    setProgress(buildInitialLearningProgress());setNotes([]);setStudentProjects([]);setActivityLog([]);setRoleDataError('');
     setAuth({ status: "authenticated", user });
-    await loadRoleData(user);
+    try { await loadRoleData(user); } catch(error) {setRoleDataError(`学习数据同步失败：${error.message}`);}
     setShowLogin(false);
-    if (user.role === "teacher") {
+    if (destination?.view === "demo" && demoId) {
+      setActiveView("demo");
+    } else if (user.role === "teacher") {
       setActiveView("teacher");
     } else if (destination?.type === "challenge") {
       openChallenge(destination.challengeId);
@@ -787,12 +816,19 @@ export function App() {
   }
 
   async function handleLogout() {
-    await api.logout();
+    try { await api.logout(); } catch(error) {if(error.status!==401){setRoleDataError(`退出失败：${error.message}。请重试退出。`);setShowUserPanel(false);return;}}
     setShowUserPanel(false);
+    activeUserRef.current=null;
     setAuth({ status: "anonymous", user: null });
     setProgress(buildInitialLearningProgress());
     setNotes([]);
-    setActiveView("home");
+    setActivityLog([]);setStudentProjects([]);setAllowSkipLocked(false);setRoleDataError('');
+    setTeacherClasses([]);setClassOverview(null);setSelectedTeacherClassId(null);selectedTeacherClassIdRef.current=null;
+    setSelectedTeacherStudent(null);setAssistantReport(null);setHardwareFeedback(null);
+    setSelectedHardwareCaseId(HARDWARE_GAME_CASES[0].id);setHardwareSelection({cpu:'cpu-i3',memory:'mem-8',storage:'ssd-512',gpu:'gpu-integrated'});
+    setQuestSettlement(null);prevFeedbackRef.current=null;setSupportPanel(null);setShowSettings(false);
+    setStatusMessage('已退出登录，可以浏览课程或登录其他账号。');
+    changeView("home");
     // 同一台机房电脑换人登录时，不要带上一位学生停留的页面
     pendingLabRestoreRef.current = null;
     clearViewSession();
@@ -804,8 +840,19 @@ export function App() {
       return;
     }
     setShowUserPanel(false);
+    setSupportPanel(null);
+    if (demoId) {
+      setDemoId(null);
+    }
+    setStudyTarget(null);
     setActiveView(view);
+    window.scrollTo(0,0);
     setStatusMessage(`已切换到${navGroups.flatMap((group) => group.items).find((item) => item.id === view)?.label ?? "当前页面"}。`);
+  }
+
+  function openStudyTarget(target) {
+    changeView("assignments");
+    setStudyTarget(target);
   }
 
   function navigateToChallenge(challengeId) {
@@ -828,7 +875,7 @@ export function App() {
   }
 
   function requestLogin(destination = null) {
-    pendingDestinationRef.current = destination;
+    pendingDestinationRef.current = destination ?? (demoId ? {type:"view",view:"demo"} : null);
     setLoginError("");
     setShowLogin(true);
   }
@@ -837,99 +884,8 @@ export function App() {
     pendingDestinationRef.current = null;
     setLoginError("");
     setShowLogin(false);
-    setActiveView("home");
+    changeView("home");
   }
-
-  async function saveNote() {
-    const content = noteDraft.trim();
-    if (!content) {
-      setNoteError("笔记内容不能为空。");
-      return;
-    }
-    try {
-      const { note } = await api.createNote({
-        title: `${lab.currentChallenge.shortTitle}复盘`,
-        content,
-        tag: lab.currentChallenge.shortTitle,
-      });
-      setNotes((current) => [note, ...current]);
-      setNoteDraft("");
-      setNoteError("");
-      setStatusMessage("学习笔记已保存到服务器。");
-    } catch (error) {
-      setNoteError("笔记保存失败：" + error.message);
-    }
-  }
-
-  async function deleteNoteById(noteId) {
-    try {
-      await api.deleteNote(noteId);
-      setNotes((current) => current.filter((n) => n.id !== noteId));
-      setStatusMessage("笔记已删除。");
-    } catch (error) {
-      setNoteError("删除失败：" + error.message);
-    }
-  }
-
-  function startEditingNote(note) {
-    setEditingNoteId(note.id);
-    setEditingNoteDraft({ title: note.title, content: note.content, tag: note.tag });
-    setNoteError("");
-  }
-
-  function cancelEditingNote() {
-    setEditingNoteId(null);
-    setEditingNoteDraft({ title: "", content: "", tag: "" });
-  }
-
-  async function saveNoteEdit() {
-    if (!editingNoteId) return;
-    const content = editingNoteDraft.content.trim();
-    if (!content) {
-      setNoteError("笔记内容不能为空。");
-      return;
-    }
-    try {
-      const { note } = await api.updateNote(editingNoteId, {
-        title: editingNoteDraft.title || "实验复盘",
-        content,
-        tag: editingNoteDraft.tag || "课堂笔记",
-      });
-      setNotes((current) => current.map((n) => (n.id === editingNoteId ? note : n)));
-      cancelEditingNote();
-      setNoteError("");
-      setStatusMessage("笔记已更新。");
-    } catch (error) {
-      setNoteError("更新失败：" + error.message);
-    }
-  }
-
-  async function refreshNotes(params = {}) {
-    try {
-      const result = await api.searchNotes(params);
-      setNotes(result.notes);
-      setNoteError("");
-    } catch (error) {
-      setNoteError("加载笔记失败：" + error.message);
-    }
-  }
-
-  const filteredNotes = (() => {
-    let result = notes;
-    const q = noteSearchQuery.trim().toLowerCase();
-    if (q) {
-      result = result.filter((n) =>
-        n.title?.toLowerCase().includes(q) ||
-        n.content?.toLowerCase().includes(q) ||
-        n.tag?.toLowerCase().includes(q));
-    }
-    if (noteFilterTag) {
-      result = result.filter((n) => n.tag === noteFilterTag);
-    }
-    return result;
-  })();
-
-  const noteTags = [...new Set(notes.map((n) => n.tag).filter(Boolean))];
 
   function updateStudent(key, value) {
     setStudent((current) => ({ ...current, [key]: value }));
@@ -1033,8 +989,8 @@ export function App() {
     }
   }
 
-  if (auth.status === "loading") {
-    return <div className="login-screen"><div className="login-card"><strong>{"\u6b63\u5728\u8fde\u63a5\u8bfe\u5802\u670d\u52a1\u5668..."}</strong></div></div>;
+  if (auth.status === "loading" || auth.status==='error') {
+    return <main className="platform-connection"><img src="/home/wordmark.png" alt="芯游记"/><section className="section-panel"><Cpu size={32}/><h1>{auth.status==='error'?'暂时无法连接课堂服务':'正在连接课堂服务'}</h1><p>{auth.status==='error'?roleDataError:'正在确认账号与学习记录，请稍候。'}</p>{auth.status==='error'&&<button className="primary-button" type="button" onClick={()=>{setAuth({status:'loading',user:null});setRoleDataError('');setBootstrapVersion(version=>version+1);}}>重新连接</button>}</section></main>;
   }
 
   if (showLogin) {
@@ -1052,7 +1008,7 @@ export function App() {
         <nav className="topbar-nav" aria-label="主导航">
           {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["home", "teacher", "courseware"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware"].includes(item.id)).map(({ id, icon: Icon, label }) => (
             <button
-              className={(activeView === id || (activeView === "lab" && id === "home")) ? "topbar-nav-item active" : "topbar-nav-item"}
+              className={(activeView === id || (activeView === "lab" && id === "home") || (activeView === "demo" && id === "courseware")) ? "topbar-nav-item active" : "topbar-nav-item"}
               key={id}
               onClick={() => changeView(id)}
               type="button"
@@ -1067,14 +1023,15 @@ export function App() {
           <button
             aria-label="通知"
             className="icon-button"
-            onClick={() => setStatusMessage("你有 3 条学习提醒：补看进位动画、完成全加器、整理笔记。")}
+            aria-haspopup="dialog"
+            onClick={() => setSupportPanel('notifications')}
             type="button"
           >
             <Bell size={22} />
-            <span className="notification-dot">3</span>
+            {(auth.user?.role==='student'?classroomSession.viewModel.active&&!classroomSession.viewModel.ended:teacherSession.viewModel.active&&!teacherSession.viewModel.ended)&&<span className="notification-dot">1</span>}
           </button>
           {auth.user ? <div className="profile-wrap">
-            <button className="profile-button" onClick={() => setShowUserPanel((value) => !value)} type="button">
+            <button className="profile-button" aria-expanded={showUserPanel} aria-controls="profile-options" onClick={() => setShowUserPanel((value) => !value)} type="button">
               <img alt="学生头像" src={avatarImage} />
               <span>
                 <strong>{auth.user?.displayName ?? "学习档案"}</strong>
@@ -1083,11 +1040,11 @@ export function App() {
               <CaretDown size={18} />
             </button>
             {showUserPanel ? (
-              <div className="profile-menu">
-                <button onClick={() => setShowSettings(true)} type="button">{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</button>
+              <div className="profile-menu" id="profile-options">
+                <button onClick={() => {setShowUserPanel(false);setShowSettings(true);}} type="button">{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</button>
                 {auth.user?.role === "student" ? <button onClick={() => changeView("records")} type="button">查看学情</button> : null}
                 {auth.user?.role === "student" ? <button onClick={() => changeView("notes")} type="button">打开笔记</button> : null}
-                <button onClick={() => setStatusMessage("帮助中心已准备好：建议先看“如何读懂端口”。")} type="button">帮助支持</button>
+                <button onClick={() => {setShowUserPanel(false);setSupportPanel('help');}} type="button">帮助支持</button>
                 <button onClick={handleLogout} type="button">退出登录</button>
               </div>
             ) : null}
@@ -1101,6 +1058,7 @@ export function App() {
     return (
       <div className={'app-shell lab-mode-shell'+(lab.currentChallenge?.id==='computer-components'?' lab-overview-shell':'')}>
         {renderPlatformTopbar()}
+        {renderPlatformState()}
         <ErrorBoundary fallback={(
           <LabFeatureFallback
             challenge={lab.currentChallenge}
@@ -1127,23 +1085,25 @@ export function App() {
 
   return (
     <ErrorBoundary>
-    <div className={activeView === "teacher" ? "app-shell teacher-reference-shell" : activeView === "home" ? "app-shell home-shell" : "app-shell"}>
+    <div className={activeView === "teacher" ? "app-shell teacher-reference-shell" : activeView === "home" ? "app-shell home-shell" : activeView === "demo" ? "app-shell demo-mode-shell" : "app-shell"}>
       {renderPlatformTopbar()}
+      {renderPlatformState()}
 
       <div className="workspace">
         <main className="dashboard">
           <Suspense fallback={<FeatureLoading label="正在加载当前功能..." />}>
           <ErrorBoundary key={activeView}>
-          {activeView !== "teacher" ? (
+          {!["teacher","demo"].includes(activeView) ? (
             <div className="status-banner">
               <Sparkle size={18} />
               <span>{statusMessage}</span>
             </div>
           ) : null}
 
-          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
+          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
           {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
-          {activeView === "mistakes" ? <MistakeBookPage navigateToChallenge={navigateToChallenge} changeView={changeView} /> : null}
+          {activeView === "demo" ? <DemoPage demoId={demoId} role={auth.user?.role} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
+          {activeView === "mistakes" ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "hardware-game" ? (
             <ErrorBoundary>
               <Suspense fallback={<FeatureLoading label="正在加载硬件配置挑战..." />}>
@@ -1151,30 +1111,9 @@ export function App() {
               </Suspense>
             </ErrorBoundary>
           ) : null}
-          {activeView === "notes" ? (
-            <NotesPage
-              noteDraft={noteDraft}
-              setNoteDraft={setNoteDraft}
-              noteError={noteError}
-              filteredNotes={filteredNotes}
-              noteSearchQuery={noteSearchQuery}
-              setNoteSearchQuery={setNoteSearchQuery}
-              noteFilterTag={noteFilterTag}
-              setNoteFilterTag={setNoteFilterTag}
-              noteTags={noteTags}
-              editingNoteId={editingNoteId}
-              editingNoteDraft={editingNoteDraft}
-              setEditingNoteDraft={setEditingNoteDraft}
-              currentChallenge={lab.currentChallenge}
-              saveNote={saveNote}
-              deleteNoteById={deleteNoteById}
-              startEditingNote={startEditingNote}
-              cancelEditingNote={cancelEditingNote}
-              saveNoteEdit={saveNoteEdit}
-            />
-          ) : null}
-          {activeView === "assignments" ? <StudentAssignments /> : null}
-          {activeView === "courseware" ? <CoursewareView navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
+          {activeView === "notes" ? <NotesPage key={auth.user?.id} /> : null}
+          {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} destination={studyTarget} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} /> : null}
+          {activeView === "courseware" ? <CoursewareView key={auth.user?.id??'guest'} navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
           {activeView === "teacher" ? (
             <ErrorBoundary>
             <TeacherStudioDashboard
@@ -1206,15 +1145,24 @@ export function App() {
 
   function renderLogin() {
     return (
-      <LoginPortal
+      <Suspense fallback={<FeatureLoading label="正在加载登录界面…"/>}><LoginPortal
         loginForm={loginForm}
         setLoginForm={setLoginForm}
         loginError={loginError}
         onSubmit={handleLogin}
         onBack={returnToGuestHome}
         onDemoLogin={handleDemoLogin}
-      />
+      /></Suspense>
     );
+  }
+
+  async function retryRoleData() {
+    if(roleDataLoading)return;setRoleDataLoading(true);
+    try {await loadRoleData();} catch(error) {setRoleDataError(`学习数据同步失败：${error.message}`);} finally {setRoleDataLoading(false);}
+  }
+
+  function renderPlatformState() {
+    return <>{(!online||roleDataError)&&<div className="platform-sync-banner" role="alert"><WarningCircle size={20}/><span>{!online?'网络连接已断开，请恢复网络后同步或提交。':roleDataError}</span>{online&&<button className="ghost-button" type="button" disabled={roleDataLoading} onClick={retryRoleData}>{roleDataLoading?'正在同步…':'重试同步'}</button>}</div>}{supportPanel&&<Suspense fallback={<FeatureLoading label="正在加载帮助与提醒…"/>}><PlatformSupport mode={supportPanel} user={auth.user} classroom={auth.user?.role==='teacher'?teacherSession.viewModel:classroomSession.viewModel} nextChallenge={nextRecommendedChallenge} onClose={()=>setSupportPanel(null)} changeView={changeView} onMission={auth.user?.role==='student'?enterClassroomMission:()=>changeView('teacher')} navigateToChallenge={navigateToChallenge}/></Suspense>}</>;
   }
 
   function renderSettingsModal() {

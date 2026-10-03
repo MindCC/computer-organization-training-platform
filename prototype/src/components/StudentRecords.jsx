@@ -41,6 +41,8 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
   const distribution = useMemo(() => buildStatusDistribution(progress), [progress]);
   const chapterSeries = useMemo(() => buildChapterScoreSeries(progress), [progress]);
   const kpis = useMemo(() => buildScreenKpis(summary, progress), [summary, progress]);
+  const activities=activityLog.length?activityLog:CHALLENGES.filter(challenge=>(progress[challenge.id]?.attempts??0)>0).map(challenge=>`${challenge.title} · ${statusText(progress[challenge.id].status)} · ${progress[challenge.id].attempts} 次尝试`);
+  const reviewChallenge=CHALLENGES.find(challenge=>progress[challenge.id]?.status==='in-progress')??CHALLENGES.find(challenge=>progress[challenge.id]?.status==='unlocked');
   const topErrors = useMemo(() => {
     const counts = new Map();
     for (const record of Object.values(progress ?? {})) {
@@ -194,19 +196,20 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
         <article className="section-panel">
           <h2>最近活动</h2>
           <div className="activity-list">
-            {activityLog.map((item) => (
-              <div className="activity-item" key={item}>
+            {activities.slice(0,6).map((item,index) => (
+              <div className="activity-item" key={`${index}:${item}`}>
                 <CheckCircle size={18} weight="fill" />
                 <span>{item}</span>
               </div>
             ))}
+            {activities.length===0&&<p className="empty-state">本次还没有实验活动，可以从课程首页继续探索。</p>}
           </div>
         </article>
         <article className="section-panel">
           <h2>复习建议</h2>
-          <p className="large-copy">优先复习「{summary.weakSpot}」。建议回到全加器实验，先运行动态演示，再补齐缺失连线。</p>
-          <button className="primary-button" onClick={() => selectChallenge("full-adder")} type="button">
-            <TrendUp size={17} /> 去复习全加器
+          <p className="large-copy">优先复习「{summary.weakSpot}」。{reviewChallenge?`建议继续「${reviewChallenge.title}」，对照实际检测反馈补齐遗漏。`:'已完成的关卡仍可回看，也可以到错题本巩固题库与作业。'}</p>
+          <button className="primary-button" onClick={() => reviewChallenge?selectChallenge(reviewChallenge.id):changeView('mistakes')} type="button">
+            <TrendUp size={17} /> {reviewChallenge?`继续${reviewChallenge.title}`:'打开错题本'}
           </button>
           <p className="large-copy" style={{ marginTop: 12 }}>
             <WarningCircle size={15} style={{ marginRight: 5, verticalAlign: "-2px" }} />

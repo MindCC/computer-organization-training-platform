@@ -36,7 +36,7 @@ export function InterventionGroups({ groups, onAction }) {
                   onClick={() => onAction?.(group.id, group.students)}
                   type="button"
                 >
-                  {group.action}
+                  查看学生与记录
                 </button>
               </div>
               <div className="intervention-student-list">

@@ -82,7 +82,27 @@ try{
   await shop.screenshot({path:path.join(artifacts,'shop-evening.png')});
   await page.getByRole('button',{name:'接待下一位客户 · 阿宁',exact:true}).filter({visible:true}).click();
   await expect(page.getByRole('region',{name:'客户接待'})).toContainText('阿宁');await expect(stage).toHaveAttribute('data-story-stage','0');await expect(page.locator('.hardware-receipt-sync')).toHaveCount(0);
+  await expect(shop).toHaveAttribute('data-customer','阿宁');
+  await expect(page.locator('.shop-character')).toHaveAttribute('src','/shop-story/aning.webp');
+  await page.locator('.shop-character').evaluate(img=>img.decode());
+  assert.ok(await page.locator('.shop-character').evaluate(img=>img.naturalWidth>0));
+  await page.getByRole('button',{name:'预算最多能到多少？',exact:true}).click();
+  await expect(page.locator('.shop-dialogue-line')).toContainText('元件预算');
+  await page.getByRole('button',{name:'查看需求工单',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('阿宁');await page.keyboard.press('Escape');
+  await page.getByRole('button',{name:'整理需求，给出方案',exact:true}).click();
+  for(const viewport of [{width:1366,height:768},{width:390,height:844}]){
+    await page.setViewportSize(viewport);await assertReceptionLayout(page);
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:path.join(artifacts,`aning-reception-${viewport.width}.png`),fullPage:true});
+  }
+  await page.setViewportSize(originalViewport);
+  await page.getByRole('button',{name:'采用经济方案',exact:true}).click();await expect(page.locator('.shop-quote')).toContainText('交付总报价');
+  await page.getByRole('button',{name:'接下工单 · 开始装机',exact:true}).click();await expect(workshop).toBeVisible();
+  await expect(page.getByRole('button',{name:'请先完成装配与开机自检',exact:true})).toBeDisabled();
+  await page.getByRole('button',{name:'返回店铺柜台',exact:true}).click();await expect(page.locator('.shop-character')).toBeVisible();
   await page.screenshot({path:path.join(artifacts,'shop-next-customer.png'),fullPage:true});
+  await page.getByRole('button',{name:'订单与练习',exact:true}).click();
   await page.getByRole('button',{name:'返回街角装机店',exact:true}).click();await expect(shop).toHaveAttribute('data-chapter-node','workshop');
   await page.getByRole('button',{name:'进入装机工作台',exact:true}).click();await expect(page.getByRole('button',{name:'请先完成装配与开机自检',exact:true})).toBeDisabled();
   await page.getByRole('button',{name:'返回店铺柜台',exact:true}).click();
@@ -91,6 +111,6 @@ try{
   await page.setViewportSize({width:390,height:844});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:path.join(artifacts,'shop-mobile.png'),fullPage:true});
   await page.getByRole('button',{name:'对话记录',exact:true}).click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'订单与练习',exact:true}).click();await page.locator('.hardware-case').filter({hasText:'学生学习电脑'}).click();await expect(page.getByRole('region',{name:'客户接待'})).toContainText('阿宁');
-  await page.getByRole('button',{name:'返回街角装机店',exact:true}).click();await page.getByRole('button',{name:'订单与练习',exact:true}).click();await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();await expect(page.getByRole('region',{name:'装机教学练习',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'订单与练习',exact:true}).click();await page.getByRole('button',{name:'返回街角装机店',exact:true}).click();await page.getByRole('button',{name:'订单与练习',exact:true}).click();await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();await expect(page.getByRole('region',{name:'装机教学练习',exact:true})).toBeVisible();
   assert.deepEqual(errors,[]);console.log('PASS full first-day narrative, actual offers/assembly/boot, offline and synced delivery, ending, recovery, mobile, classroom orders and teaching entry');
 }catch(error){await page?.screenshot({path:path.join(artifacts,'shop-error.png'),fullPage:true});throw error;}finally{await browser.close();}

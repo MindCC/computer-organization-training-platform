@@ -13,6 +13,7 @@
 .shop-game button:focus-visible { outline:3px solid #fff; outline-offset:3px; box-shadow:0 0 0 5px #177d73; }
 .shop-character { position:absolute; left:10%; bottom:15%; height:89%; width:40%; object-fit:contain; object-position:bottom; pointer-events:none; filter:drop-shadow(4px 6px 7px #382c241c); }
 .shop-character.mentor { left:8%; height:91%; }
+.customer-visit-game .shop-character { height:78%; }
 .shop-hotspot { position:absolute; right:12%; bottom:calc(100% + 16px); display:flex; align-items:center; gap:8px; padding:11px 14px; background:#183f3cdE; color:#fff; border:1px solid #a2d2c2; border-radius:24px; cursor:pointer; font-size:13px; }
 .shop-hotspot:hover { background:#13746b; }
 .shop-dialogue { position:absolute; z-index:3; bottom:20px; left:22px; right:22px; padding:18px 24px 20px; border-radius:20px; background:#fcfcf7f5; box-shadow:0 12px 32px #362a241c; }
@@ -100,6 +101,7 @@
   .shop-tools { gap:4px; }
   .shop-tools button { width:33px; height:33px; border-radius:7px; }
   .shop-character,.shop-character.mentor { top:50px; bottom:auto; left:-8%; width:85%; height:410px; object-position:bottom; }
+  .customer-visit-game .shop-character { top:60px; height:380px; }
   .shop-hotspot { right:10px; font-size:10px; padding:9px; gap:5px; }
   .shop-dialogue { position:relative; left:auto; right:auto; bottom:auto; margin:0 8px 8px; padding:15px; border-radius:13px; }
   .shop-dialogue-heading { gap:8px; flex-wrap:wrap; }

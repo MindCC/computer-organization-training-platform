@@ -419,6 +419,30 @@ export function migrate(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_demo_attempts_student ON demo_attempts(student_id, demo_id, created_at DESC);
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS chapter_practice_attempts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      chapter_id TEXT NOT NULL,
+      client_submission_id TEXT NOT NULL,
+      answers_json TEXT NOT NULL,
+      results_json TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(student_id, client_submission_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_chapter_practice_student ON chapter_practice_attempts(student_id, id);
+    CREATE TABLE IF NOT EXISTS assignment_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      question_id INTEGER NOT NULL REFERENCES assignment_questions(id) ON DELETE CASCADE,
+      client_submission_id TEXT NOT NULL,
+      answer_json TEXT NOT NULL,
+      is_correct INTEGER NOT NULL,
+      created_at TEXT NOT NULL,
+      UNIQUE(student_id, client_submission_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_assignment_reviews_student ON assignment_reviews(student_id, question_id, id);
+  `);
   // LLMWiki 式知识库：文档 → 分块 → FTS5 全文索引。
   // kb_documents.analysis_json 存自动分析结果（摘要/要点/关键词），
   // kb_index 是独立的 FTS5 虚表（不挂外部内容表），删除时按 document_id 级联清理。

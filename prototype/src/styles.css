@@ -9427,6 +9427,19 @@ body {
   padding-top: 10px;
 }
 
+.platform-sync-banner { display:flex; align-items:center; gap:12px; margin:12px 20px; padding:13px 16px; border:1px solid #e6c887; border-radius:10px; background:#fff9e9; color:#80531c; font-size:14px; }
+.platform-sync-banner>svg { flex-shrink:0; }
+.platform-sync-banner>span { flex:1; }
+.platform-connection { min-height:100dvh; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:28px; padding:24px; background:#edf3f2; }
+.platform-connection>img { width:180px; height:auto; }
+.platform-connection>.section-panel { width:min(520px,100%); padding:36px; text-align:center; }
+.platform-connection h1 { font-size:24px; }
+.platform-connection p { color:#586e66; line-height:1.8; }
+.platform-connection svg { color:#177d73; }
+.feature-error { margin:24px auto; max-width:600px; padding:32px; text-align:center; }
+.feature-error p { color:#586e66; line-height:1.8; overflow-wrap:anywhere; }
+@media(max-width:600px) { .platform-sync-banner { flex-wrap:wrap; margin:8px 12px; } .platform-sync-banner>button { margin-left:32px; } }
+
 @media (max-width: 720px) {
   .kb-hero {
     display: grid;

@@ -1,4 +1,5 @@
 import { teacherOwnsClass } from "./db.js";
+import { gradeObjectiveAnswer } from "./objectiveGrading.js";
 
 export function createAssignmentService({ db, repository }) {
   return {
@@ -127,14 +128,7 @@ export function createAssignmentService({ db, repository }) {
       const q = qMap.get(ans.questionId);
       if (!q) continue;
       const correctAnswer = safeJson(q.answer_json);
-      let isCorrect = false;
-      if (q.type === "choice") {
-        isCorrect = String(ans.value) === String(correctAnswer);
-      } else if (q.type === "truefalse") {
-        isCorrect = String(ans.value).toLowerCase() === String(correctAnswer).toLowerCase();
-      } else if (q.type === "fill") {
-        isCorrect = String(ans.value ?? "").trim() === String(correctAnswer ?? "").trim();
-      }
+      const isCorrect = gradeObjectiveAnswer(q.type, ans.value, correctAnswer);
       // short_answer: manual grading only
       const score = isCorrect ? q.score : 0;
       if (q.type !== "short_answer") {

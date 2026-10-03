@@ -167,7 +167,7 @@ try {
   assert.equal(await commandCenter.getByText("创建课堂任务").count(), 0, "running session is reattached instead of showing the setup panel");
 
   // 手动刷新入口
-  await page.getByRole("button", { name: "立即刷新" }).click();
+  await page.locator('.teacher-dashboard-toolbar').getByRole("button", { name: "刷新",exact:true }).click();
   await openTeacherWorkspace(page, TEACHER_WORKSPACE.statistics, TEACHER_WORKSPACE.insight);
   await page.locator(".teacher-studio-summary .metric-card").first().waitFor({ state: "visible", timeout: 20_000 });
 

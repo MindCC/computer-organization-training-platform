@@ -4,17 +4,8 @@
  * 与关卡提交（challenge_attempts，服务端复算电路证据）互不冒充。
  */
 
-export const DEMO_PAGES = Object.freeze([
-  { id: "intro", title: "计算机系统组成与冯·诺依曼结构", chapterId: "ch1", file: "intro.html" },
-  { id: "twos-complement", title: "补码的运算", chapterId: "ch2", file: "twos-complement.html" },
-  { id: "arithmetic-basics", title: "运算基础（补码与移位）", chapterId: "ch2", file: "arithmetic-basics.html" },
-  { id: "alu", title: "运算器（定点乘除与浮点运算）", chapterId: "ch3", file: "alu.html" },
-  { id: "memory-system", title: "存储器系统", chapterId: "ch4", file: "memory-system.html" },
-  { id: "addressing", title: "指令系统与寻址方式", chapterId: "ch5", file: "addressing.html" },
-  { id: "cpu", title: "CPU 的结构与设计", chapterId: "ch6", file: "cpu.html" },
-  { id: "bus", title: "系统总线", chapterId: "ch7", file: "bus.html" },
-  { id: "io", title: "输入输出系统", chapterId: "ch8", file: "io.html" },
-]);
+import { HOSTED_DEMOS } from "../src/shared/demoNavigation.js";
+export const DEMO_PAGES = HOSTED_DEMOS;
 
 const DEMO_IDS = new Set(DEMO_PAGES.map((page) => page.id));
 

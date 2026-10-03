@@ -62,7 +62,8 @@ try{
     await readable();
     const demo=home.locator('a.demo-entry[href="/demos/addressing.html"]');
     const popupPromise=page.waitForEvent('popup');await demo.click();const popup=await popupPromise;
-    await expect(popup.locator('#platform-link-badge')).toContainText('已连接学情');await popup.close();
+    await expect(popup.locator('.topbar')).toBeVisible();
+    await expect(popup.frameLocator('.hosted-demo-frame').locator('#platform-link-badge')).toContainText('已连接学情');await popup.close();
     await home.locator('.project-experiment-row').filter({hasText:'三位偶校验'}).click();
     await expect(page.getByTestId('react-flow-circuit-canvas')).toBeVisible();
     await page.getByRole('button',{name:'课程首页',exact:true}).first().click();

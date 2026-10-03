@@ -22,6 +22,10 @@ prototype/vite.err.log
 prototype/vite.out.log
 prototype/server.err.log
 prototype/server.out.log
+prototype/server-dev.log
+prototype/server-dev-error.log
+prototype/vite-dev.log
+prototype/vite-dev-error.log
 .workbuddy/
 prototype/.codex-run/
 # 本地环境变量（密钥）——永远不要提交

@@ -95,7 +95,7 @@ export async function apiRequest(path, options = {}) {
         throw apiError;
       }
       const message = typeof body === "object" ? body.error : body;
-      throw new Error(message || `请求失败：${response.status}`);
+      throw new ApiError({status:response.status,code:'HTTP_ERROR',message:message || `请求失败：${response.status}`});
     }
     return body;
   }
@@ -177,6 +177,9 @@ export const api = {
   studentProjectDetail: (projectId) => apiRequest(`/api/student/projects/${projectId}`),
   submitProjectMilestone: (projectId, milestoneId, payload) => apiRequest(`/api/student/projects/${projectId}/milestones/${milestoneId}/submission`, { method: "POST", body: JSON.stringify(payload) }),
   mistakes: () => apiRequest("/api/student/mistakes"),
+  chapterPractice: () => apiRequest("/api/student/chapter-practice"),
+  submitChapterPractice: (payload) => apiRequest("/api/student/chapter-practice", { method: "POST", body: JSON.stringify(payload) }),
+  reviewAssignmentMistake: (payload) => apiRequest("/api/student/mistakes/review", { method: "POST", body: JSON.stringify(payload) }),
   auditLogs: (params = {}) => {
     const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== "")).toString();
     return apiRequest(`/api/teacher/audit-logs${query ? `?${query}` : ""}`);

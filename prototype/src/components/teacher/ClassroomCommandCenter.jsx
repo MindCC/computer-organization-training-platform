@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SessionSetupPanel } from "../classroom/teacher/SessionSetupPanel.jsx";
 import { LiveSessionDashboard, EndConfirmation } from "../classroom/teacher/LiveSessionDashboard.jsx";
 import { SessionStudentGrid } from "../classroom/teacher/SessionStudentGrid.jsx";
@@ -10,13 +10,24 @@ export function ClassroomCommandCenter({ teacherSession, statistics = false, sho
   const { viewModel, createSession, control, loadOverview, loadReport, lastUpdatedAt } = teacherSession ?? {};
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [report, setReport] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [operationError, setOperationError] = useState('');
+  const pending = useRef(false);
+  async function runAction(action) {
+    if (pending.current) return;
+    pending.current = true; setBusy(true); setOperationError('');
+    try { return await action(); }
+    catch (error) { setOperationError(`课堂操作失败：${error.message}。请重试。`); }
+    finally { pending.current = false; setBusy(false); }
+  }
 
   const hasSession = viewModel?.active;
   const sessionId = viewModel?.sessionId;
-  useEffect(() => { setReport(null); }, [sessionId]);
+  useEffect(() => { setReport(null); setShowEndConfirm(false); setOperationError(''); }, [sessionId]);
 
   return (
     <div className="classroom-command-center">
+      {(operationError || teacherSession?.error) && <p className="form-error" role="alert">{operationError || `课堂同步失败：${teacherSession.error.message}。请点击刷新重试。`}</p>}
       {!hasSession ? (
         showSetup && <SessionSetupPanel
           onCreateSession={async (config) => {
@@ -28,7 +39,8 @@ export function ClassroomCommandCenter({ teacherSession, statistics = false, sho
         <>
           <LiveSessionDashboard
             viewModel={viewModel}
-            onControl={async (action) => {
+            busy={busy}
+            onControl={(action) => runAction(async () => {
               if (action === "end") {
                 setShowEndConfirm(true);
                 return;
@@ -38,7 +50,7 @@ export function ClassroomCommandCenter({ teacherSession, statistics = false, sho
                 loadOverview(sessionId);
               }
               return result;
-            }}
+            })}
             onRefresh={() => loadOverview(sessionId)}
             lastUpdatedAt={lastUpdatedAt}
           />
@@ -58,10 +70,11 @@ export function ClassroomCommandCenter({ teacherSession, statistics = false, sho
               ) : (
                 <button
                   className="primary-button"
-                  onClick={async () => {
+                  disabled={busy}
+                  onClick={() => runAction(async () => {
                     const result = await loadReport(sessionId);
                     setReport(result.report ?? result);
-                  }}
+                  })}
                   type="button"
                 >
                   查看课堂报告
@@ -73,12 +86,12 @@ export function ClassroomCommandCenter({ teacherSession, statistics = false, sho
           <EndConfirmation
             visible={showEndConfirm}
             title={viewModel?.title}
-            onConfirm={async () => {
+            onConfirm={() => runAction(async () => {
               setShowEndConfirm(false);
               await control(sessionId, "end");
               const result = await loadReport(sessionId);
               setReport(result.report ?? result);
-            }}
+            })}
             onCancel={() => setShowEndConfirm(false)}
           />
         </>

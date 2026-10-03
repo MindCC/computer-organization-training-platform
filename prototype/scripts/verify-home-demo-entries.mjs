@@ -78,8 +78,10 @@ try {
   await ch5Demo.scrollIntoViewIfNeeded();
   const [demoPage] = await Promise.all([context.waitForEvent("page"), ch5Demo.click()]);
   await demoPage.waitForLoadState("domcontentloaded");
-  await demoPage.waitForSelector("#platform-link-badge", { timeout: 15000 });
-  const badge = await demoPage.locator("#platform-link-badge").innerText();
+  await demoPage.waitForSelector(".hosted-demo-frame", { timeout: 15000 });
+  const frame = await (await demoPage.locator(".hosted-demo-frame").elementHandle()).contentFrame();
+  await frame.waitForSelector("#platform-link-badge", { timeout: 15000 });
+  const badge = await frame.locator("#platform-link-badge").innerText();
   check("从首页点开的演示页连接学情", badge.includes("已连接学情"), badge);
 
   await page.screenshot({ path: `${ARTIFACT_DIR}/home-demo-entries.png`, fullPage: true });
