@@ -3,9 +3,9 @@ blender --background art-source/computer/teaching-pc-v2.blend --python art-sourc
 """
 import bpy, pathlib, json, hashlib, struct
 ROOT=pathlib.Path(__file__).resolve().parents[2]
-parts=['case','side_panel','motherboard','psu','cpu','cooler','ram_0','gpu','storage']
+parts=['case','side_panel','motherboard','psu','cpu','cooler','ram_0','ram_1','gpu','storage']
 ports=['psu-atx','psu-cpu','psu-sata','board-atx','cpu-power','cpu-fan','board-sata','cooler-fan','ssd-data','ssd-power']
-required=parts+['assembly_origin']+['socket_'+('memory' if n=='ram_0' else n) for n in parts if n!='case']+['port_'+n for n in ports]+['cpu_retention_lever','dimm_latch_front','dimm_latch_back','cooler_fan_rotor','gpu_fan_left','gpu_fan_right']
+required=parts+['assembly_origin']+['socket_'+({'ram_0':'memory','ram_1':'memory_1'}.get(n,n)) for n in parts if n!='case']+['port_'+n for n in ports]+['cpu_retention_lever','dimm_latch_front','dimm_latch_back','cooler_fan_rotor','gpu_fan_left','gpu_fan_right']
 for name in required:
  if not bpy.data.objects.get(name):raise RuntimeError('Missing required node: '+name)
 if bpy.data.objects['assembly_origin'].get('schemaVersion')!=2:raise RuntimeError('Expected asset schema 2')

@@ -71,7 +71,8 @@
 .assembly-power:disabled { background: #e1e7e4; border-color: #d0d9d4; color: #8b9d95; cursor: not-allowed; }
 .assembly-power.online { background: #213d45; border-color: #213d45; }
 .assembly-power-controls small { font-size: 10px; line-height: 1.7; color: #73817b; }
-.assembly-boot { position: absolute; right: 20px; top: 86px; padding: 20px; background: #112e30f2; border: 1px solid #6aac98; border-radius: 8px; color: #c7fbe5; width: 260px; box-shadow: 0 12px 32px #0a232340; }
+.assembly-boot { position: absolute; left: 20px; bottom: 38px; padding: 10px 14px; background: #112e30ed; border: 1px solid #6aac98; border-radius: 8px; color: #c7fbe5; width: 180px; box-shadow: 0 8px 20px #0a232320; pointer-events: none; }
+.assembly-boot > svg, .assembly-boot > div { display: none; }
 .assembly-boot > strong { display: block; margin: 9px 0 14px; font-size: 17px; }
 .assembly-boot p { font: 11px/1.6 monospace; margin: 7px 0; }
 .assembly-boot small { display: block; margin-top: 12px; font-size: 11px; line-height: 1.6; color: #9fbcb1; }
@@ -106,7 +107,7 @@
   .assembly-action-strip strong { flex-basis: 100%; margin-left: 25px; }
   .assembly-part-tabs small { flex-basis: 100%; padding-left: 17px; }
   .assembly-guide { max-width: calc(100% - 40px); padding: 8px; }
-  .assembly-boot { width: 230px; right: 12px; padding: 16px; }
+  .assembly-boot { width: 140px; left: 12px; padding: 8px; }
   .assembly-scene-labels button { font-size: 9px; padding: 6px; }
   .assembly-scene-footer span:last-child { display: none; }
   .hardware-game-page .hardware-mission-rail { grid-template-columns: 1fr; }

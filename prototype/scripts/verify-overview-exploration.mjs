@@ -34,12 +34,19 @@ try {
   await fillLoginForm(page, { username: 'demo2026001', password: 'Student123!' });
   await submitLoginForm(page);
   await page.locator('.topbar-nav').waitFor();
+  if (!process.env.QA_ONLY_DUAL_MEMORY) {
   await openChallengeFromHome(page, '认识计算机五大部件');
   const canvas = page.locator('canvas[data-model-source="blender-glb"]');
   // 冷启动时 vite 首次编译 + GLB 加载明显更慢，这里给足余量避免抖动。
   await canvas.waitFor({ timeout: 60000 });
   await page.getByRole('button', { name: '自由探索', exact: true }).click();
   await page.waitForFunction(() => window.qaScene && window.qaCamera, { timeout: 60000 });
+  await page.getByRole('button', { name: '查看 内存 1 部件', exact: true }).waitFor();
+  await page.getByRole('button', { name: '查看 内存 2 部件', exact: true }).waitFor();
+  assert.ok(await page.evaluate(() => ['ram-0','ram-1'].every(id => {
+    const part=window.qaScene.children.find(node=>node.userData.partId===id);
+    return part?.visible && part.children.length>0;
+  })), 'two modeled DIMMs are visible in exploration');
   // Pick a visible CPU triangle, rather than assuming model coordinates or screen position.
   const start = await page.evaluate(async () => {
     const { Raycaster } = await import('/node_modules/three/src/core/Raycaster.js');
@@ -80,6 +87,31 @@ try {
   await page.getByRole('button', { name: '分步组装', exact: true }).click();
   for (let i = 1; i < 8; i++) await page.getByRole('button', { name: '下一步', exact: false }).click();
   assert.equal(await page.getByRole('button', { name: /完成探索/ }).count(), 1);
+  await page.getByRole('button', { name: '返回课程首页', exact: true }).click();
+  }
+  await openChallengeFromHome(page, '办公电脑');
+  await page.locator('canvas[data-model-source="blender-glb"]').waitFor();
+  await page.getByRole('button', { name: '打开侧板', exact: true }).click();
+  await page.getByRole('button', { name: '固定主板', exact: true }).click();
+  await page.locator('.assembly-part-tabs button').filter({hasText:'内存'}).click();
+  async function assertMemoryPair(installed) {
+    await page.waitForFunction(installed => {
+      const parts=['ram-0','ram-1'].map(id=>window.qaScene.getObjectByName('assembly-pc-root').children.find(node=>node.userData.partId===id));
+      if(!parts.every(part=>part?.visible && part.children.length))return false;
+      const a=parts[0].position,b=parts[1].position;
+      return Math.abs(b.x-a.x-.15)<.002 && Math.abs(b.y-a.y)<.002 && Math.abs(b.z-a.z)<.002
+        && Math.abs(a.x-(installed?-.3:-1.15))<.01;
+    },installed);
+  }
+  await assertMemoryPair(false);
+  await page.getByRole('button', {name:'安装到DIMM 插槽',exact:true}).last().click();
+  await assertMemoryPair(true);
+  await page.getByRole('button', {name:'部件近景',exact:true}).click();
+  await page.screenshot({path:'qa-artifacts/two-memory-installed.png'});
+  await page.getByRole('button', {name:'拆下内存',exact:true}).click();
+  await assertMemoryPair(false);
   assert.deepEqual(errors, []);
-  console.log('PASS: Blender model, CPU drag, details, return, eight teaching steps');
+  console.log(process.env.QA_ONLY_DUAL_MEMORY
+    ? 'PASS: two real DIMMs with synchronized install/removal'
+    : 'PASS: Blender model, CPU drag, details, return, eight teaching steps, two DIMMs with synchronized install/removal');
 } finally { await browser.close(); }

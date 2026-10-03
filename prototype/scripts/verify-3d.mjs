@@ -163,6 +163,7 @@ try {
   await page.getByRole("button", { name: /返回课程首页/ }).click();
   await openChallengeFromHome(page, "认识计算机五大部件");
   await page.waitForSelector('.computer-exploded[data-renderer="native-three"]', { timeout: 20_000 });
+  await page.locator('.computer-exploded canvas').waitFor({state:'attached',timeout:20_000});
   check("Re-entry creates one native canvas", await page.locator(".computer-exploded canvas").count() === 1);
   await page.locator(".computer-exploded canvas").evaluate((element) => {
     element.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));

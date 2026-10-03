@@ -33,7 +33,11 @@ export async function verifyAssemblyPracticeSync(page,browser,artifactDir){
     await expect(other.getByRole('region',{name:'练习复盘',exact:true})).not.toContainText('练习完成');
     await other.locator('#assembly-variant').selectOption('cpu-i3');
     await expect(other.locator('.practice-sync-status')).toContainText('无法连接服务器');
-    await page.getByRole('button',{name:'查看提示',exact:true}).click();await synced(page);
+    // Wait for this edit's PUT: the previous "synced" label can remain visible
+    // until the debounce starts, so checking it immediately can miss the write.
+    const hintWrite=page.waitForResponse(response=>response.request().method()==='PUT' && response.url().includes('/api/student/assembly-practice/'));
+    await page.getByRole('button',{name:'查看提示',exact:true}).click();
+    assert.equal((await hintWrite).status(),200);await synced(page);
     await page.getByRole('button',{name:'返回客户订单',exact:true}).click();
     await other.unroute(route);await other.getByRole('button',{name:'重试同步',exact:true}).click();
     await expect(other.getByRole('region',{name:'练习同步冲突'})).toBeVisible();

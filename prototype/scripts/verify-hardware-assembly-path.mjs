@@ -13,6 +13,8 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await expect(workshop).toBeVisible();
   await expect(workshop.locator('canvas')).toHaveCount(1);
   await expect(workshop.locator('canvas')).toHaveAttribute('data-model-source', 'blender-glb');
+  await expect(page.locator('.hardware-case')).toHaveCount(6);
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-storage-variant', 'ssd');
   await page.getByRole('button', { name: '固定主板', exact: true }).click();
   await expect(page.locator('.assembly-action-strip')).toContainText('请先打开侧板');
   async function prepareCase() {
@@ -102,12 +104,18 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await page.getByRole('button',{name:'结束接线',exact:true}).click();
   await expect(page.getByRole('button', { name: '开机自检', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '开机自检', exact: true }).click();
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-monitor-message','正在开机');
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-pc-pose','upright');
   await expect(page.locator('.assembly-boot')).toContainText('开机成功', { timeout: 10000 });
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-monitor-message','开机成功');
   await expect(workshop.locator('canvas')).toHaveAttribute('data-fans-running','true');
   await expect(page.getByRole('button', { name: '交付装机 · 提交方案' })).toBeEnabled();
   await page.locator('.hardware-case.active').click();
   await expect(page.getByRole('button', { name: '交付装机 · 提交方案' })).toBeEnabled();
   await page.screenshot({ path: path.join(artifactDir, 'assembly-boot.png'), fullPage: true });
+  await page.getByRole('button', {name:'关闭电源',exact:true}).click();
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-pc-pose','workbench');
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-monitor-message','');
   const caseName = await page.locator('.hardware-case.active span').innerText();
   await page.reload({ waitUntil: 'networkidle' });
   await page.locator('.topbar-nav .topbar-nav-item').filter({ hasText: '硬件配置挑战' }).click();
@@ -131,7 +139,10 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await page.locator('.hardware-case').filter({ hasText: caseName }).click();
   await expect(page.locator('.assembly-counter strong')).toHaveText('3 / 3');
   await page.locator('.assembly-part-tabs button').filter({ hasText: '硬盘' }).click();
+  await page.locator('#assembly-variant').selectOption('hdd-1tb');
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-storage-variant', 'hdd');
   await page.locator('#assembly-variant').selectOption('ssd-1tb');
+  await expect(workshop.locator('canvas')).toHaveAttribute('data-storage-variant', 'ssd');
   await expect(page.locator('.assembly-counter strong')).toHaveText('2 / 3');
   await expect(page.getByRole('button', { name: '请先完成装配与开机自检' })).toBeDisabled();
   await page.locator('.assembly-part-tabs button').filter({ hasText: '显卡' }).click();

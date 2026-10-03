@@ -6,8 +6,8 @@ import { HardwareAssemblyWorkbench } from "./HardwareAssemblyWorkbench.jsx";
 import { AssemblyPractice } from './AssemblyPractice.jsx';
 
 const caseGroups = [
-  { id: "overview", title: "\u7b2c\u4e00\u7ae0\u00b7\u8ba1\u7b97\u673a\u6982\u8ff0" },
-  { id: "storage", title: "\u5b58\u50a8\u7cfb\u7edf" },
+  { id: "ch1", title: "\u7b2c\u4e00\u7ae0\u00b7\u8ba1\u7b97\u673a\u6982\u8ff0" },
+  { id: "ch4", title: "\u5b58\u50a8\u7cfb\u7edf" },
 ];
 
 export function HardwareGamePage({
@@ -98,7 +98,7 @@ export function HardwareGamePage({
             {caseGroups.map((group) => (
               <div className="hardware-case-group" key={group.id}>
                 <strong>{group.title}</strong>
-                {HARDWARE_GAME_CASES.filter((item) => item.chapter === group.id).map((item) => {
+                {HARDWARE_GAME_CASES.filter((item) => item.chapterId === group.id).map((item) => {
                   const record = progress[item.id] ?? {};
                   return (
                     <button

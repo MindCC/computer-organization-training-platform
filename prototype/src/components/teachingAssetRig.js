@@ -5,6 +5,15 @@ export const TEACHING_SCALE = 3.1;
 export const CONNECTOR_IDS = ['psu-atx', 'psu-cpu', 'psu-sata', 'board-atx', 'cpu-power', 'cpu-fan', 'board-sata', 'cooler-fan', 'ssd-data', 'ssd-power'];
 export const MOVING_NODES = ['cpu_retention_lever', 'dimm_latch_front', 'dimm_latch_back', 'cooler_fan_rotor', 'gpu_fan_left', 'gpu_fan_right'];
 
+export function setTeachingStorageVariant(storage, selection) {
+  const variant = selection?.startsWith('hdd-') ? 'hdd' : 'ssd';
+  for (const name of ['ssd', 'hdd']) {
+    const node = storage?.getObjectByName('storage_' + name);
+    if (node) node.visible = name === variant;
+  }
+  return variant;
+}
+
 export function readSocketPose(anchor) {
   anchor.updateWorldMatrix(true, false);
   const position = new Vector3(), quaternion = new Quaternion(), scale = new Vector3();
@@ -23,7 +32,7 @@ export function socketApproachAllowed(pose, cameraPosition) {
 }
 
 export function createTeachingMotion(scene, animations = []) {
-  const hinges = ['cpu_retention_lever', 'dimm_latch_front', 'dimm_latch_back'].map(name => {
+  const hinges = ['cpu_retention_lever', 'dimm_latch_front', 'dimm_latch_back', 'dimm_latch_front_spare', 'dimm_latch_back_spare'].map(name => {
     const node = scene.getObjectByName(name);
     if (!node) return null;
     const clip = animations.find(clip => clip.name === name + '_close');

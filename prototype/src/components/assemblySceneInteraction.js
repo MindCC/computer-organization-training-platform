@@ -23,14 +23,23 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
   let blockClick = false;
   let hoveredSocket = null;
   const priorInstallation = new Map();
+  const firstMemory = partGroups.get('ram-0');
+  const secondMemory = partGroups.get('ram-1');
+  const memorySpacing = secondMemory ? new Vector3().fromArray(secondMemory.part.basePos).sub(new Vector3().fromArray(firstMemory.part.basePos)) : null;
   const previews = new Map();
   const previewMaterial = options.registry.add(new MeshBasicMaterial({ color: '#25bfa4', transparent: true, opacity: .18, depthWrite: false }));
   const outlineMaterial = options.registry.add(new LineBasicMaterial({ color: '#087e6b', transparent: true, opacity: .9, depthTest: false }));
   for (const part of ASSEMBLY_PARTS) {
     const source = partGroups.get(part.sceneId).group;
     const preview = source.clone(true);
+    if (part.id === 'memory' && secondMemory) {
+      const secondPreview = secondMemory.group.clone(true);
+      secondPreview.position.copy(memorySpacing).divide(source.scale);
+      secondPreview.scale.divide(source.scale);
+      preview.add(secondPreview);
+    }
     preview.traverse(node => { if (node.isMesh) { node.material = previewMaterial; node.castShadow = false; } });
-    const bounds = new Box3().setFromObject(source);
+    const bounds = new Box3().setFromObject(preview);
     const size = bounds.getSize(new Vector3()).multiplyScalar(1.08);
     const box = new BoxGeometry(size.x, size.y, size.z);
     const edges = options.registry.add(new EdgesGeometry(box));
@@ -86,8 +95,11 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
     if (!state || state.locked || state.cableMode || event.button !== 0) return false;
     cast(event);
     const available = ASSEMBLY_PARTS.filter(part => !state.installed[part.id] && !(part.id === 'gpu' && state.integrated));
-    const hit = raycaster.intersectObjects(available.map(part => partGroups.get(part.sceneId).group), true)[0];
-    const part = available.find(part => part.sceneId === hit?.object.userData.partId);
+    const pickGroups = available.map(part => partGroups.get(part.sceneId).group);
+    if (secondMemory && available.some(part => part.id === 'memory')) pickGroups.push(secondMemory.group);
+    const hit = raycaster.intersectObjects(pickGroups, true)[0];
+    const sceneId = hit?.object.userData.partId === 'ram-1' ? 'ram-0' : hit?.object.userData.partId;
+    const part = available.find(part => part.sceneId === sceneId);
     if (!part) return false;
     const group = partGroups.get(part.sceneId).group;
     plane.setFromNormalAndCoplanarPoint(camera.getWorldDirection(new Vector3()), group.position);
@@ -132,7 +144,7 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
   }
   function update(nextState, reducedMotion) {
     state = nextState;
-    layer.hidden = !state || state.cableMode;
+    layer.hidden = !state || state.cableMode || state.powered;
     if (!state) return;
     const dragging = Boolean(gesture);
     const wrongTarget = dragging && hoveredSocket && hoveredSocket !== gesture.part.id;
@@ -174,8 +186,10 @@ export function createAssemblyInteraction(container, canvas, camera, partGroups,
       if (preview.visible) previewId = part.id;
     });
     canvas.dataset.preview = previewId;
-    const secondRam = partGroups.get('ram-1');
-    if (secondRam) secondRam.group.visible = false;
+    if (secondMemory) {
+      secondMemory.group.visible = firstMemory.group.visible;
+      secondMemory.group.position.copy(firstMemory.group.position).add(memorySpacing);
+    }
   }
   return { update, pointerDown, pointerMove, pointerUp,
     isDragging() { return Boolean(gesture); },

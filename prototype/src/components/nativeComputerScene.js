@@ -1,6 +1,7 @@
 import { createStructureScene } from './assemblyStructureScene.js';
+import { createAssemblyBootPresentation } from './assemblyBootPresentation.js';
 import { createCableScene } from './assemblyCableScene.js';
-import { attachTeachingPart, readSocketPose, createTeachingMotion } from './teachingAssetRig.js';
+import { attachTeachingPart, readSocketPose, createTeachingMotion, setTeachingStorageVariant } from './teachingAssetRig.js';
 import { addWorkshopReflections } from './workshopLighting.js';
 import { Box3 } from 'three/src/math/Box3.js';
 import { AmbientLight } from "three/src/lights/AmbientLight.js";
@@ -215,7 +216,10 @@ export function createNativeComputerScene(container, options = {}) {
     scene.add(benchLight);
     addWorkshopReflections(scene, registry);
   }
-  const workshop = createWorkshopEnvironment(scene, registry);
+  const workshop = createWorkshopEnvironment(scene, registry, options.asset, options.assembly);
+  const modelRoot = options.assembly ? new Group() : scene;
+  if (options.assembly) { modelRoot.name = 'assembly-pc-root'; scene.add(modelRoot); }
+  const bootPresentation = options.assembly ? createAssemblyBootPresentation(modelRoot) : null;
 
   const partGroups = new Map();
   const partById = new Map(COMPUTER_PARTS.map((part) => [part.id, part]));
@@ -225,7 +229,7 @@ export function createNativeComputerScene(container, options = {}) {
     for (const subPart of options.asset ? [] : part.subParts ?? []) {
       group.add(createPartMesh(subPart, part.id, registry));
     }
-    scene.add(group);
+    modelRoot.add(group);
     partGroups.set(part.id, { part, group });
   }
   const motherboard = partGroups.get("motherboard")?.group;
@@ -234,15 +238,16 @@ export function createNativeComputerScene(container, options = {}) {
   }
   if (options.asset) {
     for (const [id, entry] of partGroups) {
-      const modelName = id === 'ram-0' ? 'ram_0' : id;
+      const modelName = { 'ram-0': 'ram_0', 'ram-1': 'ram_1' }[id] ?? id;
       const node = options.asset.scene.getObjectByName(modelName);
       entry.group.clear();
       if (!node) continue;
-      const anchorName = modelName === 'case' ? 'assembly_origin' : 'socket_' + (modelName === 'ram_0' ? 'memory' : modelName);
+      const socketName = { ram_0: 'memory', ram_1: 'memory_1' }[modelName] ?? modelName;
+      const anchorName = modelName === 'case' ? 'assembly_origin' : 'socket_' + socketName;
       const anchor = options.asset.scene.getObjectByName(anchorName);
       if (anchor) {
         entry.pose = readSocketPose(anchor);
-        const focus = options.asset.scene.getObjectByName('focus_' + (modelName === 'ram_0' ? 'memory' : modelName));
+        const focus = options.asset.scene.getObjectByName('focus_' + socketName);
         entry.focus = focus ? readSocketPose(focus).position.toArray() : entry.pose.position.toArray();
         entry.part = { ...entry.part, basePos: entry.pose.position.toArray() };
         attachTeachingPart(node,entry.group,entry.pose);
@@ -261,9 +266,11 @@ export function createNativeComputerScene(container, options = {}) {
     }
     renderer.domElement.dataset.modelSource = 'blender-glb';
   } else renderer.domElement.dataset.modelSource = 'procedural';
-  const structureScene = options.assembly ? createStructureScene(scene, partGroups, options.asset, registry) : null;
+  const structureScene = options.assembly ? createStructureScene(modelRoot, partGroups, options.asset, registry) : null;
   const cableScene=options.assembly && options.asset ? createCableScene(scene,container,camera,registry,options.onConnector) : null;
   const teachingMotion=options.asset ? createTeachingMotion(scene, options.asset.animations) : null;
+  const storageModel = options.asset ? partGroups.get('storage')?.group : null;
+  setTeachingStorageVariant(storageModel);
   if (options.assembly) assemblyInteraction = createAssemblyInteraction(container, renderer.domElement, camera, partGroups, {
     ...options, scene, registry,
     onGestureEnd({ moved, cancelled }) {
@@ -277,7 +284,7 @@ export function createNativeComputerScene(container, options = {}) {
   const busGroup = new Group();
   const particleGroup = new Group();
   scene.add(busGroup, particleGroup);
-  const busEntries = CONNECTIONS.filter(connection => !options.exploration || (connection.fromPart !== 'ram-1' && connection.toPart !== 'ram-1')).map((connection) => {
+  const busEntries = CONNECTIONS.map((connection) => {
     const material = registry.add(new MeshBasicMaterial({ color: connection.color }));
     const mesh = new Mesh(busGeometry, material);
     busGroup.add(mesh);
@@ -401,7 +408,7 @@ export function createNativeComputerScene(container, options = {}) {
       }
       else if (['case', 'motherboard', 'psu'].includes(partId)) entry.group.position.fromArray(entry.part.basePos);
       entry.group.traverse((node) => {
-        applyMeshMaterial(node, viewState, partId);
+        applyMeshMaterial(node, viewState, options.assembly && partId === 'ram-1' ? 'ram-0' : partId);
         if (node.userData.fanAngle !== undefined) {
           const angle = node.userData.fanAngle + (viewState.assembly?.powered && !viewState.reducedMotion ? elapsed * 9 : 0);
           node.position.x = 0.39 + Math.cos(angle) * 0.065;
@@ -413,9 +420,12 @@ export function createNativeComputerScene(container, options = {}) {
     assemblyInteraction?.update(viewState.assembly, viewState.reducedMotion);
     structureScene?.update(viewState.assembly, viewState.reducedMotion);
     teachingMotion?.update(viewState.assembly,delta,viewState.reducedMotion);
+    const bootProgress = bootPresentation?.update(Boolean(viewState.assembly?.powered), delta, viewState.reducedMotion) ?? 0;
+    if (options.assembly) renderer.domElement.dataset.pcPose = bootProgress === 1 ? 'upright' : bootProgress > 0 ? 'moving' : 'workbench';
     cableScene?.update(viewState.assembly);
     if(options.assembly){renderer.domElement.dataset.fansRunning=String(Boolean(viewState.assembly?.powered && !viewState.reducedMotion));renderer.domElement.dataset.cableMode=String(Boolean(viewState.assembly?.cableMode));}
-    workshop.update(Boolean(viewState.assembly?.powered), elapsed, viewState.reducedMotion);
+    workshop.update(Boolean(viewState.assembly?.powered), elapsed, viewState.reducedMotion, viewState.assembly?.bootPhase);
+    if (options.assembly) renderer.domElement.dataset.monitorMessage = viewState.assembly?.bootPhase === 'ready' ? '开机成功' : viewState.assembly?.bootPhase === 'starting' ? '正在开机' : '';
     const showConnections = viewState.showConnections;
     for (let index = 0; index < busEntries.length; index += 1) {
       const entry = busEntries[index];
@@ -470,6 +480,7 @@ export function createNativeComputerScene(container, options = {}) {
     setViewState(nextState) {
       const previous = viewState;
       viewState = normalizeSceneViewState(nextState);
+      if (storageModel) renderer.domElement.dataset.storageVariant = setTeachingStorageVariant(storageModel, viewState.assembly?.storageId);
       if (options.exploration) {
         if (previous.returnPart !== viewState.returnPart && viewState.returnPart) {
           if (viewState.returnPart.id) explorationOffsets.delete(viewState.returnPart.id);
@@ -480,13 +491,13 @@ export function createNativeComputerScene(container, options = {}) {
           explorationDrag = null;
         }
       }
-      if (options.assembly && (previous.cameraPreset !== viewState.cameraPreset || previous.resetKey !== viewState.resetKey || previous.assembly?.selectedConnector !== viewState.assembly?.selectedConnector || (viewState.cameraPreset === 'part' && previous.selectedPartId !== viewState.selectedPartId))) {
+      if (options.assembly && (previous.assembly?.powered !== viewState.assembly?.powered || previous.cameraPreset !== viewState.cameraPreset || previous.resetKey !== viewState.resetKey || previous.assembly?.selectedConnector !== viewState.assembly?.selectedConnector || (viewState.cameraPreset === 'part' && previous.selectedPartId !== viewState.selectedPartId))) {
         const selected = ASSEMBLY_PARTS.find(part => part.sceneId === viewState.selectedPartId);
         const entry=partGroups.get(selected?.sceneId);
         const connectorFocus=cableScene?.focus(viewState.assembly?.selectedConnector);
         const installed = viewState.assembly?.installed?.[selected?.id];
         const focus = entry?.focus ?? entry?.part.basePos;
-        const pose = connectorFocus ? {target:connectorFocus.toArray(),position:connectorFocus.clone().add(new Vector3(-.65,1.1,1.2)).toArray()} : assemblyCameraPose(viewState.cameraPreset, installed ? focus : selected?.rack, focus, entry?.size);
+        const pose = viewState.assembly?.powered ? {target:[.7,-.45,0],position:[2,1.65,4.6]} : connectorFocus ? {target:connectorFocus.toArray(),position:connectorFocus.clone().add(new Vector3(-.65,1.1,1.2)).toArray()} : assemblyCameraPose(viewState.cameraPreset, installed ? focus : selected?.rack, focus, entry?.size);
         const target = new Vector3().fromArray(pose.target);
         offset.fromArray(pose.position).sub(target);
         const nextTransition = { target, distance: offset.length(), azimuth: Math.atan2(offset.x, offset.z), polar: Math.acos(offset.y / offset.length()) };

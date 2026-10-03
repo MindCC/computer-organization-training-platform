@@ -61,7 +61,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   }, [focused]);
   useEffect(() => {
     if (!booting) return;
-    const timer = setTimeout(() => setBoot(current => current?.signature === signature ? { ...current, step: current.step + 1 } : current), reducedMotion ? 80 : 650);
+    const timer = setTimeout(() => setBoot(current => current?.signature === signature ? { ...current, step: current.step + 1 } : current), 1100);
     return () => clearTimeout(timer);
   }, [booting, boot?.step, signature, reducedMotion]);
   useEffect(() => { onAssemblyReady?.(powered ? selectionKey : null); }, [powered, selectionKey, onAssemblyReady]);
@@ -73,7 +73,8 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
     if(booting)return;
     if(powered){invalidate();setMessage('已关机，可以继续调整配置。');return;}
     if(!ready){if(practiceMode)feedback({ok:false,message:practiceBootFeedback(validInstalled,validStructure,parts)});return;}
-    setBoot({signature,step:0});setMessage('开始供电、处理器、内存、存储与显示输出自检。');
+    setCableMode(false);setSelectedConnector(null);
+    setBoot({signature,step:0});setMessage('主机正在立起并移到桌旁，稍候查看显示器上的开机结果。');
   }
   function install(category, socket) {
     if (booting || powered) return;
@@ -118,7 +119,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   }
   const sceneState = useMemo(() => ({ visiblePartIds: COMPUTER_PARTS.map(part => part.id), selectedPartId: active.sceneId,
     reducedMotion, cameraPreset, resetKey,
-    assembly: { installed: validInstalled, activeId: active.id, integrated, powered: powered || booting, locked: powered || booting || !validStructure.open || !validStructure.motherboard, structure: validStructure, cableMode, selectedConnector, showMatchingHints:hintsVisible },
+    assembly: { installed: validInstalled, storageId: parts.storage, activeId: active.id, integrated, powered: powered || booting, bootPhase: powered ? 'ready' : booting ? 'starting' : null, locked: powered || booting || !validStructure.open || !validStructure.motherboard, structure: validStructure, cableMode, selectedConnector, showMatchingHints:hintsVisible },
   }), [signature, active.id, integrated, powered, booting, reducedMotion, cameraPreset, resetKey,cableMode,selectedConnector,hintsVisible]);
   return <section className={'assembly-workshop' + (focused ? ' focused' : '')} aria-label="3D 交互装机工作台">
     <header className="assembly-toolbar">
@@ -128,7 +129,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
     </header>
     <div className="assembly-viewport">
       <NativeComputerScene assembly viewState={sceneState} onInstall={install} onConnector={pickConnector} onPartSelect={sceneId => { const part = ASSEMBLY_PARTS.find(part => part.sceneId === sceneId); if (part) selectPart(part); }} fallback={<div className="assembly-fallback"><Cube size={40} /><strong>当前设备无法启动 3D 场景</strong><p>可以用下方的部件选择与安装操作完成教学练习。</p></div>} />
-      <div className="assembly-scene-heading"><span className="assembly-live-dot" />{powered ? 'SYSTEM ONLINE' : 'ASSEMBLY MODE'}<small>{validStructure.open ? '侧板已打开' : '先打开侧板'} · {validStructure.motherboard ? '主板已固定' : '主板待固定'} · {validStructure.psu ? '电源已固定' : '电源待固定'}</small></div>
+      <div className="assembly-scene-heading"><span className="assembly-live-dot" />{powered ? 'SYSTEM ONLINE' : booting ? 'SYSTEM STARTING' : 'ASSEMBLY MODE'}<small>{bootCurrent ? '主机立放 · 查看显示器上的启动结果' : <>{validStructure.open ? '侧板已打开' : '先打开侧板'} · {validStructure.motherboard ? '主板已固定' : '主板待固定'} · {validStructure.psu ? '电源已固定' : '电源待固定'}</>}</small></div>
       <div className="assembly-counter"><strong>{status.installed}<span> / {status.total}</span></strong><small>部件已安装</small></div>
       {showGuide && hintsVisible && !bootCurrent && !cableMode && <div className="assembly-guide"><Hand size={20} /><span><strong>{active.label+' · '+active.socket}</strong><small>{active.hint+' 拖动或点击安装，空白处左键拖动旋转，中键拖动平移，滚轮缩放。'}</small></span></div>}
       {bootCurrent && <div className={'assembly-boot' + (powered ? ' online' : '')} role="status"><Power size={25} /><strong>{powered ? '开机成功' : '正在开机自检…'}</strong><div>{BOOT_STEPS.slice(0, boot.step).map(line => <p key={line}>✓ {line}</p>)}</div>{powered && <small>{practiceMode?'练习已完成，请查看下方复盘或开始新一轮。':score.passed ? '装配与订单要求均已满足，可以交付。' : '装配正常，客户配置要求仍需调整。'}</small>}</div>}

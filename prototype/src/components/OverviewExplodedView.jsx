@@ -11,7 +11,7 @@ const ASSEMBLY_STEPS = [
   { step: 2, label: "安装电源", partIds: ["case", "psu"], desc: "第二步：安装电源（PSU）。电源将 220V 交流电转换为 12V/5V/3.3V 直流电，为主板和各个部件供电。" },
   { step: 3, label: "安装主板", partIds: ["case", "psu", "motherboard"], desc: "第三步：安装主板。主板是所有部件的连接中心，包含芯片组和扩展插槽。对应五大部件中的「控制器」。", highlight: "motherboard" },
   { step: 4, label: "安装 CPU", partIds: ["case", "psu", "motherboard", "cpu"], desc: "第四步：安装 CPU（中央处理器）。CPU 是计算机的「大脑」，执行所有运算。对应五大部件中的「运算器」。", highlight: "cpu" },
-  { step: 5, label: "安装内存", partIds: ["case", "psu", "motherboard", "cpu", "ram-0", "ram-1"], desc: "第五步：安装内存条。内存是 CPU 的工作区，临时存放正在运行的程序和数据。对应五大部件中的「存储器」。", highlight: "ram-0" },
+  { step: 5, label: "安装内存", partIds: ["case", "psu", "motherboard", "cpu", "ram-0", "ram-1"], desc: "第五步：安装两根内存条，对齐缺口插入对应 DIMM 插槽。内存是 CPU 的工作区，临时存放正在运行的程序和数据，对应五大部件中的「存储器」。", highlight: "ram-0" },
   { step: 6, label: "安装显卡", partIds: ["case", "psu", "motherboard", "cpu", "ram-0", "ram-1", "gpu"], desc: "第六步：安装显卡（GPU）。显卡专门处理图形和并行计算，通过 PCIe 总线与 CPU 通信。", highlight: "gpu" },
   { step: 7, label: "安装硬盘", partIds: ["case", "psu", "motherboard", "cpu", "ram-0", "ram-1", "gpu", "storage"], desc: "第七步：安装硬盘。硬盘长期保存操作系统、软件和文件。SSD 比机械硬盘快数十倍。", highlight: "storage" },
   { step: 8, label: "整机完成", partIds: ["case", "psu", "motherboard", "cpu", "ram-0", "ram-1", "gpu", "storage"], desc: "组装完成！各部件通过数据总线、地址总线和控制总线相互通信，电源为所有部件供电。试试旋转和缩放查看整机结构。", showConnections: true },
@@ -48,7 +48,7 @@ export function OverviewExplodedView({ autoPlay = false, completed = false, onCo
   // - auto mode: target settle distance (1.3) after animation completes
   // - manual mode: explodeDistance
   const effectiveDistance = autoAnimating ? 1.3 : explodeDistance;
-  const allParts = useMemo(() => getPartInstances(effectiveDistance).filter(part => part.parentId !== 'ram-1'), [effectiveDistance]);
+  const allParts = useMemo(() => getPartInstances(effectiveDistance), [effectiveDistance]);
 
   useEffect(() => { const t = setTimeout(() => setShowHint(false), 5000); return () => clearTimeout(t); }, []);
 

@@ -3,15 +3,29 @@ import { Box3 } from 'three/src/math/Box3.js';
 import { Vector3 } from 'three/src/math/Vector3.js';
 import manifest from '../teachingPcManifest.json' with { type: 'json' };
 import { CONNECTOR_IDS, MOVING_NODES } from './teachingAssetRig.js';
-export const MODEL_NODES=['case','side_panel','motherboard','psu','cpu','cooler','ram_0','gpu','storage'];
+export const MODEL_NODES=['case','side_panel','motherboard','psu','cpu','cooler','ram_0','ram_1','gpu','storage'];
 let bytes;
+export function validateTeachingSceneBounds(scene) {
+ scene.updateMatrixWorld(true);
+ // Desktop peripherals live outside the PC. Validate only the assembly rig
+ // against the PC dimensions, while retaining the same size limits.
+ const bounds=new Box3();
+ for(const name of MODEL_NODES){
+  const node=scene.getObjectByName(name);
+  if(!node)throw new Error('模型节点缺失：'+name);
+  bounds.union(new Box3().setFromObject(node));
+ }
+ const size=bounds.getSize(new Vector3());
+ if(!size.toArray().every(Number.isFinite) || size.x<.3 || size.x>.6 || size.y<.15 || size.y>.6 || size.z<.15 || size.z>.6)throw new Error('模型尺寸不符合教学主机规范');
+ return size;
+}
 export function validateTeachingGlb(buffer) {
  const view=new DataView(buffer);
  if(buffer.byteLength>5*1024*1024 || buffer.byteLength<20 || view.getUint32(0,true)!==0x46546c67 || view.getUint32(4,true)!==2 || view.getUint32(8,true)!==buffer.byteLength || view.getUint32(16,true)!==0x4e4f534a) throw new Error('模型格式或大小不符合规范');
  const length=view.getUint32(12,true);
  const json=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,20,length)).trim());
  if((json.buffers??[]).some(x=>x.uri) || (json.images??[]).some(x=>x.uri))throw new Error('模型不得引用外部资源');
- for(const name of [...MODEL_NODES,'assembly_origin',...MODEL_NODES.filter(n=>n!=='case').map(n=>'socket_'+(n==='ram_0'?'memory':n))])
+ for(const name of [...MODEL_NODES,'assembly_origin',...MODEL_NODES.filter(n=>n!=='case').map(n=>'socket_'+({ram_0:'memory',ram_1:'memory_1'}[n]??n))])
   if((json.nodes??[]).filter(n=>n.name===name).length!==1)throw new Error('模型节点缺失或重复：'+name);
  if(json.nodes.find(n=>n.name==='assembly_origin')?.extras?.schemaVersion!==2)throw new Error('教学模型版本不受支持');
  for(const name of [...CONNECTOR_IDS.map(id=>'port_'+id),...MOVING_NODES])
@@ -37,9 +51,8 @@ export async function loadTeachingAsset() {
   return buffer;
  }).catch(error=>{bytes=null;throw error;});
  const asset=await new GLTFLoader().parseAsync((await bytes).slice(0),'');
- asset.scene.updateMatrixWorld(true);
- const size=new Box3().setFromObject(asset.scene).getSize(new Vector3());
- if(!size.toArray().every(Number.isFinite) || size.x<.3 || size.x>.6 || size.y<.15 || size.y>.6 || size.z<.15 || size.z>.6){disposeTeachingAsset(asset);throw new Error('模型尺寸不符合教学主机规范');}
+ try { validateTeachingSceneBounds(asset.scene); }
+ catch(error){disposeTeachingAsset(asset);throw error;}
  const resources=new Set();
  asset.scene.traverse(n=>{if(n.geometry)resources.add(n.geometry);for(const m of (Array.isArray(n.material)?n.material:[n.material]).filter(Boolean)){resources.add(m);for(const v of Object.values(m))if(v?.isTexture)resources.add(v);}});
  asset._resources=resources;

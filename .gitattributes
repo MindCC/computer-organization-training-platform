@@ -5,4 +5,5 @@ deploy/*.conf text eol=lf
 
 # 静态演示版与演示页保持字节级一致（预览站校验靠 hash 对比）
 preview/** text eol=lf
+preview/home/*.png binary
 prototype/public/demos/** text eol=lf

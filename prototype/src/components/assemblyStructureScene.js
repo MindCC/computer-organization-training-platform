@@ -37,7 +37,7 @@ export function createStructureScene(scene,partGroups,asset,registry) {
   const s=state?.structure;
   if(!s)return;
   const panel=extras.get('side_panel');
-  const target=s.open?new Vector3(1.12,-.4,-.1):closedPanelPosition;
+  const target=s.open && !state.powered?new Vector3(1.12,-.4,-.1):closedPanelPosition;
   panel.position.lerp(target,reducedMotion?1:.15);
   if(s.cooler && !coolerInstalled && !reducedMotion)cooler.position.copy(coolerPosition).addScaledVector(cooler.userData.pose?.approach??new Vector3(0,1,0),.3);
   coolerInstalled=Boolean(s.cooler);cooler.visible=coolerInstalled;
