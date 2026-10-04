@@ -108,6 +108,12 @@ export async function apiRequest(path, options = {}) {
 }
 
 export const api = {
+  mindMapCapabilities: () => apiRequest('/api/mind-maps/capabilities'),
+  mindMaps: () => apiRequest('/api/mind-maps'),
+  mindMap: id => apiRequest(`/api/mind-maps/${id}`),
+  generateMindMap: payload => apiRequest('/api/mind-maps/generate', {method:'POST',body:JSON.stringify(payload),timeoutMs:70000}),
+  saveMindMap: (graph, saved) => apiRequest(saved?.id ? `/api/mind-maps/${saved.id}` : '/api/mind-maps', {method:saved?.id?'PUT':'POST',body:JSON.stringify({graph,version:saved?.version})}),
+  deleteMindMap: id => apiRequest(`/api/mind-maps/${id}`,{method:'DELETE'}),
   login: (payload) => apiRequest("/api/auth/login", { method: "POST", body: JSON.stringify(payload) }),
   demoLogin: (payload) => apiRequest('/api/auth/demo-login', { method: 'POST', body: JSON.stringify(payload) }),
   logout: () => apiRequest("/api/auth/logout", { method: "POST" }),
@@ -230,7 +236,7 @@ export const api = {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 90_000);
     try {
-      const response = await fetch("/api/student/knowledge/upload", {
+      const response = await fetch(personalLearningPath('/api/student/knowledge/upload'), {
         method: "POST",
         credentials: "include",
         headers: {

@@ -616,7 +616,7 @@ export function App() {
   useViewHistory({user:auth.user,enabled:auth.status!=='loading'&&auth.status!=='error'&&!showLogin,route:{view:activeView,challengeId:activeView==='lab'?lab.selectedChallengeId:null,caseId:activeView==='hardware-game'?selectedHardwareCaseId:null,demoId:activeView==='demo'?demoId:null,studyTarget:activeView==='assignments'?studyTarget:null},restore:route=>{
     if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo'].includes(route.view))return false;
     if(!auth.user&&!['home','courseware','demos','demo'].includes(route.view))return false;
-    if(auth.user?.role==='teacher'&&!['teacher','courseware','demos','demo','hardware-game','records','mistakes','lab','assignments'].includes(route.view))return false;
+    if(auth.user?.role==='teacher'&&!['teacher','courseware','demos','demo','hardware-game','records','mistakes','lab','assignments','notes'].includes(route.view))return false;
     if(auth.user?.role==='student'&&route.view==='teacher')return false;
     if(route.view==='lab'&&!lab.selectChallenge(route.challengeId))return false;
     if(route.view==='hardware-game'&&!HARDWARE_GAME_CASES.some(item=>item.id===route.caseId))return false;
@@ -1033,7 +1033,7 @@ export function App() {
         </button>
 
         <nav className="topbar-nav" aria-label="主导航">
-          {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["teacher", "hardware-game", "records", "mistakes", "courseware", "demos"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware", "demos"].includes(item.id)).map(({ id, icon: Icon, label }) => (
+          {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["teacher", "hardware-game", "records", "mistakes", "courseware", "demos", "notes"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware", "demos"].includes(item.id)).map(({ id, icon: Icon, label }) => (
             <button
               className={(activeView === id || (activeView === "lab" && id === "home") || (activeView === "demo" && id === (demoId === "courseware" ? "courseware" : "demos"))) ? "topbar-nav-item active" : "topbar-nav-item"}
               key={id}
@@ -1138,7 +1138,7 @@ export function App() {
               </Suspense>
             </ErrorBoundary>
           ) : null}
-          {activeView === "notes" ? <NotesPage key={auth.user?.id} /> : null}
+          {activeView === "notes" ? <NotesPage key={auth.user?.id} userId={auth.user?.id} /> : null}
           {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} practiceOnly={auth.user?.role === 'teacher'} destination={studyTarget} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} onOpenLearning={() => changeView('records')} /> : null}
           {activeView === "courseware" ? <CoursewareView key={auth.user?.id??'guest'} navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
           {activeView === "teacher" ? (

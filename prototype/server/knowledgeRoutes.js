@@ -25,13 +25,15 @@ const UPLOAD_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 
-export function createKnowledgeRouter({ db, requireRole }) {
+export function createKnowledgeRouter({ db, requireRole, role='student' }) {
   const router = express.Router();
   const repository = createKnowledgeRepository(db);
+  // Teacher materials are owned by their account ID using the same document store.
+  const requireOwner = requireRole(role);
 
   router.post(
-    "/student/knowledge/upload",
-    requireRole("student"),
+    `/${role}/knowledge/upload`,
+    requireOwner,
     express.raw({ type: UPLOAD_MIME_TYPES, limit: MAX_KNOWLEDGE_FILE_BYTES }),
     async (req, res, next) => {
       try {
@@ -75,11 +77,11 @@ export function createKnowledgeRouter({ db, requireRole }) {
     },
   );
 
-  router.get("/student/knowledge/documents", requireRole("student"), (req, res) => {
+  router.get(`/${role}/knowledge/documents`, requireOwner, (req, res) => {
     res.json({ documents: repository.listDocuments(req.user.id) });
   });
 
-  router.get("/student/knowledge/documents/:id", requireRole("student"), (req, res) => {
+  router.get(`/${role}/knowledge/documents/:id`, requireOwner, (req, res) => {
     const idCheck = normalizeKnowledgeDocumentId(req.params.id);
     if (!idCheck.ok) return res.status(idCheck.status).json({ error: idCheck.error });
     const document = repository.getDocument(req.user.id, idCheck.id);
@@ -87,7 +89,7 @@ export function createKnowledgeRouter({ db, requireRole }) {
     res.json({ document });
   });
 
-  router.delete("/student/knowledge/documents/:id", requireRole("student"), (req, res) => {
+  router.delete(`/${role}/knowledge/documents/:id`, requireOwner, (req, res) => {
     const idCheck = normalizeKnowledgeDocumentId(req.params.id);
     if (!idCheck.ok) return res.status(idCheck.status).json({ error: idCheck.error });
     if (!repository.deleteDocument(req.user.id, idCheck.id)) {
@@ -96,7 +98,7 @@ export function createKnowledgeRouter({ db, requireRole }) {
     res.json({ ok: true });
   });
 
-  router.get("/student/knowledge/search", requireRole("student"), (req, res) => {
+  router.get(`/${role}/knowledge/search`, requireOwner, (req, res) => {
     const queryCheck = normalizeKnowledgeSearchQuery(req.query.q);
     if (!queryCheck.ok) return res.status(queryCheck.status).json({ error: queryCheck.error });
     const matchQuery = buildFtsMatchQuery(queryCheck.query);

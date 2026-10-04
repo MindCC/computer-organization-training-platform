@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../apiClient.js";
-import { BookOpen, CaretRight, FileText, FolderSimple, MagnifyingGlass, SidebarSimple, SortAscending, UploadSimple } from "@phosphor-icons/react";
+import { BookOpen, CaretRight, FileText, FolderSimple, MagnifyingGlass, SidebarSimple, SortAscending, UploadSimple, TreeStructure } from "@phosphor-icons/react";
+import { MindMapBoard } from './MindMapBoard.jsx';
 import "./knowledgeWorkspace.css";
 
 const FILE_TYPE_LABELS = { txt: "TXT", md: "MD", docx: "DOCX", pdf: "PDF", pptx: "PPTX" };
@@ -59,8 +60,9 @@ function formatKbDate(createdAt) {
  * 知识库（LLMWiki 式）：上传文件 → 系统解析正文 → 分块 → 全文索引 → 自动分析，
  * 支持全文检索与摘要/要点/关键词查看。组件自管数据（App 传入的旧笔记 props 一律忽略）。
  */
-export function NotesPage() {
+export function NotesPage({userId}) {
   const [mode, setMode] = useState("files");
+  const [mindMapSeed,setMindMapSeed]=useState('');
   const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia("(max-width: 720px)").matches);
   const [selectedId, setSelectedId] = useState(null);
   const selectedIdRef = useRef(selectedId);
@@ -139,6 +141,7 @@ export function NotesPage() {
   function toggleFolder(type) {
     setClosedFolders(current => { const next = new Set(current); if (next.has(type)) next.delete(type); else next.add(type); return next; });
   }
+  function openMindMap() {setMode('mindmap');setSidebarOpen(false);}
 
   useEffect(() => () => {
     for (const timer of stageTimersRef.current) clearTimeout(timer);
@@ -241,7 +244,7 @@ export function NotesPage() {
   return (
     <div className={`kb-layout kb-vault${sidebarOpen ? "" : " is-collapsed"}`}>
       <nav className="kb-ribbon" aria-label="知识库工具">
-        {[{id:"files",label:"我的文档",icon:FolderSimple},{id:"search",label:"全文检索",icon:MagnifyingGlass},{id:"upload",label:"上传文档",icon:UploadSimple}].map(({id,label,icon:Icon}) => <button key={id} type="button" title={label} aria-label={label} aria-pressed={mode === id} onClick={() => setMode(id)}><Icon size={21} /></button>)}
+        {[{id:"files",label:"我的文档",icon:FolderSimple},{id:"search",label:"全文检索",icon:MagnifyingGlass},{id:"upload",label:"上传文档",icon:UploadSimple},{id:"mindmap",label:"思维画板",icon:TreeStructure}].map(({id,label,icon:Icon}) => <button key={id} type="button" title={label} aria-label={label} aria-pressed={mode === id} onClick={() => id==='mindmap'?openMindMap():setMode(id)}><Icon size={21} /></button>)}
         <span className="kb-ribbon-bottom"><BookOpen size={20} /></span>
       </nav>
       {sidebarOpen ? <aside className="kb-vault-sidebar" id="kb-file-sidebar" aria-label="知识库文件导航">
@@ -250,6 +253,7 @@ export function NotesPage() {
           <button type="button" role="tab" aria-selected={mode === "files"} onClick={() => setMode("files")}>文件</button>
           <button type="button" role="tab" aria-selected={mode === "search"} onClick={() => setMode("search")}>搜索</button>
           <button type="button" role="tab" aria-selected={mode === "upload"} onClick={() => setMode("upload")}>导入</button>
+          <button type="button" role="tab" aria-selected={mode === "mindmap"} onClick={openMindMap}>画板</button>
         </div>
         <label className="kb-file-filter"><MagnifyingGlass size={16} /><input aria-label="筛选文档名称" placeholder="查找文件…" value={fileFilter} onChange={event => setFileFilter(event.target.value)} /></label>
         <div className="kb-explorer-heading"><span>文件导航 <small>{documents.length}</small></span><button type="button" aria-label="按文件名称排序" title={sortByName ? "切换为最新导入优先" : "按文件名称排序"} aria-pressed={sortByName} onClick={() => setSortByName(value => !value)}><SortAscending size={17} /></button></div>
@@ -265,8 +269,9 @@ export function NotesPage() {
         <footer className="kb-vault-foot"><span>{documents.length} 篇文档</span><span>{totalChunks} 个知识块</span></footer>
       </aside> : null}
       <div className="kb-vault-main">
-        <header className="kb-workspace-tabs"><button type="button" className="kb-sidebar-toggle" aria-label={sidebarOpen ? "收起文件侧栏" : "展开文件侧栏"} aria-expanded={sidebarOpen} aria-controls="kb-file-sidebar" onClick={() => setSidebarOpen(value => !value)}><SidebarSimple size={19} /></button><div className="kb-active-tab"><FileText size={16} /><span>{mode === "upload" ? "导入资料" : mode === "search" ? "搜索知识库" : activeDocument?.title ?? "知识库"}</span></div><span className="kb-workspace-hint">个人学习空间</span></header>
+        <header className="kb-workspace-tabs"><button type="button" className="kb-sidebar-toggle" aria-label={sidebarOpen ? "收起文件侧栏" : "展开文件侧栏"} aria-expanded={sidebarOpen} aria-controls="kb-file-sidebar" onClick={() => setSidebarOpen(value => !value)}><SidebarSimple size={19} /></button><div className="kb-active-tab"><FileText size={16} /><span>{mode === 'mindmap' ? '思维画板' : mode === "upload" ? "导入资料" : mode === "search" ? "搜索知识库" : activeDocument?.title ?? "知识库"}</span></div><span className="kb-workspace-hint">个人学习空间</span></header>
         <div className="kb-workspace-content">
+      {mode === 'mindmap' ? <MindMapBoard userId={userId} initialText={mindMapSeed} /> : null}
 
       {mode === "upload" ? <section className="section-panel kb-upload-panel">
         <div className="section-heading">
@@ -464,6 +469,7 @@ export function NotesPage() {
                     {detail?.chunks?.filter(chunk => !focusedChunk || chunk.id === focusedChunk).map(chunk => <section className="kb-reading-chunk" key={chunk.id} data-chunk-id={chunk.id}><small>{chunk.pageNo != null ? `第 ${chunk.pageNo} 页 · ` : ""}片段 {chunk.chunkIndex+1}</small><p>{chunk.content}</p></section>)}
                   </div> : null}
                   <div className="kb-doc-actions">
+                    <button type="button" className="ghost-button" disabled={detailLoading || !detail?.chunks?.length} onClick={()=>{setMindMapSeed(detail.chunks.map(chunk=>chunk.content).join('\n').slice(0,6000));openMindMap();}}>从此文档生成导图</button>
                     {confirmingDeleteId === document.id ? (
                       <>
                         <button

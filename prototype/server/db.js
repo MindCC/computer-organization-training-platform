@@ -6,6 +6,7 @@ import { HARDWARE_GAME_CASES, summarizeHardwareGameAttempts } from "../src/hardw
 import { reconcileDependencyLocks } from "../src/challengeDependencies.js";
 import { sanitizeProfile } from "./security.js";
 import { ensureShopServiceTables } from './shopServiceRoutes.js';
+import { ensureMindMapTables } from './mindMapRepository.js';
 
 const DEFAULT_DATABASE_PATH = path.resolve("data/classroom.sqlite");
 
@@ -445,6 +446,7 @@ export function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_assignment_reviews_student ON assignment_reviews(student_id, question_id, id);
   `);
   ensureShopServiceTables(db);
+  ensureMindMapTables(db);
   // LLMWiki 式知识库：文档 → 分块 → FTS5 全文索引。
   // kb_documents.analysis_json 存自动分析结果（摘要/要点/关键词），
   // kb_index 是独立的 FTS5 虚表（不挂外部内容表），删除时按 document_id 级联清理。

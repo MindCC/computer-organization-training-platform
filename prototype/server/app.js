@@ -76,6 +76,7 @@ import { createTeacherAssemblyPracticeRouter } from './teacherAssemblyPractice.j
 import { createTeacherLearningReviewRouter } from './teacherLearningReview.js';
 import { createCoursewareUploadRouter } from "./coursewareUploadRoutes.js";
 import { createKnowledgeRouter } from "./knowledgeRoutes.js";
+import { createMindMapRouter } from './mindMapRoutes.js';
 import { createCustomCustomerRouter } from './customCustomerRoutes.js';
 import { createShopServiceRouter, serviceRecords } from './shopServiceRoutes.js';
 import { createStudyAssistantRouter } from './studyAssistantRoutes.js';
@@ -122,7 +123,7 @@ export function createApp(options = {}) {
     }
   }
 
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: "1mb", type:req => req.path !== '/api/mind-maps/generate' && Boolean(req.is('application/json')) }));
   app.use(express.text({ type: ["text/csv", "text/plain"], limit: "1mb" }));
 
   // 安全响应头：项目未引入 helmet，这里补齐最小必要集合。
@@ -192,6 +193,8 @@ export function createApp(options = {}) {
     dataDirectory: options.coursewareDirectory ?? path.resolve(path.dirname(db.name === ":memory:" ? process.cwd() : db.name), "courseware"),
   }));
   app.use("/api", createKnowledgeRouter({ db, requireRole }));
+  app.use('/api', createKnowledgeRouter({db,requireRole,role:'teacher'}));
+  app.use('/api', createMindMapRouter({db,requireRole,options:options.mindMapOptions??{}}));
   app.use('/api', createCustomCustomerRouter({db,requireRole,options:options.customCustomerOptions??{}}));
   app.use('/api', createShopServiceRouter({db,requireRole}));
   app.use('/api', createStudyAssistantRouter({requireRole, options:options.studyAssistantOptions??{}}));

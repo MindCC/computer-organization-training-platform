@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const allowedVerifiers = new Set([
+  'scripts/verify-mind-map.mjs',
   "scripts/verify-interactive-demos.mjs",
   "scripts/verify-courseware-redesign.mjs",
   "scripts/verify-study-mascot.mjs",
@@ -155,6 +156,7 @@ try {
       DATABASE_PATH: databasePath,
       PORT: String(apiPort),
       DEEPSEEK_API_KEY: liveAi ? (process.env.DEEPSEEK_API_KEY??'') : "",
+      MINDMAP_API_KEY: '',
       PUBLIC_BASE_URL: appUrl,
       NODE_ENV: production ? 'production' : 'development',
       ENABLE_DEMO_LOGIN: process.argv.includes('--seed-demo') ? 'true' : 'false',
