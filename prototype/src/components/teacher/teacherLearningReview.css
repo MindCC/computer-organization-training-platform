@@ -1,0 +1,39 @@
+.teacher-learning-review { display: grid; gap: 18px; min-width: 0; color: #203f48; }
+.teacher-review-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.teacher-review-heading h1 { display: flex; align-items: center; gap: 10px; margin: 8px 0; font-size: 26px; }
+.teacher-review-heading p, .teacher-review-analysis .section-heading p, .teacher-review-roster p { color: #657d85; font-size: 13px; line-height: 1.8; }
+.teacher-review-controls { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; padding: 18px 22px; }
+.teacher-review-controls label { display: grid; gap: 7px; font-size: 12px; color: #5c7580; flex: 1; min-width: 190px; }
+.teacher-review-controls select { padding: 11px 14px; min-height: 44px; width: 100%; background: #f7fafb; border: 1px solid #d6e2e7; border-radius: 9px; color: #254551; }
+.teacher-review-tabs { display: flex; gap: 5px; padding: 4px; border-radius: 10px; background: #edf4f5; }
+.teacher-review-tabs button { border: 0; border-radius: 7px; padding: 12px 18px; color: #607b84; background: transparent; cursor: pointer; }
+.teacher-review-tabs button[aria-pressed=true] { background: #fff; color: #087a70; box-shadow: 0 2px 7px #20485412; }
+.teacher-analysis-source { padding: 6px 10px; background: #e9f5ef; color: #267b5a; border-radius: 20px; font-size: 11px; white-space: nowrap; }
+.teacher-review-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.teacher-review-metrics > div { display: grid; gap: 12px; padding: 18px; border: 1px solid #dbe6e9; border-radius: 12px; background: #f6fafb; }
+.teacher-review-metrics span { font-size: 12px; color: #667e85; }
+.teacher-review-metrics strong { font-size: 26px; font-weight: 650; color: #19474f; }
+.teacher-analysis-disclosure { margin-top: 18px; border-top: 1px solid #e0e9ec; padding-top: 15px; }
+.teacher-analysis-disclosure > summary { cursor: pointer; color: #2f6069; font-size: 13px; font-weight: 600; }
+.teacher-analysis-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-top: 16px; }
+.teacher-analysis-card { padding: 20px; background: #fbfcfd; border: 1px solid #e0e9ec; border-radius: 12px; min-width: 0; }
+.teacher-analysis-card h3 { margin: 0 0 16px; font-size: 15px; }
+.teacher-analysis-chapter { display: grid; grid-template-columns: 1fr auto; gap: 7px; margin: 0 0 13px; font-size: 12px; }
+.teacher-analysis-chapter small { color: #72848c; font-size: 10px; }
+.teacher-analysis-track { height: 5px; border-radius: 8px; background: #e7edef; grid-column: 1 / -1; overflow: hidden; }
+.teacher-analysis-track i { display: block; height: 100%; border-radius: inherit; background: #158c80; }
+.teacher-analysis-card ol { margin: 0 0 22px; padding-left: 20px; color: #54727c; font-size: 12px; line-height: 1.9; }
+.teacher-analysis-card li + li { margin-top: 9px; }
+.teacher-common-error { display: grid; gap: 5px; padding: 10px 0; border-top: 1px solid #e3ebed; }
+.teacher-common-error strong { font-size: 12px; font-weight: 550; line-height: 1.6; }
+.teacher-common-error small { font-size: 10px; color: #78898f; }
+.teacher-review-table-scroll { overflow-x: auto; }
+.teacher-review-roster table { width: 100%; border-collapse: collapse; min-width: 650px; font-size: 12px; text-align: left; }
+.teacher-review-roster th { background: #f1f6f7; font-weight: 550; color: #6a818a; }
+.teacher-review-roster td, .teacher-review-roster th { padding: 12px; border-bottom: 1px solid #e5ecee; }
+.teacher-review-roster td small { display: block; margin-top: 5px; color: #8c9ba0; font-size: 10px; }
+.teacher-review-roster td button { min-height: 34px; font-size: 11px; padding: 7px 10px; margin: 3px; }
+.teacher-review-scope { display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 9px; border: 1px solid #cae4db; background: #edf7f1; color: #386a5b; font-size: 12px; line-height: 1.8; }
+.teacher-support-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid #e3ebed; font-size: 12px; }
+.teacher-support-row span { flex: 1; color: #698088; }
+@media(max-width:700px) { .teacher-review-heading { align-items: flex-start; flex-direction: column; } .teacher-review-heading h1 { font-size: 22px; } .teacher-review-metrics { grid-template-columns: 1fr 1fr; } .teacher-review-metrics strong { font-size: 21px; } .teacher-analysis-grid { grid-template-columns: 1fr; } .teacher-review-controls label { min-width: 100%; } .teacher-review-tabs { width: 100%; } .teacher-review-tabs button { flex: 1; } .teacher-analysis-chapter { grid-template-columns: 1fr; } }

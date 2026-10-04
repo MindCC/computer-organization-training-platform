@@ -2,9 +2,9 @@ import { useEffect,useState } from 'react';
 import { apiRequest } from '../../apiClient.js';
 import './shopServiceRecords.css';
 
-export function ShopServiceRecords({openStudyTarget}){
+export function ShopServiceRecords({openStudyTarget,suppliedRecords}){
   const [records,setRecords]=useState(null),[error,setError]=useState(''),[version,setVersion]=useState(0),[limit,setLimit]=useState(12);
-  useEffect(()=>{let cancelled=false;setError('');apiRequest('/api/student/shop-service').then(data=>{if(!cancelled)setRecords(data.records);}).catch(e=>{if(!cancelled)setError(e.message);});return()=>{cancelled=true;};},[version]);
+  useEffect(()=>{let cancelled=false;setError('');if(suppliedRecords!==undefined){setRecords(suppliedRecords);return;}apiRequest('/api/student/shop-service').then(data=>{if(!cancelled)setRecords(data.records);}).catch(e=>{if(!cancelled)setError(e.message);});return()=>{cancelled=true;};},[version,suppliedRecords]);
   return <section className="section-panel service-records" aria-label="维修与升级记录">
     <div className="section-heading"><div><h2>维修与升级记录</h2><p>回顾诊断、升级费用与复测结果。</p></div></div>
     {error?<><p role="alert">{error}</p><button className="ghost-button" type="button" onClick={()=>setVersion(v=>v+1)}>重试维修记录</button></>:!records?<p role="status">正在加载维修记录…</p>:!records.length?<p>还没有维修记录。进入装机店的“维修与升级工单”，开始排查一台旧电脑。</p>:<>

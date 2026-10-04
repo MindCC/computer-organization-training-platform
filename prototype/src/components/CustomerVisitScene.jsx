@@ -26,7 +26,7 @@ export function CustomerVisitScene({ profile, order, story, onAsk, onAccept, onO
   return <section className={'shop-game customer-visit-game' + (workshopOpen ? ' at-workbench' : '')} aria-label="芯邻装机店" data-customer={profile.name}>
     <img className="shop-backdrop" src="/shop-story/shop-empty.webp" alt="阳光照进街角装机店，右侧是装机工作台和元件架" fetchPriority="high" />
     <header className="shop-topbar"><div className="shop-brand"><Cpu size={29} weight="duotone" /><h1>芯邻装机</h1><span>客户来访 · {profile.role}</span></div><div className="shop-tools">
-      <button type="button" className="shop-custom-entry" onClick={onCustom}><ChatCircleText size={19} /><span>自定义客户 · AI</span></button>
+      {onCustom && <button type="button" className="shop-custom-entry" onClick={onCustom}><ChatCircleText size={19} /><span>自定义客户 · AI</span></button>}
       <button type="button" aria-label={soundOn ? '声音已开启' : '声音已关闭'} aria-pressed={soundOn} onClick={onSound}>{soundOn ? <SpeakerHigh size={22} /> : <SpeakerSlash size={22} />}</button>
       <button type="button" aria-label="订单与练习" aria-expanded={panel === 'menu'} onClick={() => setPanel(panel === 'menu' ? null : 'menu')}><List size={22} /></button>
     </div></header>

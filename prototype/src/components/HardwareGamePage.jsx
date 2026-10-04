@@ -30,6 +30,7 @@ export function HardwareGamePage({
   submitHardwareBuild,
   serviceTarget,
   onServiceExit,
+  allowCustom = true,
 }) {
   const [activeCategory, setActiveCategory] = useState("cpu");
   const [practiceOpen,setPracticeOpen]=useState(false);
@@ -119,7 +120,7 @@ export function HardwareGamePage({
 
   if(practiceOpen)return <div className="hardware-game-page"><div className="hardware-training-entry"><button type="button" onClick={()=>setPracticeOpen(false)}>返回客户订单</button><span>教学练习 · 订单装配进度已保留</span></div><AssemblyPractice key={draftKey??selectedCase.id} initialParts={hardwareSelection} caseId={selectedCase.id} userId={userId}/></div>;
 
-  if(customOpen)return <CustomCustomerScene key={userId} userId={userId} onExit={()=>setCustomOpen(false)}/>;
+  if(customOpen && allowCustom)return <CustomCustomerScene key={userId} userId={userId} onExit={()=>setCustomOpen(false)}/>;
   if(serviceOpen)return <Suspense fallback={<p role="status">正在载入维修工作台…</p>}><ShopServiceScene key={userId} userId={userId} initialOrderId={serviceTarget?.orderId} onExit={()=>{closeService();onServiceExit?.();}}/></Suspense>;
 
   // Mount each customer's scene only after that order's saved state is restored.
@@ -128,7 +129,7 @@ export function HardwareGamePage({
   const VisitScene=selectedCase.id==='game-office-pc'?ShopStoryScene:CustomerVisitScene;
   return <div className="hardware-game-page hardware-shop-page hardware-game-layout" data-story-stage={stage}>
     <div className="hardware-training-entry"><span>新玩法 · 客户带着旧电脑来店，先诊断，再升级</span><button type="button" onClick={openService}>进入维修与升级工单 <ArrowRight size={17}/></button></div>
-    <VisitScene key={selectedCase.id} profile={profile} order={selectedCase} onReturn={()=>selectCase('game-office-pc')} onNextCustomer={nextCustomer} nextCustomerName={storyProfile(nextCase.id).name} onCustom={()=>{setReadyConfiguration(null);setCustomOpen(true);}} story={story} storyKey={storyKey} storage={draftStorage} onAsk={ask} onAccept={accept} onOffer={adopt} offers={offers} preview={preview} receipt={activeReceipt} delivered={deliveryComplete} soundOn={soundOn} onSound={toggleSound} workshopOpen={workshopOpen} onWorkshop={()=>setWorkshopOpen(true)} onReception={()=>setWorkshopOpen(false)} onPractice={()=>{setReadyConfiguration(null);setPracticeOpen(true);}} saved={storySaved}
+    <VisitScene key={selectedCase.id} profile={profile} order={selectedCase} onReturn={()=>selectCase('game-office-pc')} onNextCustomer={nextCustomer} nextCustomerName={storyProfile(nextCase.id).name} onCustom={allowCustom?()=>{setReadyConfiguration(null);setCustomOpen(true);}:undefined} story={story} storyKey={storyKey} storage={draftStorage} onAsk={ask} onAccept={accept} onOffer={adopt} offers={offers} preview={preview} receipt={activeReceipt} delivered={deliveryComplete} soundOn={soundOn} onSound={toggleSound} workshopOpen={workshopOpen} onWorkshop={()=>setWorkshopOpen(true)} onReception={()=>setWorkshopOpen(false)} onPractice={()=>{setReadyConfiguration(null);setPracticeOpen(true);}} saved={storySaved}
       orders={<section className="hardware-case-rail">{caseGroups.map(group=><div className="hardware-case-group" key={group.id}><strong>{group.title}</strong>{HARDWARE_GAME_CASES.filter(item=>item.chapterId===group.id).map(item=><button className={'hardware-case'+(item.id===selectedCase.id?' active':'')} aria-pressed={item.id===selectedCase.id} type="button" key={item.id} onClick={()=>selectCase(item.id)}><strong>{storyProfile(item.id).name}</strong><span>{item.title}</span></button>)}</div>)}</section>}>
       {story.accepted&&<><div className="hardware-live-workshop">{workbench}</div>{deliveryPanel}</>}
     </VisitScene>{soundMessage&&<p role="status">{soundMessage}</p>}

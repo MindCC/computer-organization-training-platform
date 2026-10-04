@@ -33,7 +33,7 @@ test("view session ignores malformed payloads and hostile challenge ids", () => 
 test("restoring a view respects the current role", () => {
   const labSession = { view: "lab", challengeId: "alu" };
   assert.deepEqual(resolveRestorableView(labSession, "student"), labSession);
-  assert.equal(resolveRestorableView(labSession, "teacher"), null);
+  assert.deepEqual(resolveRestorableView(labSession, "teacher"), labSession);
   assert.equal(resolveRestorableView(labSession, null), null);
 
   const teacherSession = { view: "teacher", challengeId: null };

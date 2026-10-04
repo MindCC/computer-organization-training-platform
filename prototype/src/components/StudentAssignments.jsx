@@ -28,12 +28,12 @@ import "./mistakeBook.css";
  * 课后作业 = 按章练习（自动题库 + 知识点标注 + 知识星图） + 教师作业（原有流程）。
  * 正式判分与错题同步到账户，本机仅保存按账号隔离的未提交草稿。
  */
-export function StudentAssignments({ userId, destination, progress = {}, navigateToChallenge, onOpenMistakes, onOpenLearning }) {
+export function StudentAssignments({ userId, destination, progress = {}, navigateToChallenge, onOpenMistakes, onOpenLearning, practiceOnly = false }) {
   const [mode, setMode] = useState(destination?.source === "assignment" ? "teacher" : "practice");
 
   return (
     <div className="student-assignments">
-      <div className="study-page-heading"><h2><Notebook size={20} /> 课后作业</h2><div className="study-page-tools"><StudyMascot context={{source:'practice'}} compact/><button className="ghost-button" onClick={onOpenMistakes} type="button">打开错题本</button></div></div>
+      <div className="study-page-heading"><h2><Notebook size={20} /> {practiceOnly ? '教师题库试练' : '课后作业'}</h2><div className="study-page-tools">{!practiceOnly && <StudyMascot context={{source:'practice'}} compact/>}<button className="ghost-button" onClick={onOpenMistakes} type="button">打开错题本</button></div></div>
       <div className="assignment-mode-switch" role="tablist" aria-label="作业模式">
         <button
           type="button"
@@ -44,7 +44,7 @@ export function StudentAssignments({ userId, destination, progress = {}, navigat
         >
           <ListChecks size={16} /> 按章练习
         </button>
-        <button
+        {!practiceOnly && <button
           type="button"
           role="tab"
           aria-selected={mode === "teacher"}
@@ -52,9 +52,9 @@ export function StudentAssignments({ userId, destination, progress = {}, navigat
           onClick={() => setMode("teacher")}
         >
           <ChalkboardTeacher size={16} /> 教师作业
-        </button>
+        </button>}
       </div>
-      {mode === "practice" ? <ChapterPractice key={userId} userId={userId} destination={destination} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={onOpenMistakes} onOpenLearning={onOpenLearning} /> : <TeacherAssignments userId={userId} destination={destination} onOpenMistakes={onOpenMistakes} />}
+      {practiceOnly || mode === "practice" ? <ChapterPractice key={userId} userId={userId} destination={destination} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={onOpenMistakes} onOpenLearning={onOpenLearning} assistantEnabled={!practiceOnly} /> : <TeacherAssignments userId={userId} destination={destination} onOpenMistakes={onOpenMistakes} />}
     </div>
   );
 }
@@ -87,7 +87,7 @@ function shortChapterTitle(title) {
   return title.replace(/^第.+章\s*/, "");
 }
 
-function ChapterPractice({ progress, userId, destination, navigateToChallenge, onOpenMistakes, onOpenLearning }) {
+function ChapterPractice({ progress, userId, destination, navigateToChallenge, onOpenMistakes, onOpenLearning, assistantEnabled }) {
   const [chapterId, setChapterId] = useState(destination?.chapterId ?? COURSE_CHAPTERS[0].id);
   const [focusedQuestion, setFocusedQuestion] = useState(destination?.source === "practice" ? destination.questionId : null);
   const [store, setStore] = useState(() => loadPracticeStore(userId));
@@ -271,6 +271,7 @@ function ChapterPractice({ progress, userId, destination, navigateToChallenge, o
             focusKpId={focusKpId}
             onAnswer={setAnswer}
             onFocusKp={focusKnowledgePoint}
+            assistantEnabled={assistantEnabled}
           />
         ))}
       </div>
@@ -304,7 +305,7 @@ function ChapterTab({ chapter, active, graded, onSelect }) {
   );
 }
 
-function PracticeQuestion({ question, index, value, result, focusKpId, onAnswer, onFocusKp }) {
+function PracticeQuestion({ question, index, value, result, focusKpId, onAnswer, onFocusKp, assistantEnabled }) {
   const kp = knowledgePointOf(question.kpId);
   const graded = Boolean(result);
   const stateClass = graded ? (result.correct ? " is-correct" : " is-wrong") : "";
@@ -336,7 +337,7 @@ function PracticeQuestion({ question, index, value, result, focusKpId, onAnswer,
         ) : null}
       </div>
 
-      <div className="question-help"><StudyMascot compact context={{source:'practice',questionId:question.id,chapterId:question.chapterId}} suggestion="先找已知条件，再想想题目考的是哪一个概念。点击小芯可以提问本题的思路。"/></div>
+      {assistantEnabled && <div className="question-help"><StudyMascot compact context={{source:'practice',questionId:question.id,chapterId:question.chapterId}} suggestion="先找已知条件，再想想题目考的是哪一个概念。点击小芯可以提问本题的思路。"/></div>}
       {question.type === "choice" ? question.options.map((option) => (
         <label className="practice-option" key={option} data-option={option}>
           <input

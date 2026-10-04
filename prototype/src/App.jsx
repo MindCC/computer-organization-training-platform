@@ -68,6 +68,7 @@ import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRo
 import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { buildMemoryAccessState } from "./memorySystem.js";
 import { api } from "./apiClient.js";
+import { setPersonalLearningRole } from './personalLearningApi.js';
 import { statusText, statusTone, formatMinutes, formatEndpointLabel } from "./components/labUtils.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { QuestSettlement } from "./components/quest/QuestSettlement.jsx";
@@ -95,6 +96,7 @@ const SettingsModal = lazy(() => import("./components/TeacherSettingsPanel.jsx")
   .then((module) => ({ default: module.SettingsModal })));
 const TeacherStudioDashboard = lazy(() => import("./components/TeacherDashboard.jsx")
   .then((module) => ({ default: module.TeacherStudioDashboard })));
+const TeacherLearningReview = lazy(() => import('./components/teacher/TeacherLearningReview.jsx').then(module => ({ default: module.TeacherLearningReview })));
 const StudentAssignments = lazy(() => import("./components/StudentAssignments.jsx")
   .then((module) => ({ default: module.StudentAssignments })));
 const DemoPage = lazy(() => import("./components/DemoPage.jsx")
@@ -540,6 +542,7 @@ export function App() {
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantError, setAssistantError] = useState("");
   const [selectedTeacherStudent, setSelectedTeacherStudent] = useState(null);
+  const [teacherReviewStudent, setTeacherReviewStudent] = useState('all');
   const [classNameDraft, setClassNameDraft] = useState("\u8ba1\u7ec4\u4e00\u73ed");
   const [csvImportText, setCsvImportText] = useState("\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n2026001,\u674e\u540c\u5b66,Student123!");
   const [teacherMessage, setTeacherMessage] = useState("");
@@ -613,7 +616,7 @@ export function App() {
   useViewHistory({user:auth.user,enabled:auth.status!=='loading'&&auth.status!=='error'&&!showLogin,route:{view:activeView,challengeId:activeView==='lab'?lab.selectedChallengeId:null,caseId:activeView==='hardware-game'?selectedHardwareCaseId:null,demoId:activeView==='demo'?demoId:null,studyTarget:activeView==='assignments'?studyTarget:null},restore:route=>{
     if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo'].includes(route.view))return false;
     if(!auth.user&&!['home','courseware','demos','demo'].includes(route.view))return false;
-    if(auth.user?.role==='teacher'&&!['home','teacher','courseware','demos','demo'].includes(route.view))return false;
+    if(auth.user?.role==='teacher'&&!['teacher','courseware','demos','demo','hardware-game','records','mistakes','lab','assignments'].includes(route.view))return false;
     if(auth.user?.role==='student'&&route.view==='teacher')return false;
     if(route.view==='lab'&&!lab.selectChallenge(route.challengeId))return false;
     if(route.view==='hardware-game'&&!HARDWARE_GAME_CASES.some(item=>item.id===route.caseId))return false;
@@ -628,6 +631,7 @@ export function App() {
         const { user } = await api.me();
         if (cancelled) return;
         activeUserRef.current=user;
+        setPersonalLearningRole(user.role);
         setAuth({ status: "authenticated", user });
         try { await loadRoleData(user); } catch (error) { if(!cancelled)setRoleDataError(`学习数据同步失败：${error.message}`); }
         if(cancelled||activeUserRef.current?.id!==user.id)return;
@@ -635,7 +639,7 @@ export function App() {
         const restored = resolveRestorableView(initialViewSession, user.role);
         if (demoId) {
           setActiveView("demo");
-        } else if (restored?.view === "lab" && restored.challengeId && user.role === "student") {
+        } else if (restored?.view === "lab" && restored.challengeId) {
           pendingLabRestoreRef.current = restored.challengeId;
           setActiveView("lab");
         } else if (restored) {
@@ -674,7 +678,7 @@ export function App() {
   useEffect(() => {
     if (activeView !== "lab") return;
     const pending = pendingLabRestoreRef.current;
-    if (!pending || auth.user?.role !== "student") return;
+    if (!pending || !auth.user) return;
     pendingLabRestoreRef.current = null;
     // 恢复时强制进入：此刻学情可能还没加载完，按本地进度判断会误判为锁定
     if (!lab.selectChallenge(pending, { force: true })) setActiveView("home");
@@ -710,7 +714,11 @@ export function App() {
       setRoleDataError('');setStatusMessage('已同步当前账号的学习进度与资料。'); return;
     }
     if (user.role === "teacher") {
-      await refreshTeacherClasses();
+      const [personal] = await Promise.all([api.studentProgress(), refreshTeacherClasses()]);
+      if(activeUserRef.current?.id!==user.id)return;
+      setProgress({ ...buildInitialLearningProgress(), ...personal.progress });
+      setAllowSkipLocked(true);
+      setStudent({ name: user.displayName, mode: user.profile?.mode ?? '强引导模式' });
       setRoleDataError('');
     }
   }
@@ -781,6 +789,7 @@ export function App() {
 
   async function completeLogin(user, destination) {
     activeUserRef.current=user;
+    setPersonalLearningRole(user.role); setTeacherReviewStudent('all');
     setProgress(buildInitialLearningProgress());setNotes([]);setStudentProjects([]);setActivityLog([]);setRoleDataError('');
     setAuth({ status: "authenticated", user });
     try { await loadRoleData(user); } catch(error) {setRoleDataError(`学习数据同步失败：${error.message}`);}
@@ -826,6 +835,7 @@ export function App() {
     try { await api.logout(); } catch(error) {if(error.status!==401){setRoleDataError(`退出失败：${error.message}。请重试退出。`);setShowUserPanel(false);return;}}
     setShowUserPanel(false);
     activeUserRef.current=null;
+    setPersonalLearningRole(null); setTeacherReviewStudent('all');
     setAuth({ status: "anonymous", user: null });
     setProgress(buildInitialLearningProgress());
     setNotes([]);
@@ -842,6 +852,7 @@ export function App() {
   }
 
   function changeView(view) {
+    if (auth.user?.role === 'teacher' && view === 'home') view = 'teacher';
     if (!auth.user && !["home", "courseware", "demos"].includes(view)) {
       requestLogin({ type: "view", view });
       return;
@@ -867,12 +878,13 @@ export function App() {
   }
 
   function openStudyTarget(target) {
+    if (auth.user?.role === 'teacher' && target?.source === 'assignment') { changeView('teacher'); return; }
     changeView(target?.source==='service'?"hardware-game":"assignments");
     setStudyTarget(target);
   }
 
   function navigateToChallenge(challengeId) {
-    if (auth.user?.role !== "student") {
+    if (!['student','teacher'].includes(auth.user?.role)) {
       requestLogin({ type: "challenge", challengeId });
       return;
     }
@@ -933,7 +945,7 @@ export function App() {
   }
 
   async function persistStudentAttempt(challengeId, result) {
-    if (auth.user?.role !== "student") return;
+    if (!['student','teacher'].includes(auth.user?.role)) return;
     try {
       const saved = classroomSession.viewModel.active && !classroomSession.viewModel.ended
         ? await classroomSession.submit({ challengeId, result })
@@ -1021,7 +1033,7 @@ export function App() {
         </button>
 
         <nav className="topbar-nav" aria-label="主导航">
-          {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["home", "teacher", "courseware", "demos"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware", "demos"].includes(item.id)).map(({ id, icon: Icon, label }) => (
+          {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["teacher", "hardware-game", "records", "mistakes", "courseware", "demos"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware", "demos"].includes(item.id)).map(({ id, icon: Icon, label }) => (
             <button
               className={(activeView === id || (activeView === "lab" && id === "home") || (activeView === "demo" && id === (demoId === "courseware" ? "courseware" : "demos"))) ? "topbar-nav-item active" : "topbar-nav-item"}
               key={id}
@@ -1114,19 +1126,20 @@ export function App() {
           ) : null}
 
           {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
-          {activeView === "records" ? <StudentRecords key={auth.user?.id} userId={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
+          {['records','mistakes'].includes(activeView) && auth.user?.role === 'teacher' ? <TeacherLearningReview key={auth.user.id} mode={activeView} classes={teacherClasses} classId={selectedTeacherClassId} onClassChange={id=>{selectedTeacherClassIdRef.current=id;setSelectedTeacherClassId(id);refreshClassOverview(id);}} selectedStudent={teacherReviewStudent} onStudentChange={setTeacherReviewStudent} changeView={changeView} navigateToChallenge={navigateToChallenge} openStudyTarget={openStudyTarget}/> : null}
+          {activeView === "records" && auth.user?.role !== 'teacher' ? <StudentRecords key={auth.user?.id} userId={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "demos" ? <InteractiveDemos openDemo={openDemo} navigateToChallenge={navigateToChallenge} /> : null}
           {activeView === "demo" ? <DemoPage demoId={demoId} role={auth.user?.role} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
-          {activeView === "mistakes" ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
+          {activeView === "mistakes" && auth.user?.role !== 'teacher' ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "hardware-game" ? (
             <ErrorBoundary>
               <Suspense fallback={<FeatureLoading label="正在加载硬件配置挑战..." />}>
-                <HardwareGamePage key={auth.user?.id} userId={auth.user?.id} hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} serviceTarget={['service','assembly'].includes(studyTarget?.source)?studyTarget:null} onServiceExit={()=>setStudyTarget(null)}/>
+                <HardwareGamePage key={auth.user?.id} userId={auth.user?.id} allowCustom={auth.user?.role !== 'teacher'} hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} serviceTarget={['service','assembly'].includes(studyTarget?.source)?studyTarget:null} onServiceExit={()=>setStudyTarget(null)}/>
               </Suspense>
             </ErrorBoundary>
           ) : null}
           {activeView === "notes" ? <NotesPage key={auth.user?.id} /> : null}
-          {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} destination={studyTarget} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} onOpenLearning={() => changeView('records')} /> : null}
+          {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} practiceOnly={auth.user?.role === 'teacher'} destination={studyTarget} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} onOpenLearning={() => changeView('records')} /> : null}
           {activeView === "courseware" ? <CoursewareView key={auth.user?.id??'guest'} navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
           {activeView === "teacher" ? (
             <ErrorBoundary>
