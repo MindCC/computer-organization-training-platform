@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createApp } from './app.js';
+import { openDatabase,migrate,createUser,createClass } from './db.js';
+import { hashPassword } from './auth.js';
+import { SERVICE_ORDERS,SERVICE_TESTS,serviceAssemblySeed } from '../src/shopServiceGame.js';
+test('service orders are account owned, versioned, replay safe and graded using canonical workload/assembly evidence',async()=>{
+  const db=openDatabase(':memory:');migrate(db);const passwordHash=await hashPassword('Student123!');
+  for(const [username,role] of [['one','student'],['two','student'],['teacher','teacher'],['other-teacher','teacher']])createUser(db,{username,displayName:username,role,passwordHash});
+  const klass=createClass(db,3,'维修班');db.prepare('INSERT INTO class_members(class_id,student_id) VALUES(?,?)').run(klass.id,1);
+  const server=createApp({db,serveStatic:false,logger:()=>{}}).listen(0);await new Promise(r=>server.once('listening',r));
+  const request=async(path,cookie,body,headers={})=>{const response=await fetch(`http://127.0.0.1:${server.address().port}${path}`,{method:body?'POST':'GET',headers:{'content-type':'application/json',...(cookie?{cookie}:{}),...headers},...(body?{body:JSON.stringify(body)}:{})});return {status:response.status,data:response.headers.get('content-type')?.includes('application/json')?await response.json():await response.text(),cookie:response.headers.get('set-cookie')?.split(';')[0]};};
+  const login=async username=>(await request('/api/auth/login',null,{username,password:'Student123!'})).cookie;
+  try{
+    const one=await login('one'),two=await login('two'),teacher=await login('teacher'),base='/api/student/shop-service';
+    assert.equal((await request(base)).status,401);assert.equal((await request(base,teacher)).status,403);
+    assert.equal((await request(base,one,undefined,{'x-service-student':'2'})).status,403);
+    assert.equal((await request(base,one,{orderId:'invented'})).status,404);
+    const order=SERVICE_ORDERS[0];let run=(await request(base,one,{orderId:order.id})).data.run;
+    assert.equal((await request(base,one,{orderId:order.id})).data.run.id,run.id);
+    const path=`${base}/${run.id}/actions`;let n=0;const payload=action=>({action,version:run.version,operationId:`service-op-${++n}`});
+    assert.equal((await request(path,two,payload({type:'diagnose',category:'memory'}))).status,404);
+    const first=payload({type:'test',phase:'before',testId:'workload',score:100,seconds:0});let response=await request(path,one,first);assert.equal(response.status,201);run=response.data.run;assert.ok(run.state.before.workload.seconds>40);
+    assert.deepEqual((await request(path,one,first)).data,response.data);
+    assert.equal((await request(path,one,{...first,action:{...first.action,testId:'loading'}})).status,409);
+    assert.equal((await request(path,one,{...payload({type:'test',phase:'before',testId:'compute'}),version:0})).status,409);
+    for(const t of SERVICE_TESTS.slice(1))run=(await request(path,one,payload({type:'test',phase:'before',testId:t.id}))).data.run;
+    run=(await request(path,one,payload({type:'diagnose',category:'gpu'}))).data.run;assert.equal(run.state.mistakes.length,1);
+    assert.equal((await request('/api/student/mistakes',one)).data.overview.sourceCounts.service,1);
+    run=(await request(path,one,payload({type:'diagnose',category:'memory'}))).data.run;
+    const selection={...order.baseline,memory:order.upgrade},evidence={selection,...serviceAssemblySeed(selection)};
+    assert.equal((await request(path,one,payload({type:'deliver',evidence,score:100}))).status,409);
+    for(const t of SERVICE_TESTS)run=(await request(path,one,payload({type:'test',phase:'after',testId:t.id,evidence}))).data.run;
+    const delivery=payload({type:'deliver',evidence,score:1,passed:false});run=(await request(path,one,delivery)).data.run;
+    assert.equal(run.state.result.passed,true);assert.equal(run.state.result.score,95);assert.equal(run.state.result.cost,320);
+    assert.equal((await request(path,one,delivery)).data.run.state.result.score,95);
+    assert.equal((await request('/api/student/mistakes',one)).data.items.find(i=>i.source==='service').resolved,true);
+    assert.equal((await request(base,two)).data.records.length,0);assert.equal((await request(base,one)).data.records.length,1);
+    assert.match((await request('/api/student/report.md',one)).data,/维修与升级工单/);
+    const teacherDetail=await request(`/api/teacher/classes/${klass.id}/students/1`,teacher);
+    assert.equal(teacherDetail.data.student.shopServiceRecords[0].state.result.score,95);
+    assert.equal((await request(`/api/teacher/classes/${klass.id}/students/1`,await login('other-teacher'))).status,404);
+    assert.equal((await request(`/api/teacher/classes/${klass.id}/students/2`,teacher)).status,404);
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM challenge_attempts').get().n,0);
+  }finally{await new Promise(r=>server.close(r));db.close();}
+});

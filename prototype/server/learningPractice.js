@@ -4,6 +4,7 @@ import { COURSE_CHAPTERS } from "../src/courseChapters.js";
 import { LEARNING_ITEMS } from "../src/platformLogic.js";
 import { buildMistakeBook } from "../src/mistakeBook.js";
 import { gradeObjectiveAnswer } from "./objectiveGrading.js";
+import { serviceMistakes } from './shopServiceRoutes.js';
 
 const parse = (value, fallback = {}) => { try { return JSON.parse(value); } catch { return fallback; } };
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), {status}); };
@@ -140,8 +141,9 @@ export function buildUnifiedMistakeBook(db, studentId) {
       snapshots:[...wrongReviews.map(row => ({score:0,createdAt:row.created_at})).reverse(),{score:q.earned,createdAt:seen}].slice(0,3),
       navigation:{source:"assignment",assignmentId:q.assignment_id,questionId:q.id}});
   }
+  items.push(...serviceMistakes(db,studentId));
   items.sort((a,b) => String(b.updatedAt ?? b.lastSeen).localeCompare(String(a.updatedAt ?? a.lastSeen)));
-  return {overview:{...lab.overview,totalMistakes:lab.overview.totalMistakes+[...practice.values()].reduce((sum,item)=>sum+item.count,0)+items.filter(item=>item.source==="assignment").reduce((sum,item)=>sum+item.count,0),
+  return {overview:{...lab.overview,totalMistakes:lab.overview.totalMistakes+[...practice.values()].reduce((sum,item)=>sum+item.count,0)+items.filter(item=>['assignment','service'].includes(item.source)).reduce((sum,item)=>sum+item.count,0),
     pendingCount:items.filter(item=>!item.resolved).length,resolvedCount:items.filter(item=>item.resolved).length,
-    sourceCounts:Object.fromEntries(["lab","practice","assignment"].map(source=>[source,items.filter(item=>item.source===source).length]))},items};
+    sourceCounts:Object.fromEntries(["lab","practice","assignment","service"].map(source=>[source,items.filter(item=>item.source===source).length]))},items};
 }

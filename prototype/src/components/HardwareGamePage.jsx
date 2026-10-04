@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { assemblyDraftKey, readAssemblyDraftSelection } from '../assemblyDraft.js';
 import { CheckCircle, ArrowRight } from "@phosphor-icons/react";
 import { HARDWARE_GAME_CASES, gradeHardwareBuild } from "../hardwareGame.js";
@@ -11,6 +11,7 @@ import { CustomCustomerScene } from './CustomCustomerScene.jsx';
 import { buildStoryOffers, storyProfile, storyStorageKey, readStory, saveStory, storyStage } from '../hardwareStory.js';
 import { createWorkshopSound } from './workshopSound.js';
 import './hardwareStory.css';
+const ShopServiceScene=lazy(()=>import('./ShopServiceScene.jsx').then(module=>({default:module.ShopServiceScene})));
 
 const caseGroups = [
   { id: "ch1", title: "\u7b2c\u4e00\u7ae0\u00b7\u8ba1\u7b97\u673a\u6982\u8ff0" },
@@ -27,10 +28,17 @@ export function HardwareGamePage({
   setSelectedHardwareCaseId,
   progress,
   submitHardwareBuild,
+  serviceTarget,
+  onServiceExit,
 }) {
   const [activeCategory, setActiveCategory] = useState("cpu");
   const [practiceOpen,setPracticeOpen]=useState(false);
   const [customOpen,setCustomOpen]=useState(false);
+  const serviceKey=`zcyl:shop-service-mode:${userId}`;
+  const [serviceOpen,setServiceOpen]=useState(()=>{if(serviceTarget?.source==='assembly')return false;try{return Boolean(serviceTarget?.source==='service'||window.localStorage.getItem(serviceKey));}catch{return serviceTarget?.source==='service';}});
+  useEffect(()=>{if(serviceTarget?.source==='service')openService();else if(serviceTarget?.source==='assembly')closeService();},[serviceTarget,serviceKey]);
+  function openService(){setReadyConfiguration(null);setServiceOpen(true);try{window.localStorage.setItem(serviceKey,'open');}catch{}}
+  function closeService(){setServiceOpen(false);try{window.localStorage.removeItem(serviceKey);}catch{}}
   const [workshopOpen,setWorkshopOpen]=useState(false);
   const [readyConfiguration, setReadyConfiguration] = useState(null);
   const canDeliver = readyConfiguration === JSON.stringify(hardwareSelection);
@@ -112,12 +120,14 @@ export function HardwareGamePage({
   if(practiceOpen)return <div className="hardware-game-page"><div className="hardware-training-entry"><button type="button" onClick={()=>setPracticeOpen(false)}>返回客户订单</button><span>教学练习 · 订单装配进度已保留</span></div><AssemblyPractice key={draftKey??selectedCase.id} initialParts={hardwareSelection} caseId={selectedCase.id} userId={userId}/></div>;
 
   if(customOpen)return <CustomCustomerScene key={userId} userId={userId} onExit={()=>setCustomOpen(false)}/>;
+  if(serviceOpen)return <Suspense fallback={<p role="status">正在载入维修工作台…</p>}><ShopServiceScene key={userId} userId={userId} initialOrderId={serviceTarget?.orderId} onExit={()=>{closeService();onServiceExit?.();}}/></Suspense>;
 
   // Mount each customer's scene only after that order's saved state is restored.
   if(restoredKey!==draftKey)return null;
 
   const VisitScene=selectedCase.id==='game-office-pc'?ShopStoryScene:CustomerVisitScene;
   return <div className="hardware-game-page hardware-shop-page hardware-game-layout" data-story-stage={stage}>
+    <div className="hardware-training-entry"><span>新玩法 · 客户带着旧电脑来店，先诊断，再升级</span><button type="button" onClick={openService}>进入维修与升级工单 <ArrowRight size={17}/></button></div>
     <VisitScene key={selectedCase.id} profile={profile} order={selectedCase} onReturn={()=>selectCase('game-office-pc')} onNextCustomer={nextCustomer} nextCustomerName={storyProfile(nextCase.id).name} onCustom={()=>{setReadyConfiguration(null);setCustomOpen(true);}} story={story} storyKey={storyKey} storage={draftStorage} onAsk={ask} onAccept={accept} onOffer={adopt} offers={offers} preview={preview} receipt={activeReceipt} delivered={deliveryComplete} soundOn={soundOn} onSound={toggleSound} workshopOpen={workshopOpen} onWorkshop={()=>setWorkshopOpen(true)} onReception={()=>setWorkshopOpen(false)} onPractice={()=>{setReadyConfiguration(null);setPracticeOpen(true);}} saved={storySaved}
       orders={<section className="hardware-case-rail">{caseGroups.map(group=><div className="hardware-case-group" key={group.id}><strong>{group.title}</strong>{HARDWARE_GAME_CASES.filter(item=>item.chapterId===group.id).map(item=><button className={'hardware-case'+(item.id===selectedCase.id?' active':'')} aria-pressed={item.id===selectedCase.id} type="button" key={item.id} onClick={()=>selectCase(item.id)}><strong>{storyProfile(item.id).name}</strong><span>{item.title}</span></button>)}</div>)}</section>}>
       {story.accepted&&<><div className="hardware-live-workshop">{workbench}</div>{deliveryPanel}</>}

@@ -8,7 +8,7 @@ const statusText = {
   locked: "未解锁",
 };
 
-export function buildStudentMarkdownReport({ user, summary, progress, notes = [], demoAttempts = [], generatedAt = new Date() }) {
+export function buildStudentMarkdownReport({ user, summary, progress, notes = [], demoAttempts = [], shopServiceRecords = [], generatedAt = new Date() }) {
   const lines = [
     "# 计算机组成原理实验报告",
     "",
@@ -51,6 +51,10 @@ export function buildStudentMarkdownReport({ user, summary, progress, notes = []
     }
   }
 
+  if(shopServiceRecords.length){
+    lines.push('', '## 维修与升级工单', '', '固定工作负载的教学模拟结果；独立计分，不覆盖原装机和电路成绩。', '', '| 客户 / 工单 | 验收 | 教学分 | 新购元件费用 | 客户任务耗时 |', '| --- | --- | ---: | ---: | --- |');
+    for(const run of shopServiceRecords){const result=run.state.result;lines.push(`| ${escapeTable(run.customer+' / '+run.title)} | ${result?(result.passed?'通过':'待调整'):'进行中'} | ${result?result.score:'—'} | ${result?'¥'+result.cost:'—'} | ${result?result.before+'s → '+result.after+'s':'待复测'} |`);}
+  }
   lines.push("", "## 学习笔记", "");
   if (!notes.length) {
     lines.push("暂无学习笔记。");

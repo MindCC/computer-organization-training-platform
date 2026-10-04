@@ -13,6 +13,7 @@ import { ChapterLitBars, ChapterScoreLine, ChapterStudyTimeChart, StatusDonut, T
 import { DemoPracticePanel } from "./records/DemoPracticePanel.jsx";
 import { ZoomableChart } from "./records/ChartZoomModal.jsx";
 import { KnowledgeStarMap } from "./records/KnowledgeStarMap.jsx";
+import { ShopServiceRecords } from './records/ShopServiceRecords.jsx';
 import "./records/recordsTech.css";
 
 const CHALLENGES_BY_CHAPTER = COURSE_CHAPTERS.map((chapter) => ({
@@ -36,7 +37,7 @@ function errorLabelOf(error) {
   return error?.type ?? error?.message ?? String(error);
 }
 
-export function StudentRecords({ summary, progress, activityLog, changeView, selectChallenge }) {
+export function StudentRecords({ summary, progress, activityLog, changeView, selectChallenge, openStudyTarget }) {
   const treeModel = useMemo(() => buildLearningTreeModel(progress), [progress]);
   const distribution = useMemo(() => buildStatusDistribution(progress), [progress]);
   const chapterSeries = useMemo(() => buildChapterScoreSeries(progress), [progress]);
@@ -65,11 +66,12 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
           </div>
           <div className="empty-state">
             <Flask size={40} weight="duotone" />
-            <strong>还没有学习记录</strong>
+            <strong>实验学习树等待点亮</strong>
             <p>完成第一个实验关卡后，这里会用学习树和统计图展示你的完成率、得分和复习建议。</p>
             <button className="primary-button" onClick={() => changeView("home")} type="button">回到课程首页选择实验</button>
           </div>
         </section>
+        <ShopServiceRecords openStudyTarget={openStudyTarget}/>
       </div>
     );
   }
@@ -192,6 +194,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
         })}
       </section>
 
+      <ShopServiceRecords openStudyTarget={openStudyTarget}/>
       <section className="two-column">
         <article className="section-panel">
           <h2>最近活动</h2>

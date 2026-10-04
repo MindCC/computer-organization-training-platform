@@ -74,6 +74,7 @@ import { createTeacherAssemblyPracticeRouter } from './teacherAssemblyPractice.j
 import { createCoursewareUploadRouter } from "./coursewareUploadRoutes.js";
 import { createKnowledgeRouter } from "./knowledgeRoutes.js";
 import { createCustomCustomerRouter } from './customCustomerRoutes.js';
+import { createShopServiceRouter, serviceRecords } from './shopServiceRoutes.js';
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 import { buildUnifiedMistakeBook, createLearningPracticeRouter } from "./learningPractice.js";
@@ -184,6 +185,7 @@ export function createApp(options = {}) {
   }));
   app.use("/api", createKnowledgeRouter({ db, requireRole }));
   app.use('/api', createCustomCustomerRouter({db,requireRole,options:options.customCustomerOptions??{}}));
+  app.use('/api', createShopServiceRouter({db,requireRole}));
 
   // Deep health check
   const _startedAt = Date.now();
@@ -427,7 +429,7 @@ export function createApp(options = {}) {
     if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
     const detail = getTeacherStudentDetail(db, req.user.id, Number(req.params.studentId), classId);
     if (!detail || Number(detail.classId) !== classId) return res.status(404).json({ error: "学生不存在" });
-    res.json({ student: detail });
+    res.json({ student: {...detail,shopServiceRecords:serviceRecords(db,detail.id)} });
   });
 
   app.get("/api/teacher/classes/:id/export.csv", requireRole("teacher"), (req, res) => {
@@ -673,6 +675,7 @@ export function createApp(options = {}) {
       summary: summarizeLearning(LEARNING_ITEMS, progress),
       notes: listNotes(db, req.user.id),
       demoAttempts,
+      shopServiceRecords:serviceRecords(db,req.user.id),
     });
     res.setHeader("Content-Type", "text/markdown; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename=${req.user.username}-experiment-report.md`);

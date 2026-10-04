@@ -11,10 +11,11 @@ import { practiceNextStep, practiceBootFeedback } from '../assemblyPractice.js';
 
 const BOOT_STEPS = ['供电正常 · 主板已通电', 'CPU / 内存自检通过', '存储设备已识别', '显示输出就绪 · 系统启动成功'];
 
-export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCategory, onCategoryChange, onAssemblyReady, draftKey, draftStorage, practiceMode, onPracticeEvent, practicePersistence, onActionFeedback, onDeliver, deliveryPending }) {
-  const [installed, setInstalled] = useState(() => loadAssemblyDraft(draftStorage, draftKey, parts));
+export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCategory, onCategoryChange, onAssemblyReady, draftKey, draftStorage, practiceMode, onPracticeEvent, practicePersistence, onActionFeedback, onDeliver, deliveryPending, initialAssembly, onAssemblyEvidence, requireRemoval }) {
+  const [hasDraft] = useState(()=>{try{return Boolean(draftStorage?.getItem(draftKey));}catch{return false;}});
+  const [installed, setInstalled] = useState(() => !hasDraft&&initialAssembly ? initialAssembly.installed : loadAssemblyDraft(draftStorage, draftKey, parts));
   const [message, setMessage] = useState(() => Object.keys(installed).length ? (practiceMode?'预装主机已就绪，请根据工单症状排查。':'已恢复本订单的装配进度，请重新开机自检。') : '从左侧台面拿起零件，拖到机箱中的对应插槽。');
-  const [structure, setStructure] = useState(() => readStructure(draftStorage, draftKey, installed, parts));
+  const [structure, setStructure] = useState(() => !hasDraft&&initialAssembly ? reconcileStructure(initialAssembly.structure,installed,parts) : readStructure(draftStorage, draftKey, installed, parts));
   const [cableFrom, setCableFrom] = useState(CABLES[0].from);
   const [cableTo, setCableTo] = useState(practiceMode && practiceMode!=='guided'?'':CABLES[0].to);
   const [cableMode,setCableMode]=useState(false);
@@ -66,6 +67,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
     return () => clearTimeout(timer);
   }, [booting, boot?.step, signature, reducedMotion]);
   useEffect(() => { onAssemblyReady?.(powered ? selectionKey : null); }, [powered, selectionKey, onAssemblyReady]);
+  useEffect(() => { onAssemblyEvidence?.(powered ? {selection:parts,installed:validInstalled,structure:validStructure} : null); }, [powered,selectionKey,signature,onAssemblyEvidence]);
   useEffect(()=>{if(powered){setMessage('主机已立放在桌旁，显示器显示开机成功。');actionFeedback.current?.({type:'ready'});}},[powered]);
   useEffect(()=>{if(powered && practiceMode && !completionLogged.current){completionLogged.current=true;onPracticeEvent?.({type:'complete'});}},[powered,practiceMode,onPracticeEvent]);
   function invalidate() { setBoot(null); completionLogged.current=false;onAssemblyReady?.(null); }
@@ -115,6 +117,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
     if(result.ok){setStructure(result.state);setSelectedConnector(null);invalidate();}
   }
   function changeVariant(value) {
+    if(requireRemoval&&validInstalled[active.id]){setMessage('请先拆下原有部件，再选择新型号。');return;}
     if(booting||practiceDone)return;
     invalidate();
     const next = { ...validInstalled }; delete next[active.id]; setInstalled(next);
@@ -158,7 +161,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
     <div className="assembly-console"><div className="assembly-parts-controls">
       <div className="assembly-part-tabs" aria-label="选择装配部件">{ASSEMBLY_PARTS.map((part, index) => <button type="button" key={part.id} aria-pressed={active.id === part.id} onClick={() => selectPart(part)}><span>{validInstalled[part.id] || part.id === 'gpu' && integrated ? <CheckCircle size={17} weight="fill" /> : '0' + (index + 1)}</span>{part.label}<small>{part.id === 'gpu' && integrated ? 'CPU 集显' : validInstalled[part.id] ? '已安装' : '待安装'}</small></button>)}</div>
       <div className="assembly-part-config">
-        <label htmlFor="assembly-variant">{active.label}型号<select id="assembly-variant" value={parts[active.id]} disabled={booting||practiceDone} onChange={event=>changeVariant(event.target.value)}>{HARDWARE_PARTS[active.id].map(part=><option key={part.id} value={part.id}>{part.name} · ¥{part.price}</option>)}</select></label>
+        <label htmlFor="assembly-variant">{active.label}型号<select id="assembly-variant" value={parts[active.id]} disabled={booting||practiceDone||requireRemoval&&Boolean(validInstalled[active.id])} onChange={event=>changeVariant(event.target.value)}>{HARDWARE_PARTS[active.id].map(part=><option key={part.id} value={part.id}>{part.name} · ¥{part.price}</option>)}</select></label>
         {active.id==='gpu'&&integrated?<p className="assembly-integrated">使用 CPU 集成图形，无需安装独立显卡。</p>:validInstalled[active.id]?
           <button className="assembly-secondary" type="button" disabled={booting||practiceDone} onClick={()=>remove(active.id)}>拆下{active.label}</button>:expert?<>
             <select className="assembly-expert-target" aria-label="安装目标" value={targetSocket} disabled={booting||powered} onChange={e=>setTargetSocket(e.target.value)}><option value="">选择安装目标</option>{ASSEMBLY_PARTS.map(p=><option key={p.id} value={p.id}>{p.socket}</option>)}</select>

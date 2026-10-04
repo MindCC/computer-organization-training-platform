@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import { api } from "../apiClient.js";
 import "./mistakeBook.css";
 
-const SOURCES = {lab:"实验室",practice:"题库练习",assignment:"课后作业"};
+const SOURCES = {lab:"实验室",practice:"题库练习",assignment:"课后作业",service:"维修诊断"};
 
 export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarget }) {
   const [book, setBook] = useState(null);
@@ -51,7 +51,7 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
         <div className="section-heading">
           <div>
             <h1>错题本</h1>
-            <p>实验室、题库练习和课后作业的错题集中回顾。查看原因、重练订正，再回到课程继续学习。</p>
+            <p>实验室、题库练习、课后作业和维修诊断的错误集中回顾。查看原因、重练订正，再回到课程继续学习。</p>
           </div>
         </div>
 
@@ -103,6 +103,7 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
                     </div>
                   </div>
                   {item.stem ? <><h3 className="mistake-stem">{item.stem}</h3><dl className="mistake-answers"><div><dt>原作答</dt><dd>{formatAnswer(item.studentAnswer,item.type)}</dd></div><div><dt>参考答案</dt><dd>{item.referenceAnswer || "结合教师反馈复习"}</dd></div></dl><details className="mistake-explanation"><summary>查看解析与反馈</summary>{item.explanation ? <p>{item.explanation}</p> : null}{item.feedback ? <p>教师反馈：{item.feedback}</p> : null}{!item.explanation && !item.feedback ? <p>对照参考答案，再尝试一次。</p> : null}</details></> : null}
+                  {item.source==='service'&&<p>{item.explanation}</p>}
                   {item.snapshots.length > 0 ? (
                     <div className="mistake-snapshot-row">
                       {item.snapshots.map((snap, index) => (
@@ -117,7 +118,7 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
                     onClick={() => item.source === "lab" ? navigateToChallenge(item.challengeId) : openStudyTarget(item.navigation)}
                     type="button"
                   >
-                    <ArrowRight size={14} /> {item.source === "lab" ? "回到该关卡练习" : item.source === "practice" ? "重练这道题" : "回看原作业"}
+                    <ArrowRight size={14} /> {item.source === "lab" ? "回到该关卡练习" : item.source === "practice" ? "重练这道题" : item.source==='service'?'重做维修工单':"回看原作业"}
                   </button></div>
                   {item.source === "assignment" && item.type !== "short_answer" ? <AssignmentReview item={item} onUpdated={async () => setBook(await api.mistakes())} /> : null}
                 </article>

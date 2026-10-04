@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { buildStudentMarkdownReport } from "./studentReport.js";
+test('repair report includes independent canonical receipt and distinguishes incomplete orders',()=>{
+  const markdown=buildStudentMarkdownReport({shopServiceRecords:[{customer:'小周',title:'内存排查',state:{result:{passed:true,score:95,cost:320,before:76.7,after:28.7}}},{customer:'小许',title:'资料加载',state:{result:null}}]});
+  assert.match(markdown,/维修与升级工单/);assert.match(markdown,/95 \| ¥320 \| 76.7s → 28.7s/);assert.match(markdown,/进行中 \| — \| — \| 待复测/);
+});
 
 test("buildStudentMarkdownReport includes identity, summary, progress and notes", () => {
   const markdown = buildStudentMarkdownReport({

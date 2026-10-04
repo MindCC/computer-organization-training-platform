@@ -851,7 +851,7 @@ export function App() {
   }
 
   function openStudyTarget(target) {
-    changeView("assignments");
+    changeView(target?.source==='service'?"hardware-game":"assignments");
     setStudyTarget(target);
   }
 
@@ -866,6 +866,7 @@ export function App() {
   function openChallenge(challengeId) {
     setShowUserPanel(false);
     if (challengeId && challengeId.startsWith("game-")) {
+      setStudyTarget({source:'assembly',caseId:challengeId});
       setSelectedHardwareCaseId(challengeId);
       setActiveView("hardware-game");
       return;
@@ -1101,13 +1102,13 @@ export function App() {
           ) : null}
 
           {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
-          {activeView === "records" ? <StudentRecords summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} /> : null}
+          {activeView === "records" ? <StudentRecords key={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "demo" ? <DemoPage demoId={demoId} role={auth.user?.role} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "mistakes" ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "hardware-game" ? (
             <ErrorBoundary>
               <Suspense fallback={<FeatureLoading label="正在加载硬件配置挑战..." />}>
-                <HardwareGamePage userId={auth.user?.id} hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} />
+                <HardwareGamePage key={auth.user?.id} userId={auth.user?.id} hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} serviceTarget={['service','assembly'].includes(studyTarget?.source)?studyTarget:null} onServiceExit={()=>setStudyTarget(null)}/>
               </Suspense>
             </ErrorBoundary>
           ) : null}

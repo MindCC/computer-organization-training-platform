@@ -135,6 +135,7 @@ export function TeacherStudentDetail({ student, onClose }) {
         <button className="ghost-button" onClick={onClose} type="button">关闭</button>
       </div>
       {student.learningOverview ? <LearningOverviewPanel overview={student.learningOverview} /> : null}
+      {student.shopServiceRecords?.length>0&&<section className="section-panel"><h3>维修与升级工单</h3><p>独立教学模拟成绩，保留原有实验评分口径。</p><div className="teacher-attempt-list">{student.shopServiceRecords.slice(0,10).map(run=><article className={'teacher-attempt '+(run.state.result?.passed?'passed':'failed')} key={run.id}><strong>{run.customer} · {run.title}</strong><span>{run.state.result?`${run.state.result.passed?'验收通过':'待调整'} · ${run.state.result.score} 分 · 新购 ¥${run.state.result.cost} · ${run.state.result.before}s → ${run.state.result.after}s`:'诊断与升级进行中'}</span></article>)}</div></section>}
       <div className="teacher-detail-grid">
         <div>
           <h3>逐关最佳成绩</h3>

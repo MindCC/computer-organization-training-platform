@@ -1,0 +1,5 @@
+.service-record-list {display:grid;gap:12px;}
+.service-record-list article {padding:16px;border:1px solid #d7e4df;border-radius:10px;background:#f8fbf9;}
+.service-record-list article>div {margin-top:12px;}
+.service-records>button {margin-top:16px;}
+.service-record-list small {color:#627970;}
