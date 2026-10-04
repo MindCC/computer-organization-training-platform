@@ -13,6 +13,7 @@ import {
   House,
   Lifebuoy,
   Notebook,
+  MonitorPlay,
   Play,
   SealCheck,
   Sparkle,
@@ -98,6 +99,8 @@ const StudentAssignments = lazy(() => import("./components/StudentAssignments.js
   .then((module) => ({ default: module.StudentAssignments })));
 const DemoPage = lazy(() => import("./components/DemoPage.jsx")
   .then((module) => ({ default: module.DemoPage })));
+const InteractiveDemos = lazy(() => import("./components/InteractiveDemos.jsx")
+  .then((module) => ({ default: module.InteractiveDemos })));
 const CoursewareView = lazy(() => import("./components/CoursewareView.jsx")
   .then((module) => ({ default: module.CoursewareView })));
 const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
@@ -115,6 +118,7 @@ const navGroups = [
       { id: "home", label: "课程首页", icon: House },
       { id: "hardware-game", label: "硬件配置挑战", icon: Cpu },
       { id: "courseware", label: "课程课件", icon: BookOpen },
+      { id: "demos", label: "互动演示", icon: MonitorPlay },
     ],
   },
   {
@@ -512,6 +516,7 @@ export function App() {
     return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeOnEscape); };
   }, [showUserPanel]);
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsSection, setSettingsSection] = useState('account');
   const [supportPanel,setSupportPanel]=useState(null);
   const [roleDataError,setRoleDataError]=useState('');
   const [roleDataLoading,setRoleDataLoading]=useState(false);
@@ -524,7 +529,6 @@ export function App() {
   },[]);
   const [student, setStudent] = useState({
     name: "",
-    goal: "\u5b8c\u6210\u516d\u4e2a\u8fd0\u7b97\u5668\u5173\u5361",
     mode: "\u5f3a\u5f15\u5bfc\u6a21\u5f0f",
   });
   const [teacherClasses, setTeacherClasses] = useState([]);
@@ -607,9 +611,9 @@ export function App() {
   // 恢复结论落地前不要写回，避免同样的覆盖
   const restoreSettledRef = useRef(false);
   useViewHistory({user:auth.user,enabled:auth.status!=='loading'&&auth.status!=='error'&&!showLogin,route:{view:activeView,challengeId:activeView==='lab'?lab.selectedChallengeId:null,caseId:activeView==='hardware-game'?selectedHardwareCaseId:null,demoId:activeView==='demo'?demoId:null,studyTarget:activeView==='assignments'?studyTarget:null},restore:route=>{
-    if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demo'].includes(route.view))return false;
-    if(!auth.user&&!['home','courseware','demo'].includes(route.view))return false;
-    if(auth.user?.role==='teacher'&&!['home','teacher','courseware','demo'].includes(route.view))return false;
+    if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo'].includes(route.view))return false;
+    if(!auth.user&&!['home','courseware','demos','demo'].includes(route.view))return false;
+    if(auth.user?.role==='teacher'&&!['home','teacher','courseware','demos','demo'].includes(route.view))return false;
     if(auth.user?.role==='student'&&route.view==='teacher')return false;
     if(route.view==='lab'&&!lab.selectChallenge(route.challengeId))return false;
     if(route.view==='hardware-game'&&!HARDWARE_GAME_CASES.some(item=>item.id===route.caseId))return false;
@@ -642,6 +646,10 @@ export function App() {
       } catch (error) {
         if (!cancelled) {
           setAuth({ status: error.status===401 ? "anonymous" : "error", user: null });
+          if (error.status === 401 && !demoId) {
+            const restored = resolveRestorableView(initialViewSession, null);
+            if (restored) setActiveView(restored.view);
+          }
           if(error.status!==401)setRoleDataError(`课堂服务连接失败：${error.message}`);
         }
       } finally {
@@ -656,9 +664,9 @@ export function App() {
   // 登录过程中会先出现「已登录但仍是默认视图」的中间提交，此时不要记录，
   // 否则会把教师/学生带到错误的落地页。
   useEffect(() => {
-    if (!auth.user || showLogin || !restoreSettledRef.current) return;
+    if (auth.status === "loading" || auth.status === "error" || showLogin || !restoreSettledRef.current) return;
     writeViewSession({ view: activeView, challengeId: activeView === "lab" ? lab.selectedChallengeId : null });
-  }, [auth.user?.id, activeView, lab.selectedChallengeId, showLogin]);
+  }, [auth.user?.id, auth.status, activeView, lab.selectedChallengeId, showLogin]);
 
   // 学情加载完成后再恢复实验台关卡；目标关卡仍锁定则退回首页。
   // 必须把 activeView 纳入依赖：pendingLabRestoreRef 是在 setAuth/progress 之后才赋值的，
@@ -696,7 +704,6 @@ export function App() {
       if(results[2].status==='fulfilled')setStudentProjects(results[2].value.projects??[]);
       setStudent({
         name: user.displayName,
-        goal: user.profile?.goal ?? "\u5b8c\u6210\u516d\u4e2a\u8fd0\u7b97\u5668\u5173\u5361",
         mode: user.profile?.mode ?? "\u5f3a\u5f15\u5bfc\u6a21\u5f0f",
       });
       if(results.some(result=>result.status==='rejected'))throw new Error('部分学习记录未能读取，请重试同步。');
@@ -778,10 +785,10 @@ export function App() {
     setAuth({ status: "authenticated", user });
     try { await loadRoleData(user); } catch(error) {setRoleDataError(`学习数据同步失败：${error.message}`);}
     setShowLogin(false);
-    if (destination?.view === "demo" && demoId) {
-      setActiveView("demo");
-    } else if (user.role === "teacher") {
+    if (user.role === "teacher") {
       setActiveView("teacher");
+    } else if (destination?.view === "demo" && demoId) {
+      setActiveView("demo");
     } else if (destination?.type === "challenge") {
       openChallenge(destination.challengeId);
     } else {
@@ -789,11 +796,11 @@ export function App() {
     }
   }
 
-  async function handleLogin(event) {
+  async function handleLogin(event, role) {
     event.preventDefault();
     setLoginError("");
     try {
-      const { user } = await api.login(loginForm);
+      const { user } = await api.login({ ...loginForm, role });
       const destination = pendingDestinationRef.current;
       pendingDestinationRef.current = null;
       await completeLogin(user, destination);
@@ -802,11 +809,11 @@ export function App() {
     }
   }
 
-  // 一键演示登录：直接使用演示学生账号进入（含演示班级学情数据）
-  async function handleDemoLogin() {
+  // 演示入口按身份创建或复用专用演示账号。
+  async function handleDemoLogin(role = 'student') {
     setLoginError("");
     try {
-      const { user } = await api.login({ username: "demo2026001", password: "Student123!" });
+      const { user } = await api.demoLogin({ role });
       const destination = pendingDestinationRef.current;
       pendingDestinationRef.current = null;
       await completeLogin(user, destination);
@@ -835,7 +842,7 @@ export function App() {
   }
 
   function changeView(view) {
-    if (!auth.user && !["home", "courseware"].includes(view)) {
+    if (!auth.user && !["home", "courseware", "demos"].includes(view)) {
       requestLogin({ type: "view", view });
       return;
     }
@@ -848,6 +855,15 @@ export function App() {
     setActiveView(view);
     window.scrollTo(0,0);
     setStatusMessage(`已切换到${navGroups.flatMap((group) => group.items).find((item) => item.id === view)?.label ?? "当前页面"}。`);
+  }
+
+  function openDemo(id) {
+    setShowUserPanel(false);
+    setSupportPanel(null);
+    setStudyTarget(null);
+    setDemoId(id);
+    setActiveView("demo");
+    window.scrollTo(0, 0);
   }
 
   function openStudyTarget(target) {
@@ -886,10 +902,6 @@ export function App() {
     setLoginError("");
     setShowLogin(false);
     changeView("home");
-  }
-
-  function updateStudent(key, value) {
-    setStudent((current) => ({ ...current, [key]: value }));
   }
 
   async function submitHardwareBuild() {
@@ -935,15 +947,17 @@ export function App() {
     }
   }
 
-  async function saveStudentSettings() {
-    try {
-      const { user } = await api.updateProfile({ displayName: student.name, goal: student.goal, mode: student.mode });
-      setAuth((current) => ({ ...current, user }));
-      setShowSettings(false);
-      setStatusMessage("\u4e2a\u4eba\u8bbe\u7f6e\u5df2\u4fdd\u5b58\u5230\u670d\u52a1\u5668\u3002");
-    } catch (error) {
-      setStatusMessage("\u4e2a\u4eba\u8bbe\u7f6e\u4fdd\u5b58\u5931\u8d25\uff1a" + error.message);
+  async function saveStudentSettings(settings) {
+    const accountId = activeUserRef.current?.id;
+    const response = await api.updateAccountSettings(settings);
+    const { user } = response;
+    if (!accountId || activeUserRef.current?.id !== accountId) throw new Error('账号已切换，请在当前账号重新打开设置。');
+    activeUserRef.current = user;
+    setAuth((current) => ({ ...current, user }));
+    if (user.role === "student") {
+      setStudent({ name: user.displayName, mode: user.profile?.mode ?? "强引导模式" });
     }
+    return response;
   }
 
   async function createTeacherClass() {
@@ -1007,9 +1021,9 @@ export function App() {
         </button>
 
         <nav className="topbar-nav" aria-label="主导航">
-          {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["home", "teacher", "courseware"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware"].includes(item.id)).map(({ id, icon: Icon, label }) => (
+          {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["home", "teacher", "courseware", "demos"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware", "demos"].includes(item.id)).map(({ id, icon: Icon, label }) => (
             <button
-              className={(activeView === id || (activeView === "lab" && id === "home") || (activeView === "demo" && id === "courseware")) ? "topbar-nav-item active" : "topbar-nav-item"}
+              className={(activeView === id || (activeView === "lab" && id === "home") || (activeView === "demo" && id === (demoId === "courseware" ? "courseware" : "demos"))) ? "topbar-nav-item active" : "topbar-nav-item"}
               key={id}
               onClick={() => changeView(id)}
               type="button"
@@ -1042,9 +1056,7 @@ export function App() {
             </button>
             {showUserPanel ? (
               <div className="profile-menu" id="profile-options">
-                <button onClick={() => {setShowUserPanel(false);setShowSettings(true);}} type="button">{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</button>
-                {auth.user?.role === "student" ? <button onClick={() => changeView("records")} type="button">查看学情</button> : null}
-                {auth.user?.role === "student" ? <button onClick={() => changeView("notes")} type="button">打开笔记</button> : null}
+                <button onClick={() => {setShowUserPanel(false);setSettingsSection('account');setShowSettings(true);}} type="button">个人设置</button>
                 <button onClick={() => {setShowUserPanel(false);setSupportPanel('help');}} type="button">帮助支持</button>
                 <button onClick={handleLogout} type="button">退出登录</button>
               </div>
@@ -1102,7 +1114,8 @@ export function App() {
           ) : null}
 
           {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
-          {activeView === "records" ? <StudentRecords key={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
+          {activeView === "records" ? <StudentRecords key={auth.user?.id} userId={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
+          {activeView === "demos" ? <InteractiveDemos openDemo={openDemo} navigateToChallenge={navigateToChallenge} /> : null}
           {activeView === "demo" ? <DemoPage demoId={demoId} role={auth.user?.role} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "mistakes" ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "hardware-game" ? (
@@ -1113,7 +1126,7 @@ export function App() {
             </ErrorBoundary>
           ) : null}
           {activeView === "notes" ? <NotesPage key={auth.user?.id} /> : null}
-          {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} destination={studyTarget} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} /> : null}
+          {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} destination={studyTarget} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} onOpenLearning={() => changeView('records')} /> : null}
           {activeView === "courseware" ? <CoursewareView key={auth.user?.id??'guest'} navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
           {activeView === "teacher" ? (
             <ErrorBoundary>
@@ -1163,7 +1176,7 @@ export function App() {
   }
 
   function renderPlatformState() {
-    return <>{(!online||roleDataError)&&<div className="platform-sync-banner" role="alert"><WarningCircle size={20}/><span>{!online?'网络连接已断开，请恢复网络后同步或提交。':roleDataError}</span>{online&&<button className="ghost-button" type="button" disabled={roleDataLoading} onClick={retryRoleData}>{roleDataLoading?'正在同步…':'重试同步'}</button>}</div>}{supportPanel&&<Suspense fallback={<FeatureLoading label="正在加载帮助与提醒…"/>}><PlatformSupport mode={supportPanel} user={auth.user} classroom={auth.user?.role==='teacher'?teacherSession.viewModel:classroomSession.viewModel} nextChallenge={nextRecommendedChallenge} onClose={()=>setSupportPanel(null)} changeView={changeView} onMission={auth.user?.role==='student'?enterClassroomMission:()=>changeView('teacher')} navigateToChallenge={navigateToChallenge}/></Suspense>}</>;
+    return <>{(!online||roleDataError)&&<div className="platform-sync-banner" role="alert"><WarningCircle size={20}/><span>{!online?'网络连接已断开，请恢复网络后同步或提交。':roleDataError}</span>{online&&<button className="ghost-button" type="button" disabled={roleDataLoading} onClick={retryRoleData}>{roleDataLoading?'正在同步…':'重试同步'}</button>}</div>}{supportPanel&&<Suspense fallback={<FeatureLoading label="正在加载帮助与提醒…"/>}><PlatformSupport mode={supportPanel} user={auth.user} classroom={auth.user?.role==='teacher'?teacherSession.viewModel:classroomSession.viewModel} nextChallenge={nextRecommendedChallenge} onClose={()=>setSupportPanel(null)} onOpenSettings={section=>{setSettingsSection(section==='classroom'?'classroom':'account');setShowSettings(true);}} changeView={changeView} onMission={auth.user?.role==='student'?enterClassroomMission:()=>changeView('teacher')} navigateToChallenge={navigateToChallenge}/></Suspense>}</>;
   }
 
   function renderSettingsModal() {
@@ -1171,7 +1184,7 @@ export function App() {
     return (
       <ErrorBoundary key="settings-modal">
         <Suspense fallback={<FeatureLoading label="正在加载设置..." />}>
-          <SettingsModal setShowSettings={setShowSettings} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} importCredentials={importCredentials} student={student} updateStudent={updateStudent} saveStudentSettings={saveStudentSettings} />
+          <SettingsModal setShowSettings={setShowSettings} initialSection={settingsSection} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} importCredentials={importCredentials} student={student} saveStudentSettings={saveStudentSettings} />
         </Suspense>
       </ErrorBoundary>
     );

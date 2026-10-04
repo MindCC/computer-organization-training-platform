@@ -7446,7 +7446,7 @@ body {
 }
 
 /* Shared navigation keeps its own row before desktop content becomes cramped. */
-@media (max-width: 1200px) {
+@media (max-width: 1400px) {
   .topbar {
     flex-wrap: wrap;
     row-gap: 8px;

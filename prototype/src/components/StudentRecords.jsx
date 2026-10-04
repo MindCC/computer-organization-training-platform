@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { CheckCircle, ClockCountdown, Flask, Sparkle, TreeStructure, TrendUp, WarningCircle } from "@phosphor-icons/react";
+import { ArrowRight, ChartBar, TreeStructure } from "@phosphor-icons/react";
 import { CHALLENGES } from "../platformLogic.js";
 import { COURSE_CHAPTERS, PARTICIPATION_SCORE_NOTE, isParticipationChallenge, scoreLabelOf } from "../courseChapters.js";
 import {
@@ -12,8 +12,11 @@ import { LearningTreeCanvas } from "./records/LearningTreeCanvas.jsx";
 import { ChapterLitBars, ChapterScoreLine, ChapterStudyTimeChart, StatusDonut, TopErrorsChart } from "./records/TechCharts.jsx";
 import { DemoPracticePanel } from "./records/DemoPracticePanel.jsx";
 import { ZoomableChart } from "./records/ChartZoomModal.jsx";
-import { KnowledgeStarMap } from "./records/KnowledgeStarMap.jsx";
+import { LearningWorkspace } from "./learning/LearningWorkspace.jsx";
 import { ShopServiceRecords } from './records/ShopServiceRecords.jsx';
+import { RecentActivityChart } from "./records/RecentActivityChart.jsx";
+import { buildRecentActivityModel } from "../recordsOverviewModel.js";
+import { StudyMascot } from "./ai/StudyMascot.jsx";
 import "./records/recordsTech.css";
 
 const CHALLENGES_BY_CHAPTER = COURSE_CHAPTERS.map((chapter) => ({
@@ -37,13 +40,20 @@ function errorLabelOf(error) {
   return error?.type ?? error?.message ?? String(error);
 }
 
-export function StudentRecords({ summary, progress, activityLog, changeView, selectChallenge, openStudyTarget }) {
+function DisclosureToggle() {
+  return <span className="records-disclosure-toggle"><span className="when-closed">展开</span><span className="when-open">收起</span></span>;
+}
+
+export function StudentRecords({ summary = {}, progress = {}, activityLog = [], changeView, selectChallenge, openStudyTarget, userId }) {
   const treeModel = useMemo(() => buildLearningTreeModel(progress), [progress]);
   const distribution = useMemo(() => buildStatusDistribution(progress), [progress]);
   const chapterSeries = useMemo(() => buildChapterScoreSeries(progress), [progress]);
   const kpis = useMemo(() => buildScreenKpis(summary, progress), [summary, progress]);
-  const activities=activityLog.length?activityLog:CHALLENGES.filter(challenge=>(progress[challenge.id]?.attempts??0)>0).map(challenge=>`${challenge.title} · ${statusText(progress[challenge.id].status)} · ${progress[challenge.id].attempts} 次尝试`);
+  const activityModel = useMemo(() => buildRecentActivityModel(activityLog, progress, { limit: 5 }), [activityLog, progress]);
   const reviewChallenge=CHALLENGES.find(challenge=>progress[challenge.id]?.status==='in-progress')??CHALLENGES.find(challenge=>progress[challenge.id]?.status==='unlocked');
+  const hasGradedScore = chapterSeries.some(chapter => chapter.scoredCount > 0);
+  const hasWeakSpot = Boolean(summary.weakSpot && summary.weakSpot !== "暂无高频错误");
+  const reviewSuggestion = `${hasWeakSpot ? `优先复习「${summary.weakSpot}」。` : "目前没有高频错误记录。"}${reviewChallenge ? `建议继续「${reviewChallenge.title}」，对照实际检测反馈补齐遗漏。` : "可以回看已完成关卡，或到错题本巩固题库与作业。"}`;
   const topErrors = useMemo(() => {
     const counts = new Map();
     for (const record of Object.values(progress ?? {})) {
@@ -57,37 +67,20 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "zh-Hans-CN"));
   }, [progress]);
 
-  if (summary.totalAttempts === 0) {
-    return (
-      <div className="records-screen">
-        <section className="section-panel">
-          <div className="section-heading">
-            <h1>个人学情记录</h1>
-          </div>
-          <div className="empty-state">
-            <Flask size={40} weight="duotone" />
-            <strong>实验学习树等待点亮</strong>
-            <p>完成第一个实验关卡后，这里会用学习树和统计图展示你的完成率、得分和复习建议。</p>
-            <button className="primary-button" onClick={() => changeView("home")} type="button">回到课程首页选择实验</button>
-          </div>
-        </section>
-        <ShopServiceRecords openStudyTarget={openStudyTarget}/>
-      </div>
-    );
-  }
-
   return (
     <div className="records-screen">
       <header className="records-screen-header">
         <div>
           <h1>个人学情记录</h1>
-          <p className="records-subtitle">学习树按教材章节生长——每完成一个实验，就点亮一根树杈。</p>
+          <p className="records-subtitle">整理知识联系，查看自己的学习进度；课程地图已移至课程首页。</p>
         </div>
         <div className="records-screen-actions">
           <a className="ghost-button" href="/api/student/report.md">导出实验报告</a>
           <button className="ghost-button" onClick={() => changeView("home")} type="button">回到课程首页继续实验</button>
         </div>
       </header>
+
+      <LearningWorkspace userId={userId} progress={progress} onOpenChallenge={selectChallenge} onOpenStudyTarget={openStudyTarget} />
 
       <section aria-label="学习总览指标" className="records-kpi-strip">
         <div className="records-kpi accent">
@@ -102,7 +95,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
         </div>
         <div className="records-kpi">
           <span>平均得分</span>
-          <strong>{kpis.averageScore}</strong>
+          <strong className={!hasGradedScore ? "records-kpi-empty" : undefined}>{hasGradedScore ? kpis.averageScore : "暂无成绩"}</strong>
           <small>已完成实验均分 · 参与型不计分</small>
         </div>
         <div className="records-kpi">
@@ -110,14 +103,30 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
           <strong>{formatMinutes(kpis.totalStudyMinutes)}</strong>
           <small>{kpis.totalAttempts} 次尝试</small>
         </div>
-        <div className="records-kpi">
-          <span>建议复习</span>
-          <strong style={{ fontSize: 16 }}>{kpis.weakSpot}</strong>
-          <small>高频错误类型</small>
+        <div className="records-kpi records-kpi-review">
+          <div className="records-review-label"><span>建议复习</span><StudyMascot compact context={{ source: "records", chapterId: reviewChallenge?.chapterId }} suggestion={reviewSuggestion} /></div>
+          <strong className="records-review-topic" title={reviewSuggestion}>{hasWeakSpot ? kpis.weakSpot : "继续当前探索"}</strong>
+          <button className="records-review-action" type="button" onClick={() => reviewChallenge ? selectChallenge(reviewChallenge.id) : changeView("mistakes")}>{reviewChallenge ? `继续${reviewChallenge.shortTitle ?? reviewChallenge.title}` : "打开错题本"}<ArrowRight size={13} /></button>
         </div>
       </section>
 
-      <div className="records-main-grid">
+      <section className="records-statistics" aria-labelledby="records-statistics-title">
+        <div className="records-section-heading">
+          <div><h2 id="records-statistics-title"><ChartBar size={18} />学习统计</h2><p>{kpis.totalAttempts > 0 ? "真实实验记录概览，点击任一图表可展开查看。" : "尚无实验提交记录。从课程首页开始探索，检测结果会自动汇总到这里。"}</p></div>
+          <small>六项概览 · 同步当前学习记录</small>
+        </div>
+        <div aria-label="学习情况统计" className="records-charts-column" data-testid="records-statistics-grid">
+          <ZoomableChart title="树杈点亮分布"><StatusDonut distribution={distribution} /></ZoomableChart>
+          <ZoomableChart title="各章得分与点亮率"><ChapterScoreLine series={chapterSeries} /></ZoomableChart>
+          <ZoomableChart title="章节点亮进度"><ChapterLitBars series={chapterSeries} /></ZoomableChart>
+          <ZoomableChart title="各章累计学习时长"><ChapterStudyTimeChart series={chapterSeries} /></ZoomableChart>
+          <ZoomableChart title="高频错误 Top"><TopErrorsChart errors={topErrors} /></ZoomableChart>
+          <ZoomableChart title="最近学习活动"><RecentActivityChart model={activityModel} /></ZoomableChart>
+        </div>
+      </section>
+
+      <details className="records-disclosure" data-testid="records-tree-section">
+        <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>章节学习树</strong><small>查看八章分支与全部 {treeModel.totals.total} 个实验叶片</small></span><span className="records-disclosure-meta">{treeModel.totals.lit} 已点亮<DisclosureToggle /></span></summary>
         <section aria-label="章节学习树" className="records-panel records-tree-panel">
           <div className="records-panel-head">
             <strong>
@@ -129,38 +138,11 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
           <LearningTreeCanvas model={treeModel} onOpenChallenge={selectChallenge} />
         </section>
 
-        <aside aria-label="学习情况统计" className="records-charts-column">
-          <ZoomableChart title="树杈点亮分布">
-            <StatusDonut distribution={distribution} />
-          </ZoomableChart>
-          <ZoomableChart title="各章得分与点亮率">
-            <ChapterScoreLine series={chapterSeries} />
-          </ZoomableChart>
-          <ZoomableChart title="章节点亮进度">
-            <ChapterLitBars series={chapterSeries} />
-          </ZoomableChart>
-          <ZoomableChart title="各章累计学习时长">
-            <ChapterStudyTimeChart series={chapterSeries} />
-          </ZoomableChart>
-          <ZoomableChart title="高频错误 Top">
-            <TopErrorsChart errors={topErrors} />
-          </ZoomableChart>
-          <DemoPracticePanel />
-        </aside>
-      </div>
+      </details>
 
-      <section aria-label="知识图谱星图" className="records-panel records-star-panel">
-        <div className="records-panel-head">
-          <strong>
-            <Sparkle size={16} style={{ marginRight: 6, verticalAlign: "-3px" }} />
-            知识图谱 · 星图
-          </strong>
-          <small>{CHALLENGES.length} 个关卡按依赖层级连成星座</small>
-        </div>
-        <KnowledgeStarMap progress={progress} onOpenChallenge={selectChallenge} />
-      </section>
-
-      <section className="section-panel">
+      <details className="records-disclosure" data-testid="records-details-section">
+        <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>关卡明细</strong><small>按教材章节查看尝试次数、成绩与检测反馈</small></span><span className="records-disclosure-meta">{CHALLENGES.length} 个电路实验<DisclosureToggle /></span></summary>
+        <section className="section-panel records-detail-panel">
         <div className="section-heading">
           <div>
             <h2>关卡明细</h2>
@@ -184,7 +166,7 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
                       <span>{statusText(record.status)}</span>
                       <span>{record.attempts ?? 0} 次尝试</span>
                       <span title={isParticipationChallenge(challenge) ? PARTICIPATION_SCORE_NOTE : undefined}>{scoreLabelOf(challenge, record)}</span>
-                      <small>{record.errors?.at(-1) ?? "暂无错误"}</small>
+                      <small>{record.errors?.length ? errorLabelOf(record.errors.at(-1)) : "暂无错误"}</small>
                     </button>
                   );
                 })}
@@ -192,35 +174,16 @@ export function StudentRecords({ summary, progress, activityLog, changeView, sel
             </details>
           );
         })}
-      </section>
+        </section>
+      </details>
 
-      <ShopServiceRecords openStudyTarget={openStudyTarget}/>
-      <section className="two-column">
-        <article className="section-panel">
-          <h2>最近活动</h2>
-          <div className="activity-list">
-            {activities.slice(0,6).map((item,index) => (
-              <div className="activity-item" key={`${index}:${item}`}>
-                <CheckCircle size={18} weight="fill" />
-                <span>{item}</span>
-              </div>
-            ))}
-            {activities.length===0&&<p className="empty-state">本次还没有实验活动，可以从课程首页继续探索。</p>}
-          </div>
-        </article>
-        <article className="section-panel">
-          <h2>复习建议</h2>
-          <p className="large-copy">优先复习「{summary.weakSpot}」。{reviewChallenge?`建议继续「${reviewChallenge.title}」，对照实际检测反馈补齐遗漏。`:'已完成的关卡仍可回看，也可以到错题本巩固题库与作业。'}</p>
-          <button className="primary-button" onClick={() => reviewChallenge?selectChallenge(reviewChallenge.id):changeView('mistakes')} type="button">
-            <TrendUp size={17} /> {reviewChallenge?`继续${reviewChallenge.title}`:'打开错题本'}
-          </button>
-          <p className="large-copy" style={{ marginTop: 12 }}>
-            <WarningCircle size={15} style={{ marginRight: 5, verticalAlign: "-2px" }} />
-            也可以点击上方学习树中未点亮的树杈，直接回到对应实验。
-            <ClockCountdown size={15} style={{ marginLeft: 5, verticalAlign: "-2px" }} />
-          </p>
-        </article>
-      </section>
+      <details className="records-disclosure" data-testid="records-practice-section">
+        <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>课堂练习与维修记录</strong><small>章节演示随堂成绩，以及装机店的诊断、升级和复测结果</small></span><span className="records-disclosure-meta"><DisclosureToggle /></span></summary>
+        <div className="records-secondary-grid">
+          <DemoPracticePanel userId={userId} onOpenCourse={() => changeView("home")} />
+          <ShopServiceRecords openStudyTarget={openStudyTarget}/>
+        </div>
+      </details>
     </div>
   );
 }

@@ -162,3 +162,76 @@
 .lab-studio .circuit-flow-workbench.expanded .workbench-mission{padding:8px 12px;}
 .lab-studio .circuit-flow-workbench.expanded .circuit-flow-status{padding:5px 10px;min-height:0;}
 .lab-studio .circuit-flow-workbench.expanded .circuit-flow-report{max-height:100px;overflow:auto;flex-shrink:0;}
+
+/* The circuit is the main surface. Mission and live measurements sit at its edges. */
+.lab-studio .lab-studio-canvas-shell .circuit-flow-workbench { gap:8px; }
+.lab-studio .lab-studio-canvas-shell .circuit-flow-toolbar { padding:0 2px 2px; }
+.lab-studio .circuit-stage { position:relative; display:flex; flex-direction:column; gap:8px; min-width:0; }
+.lab-studio .circuit-stage .circuit-flow-canvas-grid { position:relative; display:block; min-width:0; }
+.lab-studio .lab-studio-canvas-shell .circuit-stage .circuit-flow-canvas {
+  width:100%;
+  height:clamp(580px,calc(100dvh - 185px),940px);
+  min-height:580px;
+  background:#e8f3f5;
+  border:1px solid #c8dfe3;
+  border-radius:12px;
+}
+.lab-studio .circuit-stage .workbench-mission {
+  position:absolute;
+  z-index:5;
+  top:16px;
+  left:16px;
+  width:min(292px,calc(100% - 32px));
+  max-height:min(48%,360px);
+  overflow:auto;
+  padding:14px 16px;
+  border:1px solid #c8ddd8;
+  border-left:4px solid #16877d;
+  border-radius:10px;
+  background:#fffffff2;
+  box-shadow:0 10px 30px #19444a1a;
+  backdrop-filter:blur(8px);
+}
+.lab-studio .circuit-stage .workbench-mission p { font-size:13px; }
+.lab-studio .circuit-stage .circuit-flow-live-panel {
+  position:absolute;
+  z-index:5;
+  top:16px;
+  right:16px;
+  width:250px;
+  max-height:calc(100% - 32px);
+  overflow:auto;
+  padding:0;
+  border:1px solid #c8ddd8;
+  border-radius:10px;
+  background:#fffffff2;
+  box-shadow:0 10px 30px #19444a1a;
+  backdrop-filter:blur(8px);
+}
+.lab-studio .circuit-stage .circuit-flow-live-panel[hidden] { display:none !important; }
+.lab-studio .circuit-stage .circuit-flow-case-panel,
+.lab-studio .circuit-stage .circuit-flow-signal-panel { border:0; border-radius:0; background:transparent; }
+.lab-studio .circuit-stage .circuit-flow-signal-panel { border-top:1px solid #dce9ea; }
+.lab-studio .circuit-stage-footer { display:flex; align-items:center; flex-wrap:wrap; gap:8px 14px; padding:8px 10px; border:1px solid #d5e5e7; border-radius:9px; background:#f7fbfb; }
+.lab-studio .circuit-stage-footer .circuit-flow-status { flex:1 1 260px; border:0; background:transparent; padding:2px 6px; }
+.lab-studio .circuit-stage-footer .workbench-trace-controls { flex:none; }
+.lab-studio .circuit-stage-footer .circuit-view-options { flex:1 1 100%; padding-top:6px; border-top:1px solid #e2ecee; }
+.lab-studio .circuit-stage-footer .circuit-view-options small { margin-left:auto; }
+.lab-studio .circuit-flow-workbench.expanded .circuit-stage { flex:1 1 auto; min-height:0; }
+.lab-studio .circuit-flow-workbench.expanded .circuit-stage .circuit-flow-canvas-grid { flex:1 1 auto; min-height:0; }
+.lab-studio .circuit-flow-workbench.expanded .circuit-stage .circuit-flow-canvas { height:100%; min-height:0; }
+.lab-studio .circuit-flow-workbench.expanded .circuit-flow-live-panel { max-height:calc(100% - 32px); }
+.lab-studio .circuit-flow-workbench.expanded .circuit-stage-footer { position:absolute; z-index:6; left:12px; right:12px; bottom:12px; box-shadow:0 3px 12px #19444a14; }
+.lab-studio .circuit-flow-workbench.expanded .circuit-flow-report { position:absolute; z-index:7; left:72px; right:28px; bottom:128px; background:#fff; }
+.lab-studio .circuit-flow-workbench.expanded .react-flow__controls { bottom:110px; }
+
+@media (max-width:720px) {
+  .lab-studio .circuit-stage .workbench-mission,
+  .lab-studio .circuit-stage .circuit-flow-live-panel { position:static; width:auto; max-height:none; box-shadow:none; backdrop-filter:none; }
+  .lab-studio .circuit-stage .workbench-mission { order:0; }
+  .lab-studio .circuit-stage .circuit-flow-canvas-grid { display:flex; flex-direction:column; gap:8px; order:1; }
+  .lab-studio .lab-studio-canvas-shell .circuit-stage .circuit-flow-canvas { height:480px; min-height:480px; }
+  .lab-studio .circuit-stage .circuit-flow-live-panel { margin-top:0; }
+  .lab-studio .circuit-stage-footer { order:2; }
+  .lab-studio .circuit-stage-footer .circuit-view-options { gap:8px; }
+}

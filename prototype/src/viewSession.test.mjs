@@ -57,3 +57,12 @@ test("storage failures degrade quietly", () => {
   assert.doesNotThrow(() => writeViewSession({ view: "home" }, broken));
   assert.doesNotThrow(() => clearViewSession(broken));
 });
+
+// The chapter hub is a public destination and survives refresh for every role.
+test("interactive demo hub restores for guests, students and teachers", () => {
+  const storage = makeStorage();
+  writeViewSession({ view: "demos", challengeId: null }, storage);
+  for (const role of [null, "student", "teacher"]) {
+    assert.deepEqual(resolveRestorableView(readViewSession(storage), role), { view: "demos", challengeId: null });
+  }
+});

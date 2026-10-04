@@ -1127,23 +1127,24 @@
   }
 }
 
-/* ── 课程课件：AI 互动讲演主视图 + 演示卡片 + 压缩大纲 ── */
+/* ── 课程课件与课堂演示 ── */
 .courseware-lecture { margin: 0 0 22px; }
 .courseware-lecture-head { align-items: center; display: flex; gap: 8px; margin-bottom: 10px; }
 .courseware-lecture-head > strong { align-items: center; display: flex; gap: 6px; font-size: 1.02rem; }
 
-.lecture-chapter-tabs { display: flex; flex: 1; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.lecture-chapter-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; width: 100%; order: 3; }
 .lecture-chapter-tabs button {
   background: #fff;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 10px;
   color: var(--muted);
   cursor: pointer;
   font-family: inherit;
   font-size: .82rem;
   font-weight: 700;
-  padding: 5px 12px;
-  white-space: nowrap;
+  min-height: 42px;
+  padding: 7px 10px;
+  white-space: normal;
 }
 .lecture-chapter-tabs button:hover { border-color: rgba(40,109,232,0.5); color: var(--blue, #286de8); }
 .lecture-chapter-tabs button.active { background: var(--blue, #286de8); border-color: var(--blue, #286de8); color: #fff; }
@@ -1184,22 +1185,32 @@
 
 .courseware-demos { margin: 0 0 22px; }
 .courseware-demos > strong { align-items: center; display: flex; gap: 6px; font-size: 1.02rem; margin-bottom: 10px; }
-.courseware-demo-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+.courseware-demo-grid { display: grid; gap: 14px; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .courseware-demo-card {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 10px;
   color: var(--ink);
   display: grid;
-  gap: 4px;
-  padding: 12px 14px;
-  text-decoration: none;
+  gap: 8px;
+  padding: 10px;
   transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
 }
 .courseware-demo-card:hover { border-color: rgba(40,109,232,0.5); box-shadow: 0 6px 18px rgba(31,42,56,0.1); transform: translateY(-2px); }
+.demo-thumbnail { align-items:center; background:linear-gradient(145deg,#e9f7f3,#d9ecf5); border-radius:8px; color:#176b75; display:flex; height:112px; justify-content:center; overflow:hidden; }
+.demo-thumbnail svg { height:100%; max-width:190px; width:100%; }
+.demo-thumbnail text { fill:currentColor; font-size:18px; font-family:Consolas,monospace; font-weight:700; stroke:none; }
+.demo-thumbnail-ch2 { background:linear-gradient(145deg,#eaf2ff,#f2eafa); color:#4b62a4; }
+.demo-thumbnail-ch3 { background:linear-gradient(145deg,#e2f7f3,#f9edcf); color:#14796c; }
+.demo-thumbnail-ch4,.demo-thumbnail-ch7 { background:linear-gradient(145deg,#eaf0fb,#e4f6f1); color:#406c9f; }
+.demo-thumbnail-ch5,.demo-thumbnail-ch8 { background:linear-gradient(145deg,#fff3df,#e6f4f3); color:#976723; }
+.demo-card-links { display:grid; gap:6px; align-content:start; }
+.demo-card-links a { border-radius:6px; color:var(--ink); display:grid; gap:3px; padding:5px 6px; text-decoration:none; }
+.demo-card-links a:hover,.demo-card-links a:focus-visible { background:#edf7f6; color:#08695f; outline:2px solid transparent; }
+.demo-card-links a + a { border-top:1px solid var(--border); }
 .demo-card-chapter { color: var(--muted); font-size: .74rem; font-weight: 700; letter-spacing: .04em; }
-.courseware-demo-card strong { font-size: .9rem; }
-.courseware-demo-card small { color: var(--muted); font-size: .78rem; line-height: 1.5; }
+.courseware-demo-card strong { font-size: .9rem; line-height:1.35; }
+.courseware-demo-card small { color: var(--muted); font-size: .76rem; line-height: 1.45; }
 
 .courseware-outline { margin: 0 0 22px; }
 .courseware-outline > strong { align-items: center; display: flex; gap: 6px; font-size: 1.02rem; margin-bottom: 10px; }
@@ -1212,9 +1223,11 @@
 .outline-points { color: var(--ink); font-size: .86rem; line-height: 1.6; margin: 0; padding-left: 18px; }
 
 @media (max-width: 760px) {
-  .lecture-chapter-tabs { justify-content: flex-start; }
+  .lecture-chapter-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .courseware-demo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .courseware-lecture-player iframe { height: 62vh; min-height: 380px; }
 }
+@media (max-width: 520px) { .courseware-demo-grid { grid-template-columns:1fr; } }
 
 /* ── 讲演占满首屏（覆盖此前的分区高度）── */
 .courseware-lecture {

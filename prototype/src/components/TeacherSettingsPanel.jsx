@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../apiClient.js";
 import { passwordStrength } from "../passwordStrength.js";
 import { downloadCredentialsCsv } from "../importCredentials.js";
+import './accountSettings.css';
 
 const AUDIT_ACTION_LABELS = {
   login_success: "登录成功",
@@ -31,11 +32,13 @@ export function SettingsModal({
   importStudentsToClass,
   importCredentials = [],
   student,
-  updateStudent,
   saveStudentSettings,
+  initialSection = 'account',
 }) {
   const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
   const isTeacher = auth.user?.role === "teacher";
+  const isDemoTeacher = isTeacher && auth.user.profile?.demoAccount === true;
+  const [section, setSection] = useState(initialSection);
   const [dbInfo, setDbInfo] = useState(null);
   const [dbInfoError, setDbInfoError] = useState("");
   const [auditLogs, setAuditLogs] = useState(null);
@@ -48,23 +51,23 @@ export function SettingsModal({
   const [backupBusy, setBackupBusy] = useState(false);
 
   useEffect(() => {
-    if (!isTeacher) return;
+    if (!isTeacher || isDemoTeacher) return;
     let cancelled = false;
     fetch("/api/admin/db-info", { credentials: "include" })
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error("数据库信息获取失败"))))
       .then((data) => { if (!cancelled) setDbInfo(data); })
       .catch((error) => { if (!cancelled) setDbInfoError(error.message); });
     return () => { cancelled = true; };
-  }, [isTeacher]);
+  }, [isTeacher, isDemoTeacher]);
 
   useEffect(() => {
-    if (!isTeacher) return;
+    if (!isTeacher || isDemoTeacher) return;
     let cancelled = false;
     api.auditLogs({ action: auditAction, page: 1, pageSize: 20 })
       .then((data) => { if (!cancelled) setAuditLogs(data); })
       .catch((error) => { if (!cancelled) setAuditError(error.message); });
     return () => { cancelled = true; };
-  }, [isTeacher, auditAction]);
+  }, [isTeacher, isDemoTeacher, auditAction]);
 
   useEffect(() => {
     if (!isTeacher) return;
@@ -106,13 +109,14 @@ export function SettingsModal({
 
   return (
     <div className="settings-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowSettings(false); }}>
-      <div className="settings-panel">
+      <div className={`settings-panel ${section === 'account' ? 'personal-settings-panel' : ''}`} role="dialog" aria-modal="true" aria-labelledby="settings-heading">
         <div className="settings-panel-header">
-          <h2>{auth.user?.role === "teacher" ? "课堂设置" : "个人设置"}</h2>
+          <h2 id="settings-heading">{isTeacher && section === 'classroom' ? '课堂管理设置' : '个人设置'}</h2>
           <button className="ghost-button" onClick={() => setShowSettings(false)} type="button">关闭</button>
         </div>
 
-        {auth.user?.role === "teacher" ? (
+        {isTeacher ? <div className="account-settings-tabs" role="tablist" aria-label="设置内容"><button type="button" role="tab" aria-selected={section === 'account'} onClick={() => setSection('account')}>个人设置</button><button type="button" role="tab" aria-selected={section === 'classroom'} onClick={() => setSection('classroom')}>课堂管理</button></div> : null}
+        {isTeacher && section === 'classroom' ? (
           <>
             <section className="settings-block first-use-guide">
               <div>
@@ -125,10 +129,10 @@ export function SettingsModal({
                 <li>用一个学生账号完成一次实验提交。</li>
                 <li>回到教师看板查看完成率、高频错误和 AI 助教建议。</li>
               </ol>
-              <p>演示环境可运行 <code>npm run seed:demo</code> 生成课堂样例数据。</p>
+              <p>体验教学流程时，可在登录页选择教师演示，进入独立的演示班级。</p>
             </section>
 
-            <section className="settings-block teacher-import-settings">
+            {isDemoTeacher ? <section className="settings-block"><span className="eyebrow">演示课堂</span><h3>使用演示班级与学生体验教学</h3><p>可在教师工作台布置作业、评分并查看演示学生的学情。正式学生导入、平台审计和整库备份需使用正式教师账号。</p></section> : <section className="settings-block teacher-import-settings">
               <div>
                 <span className="eyebrow">学生导入</span>
                 <h3>{selectedClass?.name ?? "请先创建或选择班级"}</h3>
@@ -171,7 +175,7 @@ export function SettingsModal({
                   </button>
                 </div>
               ) : null}
-            </section>
+            </section>}
 
             <section className="settings-block teacher-rule-settings">
               <div>
@@ -199,7 +203,7 @@ export function SettingsModal({
               </label>
             </section>
 
-            <section className="settings-block teacher-backup-settings">
+            {!isDemoTeacher && <><section className="settings-block teacher-backup-settings">
               <div>
                 <span className="eyebrow">数据与备份</span>
                 <h3>数据库位置与备份</h3>
@@ -292,7 +296,7 @@ export function SettingsModal({
               ) : (
                 <p className="empty-state">正在加载审计日志...</p>
               )}
-              </section>
+              </section></>}
 
               <section className="settings-block teacher-session-settings">
               <div>
@@ -325,30 +329,7 @@ export function SettingsModal({
               </section>
               </>
               ) : (
-          <section className="settings-block">
-            <label className="form-row">
-              <span>姓名</span>
-              <input value={student.name} onChange={(event) => updateStudent("name", event.target.value)} />
-            </label>
-            <label className="form-row">
-              <span>本周目标</span>
-              <input value={student.goal} onChange={(event) => updateStudent("goal", event.target.value)} />
-            </label>
-            <label className="form-row">
-              <span>提示模式</span>
-              <select value={student.mode} onChange={(event) => updateStudent("mode", event.target.value)}>
-                <option>强引导模式</option>
-                <option>适中提示模式</option>
-                <option>挑战模式</option>
-              </select>
-            </label>
-            <button className="primary-button" onClick={saveStudentSettings} type="button">
-              保存设置
-            </button>
-
-            <hr className="settings-divider" />
-            <ChangePasswordBlock />
-          </section>
+          <PersonalAccountForm user={auth.user} student={student} onSave={saveStudentSettings} />
         )}
       </div>
     </div>
@@ -372,7 +353,9 @@ function describeUserAgent(userAgent) {
   return String(userAgent).slice(0, 40);
 }
 
-function ChangePasswordBlock() {
+function PersonalAccountForm({ user, student, onSave }) {
+  const [displayName, setDisplayName] = useState(user?.displayName ?? student?.name ?? '');
+  const [mode, setMode] = useState(user?.profile?.mode ?? student?.mode ?? '适中提示模式');
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -384,42 +367,56 @@ function ChangePasswordBlock() {
   async function handleSubmit(event) {
     event.preventDefault();
     setMessage("");
-    if (nextPassword !== confirmPassword) {
+    const passwordRequested = Boolean(currentPassword || nextPassword || confirmPassword);
+    if (!displayName.trim()) {
+      setMessageType('error'); setMessage('请填写姓名'); return;
+    }
+    if (passwordRequested && (!currentPassword || !nextPassword || !confirmPassword)) {
+      setMessageType('error'); setMessage('修改密码时，请完整填写当前密码、新密码和确认新密码'); return;
+    }
+    if (passwordRequested && nextPassword !== confirmPassword) {
       setMessageType("error");
       setMessage("两次输入的新密码不一致");
       return;
     }
-    if (strength.score === "weak") {
+    if (passwordRequested && strength.score === "weak") {
       setMessageType("error");
       setMessage("密码强度太弱：至少 8 位并包含字母和数字或特殊字符");
       return;
     }
     setBusy(true);
     try {
-      await api.changePassword({ currentPassword, nextPassword });
+      await onSave({ displayName: displayName.trim(), ...(user.role === 'student' ? { mode } : {}), ...(passwordRequested ? { currentPassword, nextPassword } : {}) });
       setMessageType("success");
-      setMessage("密码修改成功");
+      setMessage(passwordRequested ? '资料与密码已一起保存' : '个人设置已保存');
       setCurrentPassword("");
       setNextPassword("");
       setConfirmPassword("");
     } catch (error) {
       setMessageType("error");
-      setMessage(error.message ?? "密码修改失败");
+      setMessage(error.message ?? '保存失败，请重试');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form className="change-password-form" onSubmit={handleSubmit}>
-      <span className="eyebrow">修改密码</span>
+    <form className="personal-account-form" onSubmit={handleSubmit} aria-busy={busy}>
+      <section className="account-profile-fields" aria-label="账户资料">
+        <label className="form-row"><span>姓名</span><input value={displayName} onChange={event => setDisplayName(event.target.value)} required maxLength={64} autoComplete="name" disabled={busy} /></label>
+        <label className="form-row"><span>账号</span><input value={user.username} readOnly aria-readonly="true" /></label>
+        <label className="form-row"><span>身份</span><input value={user.role === 'teacher' ? '教师' : '学生'} readOnly aria-readonly="true" /></label>
+        {user.role === 'student' ? <label className="form-row"><span>提示模式</span><select value={mode} onChange={event => setMode(event.target.value)} disabled={busy}><option>强引导模式</option><option>适中提示模式</option><option>挑战模式</option></select></label> : null}
+      </section>
+      <section className="account-password-fields" aria-label="可选密码修改">
+      <div className="account-password-heading"><strong>更新密码</strong><span>可选 · 保留为空即可只保存资料</span></div>
       <label className="form-row">
         <span>当前密码</span>
-        <input autoComplete="current-password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+        <input autoComplete="current-password" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} disabled={busy} />
       </label>
       <label className="form-row">
         <span>新密码</span>
-        <input autoComplete="new-password" type="password" value={nextPassword} onChange={(e) => setNextPassword(e.target.value)} />
+        <input autoComplete="new-password" type="password" value={nextPassword} onChange={(e) => setNextPassword(e.target.value)} maxLength={256} disabled={busy} />
       </label>
       {nextPassword ? (
         <div className={`password-strength password-strength-${strength.score}`} aria-label={`密码强度：${strength.label}`}>
@@ -429,11 +426,12 @@ function ChangePasswordBlock() {
       ) : null}
       <label className="form-row">
         <span>确认新密码</span>
-        <input autoComplete="new-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+        <input autoComplete="new-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} maxLength={256} disabled={busy} />
       </label>
-      {message ? <p className={messageType === "error" ? "note-error" : "note-success"}>{message}</p> : null}
-      <button className="primary-button" disabled={busy} type="submit">
-        {busy ? "提交中..." : "修改密码"}
+      </section>
+      {message ? <p role={messageType === 'error' ? 'alert' : 'status'} className={messageType === "error" ? "note-error" : "note-success"}>{message}</p> : null}
+      <button className="primary-button account-save-button" disabled={busy} type="submit">
+        {busy ? '正在保存…' : '保存设置'}
       </button>
     </form>
   );

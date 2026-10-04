@@ -16,4 +16,38 @@
 .support-links { display:flex; flex-wrap:wrap; gap:10px; padding-top:22px; }
 .support-error { color:#9b402b; padding:12px 0; }
 .platform-support button:focus-visible,.platform-support summary:focus-visible { outline:3px solid #177d73; outline-offset:4px; }
+.platform-support-help { width:min(940px,100%); display:flex; flex-direction:column; overflow:hidden; }
+.platform-support-help>header { flex:none; padding-bottom:16px; }
+.help-guide-workspace { display:grid; grid-template-columns:210px minmax(0,1fr); gap:22px; min-height:0; flex:1; padding-top:20px; }
+.help-guide-nav { min-width:0; display:flex; flex-direction:column; gap:16px; }
+.help-role-tabs { display:grid; grid-template-columns:1fr 1fr; padding:4px; gap:4px; border-radius:8px; background:#e9f0ec; }
+.help-role-tabs button { border:0; border-radius:5px; padding:8px 4px; color:#62786e; background:transparent; font-size:12px; cursor:pointer; }
+.help-role-tabs button[aria-selected=true] { color:#fff; background:#286b5d; }
+.help-guide-search { display:flex; align-items:center; gap:7px; padding:0 9px; border:1px solid #d4e1d9; background:#fff; border-radius:7px; color:#72897f; }
+.help-guide-search input { width:100%; min-width:0; border:0; background:transparent; font:inherit; font-size:12px; min-height:38px; outline:0; }
+.help-guide-search:focus-within { outline:2px solid #177d7345; }
+.help-guide-nav nav { display:grid; gap:5px; }
+.help-guide-nav nav button { display:flex; align-items:center; justify-content:space-between; gap:6px; text-align:left; padding:10px 12px; border:0; border-radius:6px; background:transparent; color:#5e746a; cursor:pointer; font-size:13px; }
+.help-guide-nav nav button[aria-pressed=true] { color:#246b59; background:#e9f3eb; font-weight:650; }
+.help-guide-nav nav button span { color:#879a8e; font-size:11px; }
+.help-guide-content { overflow:auto; min-height:0; padding:0 6px 6px 0; scrollbar-width:thin; }
+.help-guide-content>header { display:flex; justify-content:space-between; gap:12px; margin:0 0 13px; font-size:15px; }
+.help-guide-content>header span { color:#788b80; font-size:11px; }
+.help-guide-intro { margin:0 0 16px; padding:12px 14px; border-radius:9px; background:#edf5ef; color:#3f6554; font-size:13px; line-height:1.7; }
+.help-step-guide { border:1px solid #dce7df; border-radius:9px; background:#fff; margin-bottom:10px; }
+.help-step-guide>summary { list-style:none; display:flex; gap:12px; padding:15px; cursor:pointer; }
+.help-step-guide>summary::-webkit-details-marker { display:none; }
+.help-guide-number { font-size:11px; color:#83998c; padding-top:3px; font-variant-numeric:tabular-nums; }
+.help-step-guide summary>div { display:grid; gap:6px; min-width:0; }
+.help-step-guide summary strong { font-size:14px; color:#2a4d3d; line-height:1.5; }
+.help-step-guide summary small { font-size:11px; color:#7a8e80; line-height:1.7; }
+.help-step-guide[open] { border-color:#a8c8b5; }
+.help-step-body { padding:0 18px 16px 40px; }
+.help-step-body h3 { margin:0 0 10px; font-size:13px; color:#2a4d3d; }
+.help-step-body ol { display:grid; gap:11px; margin:0 0 16px; padding-left:20px; }
+.help-step-body li { font-size:14px; line-height:1.8; color:#405d4f; padding-left:4px; }
+.help-step-body li::marker { color:#268268; font-size:11px; font-weight:700; }
+.help-step-body button { font-size:12px; min-height:35px; }
+.help-guide-role-note { color:#8b9389; font-size:11px; margin:0; }
+@media(max-width:760px) { .help-guide-workspace { grid-template-columns:1fr; gap:16px; overflow:auto; } .help-guide-nav nav { display:flex; flex-wrap:wrap; gap:5px; } .help-guide-nav nav button { padding:7px 10px; font-size:12px; gap:8px; } .help-guide-content { overflow:visible; } .platform-support-help { padding:18px; } .help-step-body { padding-left:25px; } }
 @media(max-width:600px) { .platform-support-shade { padding:8px; } .platform-support { padding:20px; border-radius:12px; } }

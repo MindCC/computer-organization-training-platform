@@ -1,6 +1,7 @@
 import { ArrowRight, BookOpen, Flame, Repeat, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useState, useRef } from "react";
 import { api } from "../apiClient.js";
+import { StudyMascot } from './ai/StudyMascot.jsx';
 import "./mistakeBook.css";
 
 const SOURCES = {lab:"实验室",practice:"题库练习",assignment:"课后作业",service:"维修诊断"};
@@ -53,6 +54,7 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
             <h1>错题本</h1>
             <p>实验室、题库练习、课后作业和维修诊断的错误集中回顾。查看原因、重练订正，再回到课程继续学习。</p>
           </div>
+          <StudyMascot compact context={{source:'mistakes'}} suggestion="先用自己的话解释错误原因，再重练一次。小芯可以帮你理清不懂的概念。"/>
         </div>
 
         {overview.totalMistakes === 0 ? (
@@ -113,7 +115,7 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
                       ))}
                     </div>
                   ) : null}
-                  <div className="mistake-actions"><button
+                  <div className="mistake-actions"><StudyMascot compact context={{source:'mistakes',questionId:item.source==='practice'?item.questionId:undefined,chapterId:item.chapterId}}/><button
                     className="ghost-button mistake-retry"
                     onClick={() => item.source === "lab" ? navigateToChallenge(item.challengeId) : openStudyTarget(item.navigation)}
                     type="button"

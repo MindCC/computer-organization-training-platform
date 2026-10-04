@@ -1,0 +1,92 @@
+/* Shared classroom theme, matching the approved complement/shift demo.
+   Keep chapter-specific layouts, signal colours and computation scripts intact. */
+:root {
+  --bg0:#fff; --bg1:#f1f5f9; --bg:#f8fafc; --panel:#fff;
+  --line:#cbd5e1; --text:#0f172a; --ink:#0f172a;
+  --muted:#475569; --dim:#64748b; --cyan:#0369a1;
+  --cyan-soft:#0284c7; --accent:#0369a1; --teal:#0f766e;
+}
+body.demo-theme {
+  margin:0; padding:0; min-height:100vh;
+  font-family:"Microsoft YaHei","PingFang SC","Segoe UI",system-ui,sans-serif;
+  color:var(--text);
+  background:radial-gradient(1100px 520px at 85% -10%,rgba(2,132,199,.10),transparent 62%),radial-gradient(800px 480px at 5% 112%,rgba(15,118,110,.07),transparent 55%),linear-gradient(180deg,#fff 0%,#f1f5f9 55%,#fff 100%);
+}
+body.demo-theme::before {
+  content:""; position:fixed; inset:0; pointer-events:none;
+  background-image:linear-gradient(rgba(15,23,42,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.045) 1px,transparent 1px);
+  background-size:44px 44px; mask-image:radial-gradient(ellipse at 50% 30%,black 30%,transparent 78%);
+}
+.demo-theme > .app { position:relative; max-width:1600px; margin:0 auto; padding:18px 24px 26px; }
+.demo-theme > header, .demo-theme > .app > header {
+  display:block; position:relative; max-width:1600px; margin:0 auto;
+  padding:6px 0 16px; text-align:center; background:transparent; border:0; border-radius:0; box-shadow:none;
+}
+.demo-theme > header { padding:24px 24px 16px; }
+.demo-theme header :is(.kicker,.eyebrow) {
+  display:inline-block; padding:4px 16px; border:1px solid #7dd3fc;
+  border-radius:999px; background:#f0f9ff; color:#0284c7;
+  font-size:13px; font-weight:400; letter-spacing:.16em; line-height:1.6;
+}
+.demo-theme header h1 {
+  margin:10px 0 0; font-size:44px; font-weight:800; letter-spacing:.08em; line-height:1.4;
+  background:linear-gradient(90deg,#0c4a6e,#0369a1 45%,#0f766e);
+  background-clip:text; -webkit-background-clip:text; color:transparent; text-shadow:none;
+}
+.demo-theme header :is(.subtitle,p) { margin:6px 0 0; color:#475569; font-size:15px; line-height:1.8; letter-spacing:.04em; }
+.demo-theme :is(.mode-tabs,.mode-switch,.tabs) {
+  display:inline-flex; flex-wrap:wrap; justify-content:center; gap:8px; max-width:100%;
+  margin-top:14px; padding:5px; border:1px solid #cbd5e1; border-radius:999px; background:#f1f5f9;
+}
+.demo-theme :is(.mode-tabs,.mode-switch,.tabs) button {
+  border:0; border-radius:999px; padding:9px 22px; font-size:15px;
+  font-weight:700; letter-spacing:.04em; color:#475569; background:transparent;
+  cursor:pointer; box-shadow:none; line-height:1.6;
+}
+.demo-theme :is(.mode-tabs,.mode-switch,.tabs) button:hover { background:#e2e8f0; color:#0f172a; }
+.demo-theme :is(.mode-tabs,.mode-switch,.tabs) :is(button.active,button[aria-selected="true"]) { background:#0369a1; color:#fff; box-shadow:none; }
+.demo-theme :is(.panel,section.card) { border:1px solid #cbd5e1; border-radius:16px; background:#fff; box-shadow:inset 0 0 32px rgba(15,23,42,.025),0 10px 34px rgba(15,23,42,.04); }
+.demo-theme :is(.panel,section.card) h2 { color:#0f172a; font-size:18px; letter-spacing:.04em; }
+.demo-theme :is(.step-card,.anim-desc,.info-panel) { border:1px solid #bae6fd; border-radius:12px; background:#f0f9ff; color:#0f172a; }
+.demo-theme .controls button, .demo-theme .btn, .demo-theme .primary {
+  border:1px solid #cbd5e1; border-radius:10px; padding:11px 14px;
+  background:#f8fafc; color:#0f172a; font-size:14px; font-weight:700; cursor:pointer;
+}
+.demo-theme .controls .play-btn, .demo-theme .primary, .demo-theme .btn:not(.secondary), .demo-theme .inline-steps .inline-play {
+  background:#0369a1; color:#fff; border-color:#0369a1;
+}
+.demo-theme :is(button,input,select):focus-visible { outline:3px solid #0284c7; outline-offset:3px; }
+.demo-theme input[type="range"] { accent-color:#0369a1; }
+.demo-theme > main { position:relative; max-width:1600px; margin:0 auto; padding:0 24px 26px; }
+.demo-theme > footer { position:relative; padding:10px 24px 30px; }
+.demo-theme > main .circuit-svg { height:320px; border-color:#e2e8f0; background:#f8fafc; border-radius:12px; }
+.demo-theme .switch button { font-size:20px; }
+.demo-theme .switch button[aria-pressed="true"] { background:#0369a1; border-color:#0369a1; color:#fff; }
+.demo-theme > main .result { border-color:#bae6fd; background:#f0f9ff; }
+.demo-theme > main .result strong { color:#0369a1; }
+.demo-theme > main .number-label :is(input,select) { border-color:#cbd5e1; border-radius:10px; }
+/* Layouts without the shared .app wrapper (intro and adder/ALU). */
+.demo-theme > main .workspace { grid-template-columns:300px minmax(0,1fr); gap:18px; }
+.demo-theme .diagram-box { min-width:0; overflow-x:auto; }
+.demo-theme .diagram { min-width:620px; }
+.demo-theme .info-panel { min-width:0; }
+@media(max-width:1180px) {
+  .demo-theme > .app > main { grid-template-columns:minmax(0,1fr); }
+  .demo-theme > main .workspace { grid-template-columns:minmax(0,1fr); }
+}
+@media(max-width:600px) {
+  .demo-theme > .app { padding:16px 12px 24px; }
+  .demo-theme > header { padding:20px 12px 14px; }
+  .demo-theme > main { padding:0 12px 24px; }
+  .demo-theme header h1 { font-size:28px; letter-spacing:.04em; overflow-wrap:anywhere; }
+  .demo-theme header :is(.kicker,.eyebrow) { font-size:11px; letter-spacing:.08em; padding:4px 10px; }
+  .demo-theme header :is(.subtitle,p) { font-size:13px; }
+  .demo-theme :is(.mode-tabs,.mode-switch,.tabs) { gap:3px; border-radius:20px; }
+  .demo-theme :is(.mode-tabs,.mode-switch,.tabs) button { padding:8px 12px; font-size:13px; }
+  .demo-theme .stage { grid-template-columns:minmax(0,1fr); }
+  .demo-theme .stage-title { flex-wrap:wrap; gap:6px; }
+  .demo-theme .stage .zone { min-width:0; overflow-x:auto; }
+  .demo-theme section.card { padding:16px; }
+  .demo-theme section.card h2 { padding-left:0; border-left:0; font-size:17px; }
+}
+@media(prefers-reduced-motion:reduce) { .demo-theme :is(button,.panel) { transition:none; } }

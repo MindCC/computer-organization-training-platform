@@ -50,7 +50,7 @@ export function buildFirstUseSteps(progress = {}) {
   const hasPass = records.some((record) => record?.status === "completed");
 
   return [
-    { id: "inspect", label: "查看当前任务", completed: hasAttempt || hasPass },
+    { id: "inspect", label: "查看课程地图", completed: hasAttempt || hasPass },
     { id: "open", label: "进入实验工作台", completed: hasAttempt || hasPass },
     { id: "submit", label: "提交一次评测", completed: hasAttempt },
   ];

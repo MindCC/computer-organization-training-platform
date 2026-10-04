@@ -1,5 +1,6 @@
 /* ---- 课后作业 · 按章练习 + 知识星图（浅色 Precision Workshop） ---- */
 
+.study-page-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.practice-submit-footer{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 24px;border:1px solid #c9ddd5;border-radius:14px;background:#f1f8f4;margin-top:24px}.practice-submit-footer>div{display:grid;gap:6px}.practice-submit-footer strong{font-size:17px;color:#214439}.practice-submit-footer span{font-size:13px;color:#667c73}.practice-submit-footer p{margin:2px 0;font-size:13px;color:#a13939}.practice-submit-footer button{flex-shrink:0;min-width:166px}.question-help{display:flex;justify-content:flex-end;margin-bottom:6px}.mistake-actions{align-items:center;flex-wrap:wrap}@media(max-width:600px){.practice-submit-footer{flex-direction:column;align-items:stretch;padding:18px}.study-page-tools{gap:6px}.practice-submit-footer button{width:100%}}
 .assignment-mode-switch {
   display: inline-flex;
   gap: 4px;

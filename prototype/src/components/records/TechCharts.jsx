@@ -1,5 +1,3 @@
-import { useId } from "react";
-
 /**
  * 学习记录统计图（浅色主题）：全部手写 SVG，不引入图表库（守住首屏构建预算）。
  * 配色与浅色学习面板一致：白卡片 + 品牌蓝/青/琥珀点缀。
@@ -73,13 +71,14 @@ export function StatusDonut({ distribution }) {
           ))}
         </ul>
       </div>
+      <p className="tech-chart-foot">区域点亮只记录实验完成情况。</p>
     </div>
   );
 }
 
 const LINE_W = 300;
-const LINE_H = 120;
-const LINE_PAD = { left: 30, right: 10, top: 12, bottom: 22 };
+const LINE_H = 150;
+const LINE_PAD = { left: 30, right: 10, top: 14, bottom: 26 };
 
 function linePoints(series, key) {
   const innerW = LINE_W - LINE_PAD.left - LINE_PAD.right;
@@ -93,14 +92,20 @@ function linePoints(series, key) {
 }
 
 function toPath(points) {
-  return points.map(([x, y], index) => `${index === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  let continuing = false;
+  return points.map((point) => {
+    if (!point) { continuing = false; return ""; }
+    const [x, y] = point;
+    const command = continuing ? "L" : "M";
+    continuing = true;
+    return `${command} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(" ");
 }
 
 export function ChapterScoreLine({ series }) {
-  const gradientId = useId();
-  const scorePoints = linePoints(series, "avgScore");
+  const scorePoints = linePoints(series, "avgScore").map((point, index) => series[index].scoredCount > 0 ? point : null);
   const ratePoints = linePoints(series, "completionRate");
-  const areaPath = `${toPath(scorePoints)} L ${scorePoints.at(-1)?.[0] ?? LINE_PAD.left} ${LINE_H - LINE_PAD.bottom} L ${scorePoints[0]?.[0] ?? LINE_PAD.left} ${LINE_H - LINE_PAD.bottom} Z`;
+  const hasScore = scorePoints.some(Boolean);
 
   return (
     <div className="tech-chart tech-line" data-testid="chart-line">
@@ -109,12 +114,6 @@ export function ChapterScoreLine({ series }) {
         <small>已完成实验平均分 / 完成率（%）</small>
       </div>
       <svg preserveAspectRatio="none" viewBox={`0 0 ${LINE_W} ${LINE_H}`} role="img" aria-label="各章平均分与完成率折线图">
-        <defs>
-          <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="rgba(37,99,235,0.22)" />
-            <stop offset="100%" stopColor="rgba(37,99,235,0.02)" />
-          </linearGradient>
-        </defs>
         {[0, 25, 50, 75, 100].map((tick) => {
           const y = LINE_PAD.top + (LINE_H - LINE_PAD.top - LINE_PAD.bottom) * (1 - tick / 100);
           return (
@@ -124,12 +123,9 @@ export function ChapterScoreLine({ series }) {
             </g>
           );
         })}
-        {series.length > 1 ? <path d={areaPath} fill={`url(#${gradientId})`} /> : null}
-        {series.length > 1 ? <path className="line-score" d={toPath(scorePoints)} fill="none" /> : null}
+        {hasScore ? <path className="line-score" d={toPath(scorePoints)} fill="none" /> : null}
         {series.length > 1 ? <path className="line-rate" d={toPath(ratePoints)} fill="none" /> : null}
-        {scorePoints.map(([x, y], index) => (
-          <circle className="line-dot score" cx={x} cy={y} key={`s-${index}`} r={2.6} />
-        ))}
+        {scorePoints.map((point, index) => point ? <circle className="line-dot score" cx={point[0]} cy={point[1]} key={`s-${index}`} r={3}><title>{`${series[index].label} · ${series[index].scoredCount} 个已完成计分实验 · 平均 ${series[index].avgScore} 分`}</title></circle> : null)}
         {ratePoints.map(([x, y], index) => (
           <circle className="line-dot rate" cx={x} cy={y} key={`r-${index}`} r={2.2} />
         ))}
@@ -143,6 +139,7 @@ export function ChapterScoreLine({ series }) {
       <div className="tech-legend inline">
         <span><span className="legend-dot" style={{ background: "#2563eb" }} />平均分</span>
         <span><span className="legend-dot" style={{ background: "#8b5cf6" }} />点亮率</span>
+        {!hasScore ? <span className="chart-unscored-note">暂无计分成绩</span> : null}
       </div>
     </div>
   );
@@ -159,7 +156,7 @@ export function ChapterStudyTimeChart({ series }) {
   const innerH = STUDY_H - STUDY_PAD.top - STUDY_PAD.bottom;
   const slot = series.length > 0 ? innerW / series.length : 0;
   const barW = Math.min(24, slot * 0.62);
-  const ticks = [0, 0.5, 1].map((ratio) => Math.round(maxMinutes * ratio));
+  const ticks = [...new Set([0, 0.5, 1].map((ratio) => Math.round(maxMinutes * ratio)))];
 
   return (
     <div className="tech-chart study-time-chart" data-testid="chart-study-time">
@@ -204,6 +201,7 @@ export function ChapterStudyTimeChart({ series }) {
           );
         })}
       </svg>
+      <p className="tech-chart-foot">累计 {series.reduce((sum, entry) => sum + entry.studyMinutes, 0)} 分钟 · 仅统计实验记录中的学习时长</p>
     </div>
   );
 }
@@ -213,10 +211,11 @@ const ERROR_ROW_H = 24;
 const ERROR_LABEL_W = 108;
 const ERROR_VALUE_W = 26;
 
-export function TopErrorsChart({ errors }) {
+export function TopErrorsChart({ errors = [] }) {
   const rows = (errors ?? []).slice(0, 5);
   const maxCount = Math.max(1, ...rows.map((row) => row.count));
-  const height = Math.max(ERROR_ROW_H, rows.length * ERROR_ROW_H + 6);
+  const height = 150;
+  const offsetY = (height - rows.length * ERROR_ROW_H) / 2;
   const trackW = 300 - ERROR_LABEL_W - ERROR_VALUE_W;
 
   return (
@@ -226,11 +225,11 @@ export function TopErrorsChart({ errors }) {
         <small>按记录中的错误类型聚合</small>
       </div>
       {rows.length === 0 ? (
-        <p className="chart-empty-note">暂无错误记录，继续保持。</p>
+        <div className="chart-empty-state"><strong className="chart-empty-note">暂无错误记录</strong><p>实验检测反馈中的错误类型会汇总在这里。</p><span>继续探索，保留每次真实反馈。</span></div>
       ) : (
         <svg preserveAspectRatio="none" viewBox={`0 0 300 ${height}`} role="img" aria-label="高频错误类型排行">
           {rows.map((row, index) => {
-            const y = index * ERROR_ROW_H + 4;
+            const y = offsetY + index * ERROR_ROW_H + 4;
             const width = Math.max(4, (row.count / maxCount) * trackW);
             const label = row.label.length > 9 ? `${row.label.slice(0, 9)}…` : row.label;
             return (
@@ -246,6 +245,7 @@ export function TopErrorsChart({ errors }) {
           })}
         </svg>
       )}
+      <p className="tech-chart-foot">{errors.length ? `${errors.length} 种错误 · 累计 ${errors.reduce((sum, entry) => sum + entry.count, 0)} 次` : "提交检测后自动同步"}</p>
     </div>
   );
 }
@@ -271,6 +271,7 @@ export function ChapterLitBars({ series }) {
           </div>
         ))}
       </div>
+      <p className="tech-chart-foot">{series.reduce((sum, entry) => sum + entry.lit, 0)} / {series.reduce((sum, entry) => sum + entry.total, 0)} 个实验已完成</p>
     </div>
   );
 }

@@ -10,7 +10,7 @@
  *   node scripts/previewSite.mjs --check    # 只校验已提交的 ../preview 是否与源文件一致（CI/单测用）
  */
 import { createHash } from "node:crypto";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -39,6 +39,8 @@ export function collectPreviewFiles() {
   const files = [
     { from: join(PUBLIC_DIR, "courseware.html"), to: "courseware.html" },
     { from: join(PUBLIC_DIR, "demos", "platform-link.js"), to: "demos/platform-link.js" },
+    { from: join(PUBLIC_DIR, "demos", "adder-alu-core.js"), to: "demos/adder-alu-core.js" },
+    { from: join(PUBLIC_DIR, "demos", "demo-theme.css"), to: "demos/demo-theme.css" },
     ...BRAND_ASSETS,
   ];
   for (const chapter of COURSEWARE.chapters) {
@@ -241,7 +243,7 @@ export function buildPreviewSite({ targetDir = DEFAULT_TARGET_DIR, check = false
     return { ok: problems.length === 0, targetDir, problems, fileCount: expected.size };
   }
 
-  rmSync(targetDir, { recursive: true, force: true });
+  // Update generated files without deleting standalone demo sources or user files.
   mkdirSync(join(targetDir, "demos"), { recursive: true });
   mkdirSync(join(targetDir, "home"), { recursive: true });
   for (const file of files) {

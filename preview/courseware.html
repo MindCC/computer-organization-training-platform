@@ -108,15 +108,15 @@ const chapters=[
   {h:"🏗️ 冯·诺依曼结构",items:["程序和数据以二进制存于存储器","按地址顺序取指令→执行","五大部件：输入→存储→控制→运算→输出"]}],
   kp:"💡 指令和数据都是二进制，CPU通过指令周期的取指/译码/执行阶段区分。层次结构：微程序级→机器语言级→操作系统级→汇编级→高级语言级。",
   demo:"converter"},
-{id:"ch2",title:"计算机中数的表示",sub:"进制转换 · 补码 · 浮点数 · ASCII",type:"dual",cards:[
+{id:"ch2",title:"计算机中数的表示",sub:"进制转换 · 补码 · 定点乘除 · 浮点运算",type:"dual",cards:[
   {h:"🔢 进制转换",items:["R进制→十进制：按权展开求和","十进制→R进制：整数除R取余，小数乘R取整","二↔八(3位一组)↔十六(4位一组)"]},
-  {h:"➕➖ 有符号数",items:["原码：符号位0正1负","补码：正数同原码，负数=反码+1","补码优点：减法→加法，0唯一"]}],
-  kp:"💡 8位补码范围-128~127。IEEE754浮点：1位符号+8位阶码(移码)+23位尾数(规格化)。",
+  {h:"➕➖ 表示与运算方法",items:["原码与补码：负数补码=反码+1","补码加减与移位运算","定点乘除：加减与移位组合","浮点加减：对阶→尾数运算→规格化"]}],
+  kp:"💡 第二章统一学习运算方法：补码加减、定点乘除和浮点运算。IEEE754浮点：符号位+阶码+尾数。",
   demo:"converter"},
-{id:"ch3",title:"运算单元设计",sub:"逻辑门 · 加法器 · ALU · 乘除法",type:"dual",cards:[
+{id:"ch3",title:"运算单元设计",sub:"逻辑门 · 半加器 · 全加器 · ALU",type:"dual",cards:[
   {h:"🚪 基本逻辑门",items:["与门(AND)：全1出1","或门(OR)：有1出1","非门(NOT)：取反","异或(XOR)：不同出1"]},
   {h:"➕ 加法器→ALU",items:["半加器：A+B→S(和)+C(进位)","全加器：A+B+Cin→S+Cout","ALU=加法器+逻辑运算+移位+标志位"]}],
-  kp:"💡 乘法=多次加+移位。布斯算法加速。除法=多次减+移位。超前进位：并行算进位更快。",
+  kp:"💡 半加器：S=A⊕B，C=A∧B。全加器增加输入进位 Cin，多位加法器把相邻位的进位串联。",
   demo:"gates"},
 {id:"ch4",title:"存储器系统",sub:"层次结构 · Cache · 主存 · 虚拟内存",type:"dual",cards:[
   {h:"🗄️ 层次结构",items:["寄存器(CPU内,最快,KB级)","Cache(SRAM,MB级)","主存(DRAM,GB级)","辅存(SSD/HDD,TB级)","速度↓ 容量↑ 价格↓"]},
@@ -231,7 +231,8 @@ function goTo(n){
 }
 function next(){goTo(current+1)}
 function prev(){goTo(current-1)}
-goTo(0);
+const initialChapter=new URLSearchParams(location.search).get('chapter');
+goTo(chapterFirstSlide.get(initialChapter) ?? 0);
 
 // Keyboard
 document.addEventListener('keydown',e=>{

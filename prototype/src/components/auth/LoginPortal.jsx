@@ -6,8 +6,9 @@ import {
   Eye,
   EyeSlash,
   GraduationCap,
-  Lightning,
   PresentationChart,
+  Notebook,
+  ChartLine,
   Circuitry,
   Storefront,
   SpinnerGap,
@@ -21,6 +22,11 @@ const routeSteps = [
   { id: "circuit", icon: Circuitry, label: "探索电路" },
   { id: "build", icon: Cpu, label: "装配电脑" },
   { id: "shop", icon: Storefront, label: "经营装机店" },
+];
+const teacherSteps = [
+  { id: 'classroom', icon: PresentationChart, label: '安排课堂' },
+  { id: 'assignments', icon: Notebook, label: '布置与评分' },
+  { id: 'records', icon: ChartLine, label: '查看班级学情' },
 ];
 
 export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onBack, onDemoLogin }) {
@@ -69,20 +75,21 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
     if (pendingRef.current) return;
     pendingRef.current = true;
     setBusy("account");
-    try { await onSubmit(event); }
+    try { await onSubmit(event, role); }
     finally { pendingRef.current = false; setBusy(null); }
   }
 
-  async function demoLogin() {
+  async function demoLogin(demoRole) {
     if (pendingRef.current) return;
     pendingRef.current = true;
-    setBusy("demo");
-    try { await onDemoLogin(); }
+    setRole(demoRole);
+    setBusy(`demo-${demoRole}`);
+    try { await onDemoLogin(demoRole); }
     finally { pendingRef.current = false; setBusy(null); }
   }
 
   return (
-    <main className="login-portal" ref={rootRef}>
+    <main className={`login-portal login-portal-${role}`} ref={rootRef}>
       <header className="login-portal-header">
         <div className="brand login-brand">
           <img className="brand-wordmark" src="/home/wordmark.png" alt="芯游记" />
@@ -97,14 +104,14 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
         <div className="login-story-copy">
           <span className="login-kicker">
             <Cpu aria-hidden="true" size={18} weight="duotone" />
-            让知识在手中运行
+            {role === 'teacher' ? '把课堂组织得更清楚' : '让知识在手中运行'}
           </span>
-          <h1 id="login-story-title"><span>把原理，</span><span>亲手装出来。</span></h1>
-          <p>接好第一根导线，装好第一台电脑。</p>
+          <h1 id="login-story-title"><span>{role === 'teacher' ? '一堂课，' : '把原理，'}</span><span>{role === 'teacher' ? '看见每一步成长。' : '亲手装出来。'}</span></h1>
+          <p>{role === 'teacher' ? '安排任务、评分作业，了解学生遇到的具体问题。' : '接好第一根导线，装好第一台电脑。'}</p>
         </div>
 
         <ol className="login-route" aria-label="实训路径">
-          {routeSteps.map(({ id, icon: Icon, label }) => (
+          {(role === 'teacher' ? teacherSteps : routeSteps).map(({ id, icon: Icon, label }) => (
             <li key={id}>
               <span className="login-route-icon">
                 <Icon aria-hidden="true" size={19} weight="duotone" />
@@ -200,7 +207,7 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
                 type={showPassword ? "text" : "password"}
                 value={loginForm.password}
               />
-              <button className="login-password-toggle" type="button" onClick={()=>setShowPassword(value=>!value)} aria-label={showPassword ? "隐藏密码" : "显示密码"} aria-pressed={showPassword}>{showPassword ? <EyeSlash size={20} aria-hidden="true"/> : <Eye size={20} aria-hidden="true"/>}</button>
+              <button className="login-password-toggle" type="button" disabled={Boolean(busy)} onClick={()=>setShowPassword(value=>!value)} aria-label={showPassword ? "隐藏密码" : "显示密码"} aria-pressed={showPassword}>{showPassword ? <EyeSlash size={20} aria-hidden="true"/> : <Eye size={20} aria-hidden="true"/>}</button>
               </div>
             </div>
           </div>
@@ -214,14 +221,13 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
           {onDemoLogin ? (
             <>
             <div className="login-divider"><span>也可以先体验一下</span></div>
-            <button className="demo-login-button" onClick={demoLogin} disabled={Boolean(busy)} type="button">
-              <Lightning aria-hidden="true" size={19} weight="fill" />
-              <span>
-                <strong>{busy === "demo" ? "正在进入演示…" : "一键体验演示账号"}</strong>
-                <small>免输入，探索完整课程与装机工坊</small>
-              </span>
-              {busy === "demo" ? <SpinnerGap className="login-spinner" aria-hidden="true" size={18}/> : <ArrowRight size={18} aria-hidden="true"/>}
-            </button>
+            <div className="login-demo-entries" aria-label="选择演示身份">
+              {[{ id: 'student', title: '学生演示', copy: '课程探索、装机与练习', Icon: GraduationCap }, { id: 'teacher', title: '教师演示', copy: '布置作业、评分与班级学情', Icon: PresentationChart }].map(({ id, title, copy: demoCopy, Icon }) => <button key={id} className={`login-demo-entry ${id === 'student' ? 'demo-login-button' : 'teacher-demo-login-button'}`} data-demo-role={id} onClick={() => demoLogin(id)} disabled={Boolean(busy)} type="button">
+                <Icon aria-hidden="true" size={20} />
+                <span><strong>{busy === `demo-${id}` ? '正在进入…' : `${title} · 一键进入`}</strong><small>{demoCopy}</small></span>
+                {busy === `demo-${id}` ? <SpinnerGap className="login-spinner" aria-hidden="true" size={18}/> : <ArrowRight size={18} aria-hidden="true"/>}
+              </button>)}
+            </div>
             </>
           ) : null}
           <small id="login-account-help">{copy.help}。{role === "student" ? "登录遇到问题请联系任课教师。" : "请使用学校分配的教师账号登录。"}</small>

@@ -52,11 +52,16 @@
 .login-portal .login-submit:hover { background:#0e6c66; border-color:#0e6c66; box-shadow:0 4px 12px #137f7826; transform:none; }
 .login-divider { display:flex; align-items:center; gap:12px; margin:4px 0 0; font-size:11px; color:#82949b; }
 .login-divider::before,.login-divider::after { content:""; flex:1; height:1px; background:#e1e9eb; }
-.login-portal .demo-login-button { display:flex; align-items:center; gap:12px; width:100%; min-height:64px; padding:12px 16px; border:1px solid #caddd9; border-radius:8px; background:#f2f8f6; color:var(--login-accent); cursor:pointer; transition:background-color 160ms,border-color 160ms; }
-.demo-login-button > span { display:grid; gap:4px; flex:1; text-align:left; }
-.demo-login-button strong { font-size:13px; font-weight:650; }
-.demo-login-button small { font-size:11px; font-weight:400; color:#69827c; }
-.login-portal .demo-login-button:hover { background:#e9f4ef; border-color:#91b8ad; }
+.login-demo-entries { display:grid; gap:8px; }
+.login-portal .login-demo-entry { display:flex; align-items:center; gap:10px; width:100%; min-height:54px; padding:10px 12px; border:1px solid #caddd9; border-radius:8px; background:#f2f8f6; color:var(--login-accent); cursor:pointer; }
+.login-demo-entry > span { display:grid; gap:3px; flex:1; text-align:left; }
+.login-demo-entry strong { font-size:13px; font-weight:650; }
+.login-demo-entry small { font-size:11px; font-weight:400; color:#69827c; }
+.login-portal .login-demo-entry:hover { background:#e9f4ef; border-color:#91b8ad; }
+.login-portal .teacher-demo-login-button { background:#f0f4fa; border-color:#d1deec; color:#365d83; }
+.login-portal .teacher-demo-login-button:hover { background:#e7eff8; border-color:#9bb5ce; }
+.login-portal-teacher .login-story h1 { font-size:clamp(32px,3.2vw,54px); }
+.login-portal-teacher .login-route li { white-space:nowrap; }
 .login-form-console > small { margin-top:4px; color:#748892; font-size:11px; line-height:1.8; }
 .login-portal .form-error { margin:0; padding:11px 12px; border:1px solid #efd5cf; border-radius:7px; color:#a23d2f; background:#fff5f2; font-size:12px; line-height:1.5; }
 .login-portal input[aria-invalid="true"] { border-color:#c27568; }
@@ -110,7 +115,7 @@
   .login-portal .form-row { gap:6px; }
   .login-role-tabs button { min-height:36px; }
   .login-portal .form-row input,.login-portal .login-submit { min-height:44px; }
-  .login-portal .demo-login-button { min-height:58px; }
+  .login-portal .login-demo-entry { min-height:52px; }
   .login-password-toggle { top:3px; }
 }
 @media (prefers-reduced-motion:reduce) {

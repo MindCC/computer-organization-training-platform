@@ -69,7 +69,7 @@ try {
   await page.unroute('**/api/auth/login');
   await page.locator('#login-password').fill('Student123!');
   await page.locator('#login-password').press('Enter');
-  await expect(page.locator('.project-chapter-board')).toBeVisible({timeout:20000});
+  await expect(page.locator('.home-shell .quest-student-home')).toBeVisible({timeout:20000});
   await expect(page.locator('.profile-button')).toContainText('演示学生1');
   await logout();await openLogin();
   await teacher.click();
@@ -78,13 +78,13 @@ try {
   await expect(page.locator('.teacher-reference-shell')).toBeVisible({timeout:20000});
   await logout();await openLogin();
   await page.locator('.demo-login-button').click();
-  await expect(page.locator('.project-chapter-board')).toBeVisible({timeout:20000});
+  await expect(page.locator('.home-shell .quest-student-home')).toBeVisible({timeout:20000});
   await expect(page.locator('.profile-button')).toContainText('演示学生1');
   await logout();await openLogin();
   await page.emulateMedia({reducedMotion:'reduce'});
   assert.equal(await page.locator('.login-story').evaluate(el=>getComputedStyle(el).animationName),'none');
   await page.getByRole('button',{name:'先浏览课程',exact:true}).click();
-  await expect(page.locator('.project-chapter-board')).toBeVisible();
+  await expect(page.locator('.home-shell .quest-student-home')).toBeVisible();
   assert.deepEqual(errors,[]);
   console.log('PASS login design: desktop/narrow/mobile layout, real artwork, role keyboard navigation, password visibility, pending guard, real login failure/retry, student/teacher/demo login, guest return and reduced motion');
 } catch(error) {

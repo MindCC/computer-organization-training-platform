@@ -99,6 +99,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
   const [hintLevel,setHintLevel]=useState(0);
   const [traceIndex,setTraceIndex]=useState(null);
   const [expanded,setExpanded]=useState(false);
+  const [showLivePanel,setShowLivePanel]=useState(false);
   const [showValues,setShowValues]=useState(true),[showLabels,setShowLabels]=useState(true);
   const flowApi=useRef(null);
   const canvasRef=useCircuitViewport(options=>flowApi.current?.fitView(options));
@@ -335,20 +336,17 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
           <button className="ghost-button" disabled={!selectedEdgeId} onClick={removeSelectedEdge} type="button"><Trash size={17}/>{copy.actionDelete}</button>
           <button className="ghost-button" onClick={reset} type="button">{copy.actionReset}</button>
           <button className="primary-button" disabled={submitBlocked} onClick={submit} title={submitBlocked ? submitBlockedReason : undefined} type="button">{copy.actionSubmit}</button>
+          <button className="ghost-button" aria-expanded={showLivePanel} aria-controls="circuit-live-panel" onClick={()=>setShowLivePanel(current=>!current)} type="button">{showLivePanel?'收起数据面板':'显示数据面板'}</button>
           <button className="ghost-button circuit-expand-button" onClick={()=>setExpanded(current=>!current)} type="button">{expanded?<ArrowsIn size={17}/>:<ArrowsOut size={17}/>} {expanded?'退出放大':'放大工作台'}</button>
         </div>
       </div>
 
+      <div className="circuit-stage">
       <section className="workbench-mission" aria-label="关卡任务">
         <div><small>{model.section??'课程电路挑战'} · {model.gradingMode==='functional'?'功能等价方案均可通过':'引导探索'}</small><p>{model.goal}</p><span>公开样例 {model.testCases.length} 组 · 完整检测 {model.testCases.length+(model.hiddenTestCases?.length??0)} 组</span></div>
         <button type="button" className="ghost-button" disabled={hintLevel>=(model.hints?.length??0)} onClick={()=>setHintLevel(level=>level+1)}>提示 {hintLevel}/{model.hints?.length??0}</button>
         {hintLevel>0?<ol className="workbench-hints">{model.hints.slice(0,hintLevel).map((hint,index)=><li key={index}>{hint}</li>)}</ol>:null}
       </section>
-      <div className="workbench-trace-controls"><button type="button" onClick={()=>setTraceIndex(index=>index===null?0:Math.min(fullSimulation.steps.length-1,index+1))}>单步传播</button><button type="button" onClick={()=>setTraceIndex(null)}>运行到结果</button><span>{traceIndex===null?'实时结果':`传播步骤 ${traceIndex+1}/${fullSimulation.steps.length}`}</span></div>
-
-      <div className="circuit-flow-status" aria-live="polite">{status}</div>
-
-      <div className="circuit-view-options"><span className="circuit-signal-key"><i className="one"/>1 高电平<i className="zero"/>0 低电平<i className="unknown"/>? 未知</span><label><input type="checkbox" checked={showValues} onChange={event=>setShowValues(event.target.checked)}/>信号数值</label><label><input type="checkbox" checked={showLabels} onChange={event=>setShowLabels(event.target.checked)}/>端口名称</label><small>拖动端口连线 · 点击开关探测</small></div>
 
       <div className="circuit-flow-canvas-grid">
         <div ref={canvasRef} className="circuit-flow-canvas" data-testid="react-flow-circuit-canvas">
@@ -373,7 +371,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
           </ReactFlow>
         </div>
 
-        <aside className="circuit-flow-live-panel">
+        <aside id="circuit-live-panel" className="circuit-flow-live-panel" hidden={!showLivePanel}>
           <section className="circuit-flow-case-panel">
             <div className="circuit-flow-panel-heading">
               <strong>{copy.casePanel}</strong>
@@ -430,6 +428,12 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
             )}
           </section>
         </aside>
+      </div>
+      <div className="circuit-stage-footer">
+        <div className="workbench-trace-controls"><button type="button" onClick={()=>setTraceIndex(index=>index===null?0:Math.min(fullSimulation.steps.length-1,index+1))}>单步传播</button><button type="button" onClick={()=>setTraceIndex(null)}>运行到结果</button><span>{traceIndex===null?'实时结果':`传播步骤 ${traceIndex+1}/${fullSimulation.steps.length}`}</span></div>
+        <div className="circuit-flow-status" aria-live="polite">{status}</div>
+        <div className="circuit-view-options"><span className="circuit-signal-key"><i className="one"/>1 高电平<i className="zero"/>0 低电平<i className="unknown"/>? 未知</span><label><input type="checkbox" checked={showValues} onChange={event=>setShowValues(event.target.checked)}/>信号数值</label><label><input type="checkbox" checked={showLabels} onChange={event=>setShowLabels(event.target.checked)}/>端口名称</label><small>拖动端口连线 · 点击开关探测</small></div>
+      </div>
       </div>
 
       {report ? (

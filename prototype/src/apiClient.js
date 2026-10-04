@@ -106,9 +106,11 @@ export async function apiRequest(path, options = {}) {
 
 export const api = {
   login: (payload) => apiRequest("/api/auth/login", { method: "POST", body: JSON.stringify(payload) }),
+  demoLogin: (payload) => apiRequest('/api/auth/demo-login', { method: 'POST', body: JSON.stringify(payload) }),
   logout: () => apiRequest("/api/auth/logout", { method: "POST" }),
   me: () => apiRequest("/api/auth/me"),
   changePassword: (payload) => apiRequest("/api/auth/change-password", { method: "POST", body: JSON.stringify(payload) }),
+  updateAccountSettings: (payload) => apiRequest('/api/auth/settings', { method: 'PUT', body: JSON.stringify(payload) }),
   studentProgress: () => apiRequest("/api/student/progress"),
   submitAttempt: (payload) => apiRequest("/api/student/attempts", { method: "POST", body: JSON.stringify(payload) }),
   listNotes: () => apiRequest("/api/student/notes"),

@@ -1,6 +1,6 @@
 /**
  * 演示页 ↔ 平台学情联动 E2E 回归（2026-09-19）：
- * 登录 → 课件打开演示页 → 徽标已连接 → 答 5 题成批 → demo-attempts 入账
+ * 登录 → 互动演示打开章节页 → 徽标已连接 → 答 5 题成批 → demo-attempts 入账
  * → report.md 含演示练习 → 学习记录面板可见 → 独立版 file:// 降级正常。
  *
  * 前置：API(8787) 与 Vite(5173) 已启动，演示班级已 seed。
@@ -32,18 +32,15 @@ try {
   await page.locator("#login-username").fill("demo2026001");
   await page.locator("#login-password").fill("Student123!");
   await page.locator(".login-submit").click();
-  await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "课程课件" }).click();
+  await page.waitForSelector(".quest-student-home", { timeout: 15000 });
+  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "互动演示" }).click();
   await page.waitForSelector(".courseware-demo-grid", { timeout: 15000 });
-  const demoLink = page.locator(".courseware-demo-card[href='/demos/addressing.html']");
-  check("课件课堂互动演示含寻址演示入口", await demoLink.count() === 1);
+  const demoLink = page.locator(".courseware-demo-card a[href='/demos/addressing.html']");
+  check("互动演示页含寻址演示入口", await demoLink.count() === 1);
 
-  // 2. 新标签打开演示页：徽标显示已连接学情
-  const [demoPage] = await Promise.all([
-    context.waitForEvent("page"),
-    demoLink.click(),
-  ]);
-  await demoPage.waitForLoadState("domcontentloaded");
+  // 2. 平台内打开演示页：徽标显示已连接学情
+  await demoLink.click();
+  const demoPage = page;
   await demoPage.waitForSelector(".hosted-demo-frame", { timeout: 15000 });
   const demoFrame = await (await demoPage.locator(".hosted-demo-frame").elementHandle()).contentFrame();
   await demoFrame.waitForSelector("#platform-link-badge", { timeout: 15000 });

@@ -154,7 +154,7 @@ try {
     assert.equal(new URL(guest.url()).searchParams.get("demo"),demo.id);
     const frame = guest.frameLocator(".hosted-demo-frame");
     await expect(frame.locator("#platform-link-badge")).toContainText("独立模式");
-    await guest.getByRole("button",{name:"返回课程课件",exact:true}).click();
+    await guest.getByRole("button",{name:"返回互动演示",exact:true}).click();
     await expect(guest.locator(".courseware-demo-grid")).toBeVisible();
     assert.equal(new URL(guest.url()).searchParams.get("demo"),null);
   }
@@ -166,7 +166,7 @@ try {
   pass("演示内登录后回到原演示并连接真实学情");
   for (const width of [1366,768,390,320]) {
     await guest.setViewportSize({width,height:width<500?844:768});
-    await expect(guest.getByRole("button",{name:"返回课程课件",exact:true})).toBeVisible();
+    await expect(guest.getByRole("button",{name:"返回互动演示",exact:true})).toBeVisible();
     assert.ok(await guest.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`演示框架 ${width} 无溢出`);
     await guest.screenshot({path:`${artifacts}/demo-system-${width}.png`});
   }
@@ -178,11 +178,11 @@ try {
   await expect(guest.locator(".hosted-demo-frame")).toHaveAttribute("src","/courseware.html?embedded=1");
   await expect(guest.frameLocator(".hosted-demo-frame").locator("body")).toBeVisible();
   await guest.getByRole("button",{name:"返回课程课件",exact:true}).click();
-  await expect(guest.locator(".courseware-demo-grid")).toBeVisible();
+  await expect(guest.locator(".courseware-lecture-player iframe")).toBeVisible();
   pass("演讲课件完整保留，统一返回入口正常");
   const teacherPage = await teacherContext.newPage();
   await teacherPage.goto(`${app}/demos/alu.html`,{waitUntil:"domcontentloaded"});
-  await expect(teacherPage.locator(".hosted-demo-context h1")).toContainText("运算器");
+  await expect(teacherPage.locator(".hosted-demo-context h1")).toContainText("定点乘除与浮点运算");
   await expect(teacherPage.locator(".topbar-nav").getByRole("button",{name:"教师看板",exact:true})).toBeVisible();
   await teacherPage.locator(".topbar-nav").getByRole("button",{name:"教师看板",exact:true}).click();
   await expect(teacherPage.locator(".teacher-reference-shell")).toBeVisible();

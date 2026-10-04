@@ -21,7 +21,8 @@ export async function gotoApp(page, url) {
 async function waitForAppReady(page) {
   // 应用启动时会先渲染「正在连接课堂服务器…」，这期间页面上没有任何入口按钮。
   await page.waitForFunction(
-    () => !document.body.innerText.includes("正在连接课堂服务器"),
+    () => Boolean(document.querySelector('#root')?.children.length) && !document.querySelector('.platform-connection'),
+    null,
     { timeout: 30_000 },
   ).catch(() => {});
 }
@@ -37,10 +38,10 @@ export async function fillLoginForm(page, { username, password }) {
       if (await usernameField.isVisible({ timeout: 5_000 }).catch(() => false)) break;
     }
   }
-  if (!(await usernameField.isVisible().catch(() => false))) {
+  await usernameField.waitFor({ state: "visible", timeout: 15_000 }).catch(async error => {
     await describeLoginPage(page);
-  }
-  await usernameField.waitFor({ state: "visible", timeout: 15_000 });
+    throw error;
+  });
   await usernameField.fill(username);
   await page.locator("#login-password").fill(password);
 }

@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { COURSE_CHAPTERS } from "./courseChapters.js";
-import { KNOWLEDGE_POINTS } from "./knowledgePoints.js";
+import { KNOWLEDGE_POINTS, knowledgePointOf } from "./knowledgePoints.js";
+import { createHash } from "node:crypto";
+import * as bank from "./assignmentQuestions.js";
 import {
   ASSIGNMENT_QUESTIONS,
   chapterQuestionLimit,
@@ -16,7 +18,7 @@ import {
   validateQuestionBank,
 } from "./assignmentQuestions.js";
 
-test("题库结构合法：按章知识点调整题量、答案合法、每个知识点都有题", () => {
+test("题库结构合法：题量与答案合法、每题关联具体课程概念", () => {
   assert.deepEqual(validateQuestionBank(), []);
   for (const chapter of COURSE_CHAPTERS) {
     const questions = questionsForChapter(chapter.id);
@@ -24,8 +26,11 @@ test("题库结构合法：按章知识点调整题量、答案合法、每个�
     const types = new Set(questions.map((question) => question.type));
     assert.ok(types.size >= 2, `${chapter.id} 题型要混合`);
   }
-  for (const kp of KNOWLEDGE_POINTS) {
-    assert.ok(questionsForKp(kp.id).length > 0, `${kp.id} 至少一道题`);
+  for (const question of ASSIGNMENT_QUESTIONS) {
+    const point = knowledgePointOf(question.kpId);
+    assert.ok(point, question.id);
+    assert.equal(point.chapterId, question.chapterId);
+    assert.ok(question.kpId.startsWith("concept-"), question.id);
   }
 });
 
@@ -102,3 +107,26 @@ function rightAnswerFor(question) {
   }
   return "";
 }
+
+test("题目ID、内容、答案、分数与70题原库完全一致", () => {
+  const hash = createHash("sha256").update(JSON.stringify(ASSIGNMENT_QUESTIONS.map(({ kpId, ...question }) => question))).digest("hex");
+  assert.equal(hash, "1403f20000a032245b20af0315aa8b94f57a34d154ed2d10a2487ce1643ff04b");
+});
+
+test("题库精确关联课程概念，历史别名查询返回相同题目", () => {
+  const expected = { "ch1-q01":"concept-stored-program", "ch2-q01":"concept-radix-conversion", "ch2-q05":"concept-ieee754", "ch4-q02":"concept-locality", "ch4-q04":"concept-cache-mapping", "ch4-q06":"concept-virtual-memory", "ch5-q05":"concept-relative-addressing", "ch6-q06":"concept-microprogrammed-control", "ch7-q03":"concept-daisy-chain-arbitration", "ch8-q02":"concept-dma-transfer" };
+  for (const [id, kpId] of Object.entries(expected)) assert.equal(questionOf(id).kpId, kpId);
+  assert.deepEqual(questionsForKp("kp-mux"), questionsForKp("concept-multiplexer"));
+  assert.ok(questionsForKp("kp-mux").length >= 2);
+  assert.deepEqual(questionsForKp("kp-missing"), []);
+});
+
+test("题库覆盖说明承认没有习题的课程概念，不把它们当非法节点", () => {
+  const coverage = bank.questionBankCoverage("ch6");
+  assert.equal(coverage.conceptCount, KNOWLEDGE_POINTS.filter((point) => point.chapterId === "ch6").length);
+  assert.equal(coverage.questionCount, questionsForChapter("ch6").length);
+  assert.ok(coverage.uncoveredKpIds.includes("concept-pipeline-hazards"));
+  assert.equal(coverage.coveredKpIds.length + coverage.uncoveredKpIds.length, coverage.conceptCount);
+  assert.deepEqual(questionsForKp("concept-pipeline-hazards"), []);
+  assert.deepEqual(validateQuestionBank(), []);
+});

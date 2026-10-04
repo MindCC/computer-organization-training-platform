@@ -8,6 +8,11 @@
 .home-intro p { margin:0; color:#526775; font-size:14px; line-height:1.65; }
 .home-course-count { flex:none; display:flex; gap:14px; align-items:center; color:#46616b; font-size:13px; font-weight:700; }
 .home-course-count > span { color:#526775; }
+.home-shell .home-progress-overview { border:1px solid #d8e3e5; border-radius:14px; background:#fff; overflow:hidden; }
+.home-shell .home-progress-overview .quest-hero-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); padding:8px 16px; }
+.home-shell .home-progress-overview .quest-stat-card.metric-card { border:0; border-right:1px solid #e3eaec; border-radius:0; min-height:72px; padding:10px 18px; }
+.home-shell .home-progress-overview .quest-stat-card.metric-card:first-child { padding-left:4px; }
+.home-shell .home-progress-overview .quest-stat-card.metric-card:last-child { border-right:0; }
 .home-shell .quest-hero { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:18px; align-items:stretch; }
 .home-shell .current-quest-panel { position:relative; display:flex; flex-direction:column; justify-content:space-between; gap:28px; border:1px solid #bcd9d3; border-radius:18px; padding:28px 30px; background:#fff; box-shadow:0 5px 18px #17333d06; overflow:hidden; }
 .home-shell .current-quest-panel::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; background:#138878; }
@@ -115,6 +120,9 @@
 @media (max-width:760px) {
   .home-shell .dashboard { padding:16px 14px 28px; }
   .home-shell .home-intro { align-items:flex-start; flex-direction:column; gap:12px; }
+  .home-shell .home-progress-overview .quest-hero-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .home-shell .home-progress-overview .quest-stat-card.metric-card:nth-child(2) { border-right:0; }
+  .home-shell .home-progress-overview .quest-stat-card.metric-card:nth-child(-n+2) { border-bottom:1px solid #e3eaec; }
   .home-shell .quest-hero { grid-template-columns:1fr; }
   .home-shell .current-quest-panel { padding:22px; gap:22px; }
   .home-workshop-scene { height:105px; }
@@ -139,4 +147,17 @@
   .home-shell .mission-channel-body { width:100%; align-items:flex-start; flex-direction:column; }
   .home-shell .mission-channel-meta { flex-wrap:wrap; width:100%; justify-content:space-between; }
   .home-shell .route-map-cards { grid-template-columns:1fr; }
+}
+
+/* Entry pictures reuse actual lab topology and configuration targets. */
+.home-shell .project-experiment-row.has-thumbnail { grid-template-columns:154px minmax(0,1fr) auto; align-items:center; }
+.home-shell .project-experiment-row.has-thumbnail .experiment-thumbnail > svg { height:85px; }
+.home-shell .route-card > .experiment-thumbnail { margin:10px 0; }
+.home-shell .route-card > .experiment-thumbnail > svg { height:120px; }
+@media(max-width:760px) {
+  .home-shell .project-experiment-row.has-thumbnail { grid-template-columns:104px minmax(0,1fr); gap:10px; }
+  .home-shell .project-experiment-row.has-thumbnail .experiment-thumbnail { grid-row:1 / span 2; }
+  .home-shell .project-experiment-row.has-thumbnail .experiment-thumbnail > svg { height:67px; }
+  .home-shell .project-experiment-row.has-thumbnail .experiment-thumbnail-caption { font-size:9px; }
+  .home-shell .project-experiment-row.has-thumbnail .project-experiment-state { grid-column:2; }
 }

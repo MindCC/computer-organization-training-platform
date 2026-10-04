@@ -8,7 +8,7 @@
  * 6. 关卡明细按章节可折叠（details/summary，默认第一章展开）；
  * 7. 图表点击弹出大图弹层，关闭后收回；
  * 8. 新增图表：各章累计学习时长柱状图、高频错误 Top；
- * 9. 知识星图：全部课程关卡 + 依赖连线，状态着色正确，点星进入实验。
+ * 9. 冒险地图：八章区域按真实实验记录点亮，章节清单覆盖全部任务，可进入对应实验。
  *
  * 运行：node scripts/verify-records-screen.mjs
  * 前置：API(8787) 与 Vite(5173) 已启动，且已 seed 演示班级（demo2026001 / Student123!）。
@@ -16,11 +16,9 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { CHALLENGE_DEPS } from "../src/challengeDependencies.js";
 import { CHALLENGES, LEARNING_ITEMS } from "../src/platformLogic.js";
-
-const EXPECTED_STAR_COUNT = Object.keys(CHALLENGE_DEPS).length;
-const EXPECTED_EDGE_COUNT = Object.values(CHALLENGE_DEPS).reduce((sum, deps) => sum + deps.length, 0);
+import { buildAdventureMap } from "../src/adventureMapModel.js";
+import { gotoApp, fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
 
 const BASE_URL = process.env.PROTOTYPE_APP_URL ?? process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
 const API_URL = process.env.PROTOTYPE_API_URL ?? process.env.QA_API_URL ?? "http://127.0.0.1:8787";
@@ -38,12 +36,10 @@ try {
   const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
   const page = await context.newPage();
 
-  await page.goto(`${BASE_URL}/`, { waitUntil: "domcontentloaded" });
-  await page.getByRole("button", { name: "登录", exact: true }).click();
-  await page.locator("#login-username").fill("demo2026001");
-  await page.locator("#login-password").fill("Student123!");
-  await page.locator(".login-submit").click();
-  await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
+  await gotoApp(page, `${BASE_URL}/`);
+  await fillLoginForm(page, {username:'demo2026001',password:'Student123!'});
+  await submitLoginForm(page);
+  await page.waitForSelector(".quest-student-home", { timeout: 15000 });
 
   // 进入学习记录
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
@@ -63,6 +59,21 @@ try {
   check("深色正文 #0f172a", screenStyle.color === "rgb(15, 23, 42)", screenStyle.color);
   const kpiBg = await page.locator(".records-kpi").first().evaluate((el) => getComputedStyle(el).backgroundColor);
   check("KPI 白底卡片", kpiBg === "rgb(255, 255, 255)", kpiBg);
+  const cards = page.locator('[data-testid="records-statistics-grid"] > .chart-zoomable');
+  const sizes = await cards.evaluateAll(nodes => nodes.map(node => ({width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height})));
+  check('六张统计卡统一宽高', sizes.length === 6 && sizes.every(size => Math.abs(size.height-sizes[0].height)<1 && Math.abs(size.width-sizes[0].width)<1), JSON.stringify(sizes));
+  check('最近活动在统计图卡片内', await page.locator('[data-testid="records-statistics-grid"] [data-testid="chart-recent-activity"]').count() === 1);
+  const mascot = page.locator('.records-kpi-review .study-mascot-trigger');
+  await mascot.hover();
+  await page.waitForTimeout(200);
+  const mascotHover = await page.locator('.records-kpi-review [role="tooltip"]').evaluate(node => ({visible:getComputedStyle(node).visibility,opacity:getComputedStyle(node).opacity,hover:node.parentElement.matches(':hover')}));
+  check('悬停小芯显示复习建议', mascotHover.visible === 'visible' && Number(mascotHover.opacity) > .9, JSON.stringify(mascotHover));
+  await mascot.click();
+  check('点击小芯也能读到复习建议', await page.locator('.records-kpi-review [role="dialog"] .study-mascot-review').isVisible());
+  await page.getByRole('button', {name:'关闭小芯助教'}).click();
+  check('树与明细默认折叠，缩短页面', await page.locator('[data-testid="records-tree-section"]').evaluate(node=>!node.open) && await page.locator('[data-testid="records-details-section"]').evaluate(node=>!node.open));
+  await page.locator('[data-testid="records-statistics-grid"]').screenshot({path:`${ARTIFACT_DIR}/records-statistics-equal.png`,style:'.topbar {visibility:hidden;}'});
+  await page.locator('[data-testid="records-tree-section"] > summary').click();
   const trunkStop = await page.locator("#treeTrunkGrad stop").first().getAttribute("stop-color");
   check("树干深色渐变（#493a2c）", trunkStop?.toLowerCase() === "#493a2c", trunkStop ?? "未取到");
 
@@ -122,24 +133,35 @@ try {
   await page.waitForTimeout(250);
   check("关闭后收回小图（弹层消失）", await page.locator(".chart-zoom-overlay").count() === 0);
 
-  // ── 知识图谱 · 星图 ──
-  await page.waitForSelector("[data-testid='knowledge-star-map'] .star-node", { timeout: 15000 });
-  const starCount = await page.locator(".star-node").count();
-  const starEdgeCount = await page.locator(".star-edge").count();
-  check(`知识星图：${EXPECTED_STAR_COUNT} 颗关卡星`, starCount === EXPECTED_STAR_COUNT, `实际 ${starCount}`);
-  check(`知识星图：依赖星座连线 ${EXPECTED_EDGE_COUNT} 条（= CHALLENGE_DEPS 全量依赖）`, starEdgeCount === EXPECTED_EDGE_COUNT, `实际 ${starEdgeCount}`);
-  const starState = async (id) => await page.locator(`.star-node[data-challenge-id='${id}']`).first().getAttribute("data-star-state").catch(() => "");
-  if (completedId) check(`星图已完成=亮星（${completedId}）`, (await starState(completedId)) === "lit");
-  if (activeId) check(`星图进行中=脉冲（${activeId}）`, (await starState(activeId)) === "active");
-  if (lockedId) check(`星图未解锁=暗星（${lockedId}）`, (await starState(lockedId)) === "dim");
+  // ── 冒险地图：状态来自同一份真实课程进度，概念图谱不承担关卡锁定 ──
+  await page.getByRole('button', {name:'课程首页',exact:true}).click();
+  await page.waitForSelector("[data-testid='course-adventure-map'] [data-region-id]", { timeout: 15000 });
+  const expectedMap = buildAdventureMap(prog);
+  const map = page.locator("[data-testid='course-adventure-map']");
+  const regionCount = await map.locator(".adventure-map-svg [data-region-id]").count();
+  check("冒险地图：八章课程区域", regionCount === 8 && regionCount === expectedMap.regions.length, `实际 ${regionCount}`);
+  const actualStates = await map.locator(".adventure-map-svg [data-region-id]").evaluateAll(nodes => Object.fromEntries(nodes.map(node => [node.dataset.regionId, node.dataset.regionState])));
+  check("冒险地图区域状态与真实课程进度一致", expectedMap.regions.every(region => actualStates[region.chapterId] === region.state), JSON.stringify(actualStates));
+  const currentRegionIds = await map.locator(".adventure-map-region.is-current").evaluateAll(nodes => nodes.map(node => node.dataset.regionId));
+  check("推荐区域由真实课程路线决定", JSON.stringify(currentRegionIds) === JSON.stringify(expectedMap.currentRegionId ? [expectedMap.currentRegionId] : []));
+  const seenTaskIds = [];
+  for (const region of expectedMap.regions) {
+    await map.locator(`[data-region-id='${region.chapterId}']`).click();
+    const taskIds = await map.locator(".adventure-map-inspector [data-map-challenge-id]").evaluateAll(nodes => nodes.map(node => node.dataset.mapChallengeId));
+    check(`${region.chapter.title}清单包含本章全部真实任务`, JSON.stringify(taskIds) === JSON.stringify(region.items.map(item => item.id)), `${taskIds.length} 项`);
+    seenTaskIds.push(...taskIds);
+  }
+  check("八章地图清单覆盖全部电路与硬件任务", seenTaskIds.length === LEARNING_ITEMS.length && new Set(seenTaskIds).size === LEARNING_ITEMS.length, `${seenTaskIds.length} 项`);
 
-  // 点击星星进入对应实验
-  await page.locator(".star-node[data-challenge-id='program-flow']").click();
+  // 选择第一章，在该区域的关卡清单进入程序运行实验
+  await map.locator("[data-region-id='ch1']").click();
+  await map.locator("[data-map-challenge-id='program-flow'] button").click();
   await page.waitForSelector(".lab-studio", { timeout: 15000 });
-  check("点击星星进入对应实验", true);
+  check("从冒险地图章节清单进入对应实验", true);
   await page.getByRole("button", { name: "课程首页", exact: true }).click();
-  await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
+  await page.waitForSelector(".quest-student-home", { timeout: 15000 });
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await page.locator('[data-testid="records-tree-section"] > summary').click();
   await page.waitForSelector(".records-screen .tree-leaf", { timeout: 15000 });
 
   // 复位视图后点击一个已完成叶子进入对应实验
@@ -149,8 +171,9 @@ try {
   await page.waitForSelector(".lab-studio", { timeout: 15000 });
   check("点击叶子进入对应实验", true);
   await page.getByRole("button", { name: "课程首页", exact: true }).click();
-  await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
+  await page.waitForSelector(".quest-student-home", { timeout: 15000 });
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await page.locator('[data-testid="records-tree-section"] > summary').click();
   await page.waitForSelector(".records-screen .tree-leaf", { timeout: 15000 });
 
   // 画布缩放：点击控制器放大后容器 data-zoom 变大
@@ -174,6 +197,7 @@ try {
   // 明细契约保留（verify-ui 依赖 .record-table .record-row）
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
   await page.waitForSelector(".records-screen", { timeout: 15000 });
+  await page.locator('[data-testid="records-details-section"] > summary').click();
   const rowCount = await page.locator(".record-table .record-row").count();
   check("章节化关卡明细保留（.record-table .record-row）", rowCount === CHALLENGES.length, `实际 ${rowCount} 行`);
 

@@ -57,7 +57,7 @@ sudo INSTALL_NODE=1 SERVER_NAME=106.54.15.142 bash deploy/deploy.sh
 
 1. 检查/（可选）安装 Node 22；
 2. 创建运行用户 `zcyl`、数据目录 `/var/lib/zcyl`、配置目录 `/etc/zcyl`；
-3. 生成 `/etc/zcyl/platform.env`（`NODE_ENV=production`、随机 `SESSION_SECRET`、`DATABASE_PATH`、`TRUST_PROXY=1`；`ENABLE_TLS=1` 时加 `COOKIE_SECURE=1`）；
+3. 生成 `/etc/zcyl/platform.env`（`NODE_ENV=production`、随机 `SESSION_SECRET`、`DATABASE_PATH`、`TRUST_PROXY=1`；`SEED_DEMO=1` 时加 `ENABLE_DEMO_LOGIN=1`；`ENABLE_TLS=1` 时加 `COOKIE_SECURE=1`）。已有环境文件会保留，需手动加入 `ENABLE_DEMO_LOGIN=1` 后重启服务才能开放演示入口；
 4. `npm ci` + `npm run build`（vite → `prototype/dist`，生产模式下 Express 直接托管它）；
 5. `npm run migrate`；没有教师账号就 `seed:teacher`；`SEED_DEMO=1` 时 `seed:demo`（40 人演示班级）；
 6. 安装并启动 `zcyl-platform.service`；

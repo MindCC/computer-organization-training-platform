@@ -27,6 +27,7 @@ import { CpuExecutionPanel } from "./CpuExecutionPanel.jsx";
 import { LogicGateSandbox } from "./LogicGateSandbox.jsx";
 import { GateAssemblyChallenge } from "./GateAssemblyChallenge.jsx";
 import { ChallengeMap } from "./ChallengeMap.jsx";
+import { ParameterExperiment } from "./ParameterExperiment.jsx";
 import { freeformSpecOf } from "../circuit/freeformGrading.js";
 import { describeCircuitDraft } from '../circuit/circuitDraftDiagnostics.js';
 import './labWorkbench.css';
@@ -44,6 +45,8 @@ export function LabPage({
   const l = lab;
   const cur = l.currentChallenge;
   const cl = classroomLabViewModel;
+  const [overviewParameterMode, setOverviewParameterMode] = useState(false);
+  useExplorationShortcuts(overviewParameterMode && cur.id === "computer-components");
 
   // Keyboard shortcuts: Ctrl+Z undo, Ctrl+Y redo
   useEffect(() => {
@@ -100,9 +103,11 @@ export function LabPage({
 
   function ComputerOverviewLab() {
     return wrapClassroom(
-      <div className="lab-studio lab-overview">
-        <ExperimentContext challenge={cur} record={l.currentRecord} onBack={()=>changeView('home')} overview/>
-        <div className="lab-overview-stage">
+      <div className={`lab-studio lab-overview ${overviewParameterMode ? "parameter-exploration" : ""}`}>
+        <ExperimentContext challenge={cur} record={l.currentRecord} onBack={()=>changeView('home')} overview exploration={overviewParameterMode}/>
+        <div className="lab-overview-modebar"><span>{overviewParameterMode ? "用参数探索课程中的计算关系" : "计算机组成 · 3D 探索"}</span><button aria-pressed={overviewParameterMode} className={`sandbox-toggle ${overviewParameterMode ? "active" : ""}`} onClick={() => setOverviewParameterMode(current => !current)} type="button">{overviewParameterMode ? "← 返回 3D 探索" : "参数实验"}</button></div>
+        <div className="lab-overview-parameters" hidden={!overviewParameterMode}><ParameterExperiment chapterId={cur.chapterId}/></div>
+        <div className="lab-overview-stage" hidden={overviewParameterMode}>
           <Suspense fallback={<div className="flow-loading">正在加载 3D 概览...</div>}>
             <OverviewExplodedView
               autoPlay={false}
@@ -126,12 +131,14 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
     const [sandboxMode, setSandboxMode] = useState(false);
     const [assemblyMode, setAssemblyMode] = useState(false);
     const [mapMode, setMapMode] = useState(false);
+    const [parameterMode, setParameterMode] = useState(false);
+    useExplorationShortcuts(parameterMode);
     const [draft,setDraft]=useState(null);
     const draftDiagnostics=useMemo(()=>describeCircuitDraft(draft),[draft]);
 
     // 挑战路径：可拖拽调宽 / 可整体收起 / 高度限高内滚
     const [routeWidth, setRouteWidth] = useState(232);
-    const [routeCollapsed, setRouteCollapsed] = useState(false);
+    const [routeCollapsed, setRouteCollapsed] = useState(true);
     const startRouteResize = (event) => {
       event.preventDefault();
       const startX = event.clientX;
@@ -158,13 +165,10 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
     const toggleChapter = (chapterId) => setCollapsedChapters((current) => ({ ...current, [chapterId]: !current[chapterId] }));
     const setAllChapters = (collapsed) => setCollapsedChapters(Object.fromEntries(LAB_STEP_CHAPTERS.map((group) => [group.chapter.id, collapsed])));
     return wrapClassroom(
-      <div className="lab-studio">
-        <ExperimentContext challenge={cur} record={l.currentRecord} onBack={()=>changeView('home')}/>
-        <main className="lab-studio-grid" style={{ "--route-width": routeCollapsed ? "34px" : `${routeWidth}px` }}>
-          <aside className={`lab-studio-route ${routeCollapsed ? "collapsed" : ""}`} aria-label="挑战路径">
-            {routeCollapsed ? (
-              <button aria-label="展开挑战路径" className="route-expand-btn" onClick={() => setRouteCollapsed(false)} title="展开挑战路径" type="button">▶</button>
-            ) : (<>
+      <div className={`lab-studio ${parameterMode ? "parameter-exploration" : ""}`}>
+        <ExperimentContext challenge={cur} record={l.currentRecord} onBack={()=>changeView('home')} exploration={parameterMode}/>
+        <main className={`lab-studio-grid ${routeCollapsed ? "route-is-collapsed" : ""}`} style={{ "--route-width": `${routeWidth}px` }}>
+          <aside className="lab-studio-route" hidden={routeCollapsed} id="lab-course-route" aria-label="挑战路径">
             <div className="lab-studio-route-title">
               <strong>挑战路径</strong>
               <span className="route-fold-group">
@@ -194,10 +198,20 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
             })}</div>
             <section className="lab-studio-hint"><Sparkle size={18} /><strong>学习提示</strong><p>{meta.detail ?? cur.objective}</p></section>
             <div aria-label="拖拽调整挑战路径宽度" aria-orientation="vertical" className="route-resize-handle" onPointerDown={startRouteResize} role="separator" title="拖拽调整宽度" />
-            </>)}
           </aside>
           <section className="lab-studio-workspace">
-            <div className="lab-studio-controls"><div><span className="eyebrow">主画布</span><h1>{mapMode ? "挑战依赖地图" : sandboxMode ? "逻辑门沙盒" : assemblyMode ? `${cur.title} · 自由拼装` : cur.title}</h1><p>{mapMode ? "完成一个关卡，解锁依赖它的后续关卡（仿图灵完备）" : sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : assemblyMode ? "自己拖门组装电路，判分通过即算过关" : l.currentCircuitModel.goal}</p>{!sandboxMode && !assemblyMode && !mapMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div><div className="lab-studio-actionbar"><button className={`sandbox-toggle ${mapMode ? "active" : ""}`} onClick={() => { setMapMode(!mapMode); setSandboxMode(false); setAssemblyMode(false); }} type="button">{mapMode ? "← 返回挑战" : "🗺 依赖地图"}</button>{freeformSpec ? <button className={`sandbox-toggle ${assemblyMode ? "active" : ""}`} onClick={() => { setAssemblyMode(!assemblyMode); setSandboxMode(false); setMapMode(false); }} type="button">{assemblyMode ? "← 固定连线" : "🔧 自由拼装"}</button> : null}<button className={`sandbox-toggle ${sandboxMode ? "active" : ""}`} onClick={() => { setSandboxMode(!sandboxMode); setAssemblyMode(false); setMapMode(false); }} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button></div></div>
+            <div className="lab-studio-controls">
+              <div><span className="eyebrow">主画布</span><h1>{parameterMode ? `${cur.title} · 参数探索` : mapMode ? "挑战依赖地图" : sandboxMode ? "逻辑门沙盒" : assemblyMode ? `${cur.title} · 自由拼装` : cur.title}</h1><p>{parameterMode ? "改变条件，实时观察计算结果；可随时返回当前工作台。" : mapMode ? "完成一个关卡，解锁依赖它的后续关卡（仿图灵完备）" : sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : assemblyMode ? "自己拖门组装电路，判分通过即算过关" : l.currentCircuitModel.goal}</p>{!parameterMode && !sandboxMode && !assemblyMode && !mapMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div>
+              <div className="lab-studio-actionbar">
+                <button className="lab-route-toggle" aria-expanded={!routeCollapsed} aria-controls="lab-course-route" onClick={() => setRouteCollapsed(current => !current)} type="button">{routeCollapsed ? "展开课程路线" : "收起课程路线"}</button>
+                <button className={`sandbox-toggle parameter-toggle ${parameterMode ? "active" : ""}`} aria-pressed={parameterMode} onClick={() => setParameterMode(current => !current)} type="button">{parameterMode ? "← 返回工作台" : "参数实验"}</button>
+                <button className={`sandbox-toggle ${!parameterMode && mapMode ? "active" : ""}`} onClick={() => { setParameterMode(false); setMapMode(!mapMode); setSandboxMode(false); setAssemblyMode(false); }} type="button">{mapMode ? "← 返回挑战" : "🗺 依赖地图"}</button>
+                {freeformSpec ? <button className={`sandbox-toggle ${!parameterMode && assemblyMode ? "active" : ""}`} onClick={() => { setParameterMode(false); setAssemblyMode(!assemblyMode); setSandboxMode(false); setMapMode(false); }} type="button">{assemblyMode ? "← 固定连线" : "🔧 自由拼装"}</button> : null}
+                <button className={`sandbox-toggle ${!parameterMode && sandboxMode ? "active" : ""}`} onClick={() => { setParameterMode(false); setSandboxMode(!sandboxMode); setAssemblyMode(false); setMapMode(false); }} type="button">{sandboxMode ? "← 返回闯关" : "🧩 逻辑门沙盒"}</button>
+              </div>
+            </div>
+            <div className="lab-parameter-workbench" hidden={!parameterMode}><ParameterExperiment chapterId={cur.chapterId}/></div>
+            <div className="lab-active-workbench" hidden={parameterMode}>
             {mapMode ? (
               <div className="lab-studio-canvas-shell sandbox-shell"><ChallengeMap progress={l._progress} selectedId={cur.id} onEnter={(id) => { setMapMode(false); l.selectChallenge(id); }} /></div>
             ) : sandboxMode ? (
@@ -218,18 +232,35 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
               <section className={`realtime-diagnostics ${draftDiagnostics.status}`}><strong>实时数据流检测</strong><p>{draftDiagnostics.summary}</p><div className="diagnostic-test-list">{draftDiagnostics.testRows.map((r) => <div className={r.passed ? "passed" : "needs-work"} key={r.label}><span>{r.label}</span><small>实际：{r.actual}</small></div>)}</div>{draftDiagnostics.issues.length ? <div className="diagnostic-issues">{draftDiagnostics.issues.slice(0, 3).map((i) => <span key={`${i.type}-${i.message}`}>{i.type}</span>)}</div> : null}</section>
             </div></details>
             </>)}
+            </div>
           </section>
         </main>
       </div>
     );
 }
 
-function ExperimentContext({challenge,record,onBack,overview=false}) {
+function ExperimentContext({challenge,record,onBack,overview=false,exploration=false}) {
   return <div className="lab-experiment-context" aria-label="当前实验">
     <button className="lab-context-back" aria-label="返回课程首页" onClick={onBack} type="button"><ArrowLeft size={16}/>课程首页</button>
-    <div className="lab-studio-current"><span>{overview?'计算机组成探索':'电路实验室'} · {challengeOrderOf(challenge.id)} / {CHALLENGES.length}</span><strong>{challenge.title}</strong><em className={statusTone(record?.status??'not-started')}>{overview?'探索模式':statusText(record?.status??'not-started')}</em></div>
-    <div className="lab-studio-score">{isParticipationChallenge(challenge)?<><strong>参与型</strong><small>探索完成即通过</small></>:<><span>得分</span><strong>{record?.bestScore??0}</strong><small>/ 100</small></>}</div>
+    <div className="lab-studio-current"><span>{exploration?'参数实验':overview?'计算机组成探索':'电路实验室'} · {challengeOrderOf(challenge.id)} / {CHALLENGES.length}</span><strong>{challenge.title}</strong><em className={exploration?'exploration':statusTone(record?.status??'not-started')}>{exploration||overview?'探索模式':statusText(record?.status??'not-started')}</em></div>
+    <div className="lab-studio-score">{exploration?<><strong>不计分</strong><small>不修改关卡记录</small></>:isParticipationChallenge(challenge)?<><strong>参与型</strong><small>探索完成即通过</small></>:<><span>得分</span><strong>{record?.bestScore??0}</strong><small>/ 100</small></>}</div>
   </div>;
+}
+
+// Hidden circuit instances retain their draft. Their window-level undo handlers
+// must not change that draft while the student is using a parameter slider.
+function useExplorationShortcuts(active) {
+  useEffect(() => {
+    if (!active) return;
+    const handler = event => {
+      if ((event.ctrlKey || event.metaKey) && ["z", "y"].includes(event.key.toLowerCase())) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    };
+    window.addEventListener("keydown", handler, true);
+    return () => window.removeEventListener("keydown", handler, true);
+  }, [active]);
 }
 
 function DataJourneyPanel({ steps, activeStep }) { const ci = steps.length > 0 ? activeStep % steps.length : 0; return (<section className="data-journey-panel"><div className="section-heading"><div><span className="eyebrow">数据旅程检查点</span><h2>取指、译码、执行的课堂观察线</h2><p>按步骤观察地址、数据和控制信号如何经过寄存器与总线。</p></div></div><div className="journey-step-grid">{steps.map((s, i) => (<article className={i === ci ? "journey-step-card active" : "journey-step-card"} key={s.id}><div className="journey-step-head"><span>{String(i + 1).padStart(2, "0")}</span><strong>{s.title}</strong></div><code>{s.transfer}</code><p>{s.description}</p><div className="journey-registers">{s.registers.map((r) => <small key={r}>{r}</small>)}</div><div className="journey-checkpoint"><b>{s.checkpoint.question}</b><span>{s.checkpoint.answer}</span></div></article>))}</div></section>); }

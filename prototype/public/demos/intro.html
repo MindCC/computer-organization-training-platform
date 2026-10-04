@@ -127,13 +127,16 @@
   .quiz-actions{display:flex; gap:10px;}
   footer{color:var(--muted); font-size:.9rem; text-align:center; margin-top:10px;}
 </style>
+<link rel="stylesheet" href="demo-theme.css">
 </head>
-<body>
+<body class="demo-theme">
 
 <header>
-  <h1>计算机系统组成与冯·诺依曼结构 · 课堂互动演示</h1>
+  <span class="kicker">第一章 · 绪论</span>
+  <h1>计算机系统组成</h1>
+  <p class="subtitle">冯·诺依曼结构 · 存储程序原理 · 硬件组成与随堂练习</p>
   <div class="mode-switch" role="tablist">
-    <button id="modeDemo" class="mode-btn active" type="button">演 示</button>
+    <button id="modeDemo" class="mode-btn active" type="button">系统组成</button>
     <button id="modeQuiz" class="mode-btn" type="button">课堂练习</button>
   </div>
 </header>

@@ -24,11 +24,15 @@ test("预览站首页收录了全部课堂演示，链接指向站内页面", ()
   assert.ok(html.includes('href="courseware.html"'), "首页缺少课件页入口");
 });
 
-test("预览站是自包含的：演示页只依赖同目录的 platform-link.js", () => {
+test("预览站是自包含的：全部演示及加法器算法依赖一起导出", () => {
   const targets = collectPreviewFiles().map((file) => file.to);
 
   assert.ok(targets.includes("courseware.html"));
   assert.ok(targets.includes("demos/platform-link.js"));
-  assert.equal(targets.filter((target) => target.startsWith("demos/")).length, 9, "应为 8 个演示页 + platform-link.js");
+  assert.ok(targets.includes("demos/adder-alu-core.js"));
+  assert.ok(targets.includes("demos/demo-theme.css"));
+  const demos = COURSEWARE.chapters.flatMap(chapter => chapter.demos ?? []);
+  assert.equal(targets.filter(target => target.endsWith('.html') && target.startsWith('demos/')).length, demos.length);
+  assert.equal(targets.filter(target => target.startsWith('demos/')).length, demos.length + 3, '全部演示页、两项本地脚本与共用主题');
   assert.equal(targets.some((target) => target.includes("..")), false);
 });

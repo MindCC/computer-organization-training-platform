@@ -15,7 +15,7 @@ const pass=label=>{results.push(label);console.log('PASS '+label);};
 try{
   page=await browser.newPage({viewport:{width:1366,height:900},reducedMotion:'reduce'});page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
   const nav=name=>page.locator('.topbar-nav').getByRole('button',{name,exact:true}).click();
-  const login=async(name='demo2026001')=>{await fillLoginForm(page,{username:name,password:name==='teacher'?'ChangeMe123!':'Student123!'});await submitLoginForm(page);await expect(page.locator('.profile-button')).toBeVisible();};
+  const login=async(name='demo2026001')=>{await fillLoginForm(page,{username:name,password:name==='teacher'?'ChangeMe123!':'Student123!'});if(name==='teacher')await page.getByRole('tab',{name:'教师入口'}).click();await submitLoginForm(page);await expect(page.locator('.profile-button')).toBeVisible();};
   const logout=async()=>{await page.locator('.profile-button').click();await page.getByRole('button',{name:'退出登录',exact:true}).click();};
   await page.route('**/api/auth/me',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'审核故障注入'})}));
   await gotoApp(page,app);await expect(page.locator('.platform-connection')).toContainText('暂时无法连接');
@@ -27,7 +27,7 @@ try{
   const practiceQuestion=questionsForChapter('ch1').find(question=>question.type==='choice');
   const practiceResponse=await page.request.post(app+'/api/student/chapter-practice',{data:{chapterId:'ch1',answers:{[practiceQuestion.id]:practiceQuestion.options.find(option=>option!==practiceQuestion.answer)},clientSubmissionId:randomUUID()}});assert.ok(practiceResponse.ok());
   await page.getByRole('button',{name:'通知',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('待巩固错题');await expect(page.getByRole('dialog')).not.toContainText('你有 3 条');await page.screenshot({path:path.join(artifacts,'platform-notifications.png'),fullPage:true});await page.keyboard.press('Escape');pass('学生提醒读取实际错题和课程记录');
-  await page.locator('.profile-button').click();await page.getByRole('button',{name:'帮助支持',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('装机完成后怎样交付');await page.getByText('装机完成后怎样交付？',{exact:true}).click();await expect(page.getByRole('dialog')).toContainText('服务器同步的通过回执');await page.keyboard.press('Escape');pass('帮助包含可读指南，Escape 关闭并恢复焦点');
+  await page.locator('.profile-button').click();await expect(page.locator('.profile-menu')).not.toContainText('查看学情');await expect(page.locator('.profile-menu')).not.toContainText('打开笔记');await page.getByRole('button',{name:'帮助支持',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('先选功能分类');await page.getByText('装机店：接待、装配、自检和交付',{exact:true}).click();await expect(page.getByRole('dialog')).toContainText('等待服务器返回验收结果');await page.keyboard.press('Escape');pass('账号菜单入口精简，帮助包含逐步指南，Escape 关闭并恢复焦点');
 
   for(const [label,selector] of [['课程首页','.quest-student-home'],['学习记录','.records-screen'],['课后作业','.student-assignments'],['错题本','.mistakes-layout'],['知识库','.kb-vault'],['课程课件','.courseware-view']]) {
     await nav(label);await expect(page.locator(selector)).toBeVisible();

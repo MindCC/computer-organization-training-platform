@@ -19,7 +19,8 @@
     "cpu.html": { id: "cpu", title: "CPU 的结构与设计" },
     "bus.html": { id: "bus", title: "系统总线" },
     "io.html": { id: "io", title: "输入输出系统" },
-    "alu.html": { id: "alu", title: "运算器（定点乘除与浮点运算）" },
+    "alu.html": { id: "alu", title: "定点乘除与浮点运算" },
+    "adder-alu.html": { id: "adder-alu", title: "半加器、全加器与运算器" },
   };
 
   var fileName = String(location.pathname.split("/").pop() || "").toLowerCase();

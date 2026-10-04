@@ -1,0 +1,76 @@
+.course-knowledge { display: grid; grid-template-columns: 210px minmax(0,1fr) 300px; background: #fff; color: #273d38; min-width: 0; }
+.concept-explorer { padding: 22px 14px; border-right: 1px solid #e5ebe6; background: #f5f8f4; min-width: 0; }
+.concept-explorer-title { display: flex; align-items: center; gap: 8px; margin: 0 7px 18px; color: #355847; font-size: 14px; }
+.concept-explorer-title > span { margin-left: auto; color: #7d9081; font: 11px ui-monospace, monospace; }
+.concept-search { display: flex; align-items: center; gap: 6px; padding: 9px; border: 1px solid #d5dfd7; background: #fff; border-radius: 7px; color: #7b9081; }
+.concept-search:focus-within { border-color: #4c9177; box-shadow: 0 0 0 2px #dceee5; }
+.concept-search input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: #2f453b; font-size: 12px; }
+.concept-explorer-caption { margin: 24px 8px 10px; color: #7c8c7c; font-size: 10px; letter-spacing: .1em; }
+.concept-chapters { display: grid; gap: 5px; }
+.concept-chapters button { display: flex; gap: 8px; align-items: center; border: 0; border-radius: 6px; text-align: left; background: transparent; color: #586f5d; padding: 11px 8px; font-size: 12px; line-height: 1.5; cursor: pointer; }
+.concept-chapters button:hover { background: #e9f0e8; }
+.concept-chapters button[aria-current=true] { background: #deebe1; color: #25563e; }
+.concept-chapter-number { align-self: flex-start; margin-top: 2px; color: #78917d; font: 10px/1.5 ui-monospace, monospace; }
+.concept-chapters button small { margin-left: auto; font-size: 10px; color: #839781; }
+.concept-explorer-note { border-top: 1px solid #e0e7df; margin: 24px 7px 0; padding-top: 15px; color: #859181; font-size: 11px; line-height: 1.8; }
+.concept-main { min-width: 0; background: #fbfdfb; }
+.concept-main-head { display: flex; justify-content: space-between; align-items: center; padding: 22px 24px 16px; gap: 12px; }
+.concept-main-head small { font: 9px/1.5 ui-monospace, monospace; letter-spacing: .12em; color: #8a9a8b; }
+.concept-main-head h3 { font-size: 18px; margin: 6px 0 0; color: #304e3d; }
+.concept-main-head > span { color: #829582; font-size: 11px; white-space: nowrap; }
+.concept-graph-caption { display: flex; gap: 7px; align-items: center; color: #738a77; font-size: 11px; padding: 0 24px 18px; }
+.concept-graph-desktop { background-image: radial-gradient(#dce6dc .75px, transparent .75px); background-size: 20px 20px; padding: 10px 5px; max-height: 540px; overflow: auto; scrollbar-width: thin; scrollbar-color: #c6d6c4 transparent; }
+.course-knowledge .kg-svg { display: block; width: 100%; min-width: 740px; min-height: 300px; height: auto; overflow: visible; }
+.course-knowledge .kg-edge { fill: none; stroke: #b4c9b9; color: #9bb6a2; stroke-width: 1.8; opacity: .7; }
+.course-knowledge .kg-edge.hot { stroke: #448769; color: #448769; stroke-width: 2.8; opacity: 1; }
+.course-knowledge .kg-node { cursor: pointer; opacity: 1; outline: 0; }
+.course-knowledge .kg-node rect { fill: #fff; stroke: #c5d4c8; stroke-width: 1.6; }
+.course-knowledge .kg-node.related rect { fill: #f0f6ee; stroke: #83ad90; }
+.course-knowledge .kg-node.highlighted rect { fill: #285d48; stroke: #285d48; }
+.course-knowledge .kg-node text { fill: #3c5945; font: 20px 'Manrope', sans-serif; font-weight: 550; pointer-events: none; }
+.course-knowledge .kg-node.highlighted text { fill: #fff; }
+.course-knowledge .kg-node:hover rect, .course-knowledge .kg-node:focus-visible rect { stroke: #bc913d; stroke-width: 3; }
+.concept-evidence-dot { background: #ccd5cc; fill: #ccd5cc; }
+.concept-evidence-dot.evidence { background: #4c9a75; fill: #4c9a75; }
+.concept-evidence-dot.practicing { background: #c79e4b; fill: #c79e4b; }
+.concept-graph-legend { display: flex; flex-wrap: wrap; gap: 15px; border-top: 1px solid #e7eee7; padding: 14px 22px; color: #7a8c7c; font-size: 10px; }
+.concept-graph-legend span { display: flex; align-items: center; gap: 6px; }
+.concept-graph-legend i { width: 6px; height: 6px; border-radius: 50%; }
+.concept-inspector { min-width: 0; background: #fff; border-left: 1px solid #e5ebe6; }
+.course-knowledge .kp-detail { margin: 0; padding: 24px 20px; border: 0; border-radius: 0; background: #fff; color: #304e3d; }
+.concept-detail-eyebrow { font-size: 10px; color: #89978a; }
+.course-knowledge .kp-detail h4 { font-size: 20px; margin: 9px 0 12px; color: #284b3a; }
+.concept-summary { color: #627665; font-size: 12px; line-height: 1.9; margin: 0 0 17px; }
+.concept-evidence { padding: 11px 12px; border-left: 2px solid #c2cec2; background: #f4f7f1; }
+.concept-evidence strong { font-size: 11px; color: #6a826e; }
+.concept-evidence p { font-size: 10px; line-height: 1.7; color: #839180; margin: 5px 0 0; }
+.concept-evidence.evidence { border-color: #67a583; background: #eef7ee; }
+.concept-evidence.practicing { border-color: #c9a453; background: #faf6e9; }
+.concept-relations { display: grid; gap: 17px; padding: 20px 0; border-bottom: 1px solid #e7ece6; }
+.course-knowledge .kp-detail h5 { font-size: 11px; margin: 0 0 9px; color: #7d8b7a; font-weight: 550; }
+.concept-relations > div > div { display: flex; flex-wrap: wrap; gap: 5px; }
+.course-knowledge .kp-chip { padding: 5px 8px; border: 1px solid #d8e3d5; border-radius: 5px; background: #f2f7f0; color: #527750; font-size: 11px; cursor: pointer; }
+.course-knowledge .kp-chip.dependent { background: #f8f6ee; border-color: #e3dfce; color: #8b7d52; }
+.concept-relations p, .concept-detail-section > p { margin: 0; color: #929b89; font-size: 11px; line-height: 1.8; }
+.concept-detail-section { margin-top: 20px; }
+.concept-detail-section h5 span { margin-left: 4px; font: 10px ui-monospace, monospace; color: #a2ab99; }
+.concept-experiment { display: flex; align-items: center; gap: 8px; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eef1ea; }
+.concept-experiment strong { font-size: 12px; font-weight: 550; color: #49634d; display: block; }
+.concept-experiment small { font-size: 10px; color: #8b9783; display: block; margin-top: 5px; }
+.course-knowledge .kp-enter-btn { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; padding: 0; border: 1px solid #d5e2d0; border-radius: 6px; background: #f1f7ed; color: #487452; cursor: pointer; }
+.course-knowledge .kp-question-link { display: grid; gap: 5px; text-align: left; width: 100%; margin: 0; padding: 10px 0; border: 0; border-bottom: 1px solid #eef1ea; background: transparent; cursor: pointer; color: #526e55; font-size: 11px; line-height: 1.7; }
+.course-knowledge .kp-question-link small { font-size: 9px; color: #95a08d; }
+.course-knowledge .kp-question-link:hover { color: #1d6843; }
+.course-knowledge button:focus-visible { outline: 2px solid #b8994c; outline-offset: 2px; }
+.concept-search-results { display: grid; gap: 0; padding: 0 24px 24px; }
+.concept-search-results > div > button { display: grid; width: 100%; gap: 7px; text-align: left; border: 0; border-bottom: 1px solid #dfe8dc; padding: 18px 12px; background: transparent; color: #536e53; cursor: pointer; }
+.concept-search-results button.is-selected { background: #edf5e9; }
+.concept-search-results button small { color: #8c9b84; font-size: 10px; }
+.concept-search-results button strong { display: flex; gap: 10px; justify-content: space-between; font-size: 15px; font-weight: 550; }
+.concept-search-results button > span { font-size: 12px; line-height: 1.8; color: #84917e; }
+.concept-empty { color: #89957f; font-size: 13px; padding: 30px 10px; line-height: 1.8; }
+.concept-mobile-list { display: none; }
+.concept-search-mobile-detail { display: none; }
+@media (max-width: 700px) { .concept-search-mobile-detail { display: block; } .concept-inspector.with-search { display: none; } }
+@media (min-width: 701px) and (max-width: 1250px) { .course-knowledge { grid-template-columns: minmax(0,1fr) 290px; } .concept-explorer { display: grid; grid-template-columns: 180px minmax(0,1fr); align-items: center; gap: 12px 20px; padding: 16px 20px; grid-column: 1 / -1; border-right: 0; border-bottom: 1px solid #e4ebe2; } .concept-explorer-title { margin: 0; } .concept-chapters { grid-column: 1 / -1; grid-template-columns: repeat(4,minmax(0,1fr)); } .concept-explorer-caption, .concept-explorer-note { display: none; } }
+@media (max-width: 700px) { .course-knowledge { display: block; } .concept-explorer { padding: 16px; border: 0; border-bottom: 1px solid #e4ebe2; } .concept-explorer-title { margin: 0 0 12px; } .concept-explorer-caption { margin: 15px 0 7px; } .concept-explorer-note { display: none; } .concept-chapters { grid-template-columns: 1fr 1fr; gap: 4px; } .concept-chapters button { font-size: 11px; padding: 9px 6px; } .concept-main-head { padding: 20px 16px 14px; } .concept-main-head h3 { font-size: 17px; } .concept-graph-caption { padding: 0 16px 15px; align-items: flex-start; line-height: 1.7; } .concept-graph-desktop, .concept-inspector:not(.with-search) { display: none; } .concept-mobile-list { display: grid; gap: 7px; padding: 0 16px 18px; } .concept-mobile-list > div > button { display: flex; align-items: center; gap: 15px; justify-content: space-between; width: 100%; padding: 13px 12px; background: white; border: 1px solid #d6e3d2; border-radius: 6px; color: #5b775b; text-align: left; font-size: 13px; cursor: pointer; } .concept-mobile-list > div > button.is-selected { color: #fff; background: #285d48; border-color: #285d48; border-radius: 6px 6px 0 0; } .concept-mobile-list .kp-detail { border: 1px solid #d6e3d2; border-top: 0; border-radius: 0 0 6px 6px; padding: 18px 16px; } .course-knowledge .concept-inspector .kp-detail { display: block; } .concept-relations { display: grid; grid-template-columns: 1fr; } .concept-search-results { padding: 0 16px 18px; } .concept-graph-legend { padding: 12px 16px; gap: 11px; } }

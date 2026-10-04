@@ -7,12 +7,12 @@
 const STORAGE_KEY = "zcyl:view-session";
 
 const STUDENT_VIEWS = new Set([
-  "home", "lab", "hardware-game", "records", "mistakes", "notes", "assignments", "courseware",
+  "home", "lab", "hardware-game", "records", "mistakes", "notes", "assignments", "courseware", "demos",
 ]);
 // 教师的首页就是「教师看板」：不把 home 当作可恢复视图，
 // 否则登录态切换过程中的中间值会把教师带到学生首页。
-const TEACHER_VIEWS = new Set(["teacher", "courseware"]);
-const GUEST_VIEWS = new Set(["home", "courseware"]);
+const TEACHER_VIEWS = new Set(["teacher", "courseware", "demos"]);
+const GUEST_VIEWS = new Set(["home", "courseware", "demos"]);
 
 const CHALLENGE_ID_PATTERN = /^[a-z0-9-]{1,64}$/;
 

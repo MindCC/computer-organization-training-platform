@@ -6,6 +6,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const allowedVerifiers = new Set([
+  "scripts/verify-interactive-demos.mjs",
+  "scripts/verify-courseware-redesign.mjs",
+  "scripts/verify-study-mascot.mjs",
+  "scripts/verify-immersive-workbench.mjs",
+  "scripts/verify-parameter-playground.mjs",
+  "scripts/verify-account-settings.mjs",
+  "scripts/verify-demo-teacher.mjs",
+  "scripts/verify-learning-atlas.mjs",
+  "scripts/verify-assignment-questions.mjs",
   "scripts/verify-shop-service.mjs",
   "scripts/verify-ui.mjs",
   "scripts/verify-platform-audit.mjs",
@@ -44,7 +53,7 @@ const allowedVerifiers = new Set([
 const verifier = String(process.argv[2] ?? "").replaceAll("\\", "/");
 const production = process.argv.includes('--production');
 const liveAi = process.argv.includes('--live-ai');
-if(liveAi && verifier!=='scripts/verify-custom-customer.mjs')throw new Error('Live AI is only enabled for the dedicated custom customer check');
+if(liveAi && !['scripts/verify-custom-customer.mjs','scripts/verify-study-mascot.mjs'].includes(verifier))throw new Error('Live AI is only enabled for dedicated authorized AI checks');
 if (!allowedVerifiers.has(verifier)) {
   throw new Error("Unsupported verifier: " + verifier);
 }
@@ -148,6 +157,7 @@ try {
       DEEPSEEK_API_KEY: liveAi ? (process.env.DEEPSEEK_API_KEY??'') : "",
       PUBLIC_BASE_URL: appUrl,
       NODE_ENV: production ? 'production' : 'development',
+      ENABLE_DEMO_LOGIN: process.argv.includes('--seed-demo') ? 'true' : 'false',
       SESSION_SECRET: 'isolated-browser-qa-session-secret',
       COOKIE_SECURE: '0',
     },
@@ -173,6 +183,7 @@ try {
       PROTOTYPE_APP_URL: appUrl,
       PROTOTYPE_API_URL: apiUrl,
       QA_ARTIFACT_DIR: path.join(root, "qa-artifacts"),
+      QA_LIVE_AI: liveAi ? '1' : '0',
       TEACHER_USERNAME: teacherUsername,
       TEACHER_PASSWORD: teacherPassword,
       DEEPSEEK_API_KEY: "",

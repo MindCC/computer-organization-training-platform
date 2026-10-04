@@ -1,0 +1,21 @@
+.personal-settings-panel { width:min(620px,100%); gap:16px; padding:24px; background:#f8faf9; color:#213b35; }
+.personal-account-form { display:grid; gap:18px; }
+.personal-account-form section { min-width:0; }
+.account-profile-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 16px; }
+.personal-account-form .form-row { display:grid; gap:6px; margin:0; }
+.personal-account-form .form-row>span { font-size:12px; color:#536a61; font-weight:600; }
+.personal-account-form input,.personal-account-form select { min-width:0; width:100%; min-height:40px; padding:8px 11px; border:1px solid #d3dfd9; border-radius:7px; color:#233e35; background:#fff; font:inherit; font-size:13px; }
+.personal-account-form input[readonly] { background:#eef2ef; color:#73837b; }
+.personal-account-form input:focus,.personal-account-form select:focus { outline:2px solid #17817555; outline-offset:1px; }
+.account-password-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px 16px; padding-top:16px; border-top:1px solid #dce4de; }
+.account-password-heading { grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:13px; }
+.account-password-heading>span { color:#74847a; font-size:11px; }
+.account-password-fields>.form-row:first-of-type { grid-column:1/-1; }
+.account-password-fields .password-strength { grid-column:1/-1; grid-row:4; }
+.personal-account-form .account-save-button { width:100%; min-height:42px; justify-content:center; margin-top:2px; }
+.personal-account-form .note-error,.personal-account-form .note-success { margin:0; line-height:1.6; font-size:12px; }
+.personal-account-form .note-success { color:#207657; }
+.account-settings-tabs { display:flex; gap:5px; padding:4px; background:#eaf0ed; border-radius:8px; }
+.account-settings-tabs button { flex:1; padding:9px; border:0; border-radius:6px; color:#60746b; background:transparent; cursor:pointer; font-size:13px; }
+.account-settings-tabs button[aria-selected=true] { color:#176f61; background:#fff; }
+@media(max-width:560px) { .personal-settings-panel { padding:18px; } .account-profile-fields,.account-password-fields { grid-template-columns:1fr; } .account-password-heading { flex-direction:column; align-items:flex-start; gap:4px; } }

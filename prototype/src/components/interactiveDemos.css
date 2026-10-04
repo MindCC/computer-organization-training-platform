@@ -1,0 +1,21 @@
+.interactive-demos-view { color:#0f172a; }
+.interactive-demos-heading { text-align:center; margin:0 0 28px; }
+.interactive-demos-kicker { display:inline-block; padding:5px 16px; border:1px solid #7dd3fc; border-radius:999px; color:#0284c7; background:#f0f9ff; font-size:13px; letter-spacing:.12em; }
+.interactive-demos-heading h1 { margin:12px 0 8px; color:#0369a1; font-size:36px; letter-spacing:.08em; }
+.interactive-demos-heading p { margin:0; color:#475569; font-size:15px; line-height:1.7; }
+.interactive-demos-view .courseware-chapter-card { border-color:#cbd5e1; border-radius:16px; padding:18px; box-shadow:0 6px 22px rgba(15,23,42,.04); }
+.interactive-demos-view .courseware-chapter-card:hover { border-color:#7dd3fc; }
+.interactive-demos-view .courseware-chapter-card h2 { margin:0; font-size:17px; line-height:1.5; color:#0f172a; }
+.interactive-demos-view .courseware-demo-entry strong { color:#0369a1; font-size:14px; }
+.interactive-demos-view .courseware-demo-entry small { color:#475569; }
+.interactive-demos-view .courseware-chapter-experiments { border-color:#e2e8f0; }
+.interactive-demos-view .courseware-chapter-experiments summary { color:#475569; }
+.interactive-demos-view :is(a,button,summary):focus-visible { outline-color:#0284c7; }
+@media(max-width:600px) { .interactive-demos-heading h1 { font-size:28px; } .interactive-demos-heading p { font-size:14px; } }
+
+.interactive-demos-view .parameter-playground { --parameter-ink:#0f172a; --parameter-teal:#0369a1; border-color:#cbd5e1; background:#f8fafc; }
+.interactive-demos-view .parameter-kicker, .interactive-demos-view .parameter-control-heading output { color:#0369a1; }
+.interactive-demos-view .parameter-tabs { display:inline-flex; padding:5px; border:1px solid #cbd5e1; background:#f1f5f9; border-radius:999px; }
+.interactive-demos-view .parameter-tabs button { border:0; color:#475569; background:transparent; }
+.interactive-demos-view .parameter-tabs button.active { color:#fff; background:#0369a1; }
+.interactive-demos-view :is(.parameter-controls,.parameter-visual) { border-color:#cbd5e1; border-radius:16px; }

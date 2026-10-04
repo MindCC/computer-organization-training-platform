@@ -1,0 +1,13 @@
+.experiment-thumbnail { display:flex; flex-direction:column; flex:none; width:100%; min-width:0; overflow:hidden; border:1px solid #d7e4e2; border-radius:8px; color:#17695e; background:#f2f8f5; }
+.experiment-thumbnail > svg { display:block; width:100%; height:105px; padding:10px 7px 4px; overflow:visible; }
+.experiment-thumbnail .thumbnail-wires { fill:none; stroke:#55a291; stroke-width:3; stroke-linejoin:round; }
+.experiment-thumbnail .thumbnail-nodes { fill:#fff; stroke:#286b60; stroke-width:2.5; }
+.experiment-thumbnail text { fill:#234c48; stroke:none; font-size:17px; font-family:system-ui,sans-serif; font-weight:650; text-anchor:middle; }
+.experiment-thumbnail .thumbnail-bit { font-family:Consolas,monospace; font-size:17px; fill:#087b70; }
+.experiment-thumbnail-caption { display:block; padding:5px 6px; border-top:1px solid #d7e4e2; background:#fff; color:#4a655f; font-size:10px; line-height:1.35; text-align:center; white-space:normal; overflow-wrap:anywhere; }
+.experiment-thumbnail.hardware { background:#edf3f7; border-color:#d8e2e9; }
+.experiment-thumbnail .thumbnail-parts { stroke:#476d80; stroke-width:1.7; fill:#fdfefe; }
+.experiment-thumbnail .thumbnail-board { fill:#cde0d8; }
+.experiment-thumbnail .thumbnail-traces { stroke:#8cab9e; fill:none; }
+.experiment-thumbnail.hardware text { font-size:12px; fill:#264958; }
+.experiment-thumbnail.diagram > svg { height:116px; }

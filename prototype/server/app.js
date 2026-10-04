@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
+import { ensureDemoAccounts, isDemoLoginEnabled } from './demoAccounts.js';
+import { validateAccountSettings } from './accountSettings.js';
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
 import { generateLabAssistantHint } from "./labAssistant.js";
 import { normalizeStudentAttemptPayload } from "./submissionValidation.js";
@@ -75,6 +77,7 @@ import { createCoursewareUploadRouter } from "./coursewareUploadRoutes.js";
 import { createKnowledgeRouter } from "./knowledgeRoutes.js";
 import { createCustomCustomerRouter } from './customCustomerRoutes.js';
 import { createShopServiceRouter, serviceRecords } from './shopServiceRoutes.js';
+import { createStudyAssistantRouter } from './studyAssistantRoutes.js';
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 import { buildUnifiedMistakeBook, createLearningPracticeRouter } from "./learningPractice.js";
@@ -186,6 +189,7 @@ export function createApp(options = {}) {
   app.use("/api", createKnowledgeRouter({ db, requireRole }));
   app.use('/api', createCustomCustomerRouter({db,requireRole,options:options.customCustomerOptions??{}}));
   app.use('/api', createShopServiceRouter({db,requireRole}));
+  app.use('/api', createStudyAssistantRouter({requireRole, options:options.studyAssistantOptions??{}}));
 
   // Deep health check
   const _startedAt = Date.now();
@@ -237,7 +241,8 @@ export function createApp(options = {}) {
 
   app.post("/api/auth/login", async (req, res, next) => {
     try {
-      const { username, password } = req.body ?? {};
+      const { username, password, role } = req.body ?? {};
+      if (role !== undefined && !['student', 'teacher'].includes(role)) return res.status(400).json({ error: '请选择有效的登录入口' });
       const key = String(username ?? "").trim().toLowerCase();
       const ipKey = req.ip ?? "unknown";
       // Check rate limit
@@ -260,6 +265,11 @@ export function createApp(options = {}) {
             ? `用户名或密码错误（还剩 ${remaining} 次尝试）`
             : "用户名或密码错误",
         });
+      }
+
+      if (role !== undefined && user.role !== role) {
+        audit(req, 'login_failure', { targetType: 'user', targetId: key, metadata: { reason: 'role_mismatch' } });
+        return res.status(403).json({ error: `此账号属于${user.role === 'teacher' ? '教师' : '学生'}，请切换到对应登录入口` });
       }
 
       // Success: clear failures
@@ -296,6 +306,23 @@ export function createApp(options = {}) {
     res.json({ ok: true });
   });
 
+  app.post('/api/auth/demo-login', async (req, res, next) => {
+    try {
+      if (!isDemoLoginEnabled(options)) return res.status(403).json({ error: '当前环境未开放演示登录，请使用正式账号' });
+      const role = req.body?.role;
+      if (!['student', 'teacher'].includes(role)) return res.status(400).json({ error: '请选择学生演示或教师演示' });
+      const accounts = await ensureDemoAccounts(db);
+      const user = accounts[role];
+      const token = createToken();
+      const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+      deleteExpiredSessions(db);
+      createSession(db, user.id, hashToken(token, sessionSecret), expiresAt, { ipAddress: req.ip ?? null, userAgent: String(req.headers['user-agent'] ?? '').slice(0, 300) || null });
+      audit(req, 'login_success', { targetType: 'user', targetId: user.id, metadata: { demo: true, role } });
+      res.setHeader('Set-Cookie', serializeCookie(COOKIE_NAME, token, { expires: expiresAt }));
+      res.json({ user: sanitizeUser(user), demo: true });
+    } catch (error) { next(error); }
+  });
+
   app.get("/api/auth/me", requireAuth, (req, res) => {
     res.json({ user: sanitizeUser(req.user) });
   });
@@ -321,6 +348,29 @@ export function createApp(options = {}) {
     } catch (error) { next(error); }
   });
 
+  app.put('/api/auth/settings', requireAuth, async (req, res, next) => {
+    try {
+      const settings = validateAccountSettings(req.body, req.user.role);
+      if (!settings.ok) return res.status(400).json({ error: settings.error });
+      const original = getUserById(db, req.user.id);
+      let passwordHash = null;
+      if (settings.changePassword) {
+        if (!(await verifyPassword(settings.currentPassword, original.password_hash))) return res.status(400).json({ error: '当前密码不正确，资料和密码均未保存' });
+        passwordHash = await hashPassword(settings.nextPassword);
+      }
+      const saved = db.transaction(() => {
+        if (settings.changePassword && getUserById(db, req.user.id).password_hash !== original.password_hash) throw Object.assign(new Error('密码已在其他操作中更新，请重新输入当前密码'), { status: 409 });
+        const profile = { ...(settings.mode !== undefined ? { mode: settings.mode } : {}), ...(settings.changePassword ? { mustChangePassword: false, passwordChangedAt: new Date().toISOString() } : {}) };
+        if (passwordHash) updateUserPassword(db, req.user.id, passwordHash);
+        const user = updateUserProfile(db, req.user.id, { displayName: settings.displayName, profile });
+        const revokedSessions = passwordHash ? revokeOtherSessions(db, req.user.id, req.sessionTokenHash ?? null) : 0;
+        return { user, revokedSessions };
+      })();
+      if (settings.changePassword) audit(req, 'change_password', { targetType: 'user', targetId: req.user.id, metadata: { revokedSessions: saved.revokedSessions } });
+      res.json({ user: sanitizeUser(saved.user), passwordChanged: settings.changePassword, revokedSessions: saved.revokedSessions });
+    } catch (error) { next(error); }
+  });
+
   app.post("/api/classes", requireRole("teacher"), (req, res) => {
     const name = String(req.body?.name ?? "").trim();
     if (!name) return res.status(400).json({ error: "班级名称不能为空" });
@@ -333,6 +383,7 @@ export function createApp(options = {}) {
 
   app.post("/api/teacher/classes/:id/import-students", requireRole("teacher"), async (req, res, next) => {
     try {
+      if (sanitizeUser(req.user).profile?.demoAccount === true) return res.status(403).json({ error: '演示教师使用演示学生，导入正式学生请使用正式教师账号' });
       const classId = Number(req.params.id);
       if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
       const csvText = typeof req.body === "string" ? req.body : String(req.body?.csv ?? "");
@@ -466,6 +517,7 @@ export function createApp(options = {}) {
   });
 
   app.get("/api/teacher/audit-logs", requireRole("teacher"), (req, res) => {
+    if (sanitizeUser(req.user).profile?.demoAccount === true) return res.status(403).json({ error: '演示教师不能查看整个平台的审计记录' });
     const { action, from, to, page, pageSize } = req.query;
     res.json(listAuditLogs(db, { action, from, to, page, pageSize }));
   });
@@ -727,6 +779,7 @@ export function createApp(options = {}) {
   // 必须重新输入本人口令——快照包含全部口令散列与会话摘要，不能让一个被盗的会话
   // cookie 直接拖走整库。GET 版本已移除，避免绕过这道确认。
   app.post("/api/admin/backup", requireRole("teacher"), async (req, res, next) => {
+    if (sanitizeUser(req.user).profile?.demoAccount === true) return res.status(403).json({ error: '演示教师不能下载整库备份' });
     let tempDirectory = null;
     const cleanup = () => {
       if (!tempDirectory) return;
@@ -773,6 +826,7 @@ export function createApp(options = {}) {
   });
 
   app.get("/api/admin/db-info", requireRole("teacher"), (req, res) => {
+    if (sanitizeUser(req.user).profile?.demoAccount === true) return res.status(403).json({ error: '演示教师不能查看平台数据库信息' });
     const dbPath = req.app.locals.dbPath ?? ":memory:";
     const isMemory = !dbPath || dbPath === ":memory:";
     const size = isMemory ? 0 : (fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0);

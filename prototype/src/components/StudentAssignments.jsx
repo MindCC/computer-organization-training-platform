@@ -18,8 +18,9 @@ import {
   questionsForChapter,
   QUESTION_TYPE_LABELS,
 } from "../assignmentQuestions.js";
-import { CHAPTER_CORE_POINTS, knowledgePointOf } from "../knowledgePoints.js";
+import { CHAPTER_CORE_POINTS, KNOWLEDGE_POINTS, knowledgePointOf } from "../knowledgePoints.js";
 import { KnowledgeGraph } from "./KnowledgeGraph.jsx";
+import { StudyMascot } from './ai/StudyMascot.jsx';
 import "./assignmentsPractice.css";
 import "./mistakeBook.css";
 
@@ -27,21 +28,12 @@ import "./mistakeBook.css";
  * 课后作业 = 按章练习（自动题库 + 知识点标注 + 知识星图） + 教师作业（原有流程）。
  * 正式判分与错题同步到账户，本机仅保存按账号隔离的未提交草稿。
  */
-export function StudentAssignments({ userId, destination, navigateToChallenge, onOpenMistakes }) {
+export function StudentAssignments({ userId, destination, progress = {}, navigateToChallenge, onOpenMistakes, onOpenLearning }) {
   const [mode, setMode] = useState(destination?.source === "assignment" ? "teacher" : "practice");
-  const [progress, setProgress] = useState({});
-
-  useEffect(() => {
-    let cancelled = false;
-    api.studentProgress()
-      .then((data) => { if (!cancelled) setProgress(data?.progress ?? {}); })
-      .catch(() => { /* 学情拉取失败时星图退化为全「可学习/未解锁」静态展示 */ });
-    return () => { cancelled = true; };
-  }, []);
 
   return (
     <div className="student-assignments">
-      <div className="study-page-heading"><h2><Notebook size={20} /> 课后作业</h2><button className="ghost-button" onClick={onOpenMistakes} type="button">打开错题本</button></div>
+      <div className="study-page-heading"><h2><Notebook size={20} /> 课后作业</h2><div className="study-page-tools"><StudyMascot context={{source:'practice'}} compact/><button className="ghost-button" onClick={onOpenMistakes} type="button">打开错题本</button></div></div>
       <div className="assignment-mode-switch" role="tablist" aria-label="作业模式">
         <button
           type="button"
@@ -62,7 +54,7 @@ export function StudentAssignments({ userId, destination, navigateToChallenge, o
           <ChalkboardTeacher size={16} /> 教师作业
         </button>
       </div>
-      {mode === "practice" ? <ChapterPractice key={userId} userId={userId} destination={destination} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={onOpenMistakes} /> : <TeacherAssignments userId={userId} destination={destination} onOpenMistakes={onOpenMistakes} />}
+      {mode === "practice" ? <ChapterPractice key={userId} userId={userId} destination={destination} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={onOpenMistakes} onOpenLearning={onOpenLearning} /> : <TeacherAssignments userId={userId} destination={destination} onOpenMistakes={onOpenMistakes} />}
     </div>
   );
 }
@@ -95,7 +87,7 @@ function shortChapterTitle(title) {
   return title.replace(/^第.+章\s*/, "");
 }
 
-function ChapterPractice({ progress, userId, destination, navigateToChallenge, onOpenMistakes }) {
+function ChapterPractice({ progress, userId, destination, navigateToChallenge, onOpenMistakes, onOpenLearning }) {
   const [chapterId, setChapterId] = useState(destination?.chapterId ?? COURSE_CHAPTERS[0].id);
   const [focusedQuestion, setFocusedQuestion] = useState(destination?.source === "practice" ? destination.questionId : null);
   const [store, setStore] = useState(() => loadPracticeStore(userId));
@@ -237,30 +229,28 @@ function ChapterPractice({ progress, userId, destination, navigateToChallenge, o
         <span className="mastery-bar" aria-hidden><i style={{ width: `${summary.mastery}%` }} /></span>
         <div className="summary-actions">
           <button type="button" className="ghost-button" onClick={() => setGraphOpen((open) => !open)} aria-expanded={graphOpen}>
-            <MapTrifold size={16} /> {graphOpen ? "收起知识星图" : "知识星图"}
+            <MapTrifold size={16} /> {graphOpen ? "收起知识图谱" : "课程知识图谱"}
           </button>
           <button type="button" className="ghost-button" onClick={resetChapter} disabled={submitting}>
             <ArrowCounterClockwise size={15} /> {focusedQuestion ? "重做此题" : "重做本章"}
-          </button>
-          <button type="button" className="primary-button practice-submit" onClick={submitChapter} disabled={!ready || submitting}>
-            {submitting ? "正在同步判分…" : focusedQuestion ? "提交此题订正" : "提交并判分"}
           </button>
         </div>
       </div>
 
       {error ? <div className="study-sync-error" role="alert">{error}{!ready ? <button className="ghost-button" type="button" onClick={() => setSyncVersion(v => v+1)}>重试同步</button> : null}</div> : <p className="study-sync-status" role="status">{ready ? "判分结果已同步到账户，答错的题目自动进入错题本。" : "正在同步账户练习记录…"}</p>}
-      {focusedQuestion ? <div className="study-focus-strip"><strong>当前定位：{destination?.questionId === focusedQuestion ? "错题重练" : "知识点练习"}</strong><div><button type="button" className="ghost-button" onClick={() => setFocusedQuestion(null)}>查看本章全部题目</button><button type="button" className="ghost-button" onClick={onOpenMistakes}>返回错题本</button></div></div> : null}
+      {focusedQuestion ? <div className="study-focus-strip"><strong>当前定位：{destination?.origin !== 'knowledge' && destination?.questionId === focusedQuestion ? "错题重练" : "知识点练习"}</strong><div><button type="button" className="ghost-button" onClick={() => setFocusedQuestion(null)}>查看本章全部题目</button>{destination?.origin === 'knowledge' ? <button type="button" className="ghost-button" onClick={onOpenLearning}>返回学习图谱</button> : destination?.questionId === focusedQuestion ? <button type="button" className="ghost-button" onClick={onOpenMistakes}>返回错题本</button> : <button type="button" className="ghost-button" onClick={() => setGraphOpen(true)}>返回知识图谱</button>}</div></div> : null}
 
       {graphOpen ? (
         <div className="kg-panel">
           <div className="kg-panel-head">
             <MapTrifold size={18} />
             <div>
-              <strong>知识星图 · 18 个知识点的依赖关系</strong>
-              <p>你造出的元件是后续知识点的积木——完成下层基础，上层进阶才会点亮。</p>
+              <strong>课程知识图谱 · 八章 {KNOWLEDGE_POINTS.length} 个知识点</strong>
+              <p>按章查看课程概念与联系，定位相关实验和练习题。</p>
             </div>
           </div>
           <KnowledgeGraph
+            initialChapterId={chapterId}
             progress={progress}
             focusId={focusKpId}
             onSelectKp={setFocusKpId}
@@ -284,6 +274,12 @@ function ChapterPractice({ progress, userId, destination, navigateToChallenge, o
           />
         ))}
       </div>
+      <footer className="practice-submit-footer">
+        <div><strong>{focusedQuestion ? '完成这道题的订正' : '完成本章练习'}</strong><span>已作答 {visibleQuestions.filter(question => String(store.answers[question.id] ?? '').trim()).length} / {visibleQuestions.length} 题 · 提交后同步判分与错题</span>{error&&<p role="alert">{error}</p>}</div>
+        <button type="button" className="primary-button practice-submit" onClick={submitChapter} disabled={!ready || submitting}>
+          {submitting ? "正在同步判分…" : focusedQuestion ? "提交此题订正" : "提交并判分"}
+        </button>
+      </footer>
     </div>
   );
 }
@@ -326,7 +322,7 @@ function PracticeQuestion({ question, index, value, result, focusKpId, onAnswer,
             type="button"
             className={`kp-chip${focusKpId === kp.id ? " active" : ""}`}
             data-kp={kp.id}
-            title={`在知识星图中定位「${kp.title}」`}
+            title={`在知识图谱中定位「${kp.title}」`}
             onClick={() => onFocusKp(kp.id)}
           >
             <Star size={11} weight="fill" /> {kp.shortTitle}
@@ -340,6 +336,7 @@ function PracticeQuestion({ question, index, value, result, focusKpId, onAnswer,
         ) : null}
       </div>
 
+      <div className="question-help"><StudyMascot compact context={{source:'practice',questionId:question.id,chapterId:question.chapterId}} suggestion="先找已知条件，再想想题目考的是哪一个概念。点击小芯可以提问本题的思路。"/></div>
       {question.type === "choice" ? question.options.map((option) => (
         <label className="practice-option" key={option} data-option={option}>
           <input

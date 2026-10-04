@@ -29,6 +29,8 @@
     "qa:curriculum": "node scripts/run-browser-qa.mjs scripts/verify-workbench-curriculum.mjs --production",
     "preqa:login": "npm run build -- --manifest",
     "qa:login": "node scripts/run-browser-qa.mjs scripts/verify-login-design.mjs --production --seed-demo",
+    "preqa:demo-teacher": "npm run build -- --manifest",
+    "qa:demo-teacher": "node scripts/run-browser-qa.mjs scripts/verify-demo-teacher.mjs --production --seed-demo",
     "preqa:home": "npm run build -- --manifest",
     "qa:home": "node scripts/run-browser-qa.mjs scripts/verify-home-design.mjs --production --seed-demo",
     "preqa:tree": "npm run build -- --manifest",

@@ -1,0 +1,40 @@
+.courseware-view { display:grid; gap:24px; width:100%; max-width:none; color:#17333d; }
+.courseware-chapters-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:18px; }
+.courseware-chapters-heading h2 { display:flex; align-items:center; gap:9px; margin:0 0 8px; font-size:22px; }
+.courseware-chapters-heading p { margin:0; color:#526775; font-size:14px; line-height:1.6; }
+.courseware-view .courseware-demo-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); align-items:start; gap:16px; }
+.courseware-view .courseware-chapter-card { display:flex; flex-direction:column; gap:14px; padding:16px; background:#fff; border:1px solid #d7e3e3; border-radius:12px; color:#17333d; min-width:0; transform:none; box-shadow:none; }
+.courseware-view .courseware-chapter-card:hover { transform:none; border-color:#a2cbbf; box-shadow:none; }
+
+.courseware-chapter-card h3 { margin:0; font-size:15px; line-height:1.5; }
+.courseware-chapter-demos { display:grid; gap:14px; }
+.courseware-demo-entry { display:grid; gap:7px; text-decoration:none; color:inherit; min-width:0; }
+.courseware-view .courseware-demo-entry strong { display:flex; align-items:flex-start; gap:6px; color:#17695e; font-size:13px; line-height:1.5; }
+.courseware-demo-entry strong svg { flex:none; margin-top:2px; }
+.courseware-view .courseware-demo-entry small { color:#526775; line-height:1.6; font-size:12px; }
+.courseware-demo-entry:hover strong { text-decoration:underline; }
+.courseware-chapter-experiments { border-top:1px solid #e0e9e6; padding-top:12px; }
+.courseware-chapter-experiments summary { color:#3c6158; cursor:pointer; font-size:12px; font-weight:650; }
+.courseware-chapter-experiments > div { display:grid; gap:8px; padding-top:12px; }
+.courseware-experiment-entry { display:grid; grid-template-columns:78px minmax(0,1fr); gap:9px; align-items:center; min-width:0; padding:7px; border:1px solid #e0e9e6; border-radius:8px; background:#fff; text-align:left; cursor:pointer; }
+.courseware-experiment-entry:hover { background:#f0f8f5; border-color:#a2cbbf; }
+.courseware-view .courseware-experiment-entry strong { color:#234c48; font-size:11px; line-height:1.5; }
+.courseware-view .courseware-experiment-entry small { display:block; margin-top:4px; color:#087b70; font-size:10px; }
+.courseware-experiment-entry .experiment-thumbnail > svg { height:52px; padding:5px 3px; }
+.courseware-experiment-entry .experiment-thumbnail-caption { display:none; }
+.courseware-view .courseware-lecture { display:flex; flex-direction:column; min-height:420px; overflow:hidden; border:1px solid #d7e3e3; border-radius:12px; background:#fff; }
+.courseware-view .courseware-lecture-player { display:flex; flex-direction:column; flex:1; min-height:0; }
+.courseware-view .courseware-lecture-player-head { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:14px 18px; }
+.courseware-lecture-player-head .ghost-button { margin-left:auto; }
+.courseware-view .courseware-lecture-player iframe { display:block; width:100%; flex:1; min-height:0; height:100%; border:0; }
+.courseware-view :is(a,button,summary):focus-visible { outline:3px solid #087b70; outline-offset:3px; }
+@media(max-width:1100px) { .courseware-view { padding:20px; } .courseware-view .courseware-demo-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:600px) { .courseware-view { padding:16px 14px; } .courseware-view .courseware-demo-grid { grid-template-columns:1fr; } .courseware-chapters-heading { align-items:flex-start; flex-direction:column; } .courseware-view .courseware-lecture-head { align-items:flex-start; gap:10px; padding:12px; } .courseware-view .lecture-fullscreen-link { margin-left:0; } }
+
+.courseware-view .courseware-lecture-head { display:flex; align-items:center; flex-wrap:wrap; gap:14px; padding:12px 18px; border-bottom:1px solid #d7e3e3; }
+.courseware-lecture-head > strong { display:flex; align-items:center; gap:8px; color:#17333d; }
+.courseware-view .lecture-chapter-tabs { display:flex; gap:8px; }
+.courseware-view .lecture-chapter-tabs button { padding:8px 12px; border:1px solid #bfd8d0; border-radius:7px; background:#eef7f3; color:#076b60; cursor:pointer; }
+.courseware-view .lecture-chapter-tabs button.active { background:#087b70; color:#fff; border-color:#087b70; }
+.courseware-view .lecture-fullscreen-link { margin-left:auto; }
+@media(max-width:600px) { .courseware-view .courseware-lecture-head { align-items:flex-start; gap:10px; padding:12px; } .courseware-view .lecture-fullscreen-link { margin-left:0; } }
