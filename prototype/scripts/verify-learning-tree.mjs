@@ -10,12 +10,12 @@ let browser;try{browser=await chromium.launch({channel:'msedge',headless:true});
 const page=await browser.newPage({viewport:{width:1366,height:768},reducedMotion:'reduce'});const errors=[];page.on('pageerror',error=>errors.push(error.message));
 const canvas=page.locator('.learning-tree-canvas');
 const zoom=async()=>Number(await canvas.getAttribute('data-zoom'));
-async function enterRecords(){await page.getByRole('button',{name:'学习记录',exact:true}).click();await expect(canvas).toBeVisible();}
+async function enterRecords(){await page.getByRole('button',{name:'学习记录',exact:true}).click();const treeSection=page.locator("[data-testid='records-tree-section']");await treeSection.waitFor();if(!(await treeSection.evaluate(el=>el.open)))await treeSection.locator('summary').click();await expect(canvas).toBeVisible();}
 async function positionCanvas(){await canvas.evaluate(el=>{const nav=document.querySelector('.topbar');window.scrollTo(0,el.getBoundingClientRect().top+window.scrollY-(nav?.getBoundingClientRect().height??90)-12);});}
 async function capturePanel(path){await page.evaluate(()=>window.scrollTo(0,0));const clip=await page.locator('.records-tree-panel').boundingBox();await page.screenshot({path,clip,fullPage:true});}
 try{
   await gotoApp(page,process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173');await fillLoginForm(page,{username:'',password:''});await page.locator('.demo-login-button').click();
-  await expect(page.locator('.project-chapter-board')).toBeVisible();await enterRecords();
+  await expect(page.locator('.course-adventure-map')).toBeVisible();await enterRecords();
   await expect(page.locator('.tree-leaf')).toHaveCount(LEARNING_ITEMS.length);await expect(page.locator('.tree-chapter-label')).toHaveCount(8);
   // 每章全部真实实验都能从侧栏进入，包括密集的第 3 章、硬件装机和未解锁项。
   for(const chapter of COURSE_CHAPTERS){

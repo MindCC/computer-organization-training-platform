@@ -1451,6 +1451,196 @@ window.__alu = {
   FMT, FLOAT_PRESETS, MUL_PRESETS, BOOTH_PRESETS, DIV_PRESETS,
 };
 </script>
+<script id="presenter-addon">
+/* 🎬 放映模式 · 原型（2026-10-02，浅色版）
+   把四个模式按「定点乘法 → 布斯乘法 → 定点除法 → 浮点加减」连续放映：
+   自动切页签、自动步进、底部大字字幕。字幕内容全部实时读取页面 DOM
+   （#stepText / #stepCount / 舞台标题），不写死任何数字。
+   操作：空格 暂停/继续 · → 跳到下一段 · Esc / ✋ 随时接管。
+   本块完全自包含：删除此 <script id="presenter-addon"> 即还原。 */
+(function () {
+  "use strict";
+  var SEGMENTS = ["multiply", "booth", "divide", "float"];
+  var LOADERS = {
+    multiply: function () { mulLoad(mulState.m, mulState.q, mulState.preset); },
+    booth: function () { boothLoad(boothState.m, boothState.q, boothState.preset); },
+    divide: function () { divLoad(divState.dividend, divState.divisor, divState.preset); },
+    float: function () { floatLoad(floatState.preset); }
+  };
+  var CSS = ""
+    + "#presentBtn{grid-column:span 2;border:1px solid rgba(13,148,136,.45)!important;background:linear-gradient(90deg,rgba(13,148,136,.10),rgba(37,99,235,.10))!important;color:#0f766e!important;font-weight:800!important;}"
+    + "#presenter-ui[hidden],#presenter-end[hidden]{display:none!important;}"
+    + "#presenter-pill{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:10001;padding:7px 18px;border-radius:999px;font:700 12.5px/1.5 'Microsoft YaHei',sans-serif;letter-spacing:.12em;color:#1d4ed8;background:rgba(255,255,255,.92);border:1px solid rgba(37,99,235,.35);box-shadow:0 6px 24px rgba(15,23,42,.14);}"
+    + "#presenter-subtitle{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;width:min(880px,94vw);z-index:10001;background:rgba(255,255,255,.96);border:1px solid rgba(37,99,235,.3);border-radius:16px;padding:13px 22px 15px;box-shadow:0 16px 48px rgba(15,23,42,.18);backdrop-filter:blur(8px);}"
+    + "#presenter-subtitle .seg{font:700 12.5px/1.4 'Microsoft YaHei',sans-serif;color:#1d4ed8;letter-spacing:.12em;margin-bottom:6px;}"
+    + "#presenter-subtitle .note{font:400 16.5px/1.75 'Microsoft YaHei',sans-serif;color:#0f172a;min-height:30px;}"
+    + "#presenter-subtitle .note b{color:#1d4ed8;}"
+    + "#presenter-controls{position:fixed;right:18px;bottom:22px;z-index:10002;display:flex;gap:8px;}"
+    + "#presenter-controls button{border:1px solid rgba(37,99,235,.4);background:rgba(255,255,255,.94);color:#0f172a;border-radius:10px;padding:9px 14px;font:700 13px/1 'Microsoft YaHei',sans-serif;cursor:pointer;box-shadow:0 4px 14px rgba(15,23,42,.10);}"
+    + "#presenter-controls button:hover{background:rgba(37,99,235,.10);}"
+    + "#presenter-end{position:fixed;inset:0;z-index:10003;display:grid;place-items:center;background:rgba(248,250,252,.9);backdrop-filter:blur(6px);}"
+    + "#presenter-end .card{text-align:center;padding:38px 46px;border-radius:20px;background:#ffffff;border:1px solid rgba(37,99,235,.3);box-shadow:0 24px 80px rgba(15,23,42,.18);}"
+    + "#presenter-end h3{margin:0 0 8px;font:800 24px/1.3 'Microsoft YaHei',sans-serif;color:#0f172a;}"
+    + "#presenter-end p{margin:0 0 22px;color:#64748b;font:400 14px/1.7 'Microsoft YaHei',sans-serif;}"
+    + "#presenter-end button{margin:0 6px;border:1px solid rgba(37,99,235,.45);background:rgba(37,99,235,.08);color:#0f172a;border-radius:12px;padding:11px 20px;font:700 14px/1 'Microsoft YaHei',sans-serif;cursor:pointer;}"
+    + "#presenter-end button:hover{background:rgba(37,99,235,.16);}"
+    + "body.presenting .side,body.presenting .narrator,body.presenting header .mode-tabs,body.presenting header .subtitle,body.presenting header .kicker{opacity:.3;pointer-events:none;filter:saturate(.6);}"
+    + "body.presenting .stage{pointer-events:none;outline:2px solid rgba(37,99,235,.35);outline-offset:-2px;box-shadow:0 0 70px rgba(37,99,235,.12);}";
+
+  var ui = {};
+  var presenting = false, paused = false, finished = false, seg = 0, tick = null;
+
+  function pace(m) { return 1100 * m / Math.max(0.25, state.speed); }
+  function currentIdx() {
+    if (state.mode === "multiply") return mulState.idx;
+    if (state.mode === "booth") return boothState.idx;
+    if (state.mode === "divide") return divState.idx;
+    return floatState.idx;
+  }
+  function goIdx(i) {
+    if (state.mode === "multiply") mulGo(i);
+    else if (state.mode === "booth") boothGo(i);
+    else if (state.mode === "divide") divGo(i);
+    else floatGo(i);
+  }
+  function setPill() {
+    ui.pill.textContent = finished
+      ? "🎬 放映完毕 · Esc 接管"
+      : "🎬 放映中 · 第 " + (seg + 1) + "/" + SEGMENTS.length + " 段 · 空格暂停 · → 下一段 · Esc 接管";
+  }
+  function updateSubtitle() {
+    var title = document.querySelector("#stage .stage-title h2");
+    var count = document.getElementById("stepCount");
+    var note = document.getElementById("stepText");
+    ui.seg.textContent = "第 " + (seg + 1) + "/" + SEGMENTS.length + " 段 · " + (title ? title.textContent : "") + (count && count.textContent ? " · " + count.textContent : "");
+    ui.note.innerHTML = note ? note.innerHTML : "";
+  }
+
+  function enter() {
+    if (presenting) return;
+    presenting = true; paused = false; finished = false; seg = 0;
+    try { stopAllPlaying(); } catch (e) {}
+    document.body.classList.add("presenting");
+    ui.root.hidden = false;
+    ui.end.hidden = true;
+    setPill();
+    playSegment();
+  }
+  function playSegment() {
+    document.querySelector('[data-mode="' + SEGMENTS[seg] + '"]').click();
+    LOADERS[SEGMENTS[seg]]();
+    updateSubtitle();
+    tick = setTimeout(step, pace(1.5));
+  }
+  function step() {
+    if (!presenting || paused) return;
+    var idx = currentIdx(), total = currentTraceLength();
+    if (idx >= total - 1) { finishSegment(); return; }
+    goIdx(idx + 1);
+    updateSubtitle();
+    tick = setTimeout(step, pace(currentIdx() >= total - 1 ? 1.7 : 1));
+  }
+  function finishSegment() {
+    if (seg >= SEGMENTS.length - 1) { tick = setTimeout(finishAll, pace(2.4)); return; }
+    seg++;
+    setPill();
+    tick = setTimeout(playSegment, pace(2.4));
+  }
+  function finishAll() {
+    finished = true;
+    ui.end.hidden = false;
+    setPill();
+  }
+  function skipSegment() {
+    if (finished) { exitPresent(); return; }
+    clearTimeout(tick);
+    if (seg >= SEGMENTS.length - 1) { finishAll(); return; }
+    seg++;
+    setPill();
+    playSegment();
+  }
+  function exitPresent() {
+    if (!presenting) return;
+    presenting = false; clearTimeout(tick);
+    document.body.classList.remove("presenting");
+    ui.root.hidden = true; ui.end.hidden = true;
+    try { stopAllPlaying(); setPlayUI(false); syncNarrator(currentStep()); } catch (e) {}
+  }
+  function setPaused(v) {
+    paused = v;
+    ui.pauseBtn.textContent = v ? "▶" : "⏸";
+    if (v) clearTimeout(tick);
+    else if (presenting && !finished) step();
+  }
+  function onAction(e) {
+    var b = e.target.closest("button[data-act]");
+    if (!b) return;
+    var act = b.dataset.act;
+    if (act === "pause") setPaused(!paused);
+    else if (act === "next") skipSegment();
+    else if (act === "exit") exitPresent();
+    else if (act === "replay") { ui.end.hidden = true; seg = 0; finished = false; setPill(); playSegment(); }
+  }
+  function onKey(e) {
+    if (!presenting) return;
+    if (e.code === "Space") { e.preventDefault(); e.stopImmediatePropagation(); setPaused(!paused); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); exitPresent(); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); e.stopImmediatePropagation(); skipSegment(); }
+    else if (!e.ctrlKey && !e.metaKey && e.key !== "F5") { e.stopImmediatePropagation(); }
+  }
+
+  function buildUI() {
+    var style = document.createElement("style");
+    style.id = "presenter-style";
+    style.textContent = CSS;
+    document.head.appendChild(style);
+
+    var root = document.createElement("div");
+    root.id = "presenter-ui";
+    root.hidden = true;
+    root.innerHTML =
+      '<div id="presenter-pill"></div>' +
+      '<div id="presenter-subtitle"><div class="seg"></div><div class="note"></div></div>' +
+      '<div id="presenter-controls">' +
+        '<button type="button" data-act="pause" title="暂停/继续（空格）">⏸</button>' +
+        '<button type="button" data-act="next" title="下一段（→）">⏭</button>' +
+        '<button type="button" data-act="exit" title="接管页面（Esc）">✋ 接管</button>' +
+      '</div>';
+    document.body.appendChild(root);
+
+    var end = document.createElement("div");
+    end.id = "presenter-end";
+    end.hidden = true;
+    end.innerHTML = '<div class="card"><h3>🎬 放映完毕</h3><p>四个模式已按顺序放映完成。</p>' +
+      '<button type="button" data-act="exit">✋ 接管页面</button>' +
+      '<button type="button" data-act="replay">🔁 再播一遍</button></div>';
+    document.body.appendChild(end);
+
+    ui.root = root;
+    ui.end = end;
+    ui.pill = root.querySelector("#presenter-pill");
+    ui.seg = root.querySelector("#presenter-subtitle .seg");
+    ui.note = root.querySelector("#presenter-subtitle .note");
+    ui.pauseBtn = root.querySelector('[data-act="pause"]');
+    root.addEventListener("click", onAction);
+    end.addEventListener("click", onAction);
+  }
+  function injectButton() {
+    var pb = document.createElement("button");
+    pb.id = "presentBtn";
+    pb.type = "button";
+    pb.textContent = "🎬 放映模式";
+    pb.title = "像放视频一样连续放映四个模式（空格暂停，→ 下一段，Esc 接管）";
+    document.getElementById("playBtn").after(pb);
+    pb.addEventListener("click", enter);
+  }
+
+  buildUI();
+  injectButton();
+  document.addEventListener("keydown", onKey, true);
+  window.__presenter = { enter: enter, exit: exitPresent, isPresenting: function () { return presenting; } };
+})();
+</script>
 <script src="./platform-link.js"></script>
 </body>
 </html>

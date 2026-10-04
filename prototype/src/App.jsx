@@ -13,7 +13,6 @@ import {
   House,
   Lifebuoy,
   Notebook,
-  MonitorPlay,
   Play,
   SealCheck,
   Sparkle,
@@ -101,8 +100,6 @@ const StudentAssignments = lazy(() => import("./components/StudentAssignments.js
   .then((module) => ({ default: module.StudentAssignments })));
 const DemoPage = lazy(() => import("./components/DemoPage.jsx")
   .then((module) => ({ default: module.DemoPage })));
-const InteractiveDemos = lazy(() => import("./components/InteractiveDemos.jsx")
-  .then((module) => ({ default: module.InteractiveDemos })));
 const CoursewareView = lazy(() => import("./components/CoursewareView.jsx")
   .then((module) => ({ default: module.CoursewareView })));
 const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
@@ -120,7 +117,6 @@ const navGroups = [
       { id: "home", label: "课程首页", icon: House },
       { id: "hardware-game", label: "硬件配置挑战", icon: Cpu },
       { id: "courseware", label: "课程课件", icon: BookOpen },
-      { id: "demos", label: "互动演示", icon: MonitorPlay },
     ],
   },
   {
@@ -1035,7 +1031,7 @@ export function App() {
         <nav className="topbar-nav" aria-label="主导航">
           {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["teacher", "hardware-game", "records", "mistakes", "courseware", "demos"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware", "demos"].includes(item.id)).map(({ id, icon: Icon, label }) => (
             <button
-              className={(activeView === id || (activeView === "lab" && id === "home") || (activeView === "demo" && id === (demoId === "courseware" ? "courseware" : "demos"))) ? "topbar-nav-item active" : "topbar-nav-item"}
+              className={(activeView === id || (activeView === "lab" && id === "home") || (activeView === "demo" && id === "courseware")) ? "topbar-nav-item active" : "topbar-nav-item"}
               key={id}
               onClick={() => changeView(id)}
               type="button"
@@ -1128,7 +1124,9 @@ export function App() {
           {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
           {['records','mistakes'].includes(activeView) && auth.user?.role === 'teacher' ? <TeacherLearningReview key={auth.user.id} mode={activeView} classes={teacherClasses} classId={selectedTeacherClassId} onClassChange={id=>{selectedTeacherClassIdRef.current=id;setSelectedTeacherClassId(id);refreshClassOverview(id);}} selectedStudent={teacherReviewStudent} onStudentChange={setTeacherReviewStudent} changeView={changeView} navigateToChallenge={navigateToChallenge} openStudyTarget={openStudyTarget}/> : null}
           {activeView === "records" && auth.user?.role !== 'teacher' ? <StudentRecords key={auth.user?.id} userId={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
-          {activeView === "demos" ? <InteractiveDemos openDemo={openDemo} navigateToChallenge={navigateToChallenge} /> : null}
+          {/* 2026-10-04：取消独立的「互动演示」入口，演示统一挂在课程课件页。
+              这里保留 demos 视图的兜底（旧会话/旧深链落到本页时直接展示课件页，避免空白）。 */}
+          {activeView === "demos" ? <CoursewareView key={auth.user?.id??'guest'} navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
           {activeView === "demo" ? <DemoPage demoId={demoId} role={auth.user?.role} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "mistakes" && auth.user?.role !== 'teacher' ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "hardware-game" ? (

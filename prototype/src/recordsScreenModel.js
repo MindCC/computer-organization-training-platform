@@ -129,3 +129,110 @@ export function buildScreenKpis(summary = {}, progress = {}, items = LEARNING_IT
     weakSpot: summary.weakSpot ?? "暂无高频错误",
   };
 }
+
+/**
+ * 学习日历模型：把 /api/student/activity 的按天聚合数据整理成月历可直接渲染的结构。
+ * 每天一枚「贴纸」：milestone（当天点亮整章）> complete（通过实验）> practice（尝试未通过）> demo（课堂演示）。
+ */
+export function buildCalendarModel(activity = {}, items = LEARNING_ITEMS, chapters = COURSE_CHAPTERS) {
+  const rows = Array.isArray(activity.challenges) ? activity.challenges : [];
+  const demos = Array.isArray(activity.demos) ? activity.demos : [];
+
+  const itemById = new Map((items ?? []).map((item) => [item.id, item]));
+  const chapterTotals = new Map();
+  for (const item of items ?? []) {
+    const chapterId = chapterIdOf(item);
+    chapterTotals.set(chapterId, (chapterTotals.get(chapterId) ?? 0) + 1);
+  }
+
+  const days = new Map();
+  const touch = (day) => {
+    const key = String(day);
+    if (!days.has(key)) {
+      days.set(key, { day: key, passedIds: new Set(), entries: [], attempts: 0, minutes: 0, demoBatches: 0, milestones: [], kind: "idle" });
+    }
+    return days.get(key);
+  };
+
+  for (const row of rows) {
+    const entry = touch(row.day);
+    entry.attempts += Number(row.attempts ?? 0);
+    entry.minutes += Number(row.minutes ?? 0);
+    const passed = Number(row.passed) === 1;
+    entry.entries.push({
+      challengeId: row.challengeId,
+      attempts: Number(row.attempts ?? 0),
+      minutes: Number(row.minutes ?? 0),
+      passed,
+    });
+    if (passed) entry.passedIds.add(row.challengeId);
+  }
+  for (const row of demos) {
+    const entry = touch(row.day);
+    entry.demoBatches += Number(row.attempts ?? 0);
+    entry.minutes += Number(row.minutes ?? 0);
+  }
+
+  // 按时间顺序累计每章通过数，识别「今天点亮了整章」
+  const passedPerChapter = new Map();
+  const milestoneDone = new Set();
+  const orderedDays = [...days.keys()].sort();
+  for (const day of orderedDays) {
+    const entry = days.get(day);
+    for (const challengeId of entry.passedIds) {
+      const item = itemById.get(challengeId);
+      if (!item) continue;
+      const chapterId = chapterIdOf(item);
+      if (!passedPerChapter.has(chapterId)) passedPerChapter.set(chapterId, new Set());
+      passedPerChapter.get(chapterId).add(challengeId);
+    }
+    for (const [chapterId, passed] of passedPerChapter) {
+      const total = chapterTotals.get(chapterId) ?? 0;
+      if (total > 0 && passed.size >= total && !milestoneDone.has(chapterId)) {
+        milestoneDone.add(chapterId);
+        entry.milestones.push(chapterId);
+      }
+    }
+  }
+
+  // 贴纸类型
+  for (const entry of days.values()) {
+    if (entry.milestones.length > 0) entry.kind = "milestone";
+    else if (entry.passedIds.size > 0) entry.kind = "complete";
+    else if (entry.attempts > 0) entry.kind = "practice";
+    else if (entry.demoBatches > 0) entry.kind = "demo";
+  }
+
+  // 连续学习天数：从最后一个有活动的日子往前数连续自然日
+  const dayNumber = (key) => {
+    const [y, m, d] = key.split("-").map(Number);
+    return Math.floor(Date.UTC(y, (m ?? 1) - 1, d ?? 1) / 86400000);
+  };
+  let streak = 0;
+  if (orderedDays.length > 0) {
+    streak = 1;
+    for (let i = orderedDays.length - 1; i > 0; i--) {
+      if (dayNumber(orderedDays[i]) - dayNumber(orderedDays[i - 1]) === 1) streak += 1;
+      else break;
+    }
+  }
+
+  const passedAcrossDays = new Set();
+  for (const entry of days.values()) for (const id of entry.passedIds) passedAcrossDays.add(id);
+
+  return {
+    days,
+    orderedDays,
+    totals: {
+      activeDays: orderedDays.length,
+      lit: passedAcrossDays.size,
+      attempts: [...days.values()].reduce((sum, entry) => sum + entry.attempts, 0),
+      minutes: [...days.values()].reduce((sum, entry) => sum + entry.minutes, 0),
+      milestones: [...days.values()].reduce((sum, entry) => sum + entry.milestones.length, 0),
+      streak,
+      firstDay: orderedDays[0] ?? null,
+      lastDay: orderedDays[orderedDays.length - 1] ?? null,
+    },
+    chapterTitles: new Map((chapters ?? []).map((chapter) => [chapter.id, chapter.title])),
+  };
+}

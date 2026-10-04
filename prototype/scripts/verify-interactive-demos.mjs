@@ -4,6 +4,10 @@ import { mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { HOSTED_DEMOS } from '../src/shared/demoNavigation.js';
+import { COURSEWARE } from '../src/courseware.js';
+
+// 课件页演示面板列出的条目 = courseware.js 各章 demos（twos-complement 从机器数实验进入，不在此面板）
+const EXPECTED_PANEL_HREFS = COURSEWARE.chapters.flatMap(ch => (ch.demos ?? []).map(d => d.href));
 
 const base = process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173';
 await mkdir('qa-artifacts', { recursive:true });
@@ -15,29 +19,41 @@ try {
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base, {waitUntil:'domcontentloaded'});
   const nav = label => page.locator('.topbar-nav').getByRole('button', {name:label,exact:true});
-  await nav('互动演示').click();
-  await expect(page.locator('.courseware-chapter-card')).toHaveCount(8);
-  await expect(nav('互动演示')).toHaveClass(/active/);
-  assert.equal(await page.locator('.courseware-demo-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),4);
+  // 2026-10-04 二轮去重：课件页不再列演示卡片，演示只从课程首页探险地图的章节面板进入
+  assert.equal(await nav('互动演示').count(),0,'顶栏不应有「互动演示」入口');
+  await nav('课程课件').click();
+  await expect(page.locator('.courseware-view')).toBeVisible();
+  assert.equal(await page.locator('.courseware-demos').count(),0,'课件页不应再列演示卡片');
+  await expect(page.locator('.courseware-chapter-card, .parameter-playground')).toHaveCount(0);
+  await nav('课程首页').click();
+  await page.waitForSelector('.course-adventure-map',{timeout:15000});
   await page.screenshot({path:'qa-artifacts/interactive-demos-hub-desktop.png'});
-  await page.reload({waitUntil:'domcontentloaded'});
-  await expect(page.locator('.courseware-chapter-card')).toHaveCount(8);
-  await page.locator('a[href="/demos/arithmetic-basics.html"]').click();
+  // 逐个区域点开，收集地图章节面板里的演示入口
+  const mapDemoHrefs = [];
+  const regionCount = await page.locator('.adventure-map-viewport [role="button"], .adventure-map-marker').count();
+  for (let i=0;i<regionCount;i++) {
+    await page.locator('.adventure-map-viewport [role="button"], .adventure-map-marker').nth(i).click({force:true});
+    await page.waitForTimeout(350);
+    const hrefs = await page.locator('.adventure-map-demos a').evaluateAll(els=>els.map(el=>el.getAttribute('href')));
+    mapDemoHrefs.push(...hrefs);
+  }
+  const uniqueMapHrefs = [...new Set(mapDemoHrefs)];
+  assert.deepEqual(uniqueMapHrefs.sort(), [...EXPECTED_PANEL_HREFS].sort(), `首页章节面板应覆盖全部章节演示，实际 ${JSON.stringify(uniqueMapHrefs)}`);
+  assert.ok(uniqueMapHrefs.every(href=>HOSTED_DEMOS.some(d=>`/demos/${d.file}`===href)), '入口都应是在册的托管演示');
+  // 演示页在应用内走 /?demo=<id>，父视图是课程课件
+  await page.goto(`${base}/?demo=arithmetic-basics`,{waitUntil:'domcontentloaded'});
   await expect(page).toHaveURL(/demo=arithmetic-basics/);
-  await expect(nav('互动演示')).toHaveClass(/active/);
-  await page.getByRole('button',{name:'返回互动演示',exact:true}).click();
-  await expect(page.locator('.courseware-demo-grid')).toBeVisible();
+  await expect(nav('课程课件')).toHaveClass(/active/);
+  await page.getByRole('button',{name:'返回课程课件',exact:true}).click();
+  await expect(page.locator('.courseware-view')).toBeVisible();
   await page.goBack();
   await expect(page.locator('.hosted-demo-frame')).toHaveAttribute('src','/demos/arithmetic-basics.html?embedded=1');
   await page.goForward();
-  await expect(page.locator('.courseware-demo-grid')).toBeVisible();
-  await nav('课程课件').click();
-  await expect(page.locator('.courseware-lecture-player iframe')).toBeVisible();
-  await expect(page.locator('.courseware-chapter-card, .parameter-playground')).toHaveCount(0);
+  await expect(page.locator('.courseware-view')).toBeVisible();
 
   for (const demo of HOSTED_DEMOS) {
     await page.goto(`${base}/?demo=${demo.id}`,{waitUntil:'domcontentloaded'});
-    await expect(nav('互动演示')).toHaveClass(/active/);
+    await expect(nav('课程课件')).toHaveClass(/active/);
     const frame = page.frameLocator('.hosted-demo-frame');
     await expect(frame.locator('body.demo-theme')).toBeVisible();
     await expect(frame.locator('link[href="demo-theme.css"]')).toHaveCount(1);
@@ -71,7 +87,7 @@ try {
     }
     await page.screenshot({path:`qa-artifacts/interactive-demo-${demo.id}-desktop.png`});
     await page.setViewportSize({width:390,height:844});
-    await expect(nav('互动演示')).toBeVisible();
+    await expect(nav('课程课件')).toBeVisible();
     for (let i=0;i<count;i++) {
       await tabs.nth(i).click();
       const width = await frame.locator('body').evaluate(()=>({actual:document.documentElement.scrollWidth,limit:innerWidth}));
@@ -95,16 +111,17 @@ try {
     await p.getByRole('button',{name:'登录',exact:true}).click();
     await p.locator(`[data-demo-role="${role}"]`).click();
     await expect(p.locator('.profile-button')).toBeVisible();
-    await p.locator('.topbar-nav').getByRole('button',{name:'互动演示',exact:true}).click();
-    await expect(p.locator('.courseware-chapter-card')).toHaveCount(8);
+    await p.locator('.topbar-nav').getByRole('button',{name:'课程课件',exact:true}).click();
+    await expect(p.locator('.courseware-view')).toBeVisible();
+    assert.equal(await p.locator('.courseware-demos').count(),0,'课件页不应再列演示卡片');
     assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${role} desktop nav overflow`);
     const bounds=await p.locator('.topbar').evaluate(el=>[...el.children].map(c=>({left:c.getBoundingClientRect().left,right:c.getBoundingClientRect().right,width:innerWidth})));
     assert.ok(bounds.every(b=>b.left>=0&&b.right<=b.width+1),`${role} topbar clipped ${JSON.stringify(bounds)}`);
     await p.screenshot({path:`qa-artifacts/interactive-demos-${role}-1366.png`});
     await p.reload({waitUntil:'domcontentloaded'});
-    await expect(p.locator('.courseware-chapter-card')).toHaveCount(8);
-    await p.locator('a[href="/demos/adder-alu.html"]').click();
-    await expect(p.locator('.topbar-nav-item.active')).toHaveText('互动演示');
+    await expect(p.locator('.courseware-view')).toBeVisible();
+    await p.goto(`${base}/?demo=adder-alu`,{waitUntil:'domcontentloaded'});
+    await expect(p.locator('.topbar-nav-item.active')).toHaveText('课程课件');
     const f=p.frameLocator('.hosted-demo-frame');await expect(f.locator('body.demo-theme')).toBeVisible();
     if(role==='student') {
       await expect(p.getByRole('button',{name:'本章练习',exact:true})).toBeVisible();

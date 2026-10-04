@@ -12,6 +12,8 @@ import { LearningTreeCanvas } from "./records/LearningTreeCanvas.jsx";
 import { ChapterLitBars, ChapterScoreLine, ChapterStudyTimeChart, StatusDonut, TopErrorsChart } from "./records/TechCharts.jsx";
 import { DemoPracticePanel } from "./records/DemoPracticePanel.jsx";
 import { ZoomableChart } from "./records/ChartZoomModal.jsx";
+import { RecordsCalendar } from "./records/RecordsCalendar.jsx";
+import { PomodoroPanel } from "./records/PomodoroPanel.jsx";
 import { LearningWorkspace } from "./learning/LearningWorkspace.jsx";
 import { ShopServiceRecords } from './records/ShopServiceRecords.jsx';
 import { RecentActivityChart } from "./records/RecentActivityChart.jsx";
@@ -110,6 +112,12 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
         </div>
       </section>
 
+      {/* 番茄钟：自习节奏工具，状态跨页面/刷新保留 */}
+      <PomodoroPanel />
+
+      {/* 学习日历：按天回看实验与课堂演示记录 */}
+      <RecordsCalendar onOpenChallenge={selectChallenge} />
+
       <section className="records-statistics" aria-labelledby="records-statistics-title">
         <div className="records-section-heading">
           <div><h2 id="records-statistics-title"><ChartBar size={18} />学习统计</h2><p>{kpis.totalAttempts > 0 ? "真实实验记录概览，点击任一图表可展开查看。" : "尚无实验提交记录。从课程首页开始探索，检测结果会自动汇总到这里。"}</p></div>
@@ -180,7 +188,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       <details className="records-disclosure" data-testid="records-practice-section">
         <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>课堂练习与维修记录</strong><small>章节演示随堂成绩，以及装机店的诊断、升级和复测结果</small></span><span className="records-disclosure-meta"><DisclosureToggle /></span></summary>
         <div className="records-secondary-grid">
-          <DemoPracticePanel userId={userId} suppliedDemos={reviewData?.demos} onOpenCourse={() => changeView("demos")} />
+          <DemoPracticePanel userId={userId} suppliedDemos={reviewData?.demos} onOpenCourse={() => changeView("courseware")} />
           <ShopServiceRecords suppliedRecords={reviewData?.serviceRecords} openStudyTarget={openStudyTarget}/>
         </div>
       </details>

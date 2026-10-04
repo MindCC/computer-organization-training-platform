@@ -1,6 +1,6 @@
 /**
  * 演示页 ↔ 平台学情联动 E2E 回归（2026-09-19）：
- * 登录 → 互动演示打开章节页 → 徽标已连接 → 答 5 题成批 → demo-attempts 入账
+ * 登录 → 课件页演示面板 → 徽标已连接 → 答 5 题成批 → demo-attempts 入账
  * → report.md 含演示练习 → 学习记录面板可见 → 独立版 file:// 降级正常。
  *
  * 前置：API(8787) 与 Vite(5173) 已启动，演示班级已 seed。
@@ -33,13 +33,22 @@ try {
   await page.locator("#login-password").fill("Student123!");
   await page.locator(".login-submit").click();
   await page.waitForSelector(".quest-student-home", { timeout: 15000 });
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "互动演示" }).click();
-  await page.waitForSelector(".courseware-demo-grid", { timeout: 15000 });
-  const demoLink = page.locator(".courseware-demo-card a[href='/demos/addressing.html']");
-  check("互动演示页含寻址演示入口", await demoLink.count() === 1);
+  // 演示入口：2026-10-04 二轮去重后只剩课程首页探险地图的章节面板
+  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "课程首页" }).click();
+  await page.waitForSelector(".course-adventure-map", { timeout: 15000 });
+  const regions = page.locator('.adventure-map-viewport [role="button"], .adventure-map-marker');
+  const regionTotal = await regions.count();
+  let demoLink = null;
+  for (let i = 0; i < regionTotal && !demoLink; i += 1) {
+    await regions.nth(i).click({ force: true });
+    await page.waitForTimeout(400);
+    const candidate = page.locator(".adventure-map-demos a[href='/demos/addressing.html']");
+    if (await candidate.count()) demoLink = candidate;
+  }
+  check("课程首页章节面板含寻址演示入口", Boolean(demoLink));
 
-  // 2. 平台内打开演示页：徽标显示已连接学情
-  await demoLink.click();
+  // 2. 平台内打开演示页：徽标显示已连接学情（走应用内 /?demo= 路由）
+  await page.goto(`${BASE_URL}/?demo=addressing`, { waitUntil: "domcontentloaded" });
   const demoPage = page;
   await demoPage.waitForSelector(".hosted-demo-frame", { timeout: 15000 });
   const demoFrame = await (await demoPage.locator(".hosted-demo-frame").elementHandle()).contentFrame();
@@ -100,6 +109,13 @@ try {
   await page.locator(".topbar-nav .topbar-nav-item", hasText => hasText).first().waitFor();
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
   await page.waitForSelector(".records-screen", { timeout: 15000 });
+  // 2026-10-04：记录页次要区块默认折叠，演示练习面板在「课堂练习与维修记录」折叠区里，先展开
+  const demoDisclosure = page.locator("details.records-disclosure", { hasText: "课堂练习与维修记录" });
+  if (await demoDisclosure.count()) {
+    const expanded = await demoDisclosure.evaluate((el) => el.open);
+    if (!expanded) await demoDisclosure.locator("summary").click();
+    await page.waitForTimeout(400);
+  }
   const panel = page.locator("[data-testid='demo-practice-panel']");
   check("学习记录显示演示练习面板", await panel.count() === 1 && (await panel.innerText()).includes("指令系统与寻址方式"), await panel.count());
   await page.screenshot({ path: `${ARTIFACT_DIR}/demo-linkage.png`, fullPage: true });

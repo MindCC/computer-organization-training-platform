@@ -46,6 +46,14 @@ const CHAPTER_CONTENT = {
         note: "五大部件互动图、存储程序取指-译码-执行动画、软硬件组成、随堂练习",
       },
     ],
+    // 内嵌的 AI 互动讲演（在章节大纲里展开播放，不跳转外链）
+    embeds: [
+      {
+        title: "第一章 计算机系统概论",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-qZkd4OkK?code=R9WETMSQQ",
+        note: "课程讲演",
+      },
+    ],
   },
   ch2: {
     slides: 72,
@@ -86,6 +94,23 @@ const CHAPTER_CONTENT = {
         note: "原码乘法、布斯乘法、恢复余数除法与浮点对阶",
       },
     ],
+    embeds: [
+      {
+        title: "第二章 数值信息的表示",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-GVknaKE7?code=LDTRKWGEZ",
+        note: "课程讲演",
+      },
+      {
+        title: "第二章 非数值数据的表示",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-mv6yVYEZ?code=R9WETMSQQ",
+        note: "课程讲演",
+      },
+      {
+        title: "第二章 数据信息的校验",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-Z86o2qeR?code=R9WETMSQQ",
+        note: "课程讲演",
+      },
+    ],
   },
   ch3: {
     slides: 85,
@@ -116,6 +141,18 @@ const CHAPTER_CONTENT = {
         title: "半加器、全加器与运算器",
         href: "/demos/adder-alu.html",
         note: "切换输入位，观察和位、进位与 ALU 的实时运算",
+      },
+    ],
+    embeds: [
+      {
+        title: "第三章 浮点数运算",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-bVemjD6Z?code=LDTRKWGEZ",
+        note: "课程讲演",
+      },
+      {
+        title: "第三章 算术逻辑单元",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-WbEJm16v?code=LDTRKWGEZ",
+        note: "课程讲演",
       },
     ],
   },

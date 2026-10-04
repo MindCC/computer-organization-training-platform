@@ -693,6 +693,33 @@ export function createApp(options = {}) {
     res.json(buildUnifiedMistakeBook(db, req.user.id));
   });
 
+  // 学习日历：按天聚合关卡尝试与课堂演示练习（学习记录页日历视图用）
+  // created_at 以 UTC 存储，按 'localtime' 归日，避免早上 8 点前的活动被算到前一天。
+  app.get("/api/student/activity", requireRole("student"), (req, res) => {
+    const challenges = db.prepare(`
+      SELECT date(created_at, 'localtime') AS day,
+             challenge_id AS challengeId,
+             COUNT(*) AS attempts,
+             MAX(passed) AS passed,
+             SUM(elapsed_minutes) AS minutes
+      FROM challenge_attempts
+      WHERE student_id = ?
+      GROUP BY day, challenge_id
+      ORDER BY day ASC
+    `).all(req.user.id);
+    const demos = db.prepare(`
+      SELECT date(created_at, 'localtime') AS day,
+             COUNT(*) AS attempts,
+             SUM(correct) AS correct,
+             SUM(elapsed_minutes) AS minutes
+      FROM demo_attempts
+      WHERE student_id = ?
+      GROUP BY day
+      ORDER BY day ASC
+    `).all(req.user.id);
+    res.json({ challenges, demos });
+  });
+
   // 课堂演示页练习成绩（独立静态页，成绩独立存储，不与关卡提交互冒充）
   app.post("/api/student/demo-attempts", requireRole("student"), (req, res, next) => {
     try {

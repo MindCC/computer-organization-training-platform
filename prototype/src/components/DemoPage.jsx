@@ -11,8 +11,9 @@ export function DemoPage({ demoId, changeView, openStudyTarget, role }) {
   const [loaded,setLoaded] = useState(false);
   const [activeMode, setActiveMode] = useState("principles");
   useEffect(() => { setLoaded(false); setActiveMode("principles"); }, [demoId]);
-  const parentView = demoId === "courseware" ? "courseware" : "demos";
-  const backLabel = parentView === "demos" ? "返回互动演示" : "返回课程课件";
+  // 2026-10-04：取消独立「互动演示」入口后，演示页一律返回课程课件页
+  const parentView = "courseware";
+  const backLabel = "返回课程课件";
   if (!demo) return <section className="section-panel"><h1>演示页面不存在</h1><button type="button" className="primary-button" onClick={() => changeView(parentView)}>{backLabel}</button></section>;
   const chapter = COURSE_CHAPTERS.find(item => item.id === demo.chapterId);
   const parameterExperiment = parameterExperimentForChapter(demo.chapterId);

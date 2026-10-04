@@ -115,6 +115,7 @@ export const api = {
   changePassword: (payload) => apiRequest("/api/auth/change-password", { method: "POST", body: JSON.stringify(payload) }),
   updateAccountSettings: (payload) => apiRequest('/api/auth/settings', { method: 'PUT', body: JSON.stringify(payload) }),
   studentProgress: () => apiRequest("/api/student/progress"),
+  learningActivity: () => apiRequest("/api/student/activity"),
   submitAttempt: (payload) => apiRequest("/api/student/attempts", { method: "POST", body: JSON.stringify(payload) }),
   listNotes: () => apiRequest("/api/student/notes"),
   createNote: (payload) => apiRequest("/api/student/notes", { method: "POST", body: JSON.stringify(payload) }),
