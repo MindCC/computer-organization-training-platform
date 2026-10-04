@@ -66,7 +66,8 @@ function ResultDetails({ id, result }) {
 }
 
 /** A small, self-contained teaching model. It does not submit grades or alter experiment progress. */
-export function ParameterPlayground({ chapterId }) {
+export function ParameterPlayground({ chapterId, chapterOnly = false }) {
+  const availableExperiments = chapterOnly ? PARAMETER_EXPERIMENTS.filter(item => item.chapterId === chapterId) : PARAMETER_EXPERIMENTS;
   const [experimentId, setExperimentId] = useState(() => defaultExperimentForChapter(chapterId));
   const [parameterSets, setParameterSets] = useState(() => Object.fromEntries(PARAMETER_EXPERIMENTS.map(item => [item.id, initialParametersForExperiment(item.id)])));
   const [sweepKeys, setSweepKeys] = useState(() => Object.fromEntries(PARAMETER_EXPERIMENTS.map(item => [item.id, item.defaultSweepKey])));
@@ -90,12 +91,12 @@ export function ParameterPlayground({ chapterId }) {
 
   return <section className="parameter-playground" aria-labelledby="parameter-playground-title">
     <header className="parameter-playground-head">
-      <div><span className="parameter-kicker">交互探究 · 拖动即计算</span><h2 id="parameter-playground-title">性能参数实验</h2><p>改变一个条件，观察数值和曲线怎样一起变化。</p></div>
+      <div><span className="parameter-kicker">交互探究 · 拖动即计算</span><h2 id="parameter-playground-title">{chapterOnly ? `${experiment.title}参数实验` : "性能参数实验"}</h2><p>改变一个条件，观察数值和曲线怎样一起变化。</p></div>
       <button type="button" className="parameter-reset" onClick={() => setParameterSets(previous => ({ ...previous, [experiment.id]: initialParametersForExperiment(experiment.id) }))}>恢复本组初始值</button>
     </header>
-    <div className="parameter-tabs" role="tablist" aria-label="选择参数实验">
-      {PARAMETER_EXPERIMENTS.map(item => <button type="button" role="tab" aria-selected={item.id === experiment.id} className={item.id === experiment.id ? "active" : ""} key={item.id} onClick={() => setExperimentId(item.id)}>{item.title}</button>)}
-    </div>
+    {availableExperiments.length > 1 && <div className="parameter-tabs" role="tablist" aria-label="选择参数实验">
+      {availableExperiments.map(item => <button type="button" role="tab" aria-selected={item.id === experiment.id} className={item.id === experiment.id ? "active" : ""} key={item.id} onClick={() => setExperimentId(item.id)}>{item.title}</button>)}
+    </div>}
     <div className="parameter-workspace">
       <div className="parameter-controls">
         <div className="parameter-question"><strong>{experiment.question}</strong><small>{experiment.formula}</small></div>

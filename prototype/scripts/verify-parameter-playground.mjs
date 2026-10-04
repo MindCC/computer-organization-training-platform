@@ -15,11 +15,22 @@ page.on("pageerror", error => errors.push(error.message));
 try {
   await gotoApp(page, base);
   await fillLoginForm(page, { username: "", password: "" });
-  await page.locator(".demo-login-button").click();
+  await page.locator('[data-demo-role="student"]').click();
   await page.locator(".topbar-nav .topbar-nav-item", { hasText: "互动演示" }).click();
-  const playground = page.locator(".parameter-playground");
-  await expect(playground).toBeVisible();
-  await playground.getByRole('tab',{name:'CPU 性能',exact:true}).click();
+  await expect(page.locator(".courseware-chapter-card")).toHaveCount(8);
+  await expect(page.locator(".parameter-playground")).toHaveCount(0);
+  const playground = page.locator(".hosted-demo-parameters .parameter-playground");
+  async function openChapterParameters(demoId) {
+    if (await page.locator(".hosted-demo-context").count()) await page.getByRole("button", { name: "返回互动演示", exact: true }).click();
+    await page.locator(`a[href="/demos/${demoId}.html"]`).click();
+    await expect(page.frameLocator(".hosted-demo-frame").locator("body.demo-theme")).toBeVisible();
+    if (demoId === "cpu") await page.frameLocator(".hosted-demo-frame").locator('[data-mode="timing"]').click();
+    await page.getByRole("tab", { name: "性能参数实验", exact: true }).click();
+    await expect(playground).toBeVisible();
+    await expect(playground.locator(".parameter-tabs")).toHaveCount(0);
+    await expect(page.locator(".hosted-demo-frame")).toBeHidden();
+  }
+  await openChapterParameters("cpu");
   await expect(playground.getByTestId("parameter-result")).toContainText("500");
   const cpuCurveBefore = await playground.locator(".parameter-chart-reference").getAttribute("d");
   await playground.locator("#parameter-cpu-clockGHz").focus();
@@ -47,12 +58,22 @@ try {
   await expect(playground.locator(".parameter-insight")).toContainText("保持不变");
   await playground.getByRole("button", { name: "恢复本组初始值" }).click();
 
-  await playground.getByRole("tab", { name: "Cache 访问" }).click();
+  await page.getByRole("tab", { name: "原理演示", exact: true }).click();
+  await expect(page.frameLocator(".hosted-demo-frame").locator('[data-mode="timing"]')).toHaveClass(/active/);
+  await page.getByRole("tab", { name: "性能参数实验", exact: true }).click();
+  await expect(playground.getByTestId("parameter-result")).toContainText("500");
+  await playground.screenshot({ path: `${artifacts}/parameter-cpu-chapter.png` });
+
+  await openChapterParameters("memory-system");
+  await expect(playground.locator("h2")).toHaveText("Cache 访问参数实验");
+  await expect(playground.locator('input[type="range"]')).toHaveCount(3);
   await expect(playground.getByTestId("parameter-result")).toContainText("10");
   await playground.locator("#parameter-cache-hitPercent").focus();
   await playground.locator("#parameter-cache-hitPercent").press("End");
   await expect(playground.getByTestId("parameter-result")).toContainText("2");
-  await playground.getByRole("tab", { name: "总线带宽" }).click();
+  await playground.screenshot({ path: `${artifacts}/parameter-cache-chapter.png` });
+  await openChapterParameters("bus");
+  await expect(playground.locator("h2")).toHaveText("总线带宽参数实验");
   await expect(playground.getByTestId("parameter-result")).toContainText("3,200");
   await playground.getByRole("combobox", { name: "选择曲线横轴" }).selectOption("widthBits");
   await expect(playground.locator(".parameter-chart-axis-label").first()).toContainText("数据总线位宽");
@@ -63,8 +84,14 @@ try {
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "mobile page has no horizontal overflow");
   assert.ok(await playground.locator(".parameter-chart-wrap").evaluate(element => element.scrollWidth > element.clientWidth), "mobile chart scrolls within its card");
   await playground.screenshot({ path: `${artifacts}/parameter-playground-mobile.png` });
+  await page.getByRole("button", { name: "返回互动演示", exact: true }).click();
+  await expect(page.locator(".parameter-playground")).toHaveCount(0);
+  await page.locator('a[href="/demos/intro.html"]').click();
+  await expect(page.frameLocator(".hosted-demo-frame").locator("body.demo-theme")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "性能参数实验", exact: true })).toHaveCount(0);
+  await expect(page.locator(".parameter-playground")).toHaveCount(0);
   assert.deepEqual(errors, []);
-  console.log("PASS: CPU/Cache/Bus sliders, live result and curve, reset, sweep selection, mobile layout");
+  console.log("PASS: parameters inside ch4/ch6/ch7 only, no hub panel, sliders/results/curves, reset, retained demo state, mobile layout");
 } finally {
   await browser.close();
 }

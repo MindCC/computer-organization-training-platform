@@ -47,10 +47,10 @@ const assignmentMistakeSql = `
   WHERE ss.student_id = ? AND ss.status IN ('submitted','graded')
     AND sa.score IS NOT NULL AND sa.score < q.score`;
 
-export function createLearningPracticeRouter({db, requireRole}) {
+export function createLearningPracticeRouter({db, requireRole, role = 'student'}) {
   const router = Router();
-  router.get("/student/chapter-practice", requireRole("student"), (req, res) => res.json(practiceState(db, req.user.id)));
-  router.post("/student/chapter-practice", requireRole("student"), (req, res, next) => {
+  router.get(`/${role}/chapter-practice`, requireRole(role), (req, res) => res.json(practiceState(db, req.user.id)));
+  router.post(`/${role}/chapter-practice`, requireRole(role), (req, res, next) => {
     try {
       const {chapterId, answers, clientSubmissionId} = req.body ?? {};
       const id = requestId(clientSubmissionId), questions = questionsForChapter(chapterId);
@@ -76,7 +76,7 @@ export function createLearningPracticeRouter({db, requireRole}) {
       res.status(201).json({answers:normalized,results,createdAt});
     } catch (error) { next(error); }
   });
-  router.post("/student/mistakes/review", requireRole("student"), (req, res, next) => {
+  if (role === 'student') router.post("/student/mistakes/review", requireRole("student"), (req, res, next) => {
     try {
       const {questionId, value, clientSubmissionId} = req.body ?? {};
       const id = requestId(clientSubmissionId), answer = answerText(value);

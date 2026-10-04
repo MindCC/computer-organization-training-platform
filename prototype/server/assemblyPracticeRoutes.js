@@ -2,9 +2,9 @@ import { Router } from 'express';
 import { HARDWARE_GAME_CASES } from '../src/hardwareGame.js';
 import { normalizePracticeDocument } from '../src/assemblyPracticeStorage.js';
 
-export function createAssemblyPracticeRouter({repository,requireRole}){
-  const router=Router(),path='/student/assembly-practice/:caseId';
-  router.use('/student/assembly-practice',requireRole('student'));
+export function createAssemblyPracticeRouter({repository,requireRole,role='student'}){
+  const router=Router(),path=`/${role}/assembly-practice/:caseId`;
+  router.use(`/${role}/assembly-practice`,requireRole(role));
   function validate(req,res,next){
     if(req.get('x-practice-student')&&String(req.user.id)!==req.get('x-practice-student'))return res.status(403).json({error:'登录身份已变更，请重新进入练习'});
     if(!HARDWARE_GAME_CASES.some(item=>item.id===req.params.caseId))return res.status(404).json({error:'练习订单不存在'});

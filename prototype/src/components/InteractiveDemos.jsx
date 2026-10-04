@@ -3,7 +3,6 @@ import { COURSEWARE } from "../courseware.js";
 import { LEARNING_ITEMS } from "../platformLogic.js";
 import { HOSTED_DEMOS } from "../shared/demoNavigation.js";
 import { ExperimentThumbnail } from "./ExperimentThumbnail.jsx";
-import { ParameterPlayground } from "./ParameterPlayground.jsx";
 import "./coursewareView.css";
 import "./interactiveDemos.css";
 
@@ -25,9 +24,12 @@ export function InteractiveDemos({ openDemo, navigateToChallenge }) {
       <div className="courseware-demo-grid">
         {COURSEWARE.chapters.map(chapter => <article key={chapter.id} className="courseware-demo-card courseware-chapter-card">
           <header><h2>{chapter.title}</h2></header>
-          <div className="courseware-chapter-demos">{(chapter.demos ?? []).map(demo => <a href={demo.href} key={demo.href} onClick={event => followDemo(event, demo.href)} className="courseware-demo-entry" title={demo.note}>
-            <ExperimentThumbnail demo={demo} /><strong><MonitorPlay size={16} />{demo.title}</strong><small>{demo.note}</small>
-          </a>)}</div>
+          <div className="courseware-chapter-demos">
+            {(chapter.demos ?? []).map((demo, index) => <a href={demo.href} key={demo.href} onClick={event => followDemo(event, demo.href)} className={`courseware-demo-entry${index > 0 ? " courseware-demo-secondary" : ""}`} title={demo.note}>
+              {index === 0 && <ExperimentThumbnail demo={demo} />}<strong><MonitorPlay size={index === 0 ? 16 : 14} />{demo.title}</strong>
+            </a>)}
+            <p className="courseware-demo-summary">{(chapter.demos ?? []).map(demo => demo.note).join("；")}</p>
+          </div>
           <details className="courseware-chapter-experiments"><summary>{chapter.linkedChallenges.length} 项相关实验</summary><div>{chapter.linkedChallenges.map(id => {
             const experiment = LEARNING_ITEMS.find(item => item.id === id);
             return <button type="button" key={id} onClick={() => navigateToChallenge(id)} className="courseware-experiment-entry"><ExperimentThumbnail challengeId={id} /><span><strong>{experiment?.title ?? id}</strong><small>进入练习 →</small></span></button>;
@@ -35,6 +37,5 @@ export function InteractiveDemos({ openDemo, navigateToChallenge }) {
         </article>)}
       </div>
     </section>
-    <ParameterPlayground />
   </div>;
 }

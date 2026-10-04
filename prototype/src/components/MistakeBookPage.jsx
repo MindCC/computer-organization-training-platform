@@ -6,7 +6,7 @@ import "./mistakeBook.css";
 
 const SOURCES = {lab:"实验室",practice:"题库练习",assignment:"课后作业",service:"维修诊断"};
 
-export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarget }) {
+export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarget, suppliedBook, readOnly = false, assistantEnabled = true }) {
   const [book, setBook] = useState(null);
   const [error, setError] = useState("");
   const [source, setSource] = useState("all");
@@ -16,11 +16,12 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
   useEffect(() => {
     let cancelled = false;
     setError('');
+    if (suppliedBook !== undefined) { setBook(suppliedBook); return; }
     api.mistakes()
       .then((data) => { if (!cancelled) setBook(data); })
       .catch((err) => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
-  }, [version]);
+  }, [version, suppliedBook]);
 
   if (error) {
     return (
@@ -54,7 +55,7 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
             <h1>错题本</h1>
             <p>实验室、题库练习、课后作业和维修诊断的错误集中回顾。查看原因、重练订正，再回到课程继续学习。</p>
           </div>
-          <StudyMascot compact context={{source:'mistakes'}} suggestion="先用自己的话解释错误原因，再重练一次。小芯可以帮你理清不懂的概念。"/>
+          {assistantEnabled && !readOnly && <StudyMascot compact context={{source:'mistakes'}} suggestion="先用自己的话解释错误原因，再重练一次。小芯可以帮你理清不懂的概念。"/>}
         </div>
 
         {overview.totalMistakes === 0 ? (
@@ -62,8 +63,8 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
             <BookOpen size={40} weight="duotone" />
             <strong>暂无错题</strong>
             <p>实验检测、题库判分和作业批改后，答错的内容会自动汇总到这里。</p>
-            <button className="primary-button" onClick={() => changeView("lab")} type="button">去实验工作台</button>
-            <button className="ghost-button" onClick={() => changeView("assignments")} type="button">去题库与课后作业</button>
+            {!readOnly && <><button className="primary-button" onClick={() => changeView("lab")} type="button">去实验工作台</button>
+            <button className="ghost-button" onClick={() => changeView("assignments")} type="button">去题库与课后作业</button></>}
           </div>
         ) : (
           <>
@@ -115,14 +116,14 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
                       ))}
                     </div>
                   ) : null}
-                  <div className="mistake-actions"><StudyMascot compact context={{source:'mistakes',questionId:item.source==='practice'?item.questionId:undefined,chapterId:item.chapterId}}/><button
+                  <div className="mistake-actions">{assistantEnabled && !readOnly && <StudyMascot compact context={{source:'mistakes',questionId:item.source==='practice'?item.questionId:undefined,chapterId:item.chapterId}}/>}<button
                     className="ghost-button mistake-retry"
-                    onClick={() => item.source === "lab" ? navigateToChallenge(item.challengeId) : openStudyTarget(item.navigation)}
+                    onClick={() => item.source === "lab" ? navigateToChallenge(item.challengeId) : readOnly && item.source === 'assignment' ? changeView('teacher') : openStudyTarget(item.navigation)}
                     type="button"
                   >
-                    <ArrowRight size={14} /> {item.source === "lab" ? "回到该关卡练习" : item.source === "practice" ? "重练这道题" : item.source==='service'?'重做维修工单':"回看原作业"}
+                    <ArrowRight size={14} /> {readOnly ? item.source === 'assignment' ? '前往作业管理' : '教师试讲此内容' : item.source === "lab" ? "回到该关卡练习" : item.source === "practice" ? "重练这道题" : item.source==='service'?'重做维修工单':"回看原作业"}
                   </button></div>
-                  {item.source === "assignment" && item.type !== "short_answer" ? <AssignmentReview item={item} onUpdated={async () => setBook(await api.mistakes())} /> : null}
+                  {!readOnly && item.source === "assignment" && item.type !== "short_answer" ? <AssignmentReview item={item} onUpdated={async () => setBook(await api.mistakes())} /> : null}
                 </article>
               ))}
             </div>

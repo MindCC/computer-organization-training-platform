@@ -1,8 +1,9 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { ArrowRight, BookOpen, MagnifyingGlass, Path } from '@phosphor-icons/react';
 import { KNOWLEDGE_POINTS, knowledgePointOf, knowledgePointsByChapter, searchKnowledgePoints, knowledgeEvidenceOf, layoutKnowledgeGraph, prerequisitesOf, dependentsOf } from '../knowledgePoints.js';
 import { questionsForKp, QUESTION_TYPE_LABELS } from '../assignmentQuestions.js';
 import { COURSE_CHAPTERS, getChapterById } from '../courseChapters.js';
+import { KnowledgeCanvas } from './KnowledgeCanvas.jsx';
 import './knowledgeGraph.css';
 
 function labelLines(title) {
@@ -21,7 +22,6 @@ export function KnowledgeGraph({ progress = {}, focusId = null, initialChapterId
   const [chapterId, setChapterId] = useState(initial.chapterId);
   const [selectedId, setSelectedId] = useState(initial.id);
   const [query, setQuery] = useState('');
-  const graphViewport = useRef(null);
   const markerId = 'concept-arrow-' + useId().replace(/:/g, '');
   const focused = knowledgePointOf(selectedId) ?? initial;
   const chapter = getChapterById(chapterId);
@@ -29,12 +29,6 @@ export function KnowledgeGraph({ progress = {}, focusId = null, initialChapterId
   const model = useMemo(() => layoutKnowledgeGraph({ chapterId, width: 920, height: 620 }), [chapterId]);
   const matches = useMemo(() => query.trim() ? searchKnowledgePoints(query) : [], [query]);
   const relations = new Set([...prerequisitesOf(focused.id), ...dependentsOf(focused.id)].map(point => point.id));
-  useEffect(() => {
-    const viewport = graphViewport.current, node = model.nodes.find(entry => entry.id === selectedId);
-    if (!viewport || !node) return;
-    const scale = viewport.querySelector('svg').getBoundingClientRect().width / model.width;
-    viewport.scrollTo({ left: Math.max(0, node.x * scale - viewport.clientWidth / 2), top: Math.max(0, node.y * scale - viewport.clientHeight / 2) });
-  }, [model, selectedId, query]);
   useEffect(() => {
     const external = knowledgePointOf(focusId);
     if (external && external.id !== selectedId) {
@@ -65,8 +59,7 @@ export function KnowledgeGraph({ progress = {}, focusId = null, initialChapterId
           {matches.length ? matches.map(point => <div key={point.id}><button type="button" className={point.id === focused.id ? 'is-selected' : ''} data-search-concept={point.id} onClick={() => selectPoint(point.id)}><small>{getChapterById(point.chapterId)?.title}</small><strong>{point.title}<ArrowRight size={16} /></strong><span>{point.summary}</span></button>{point.id === focused.id ? <div className="concept-search-mobile-detail">{detail}</div> : null}</div>) : <p className="concept-empty">未找到相关知识点，试试“存储器”“浮点”或“中断”。</p>}
         </div> : <>
           <div className="concept-graph-caption"><Path size={16} /><span>箭头表示理解顺序 · 点击知识点查看联系和学习入口</span></div>
-          <div className="concept-graph-desktop" ref={graphViewport}>
-            <svg className="kg-svg" viewBox={'0 0 ' + model.width + ' ' + model.height} role="group" aria-label={chapter?.title + '知识点关系图'}>
+          <KnowledgeCanvas model={model} selectedId={selectedId} title={chapter?.title}>
               <defs><marker id={markerId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M1,1 L9,5 L1,9" fill="none" stroke="currentColor" strokeWidth="1.5" /></marker></defs>
               {model.edges.map(edge => {
                 const vertical = Math.abs(edge.y2 - edge.y1) > Math.abs(edge.x2 - edge.x1);
@@ -83,8 +76,7 @@ export function KnowledgeGraph({ progress = {}, focusId = null, initialChapterId
                   <rect x="-88" y="-38" width="176" height="76" rx="12" /><circle cx="-70" cy="-26" r="3" className={'concept-evidence-dot ' + evidence.status} /><text textAnchor="middle">{labelLines(point.shortTitle).map((line, index, lines) => <tspan x="0" y={6 + (index - (lines.length - 1) / 2) * 23} key={index}>{line}</tspan>)}</text>
                 </g>;
               })}
-            </svg>
-          </div>
+          </KnowledgeCanvas>
           <div className="concept-mobile-list">
             {points.map(point => <div key={point.id}><button type="button" className={point.id === focused.id ? 'is-selected' : ''} data-mobile-concept={point.id} aria-expanded={point.id === focused.id} onClick={() => selectPoint(point.id)}>{point.title}<ArrowRight size={16} /></button>{point.id === focused.id ? detail : null}</div>)}
           </div>

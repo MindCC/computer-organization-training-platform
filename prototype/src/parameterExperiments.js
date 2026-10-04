@@ -10,7 +10,7 @@ function experiment(definition) {
 
 export const PARAMETER_EXPERIMENTS = Object.freeze([
   experiment({
-    id: "cpu", title: "CPU 性能", shortTitle: "CPU", defaultSweepKey: "clockGHz",
+    id: "cpu", chapterId: "ch6", title: "CPU 性能", shortTitle: "CPU", defaultSweepKey: "clockGHz",
     question: "同一段程序，频率、CPI 和指令量如何共同决定运行时间？",
     outputLabel: "程序运行时间", outputUnit: "ms",
     formula: "运行时间 = 指令量 × CPI ÷ 时钟频率",
@@ -22,7 +22,7 @@ export const PARAMETER_EXPERIMENTS = Object.freeze([
     ],
   }),
   experiment({
-    id: "cache", title: "Cache 访问", shortTitle: "Cache", defaultSweepKey: "hitPercent",
+    id: "cache", chapterId: "ch4", title: "Cache 访问", shortTitle: "Cache", defaultSweepKey: "hitPercent",
     question: "提高命中率，能减少多少平均存储器访问时间？",
     outputLabel: "平均访问时间 AMAT", outputUnit: "ns",
     formula: "AMAT = 缓存访问时间 + (1 − 命中率) × 未命中额外延迟",
@@ -34,7 +34,7 @@ export const PARAMETER_EXPERIMENTS = Object.freeze([
     ],
   }),
   experiment({
-    id: "bus", title: "总线带宽", shortTitle: "总线", defaultSweepKey: "clockMHz",
+    id: "bus", chapterId: "ch7", title: "总线带宽", shortTitle: "总线", defaultSweepKey: "clockMHz",
     question: "加宽总线、提高频率或每周期传输次数，吞吐量怎样变化？",
     outputLabel: "理论峰值带宽", outputUnit: "MB/s",
     formula: "带宽 = 位宽 × 时钟频率 × 每周期传输次数 ÷ 8",
@@ -49,6 +49,10 @@ export const PARAMETER_EXPERIMENTS = Object.freeze([
 
 export function getParameterExperiment(id) {
   return PARAMETER_EXPERIMENTS.find(item => item.id === id) ?? PARAMETER_EXPERIMENTS[0];
+}
+
+export function parameterExperimentForChapter(chapterId) {
+  return PARAMETER_EXPERIMENTS.find(item => item.chapterId === chapterId) ?? null;
 }
 
 export function defaultExperimentForChapter(chapterId) {

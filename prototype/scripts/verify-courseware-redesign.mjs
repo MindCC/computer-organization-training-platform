@@ -8,10 +8,15 @@ const originalEmbed = COURSEWARE.chapters.find(chapter => chapter.embeds?.length
 assert.ok(originalEmbed, '原 AI 课件地址必须存在');
 const uploadRequests = [];
 const localErrors = [];
+const lectureStub = '<!doctype html><html><body style="margin:0;background:#eaf3f5;height:100vh;display:grid;place-content:center;text-align:center;font:24px sans-serif"><h1>AI 课件播放器 · 版式验收</h1><button onclick="this.textContent=Number(this.textContent)+1">0</button></body></html>';
+async function stubLecture(context) {
+  await context.route(new URL(originalEmbed.src).origin + '/**',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:lectureStub}));
+}
 async function checkCourseware(page) {
   await page.locator('.topbar-nav').getByRole('button', { name: '课程课件', exact: true }).click();
   await expect(page.locator('.courseware-lecture-player iframe')).toHaveAttribute('src', originalEmbed.src);
-  await expect(page.locator('.lecture-fullscreen-link')).toHaveAttribute('href', originalEmbed.src);
+  await expect(page.getByRole('button',{name:'全屏',exact:true})).toBeVisible();
+  await expect(page.getByText(/独立打开 AI 课件|若课件未显示/)).toHaveCount(0);
   assert.equal(await page.locator('.courseware-play-chapter, .upload-courseware-panel, .uploaded-courseware-stage, .pptx-stage, .page-notes, input[type=file]').count(), 0);
   assert.equal(await page.locator('.courseware-view').getByText(/PPTX?|\d+ 页课件/).count(), 0);
   await expect(page.locator('.courseware-chapter-card')).toHaveCount(0);
@@ -20,11 +25,31 @@ async function checkCourseware(page) {
 }
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  await stubLecture(context);
   const page = await context.newPage();
   page.on('request', request => { if (request.url().includes('/api/courseware/uploads')) uploadRequests.push(request.url()); });
   page.on('pageerror', error => { if (!error.stack?.includes('ppt.gkk.cn')) localErrors.push(error.message); });
   await page.goto(base, { waitUntil: 'domcontentloaded' });
   await checkCourseware(page);
+  const player=page.locator('.courseware-lecture-player'), iframe=player.locator('iframe');
+  const normal=await iframe.boundingBox();
+  assert.ok(Math.abs(normal.width / normal.height - 16 / 9)<0.02,'桌面课件保持自然 16:9 比例');
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollHeight>innerHeight),'自然高度允许页面滚动');
+  const frame=page.frameLocator('.courseware-lecture-player iframe');
+  await frame.getByRole('button',{name:'0',exact:true}).click();
+  await page.getByRole('button',{name:'全屏',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>document.fullscreenElement?.classList.contains('courseware-lecture-player'))).toBe(true);
+  await expect(page.getByRole('button',{name:'退出全屏',exact:true})).toBeVisible();
+  const full=await iframe.boundingBox(); assert.ok(full.height>normal.height);
+  await page.getByRole('button',{name:'退出全屏',exact:true}).click();
+  await expect.poll(()=>page.evaluate(()=>document.fullscreenElement===null)).toBe(true);
+  await expect(frame.getByRole('button',{name:'1',exact:true})).toBeVisible();
+  await page.screenshot({path:'qa-artifacts/courseware-player-natural.png',fullPage:true});
+  await page.evaluate(()=>{document.querySelector('.courseware-lecture-player').requestFullscreen=()=>Promise.reject(new Error('unavailable'));});
+  await page.getByRole('button',{name:'全屏',exact:true}).click();
+  await expect(player).toHaveClass(/is-expanded/);
+  await page.keyboard.press('Escape'); await expect(player).not.toHaveClass(/is-expanded/);
+  await expect(frame.getByRole('button',{name:'1',exact:true})).toBeVisible();
   await page.locator('.topbar-nav').getByRole('button', { name: '互动演示', exact: true }).click();
   await expect(page.locator('.courseware-chapter-card')).toHaveCount(8);
   assert.equal(await page.locator('.courseware-demo-grid').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length), 4);
@@ -33,6 +58,12 @@ try {
   await page.screenshot({ path: 'qa-artifacts/courseware-ai-desktop.png' });
   await page.setViewportSize({ width: 390, height: 844 });
   await checkCourseware(page);
+  const mobile=await iframe.boundingBox(); assert.ok(mobile.height>=480);
+  await page.evaluate(()=>{document.querySelector('.courseware-lecture-player').requestFullscreen=()=>Promise.reject(new Error('unavailable'));});
+  await page.getByRole('button',{name:'全屏',exact:true}).click();
+  await expect(player).toHaveClass(/is-expanded/);
+  await page.getByRole('button',{name:'退出全屏',exact:true}).click();
+  await expect(player).not.toHaveClass(/is-expanded/);
   await page.locator('.topbar-nav').getByRole('button', { name: '互动演示', exact: true }).click();
   await expect(page.locator('.courseware-chapter-card')).toHaveCount(8);
   assert.equal(await page.locator('.courseware-demo-grid').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length), 1);
@@ -41,6 +72,7 @@ try {
   await context.close();
   for (const role of ['student', 'teacher']) {
     const roleContext = await browser.newContext({ viewport: { width: 1366, height: 768 } });
+    await stubLecture(roleContext);
     const rolePage = await roleContext.newPage();
     rolePage.on('request', request => { if (request.url().includes('/api/courseware/uploads')) uploadRequests.push(request.url()); });
     await rolePage.goto(base, { waitUntil: 'domcontentloaded' });
@@ -52,7 +84,7 @@ try {
   }
   assert.deepEqual(uploadRequests, [], '页面不应再加载 PPT 上传列表');
   assert.deepEqual(localErrors, []);
-  console.log('PASS: 原 AI 课件地址与独立入口、独立互动演示入口、无 PPT 播放/上传、游客学生教师与手机布局');
+  console.log('PASS: AI 课件自然比例、原地址保留、原生全屏及退出、降级放大/Esc、播放状态保留、手机布局、游客学生教师入口');
 } finally {
   await browser.close();
 }

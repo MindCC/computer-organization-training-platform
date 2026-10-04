@@ -4,7 +4,7 @@ import { api } from "../../apiClient.js";
 /**
  * Account-scoped chapter-demo practice; keeps loading, empty and retry states visible.
  */
-export function DemoPracticePanel({ userId, onOpenCourse }) {
+export function DemoPracticePanel({ userId, onOpenCourse, suppliedDemos }) {
   const [demos, setDemos] = useState(null);
   const [error, setError] = useState("");
   const [version, setVersion] = useState(0);
@@ -13,11 +13,12 @@ export function DemoPracticePanel({ userId, onOpenCourse }) {
     let cancelled = false;
     setDemos(null);
     setError("");
+    if (suppliedDemos !== undefined) { setDemos(suppliedDemos); return; }
     api.demoAttempts()
       .then((body) => { if (!cancelled) setDemos(body?.demos ?? []); })
       .catch((failure) => { if (!cancelled) setError(failure?.message ?? "课堂练习记录加载失败"); });
     return () => { cancelled = true; };
-  }, [userId, version]);
+  }, [userId, version, suppliedDemos]);
 
   return (
     <div className="tech-chart demo-practice-chart" data-testid="demo-practice-panel">

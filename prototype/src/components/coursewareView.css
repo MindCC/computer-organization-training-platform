@@ -22,19 +22,21 @@
 .courseware-view .courseware-experiment-entry small { display:block; margin-top:4px; color:#087b70; font-size:10px; }
 .courseware-experiment-entry .experiment-thumbnail > svg { height:52px; padding:5px 3px; }
 .courseware-experiment-entry .experiment-thumbnail-caption { display:none; }
-.courseware-view .courseware-lecture { display:flex; flex-direction:column; min-height:420px; overflow:hidden; border:1px solid #d7e3e3; border-radius:12px; background:#fff; }
-.courseware-view .courseware-lecture-player { display:flex; flex-direction:column; flex:1; min-height:0; }
+.courseware-view .courseware-lecture { display:flex; flex-direction:column; overflow:hidden; border:1px solid #d7e3e3; border-radius:12px; background:#fff; }
+.courseware-view .courseware-lecture-player { display:flex; flex-direction:column; min-width:0; }
 .courseware-view .courseware-lecture-player-head { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:14px 18px; }
-.courseware-lecture-player-head .ghost-button { margin-left:auto; }
-.courseware-view .courseware-lecture-player iframe { display:block; width:100%; flex:1; min-height:0; height:100%; border:0; }
+.courseware-view .lecture-fullscreen-button { display:inline-flex; align-items:center; gap:7px; margin-left:auto; flex-shrink:0; }
+.courseware-view .courseware-lecture-player iframe { display:block; width:100%; flex:none; height:auto; aspect-ratio:16 / 9; min-height:480px; border:0; }
+.courseware-view .courseware-lecture-player:is(:fullscreen,.is-expanded) { position:fixed; inset:0; width:100%; height:100dvh; margin:0; border:0; border-radius:0; z-index:2000; box-sizing:border-box; background:#0b1524; }
+.courseware-view .courseware-lecture-player:is(:fullscreen,.is-expanded) .courseware-lecture-player-head { flex:none; }
+.courseware-view .courseware-lecture-player:is(:fullscreen,.is-expanded) iframe { flex:1; height:0; min-height:0; aspect-ratio:auto; }
 .courseware-view :is(a,button,summary):focus-visible { outline:3px solid #087b70; outline-offset:3px; }
 @media(max-width:1100px) { .courseware-view { padding:20px; } .courseware-view .courseware-demo-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-@media(max-width:600px) { .courseware-view { padding:16px 14px; } .courseware-view .courseware-demo-grid { grid-template-columns:1fr; } .courseware-chapters-heading { align-items:flex-start; flex-direction:column; } .courseware-view .courseware-lecture-head { align-items:flex-start; gap:10px; padding:12px; } .courseware-view .lecture-fullscreen-link { margin-left:0; } }
+@media(max-width:600px) { .courseware-view { padding:16px 14px; } .courseware-view .courseware-demo-grid { grid-template-columns:1fr; } .courseware-chapters-heading { align-items:flex-start; flex-direction:column; } .courseware-view .courseware-lecture-head { align-items:flex-start; gap:10px; padding:12px; } }
 
 .courseware-view .courseware-lecture-head { display:flex; align-items:center; flex-wrap:wrap; gap:14px; padding:12px 18px; border-bottom:1px solid #d7e3e3; }
 .courseware-lecture-head > strong { display:flex; align-items:center; gap:8px; color:#17333d; }
 .courseware-view .lecture-chapter-tabs { display:flex; gap:8px; }
 .courseware-view .lecture-chapter-tabs button { padding:8px 12px; border:1px solid #bfd8d0; border-radius:7px; background:#eef7f3; color:#076b60; cursor:pointer; }
 .courseware-view .lecture-chapter-tabs button.active { background:#087b70; color:#fff; border-color:#087b70; }
-.courseware-view .lecture-fullscreen-link { margin-left:auto; }
-@media(max-width:600px) { .courseware-view .courseware-lecture-head { align-items:flex-start; gap:10px; padding:12px; } .courseware-view .lecture-fullscreen-link { margin-left:0; } }
+@media(max-width:600px) { .courseware-view .courseware-lecture-head { align-items:flex-start; gap:10px; padding:12px; } }

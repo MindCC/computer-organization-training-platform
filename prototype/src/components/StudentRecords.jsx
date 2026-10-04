@@ -44,7 +44,7 @@ function DisclosureToggle() {
   return <span className="records-disclosure-toggle"><span className="when-closed">展开</span><span className="when-open">收起</span></span>;
 }
 
-export function StudentRecords({ summary = {}, progress = {}, activityLog = [], changeView, selectChallenge, openStudyTarget, userId }) {
+export function StudentRecords({ summary = {}, progress = {}, activityLog = [], changeView, selectChallenge, openStudyTarget, userId, reviewData, assistantEnabled = true }) {
   const treeModel = useMemo(() => buildLearningTreeModel(progress), [progress]);
   const distribution = useMemo(() => buildStatusDistribution(progress), [progress]);
   const chapterSeries = useMemo(() => buildChapterScoreSeries(progress), [progress]);
@@ -104,7 +104,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
           <small>{kpis.totalAttempts} 次尝试</small>
         </div>
         <div className="records-kpi records-kpi-review">
-          <div className="records-review-label"><span>建议复习</span><StudyMascot compact context={{ source: "records", chapterId: reviewChallenge?.chapterId }} suggestion={reviewSuggestion} /></div>
+          <div className="records-review-label"><span>建议复习</span>{assistantEnabled && <StudyMascot compact context={{ source: "records", chapterId: reviewChallenge?.chapterId }} suggestion={reviewSuggestion} />}</div>
           <strong className="records-review-topic" title={reviewSuggestion}>{hasWeakSpot ? kpis.weakSpot : "继续当前探索"}</strong>
           <button className="records-review-action" type="button" onClick={() => reviewChallenge ? selectChallenge(reviewChallenge.id) : changeView("mistakes")}>{reviewChallenge ? `继续${reviewChallenge.shortTitle ?? reviewChallenge.title}` : "打开错题本"}<ArrowRight size={13} /></button>
         </div>
@@ -180,8 +180,8 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       <details className="records-disclosure" data-testid="records-practice-section">
         <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>课堂练习与维修记录</strong><small>章节演示随堂成绩，以及装机店的诊断、升级和复测结果</small></span><span className="records-disclosure-meta"><DisclosureToggle /></span></summary>
         <div className="records-secondary-grid">
-          <DemoPracticePanel userId={userId} onOpenCourse={() => changeView("home")} />
-          <ShopServiceRecords openStudyTarget={openStudyTarget}/>
+          <DemoPracticePanel userId={userId} suppliedDemos={reviewData?.demos} onOpenCourse={() => changeView("demos")} />
+          <ShopServiceRecords suppliedRecords={reviewData?.serviceRecords} openStudyTarget={openStudyTarget}/>
         </div>
       </details>
     </div>

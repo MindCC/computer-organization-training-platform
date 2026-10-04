@@ -19,8 +19,20 @@
 .concept-main-head h3 { font-size: 18px; margin: 6px 0 0; color: #304e3d; }
 .concept-main-head > span { color: #829582; font-size: 11px; white-space: nowrap; }
 .concept-graph-caption { display: flex; gap: 7px; align-items: center; color: #738a77; font-size: 11px; padding: 0 24px 18px; }
-.concept-graph-desktop { background-image: radial-gradient(#dce6dc .75px, transparent .75px); background-size: 20px 20px; padding: 10px 5px; max-height: 540px; overflow: auto; scrollbar-width: thin; scrollbar-color: #c6d6c4 transparent; }
-.course-knowledge .kg-svg { display: block; width: 100%; min-width: 740px; min-height: 300px; height: auto; overflow: visible; }
+.concept-canvas { margin: 0 16px 16px; border: 1px solid #dbe6dd; border-radius: 12px; overflow: hidden; background: #f4f8f3; }
+.concept-canvas-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #dbe6dd; background: #fff; }
+.course-knowledge .concept-canvas-toolbar button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 7px 10px; border: 1px solid #dbe6dd; border-radius: 7px; background: #fff; color: #355e47; font-size: 11px; cursor: pointer; }
+.course-knowledge .concept-canvas-toolbar button:hover { background: #edf5ec; border-color: #86ab91; }
+.course-knowledge .concept-canvas-toolbar button:disabled { cursor: default; opacity: .4; }
+.concept-canvas-zoom { display: flex; align-items: center; border: 1px solid #dbe6dd; border-radius: 7px; background: #f7faf5; }
+.course-knowledge .concept-canvas-zoom button { width: 36px; border: 0; background: transparent; }
+.concept-canvas-zoom output { min-width: 45px; text-align: center; font: 11px ui-monospace, monospace; color: #46614b; }
+.concept-graph-desktop { background-image: radial-gradient(#cbdccd .8px, transparent .8px); background-size: 20px 20px; height: clamp(420px, 61vh, 620px); overflow: hidden; position: relative; cursor: grab; touch-action: none; user-select: none; }
+.concept-graph-desktop.is-dragging { cursor: grabbing; }
+.concept-graph-desktop:focus-visible { outline: 2px solid #548d70; outline-offset: -3px; }
+.course-knowledge .kg-svg { display: block; width: 100%; min-width: 0; height: 100%; overflow: hidden; }
+.concept-canvas-instructions { margin: 0; padding: 10px 12px; border-top: 1px solid #dbe6dd; background: #f9fcf7; color: #5f7865; font-size: 10px; line-height: 1.8; }
+.concept-canvas-instructions span { display: block; color: #7c8e7c; font-size: 9px; }
 .course-knowledge .kg-edge { fill: none; stroke: #b4c9b9; color: #9bb6a2; stroke-width: 1.8; opacity: .7; }
 .course-knowledge .kg-edge.hot { stroke: #448769; color: #448769; stroke-width: 2.8; opacity: 1; }
 .course-knowledge .kg-node { cursor: pointer; opacity: 1; outline: 0; }
@@ -71,6 +83,13 @@
 .concept-empty { color: #89957f; font-size: 13px; padding: 30px 10px; line-height: 1.8; }
 .concept-mobile-list { display: none; }
 .concept-search-mobile-detail { display: none; }
+@media (max-width: 700px) {
+  .course-knowledge .concept-graph-desktop { display: block; height: 420px; }
+  .concept-canvas { margin: 0 12px 16px; }
+  .concept-canvas-toolbar { gap: 6px; padding: 8px; }
+  .course-knowledge .concept-canvas-toolbar button { min-height: 40px; padding: 8px; }
+  .concept-canvas-instructions span { display: none; }
+}
 @media (max-width: 700px) { .concept-search-mobile-detail { display: block; } .concept-inspector.with-search { display: none; } }
 @media (min-width: 701px) and (max-width: 1250px) { .course-knowledge { grid-template-columns: minmax(0,1fr) 290px; } .concept-explorer { display: grid; grid-template-columns: 180px minmax(0,1fr); align-items: center; gap: 12px 20px; padding: 16px 20px; grid-column: 1 / -1; border-right: 0; border-bottom: 1px solid #e4ebe2; } .concept-explorer-title { margin: 0; } .concept-chapters { grid-column: 1 / -1; grid-template-columns: repeat(4,minmax(0,1fr)); } .concept-explorer-caption, .concept-explorer-note { display: none; } }
 @media (max-width: 700px) { .course-knowledge { display: block; } .concept-explorer { padding: 16px; border: 0; border-bottom: 1px solid #e4ebe2; } .concept-explorer-title { margin: 0 0 12px; } .concept-explorer-caption { margin: 15px 0 7px; } .concept-explorer-note { display: none; } .concept-chapters { grid-template-columns: 1fr 1fr; gap: 4px; } .concept-chapters button { font-size: 11px; padding: 9px 6px; } .concept-main-head { padding: 20px 16px 14px; } .concept-main-head h3 { font-size: 17px; } .concept-graph-caption { padding: 0 16px 15px; align-items: flex-start; line-height: 1.7; } .concept-graph-desktop, .concept-inspector:not(.with-search) { display: none; } .concept-mobile-list { display: grid; gap: 7px; padding: 0 16px 18px; } .concept-mobile-list > div > button { display: flex; align-items: center; gap: 15px; justify-content: space-between; width: 100%; padding: 13px 12px; background: white; border: 1px solid #d6e3d2; border-radius: 6px; color: #5b775b; text-align: left; font-size: 13px; cursor: pointer; } .concept-mobile-list > div > button.is-selected { color: #fff; background: #285d48; border-color: #285d48; border-radius: 6px 6px 0 0; } .concept-mobile-list .kp-detail { border: 1px solid #d6e3d2; border-top: 0; border-radius: 0 0 6px 6px; padding: 18px 16px; } .course-knowledge .concept-inspector .kp-detail { display: block; } .concept-relations { display: grid; grid-template-columns: 1fr; } .concept-search-results { padding: 0 16px 18px; } .concept-graph-legend { padding: 12px 16px; gap: 11px; } }

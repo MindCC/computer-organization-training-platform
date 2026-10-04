@@ -23,12 +23,12 @@ export function serviceMistakes(db,studentId){
   }
   return [...groups.values()];
 }
-export function createShopServiceRouter({db,requireRole}){
+export function createShopServiceRouter({db,requireRole,role='student'}){
   ensureShopServiceTables(db);const router=Router();
-  router.use('/student/shop-service',requireRole('student'),(req,res,next)=>{res.set('Cache-Control','no-store');if(req.get('x-service-student')&&req.get('x-service-student')!==String(req.user.id))return res.status(403).json({error:{code:'IDENTITY_CHANGED',message:'登录身份已变更，请重新进入工单'}});next();});
+  router.use(`/${role}/shop-service`,requireRole(role),(req,res,next)=>{res.set('Cache-Control','no-store');if(req.get('x-service-student')&&req.get('x-service-student')!==String(req.user.id))return res.status(403).json({error:{code:'IDENTITY_CHANGED',message:'登录身份已变更，请重新进入工单'}});next();});
   const format=row=>({id:row.id,orderId:row.order_id,version:row.version,state:JSON.parse(row.state_json)});
-  router.get('/student/shop-service', (req,res)=>res.json({records:serviceRecords(db,req.user.id)}));
-  router.post('/student/shop-service', (req,res)=>{
+  router.get(`/${role}/shop-service`, (req,res)=>res.json({records:serviceRecords(db,req.user.id)}));
+  router.post(`/${role}/shop-service`, (req,res)=>{
     try{
       const order=serviceOrder(req.body?.orderId);if(!order)serviceFail('工单不存在','ORDER_NOT_FOUND',404);
       const active=db.prepare('SELECT * FROM shop_service_runs WHERE student_id=? AND order_id=? ORDER BY created_at DESC').all(req.user.id,order.id).find(row=>!JSON.parse(row.state_json).result?.passed);
@@ -38,7 +38,7 @@ export function createShopServiceRouter({db,requireRole}){
       res.status(201).json({run:format(db.prepare('SELECT * FROM shop_service_runs WHERE id=?').get(id))});
     }catch(error){res.status(error.status??500).json({error:{code:error.code??'SERVICE_SAVE',message:error.status?error.message:'工单保存失败，请重试'}});}
   });
-  router.post('/student/shop-service/:id/actions',(req,res)=>{
+  router.post(`/${role}/shop-service/:id/actions`,(req,res)=>{
     try{
       const row=db.prepare('SELECT * FROM shop_service_runs WHERE id=? AND student_id=?').get(req.params.id,req.user.id);if(!row)serviceFail('工单不存在','ORDER_NOT_FOUND',404);
       const {operationId,version,action}=req.body??{};

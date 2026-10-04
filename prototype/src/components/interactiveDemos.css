@@ -13,9 +13,10 @@
 .interactive-demos-view :is(a,button,summary):focus-visible { outline-color:#0284c7; }
 @media(max-width:600px) { .interactive-demos-heading h1 { font-size:28px; } .interactive-demos-heading p { font-size:14px; } }
 
-.interactive-demos-view .parameter-playground { --parameter-ink:#0f172a; --parameter-teal:#0369a1; border-color:#cbd5e1; background:#f8fafc; }
-.interactive-demos-view .parameter-kicker, .interactive-demos-view .parameter-control-heading output { color:#0369a1; }
-.interactive-demos-view .parameter-tabs { display:inline-flex; padding:5px; border:1px solid #cbd5e1; background:#f1f5f9; border-radius:999px; }
-.interactive-demos-view .parameter-tabs button { border:0; color:#475569; background:transparent; }
-.interactive-demos-view .parameter-tabs button.active { color:#fff; background:#0369a1; }
-.interactive-demos-view :is(.parameter-controls,.parameter-visual) { border-color:#cbd5e1; border-radius:16px; }
+
+/* One chapter preview; any additional demo remains a compact text entry. */
+.interactive-demos-view .courseware-demo-grid { align-items:stretch; }
+.interactive-demos-view .courseware-chapter-demos { gap:8px; }
+.interactive-demos-view .courseware-demo-secondary strong { font-size:12px; }
+.interactive-demos-view .courseware-demo-summary { margin:0; font-size:12px; line-height:1.6; color:#475569; }
+.interactive-demos-view .courseware-chapter-experiments { margin-top:auto; }

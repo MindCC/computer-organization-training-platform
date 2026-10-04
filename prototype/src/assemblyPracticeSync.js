@@ -1,12 +1,13 @@
 import { normalizePracticeDocument, mergePracticeHistory } from './assemblyPracticeStorage.js';
 import { createRandomId } from './shared/randomId.js';
+import { personalLearningPath } from './personalLearningApi.js';
 
 const empty=()=>({version:1,active:null,history:[]});
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 
 export function createPracticeTransport(caseId,userId){
   return async(method,body,signal)=>{
-    const response=await fetch(`/api/student/assembly-practice/${encodeURIComponent(caseId)}`,{
+    const response=await fetch(personalLearningPath(`/api/student/assembly-practice/${encodeURIComponent(caseId)}`),{
       method,credentials:'include',signal,headers:{'content-type':'application/json','x-practice-student':String(userId)},
       ...(body?{body:JSON.stringify(body)}:{})
     });

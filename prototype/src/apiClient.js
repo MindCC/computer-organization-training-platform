@@ -1,3 +1,5 @@
+import { personalLearningPath } from './personalLearningApi.js';
+
 export class ApiError extends Error {
   constructor({ status, code, message, retryable = false }) {
     super(message);
@@ -54,6 +56,7 @@ async function fetchWithTimeout(path, options) {
 }
 
 export async function apiRequest(path, options = {}) {
+  path = personalLearningPath(path);
   const retryableMethod = ["GET", "HEAD"].includes(String(options.method ?? "GET").toUpperCase());
   const maxAttempts = retryableMethod ? MAX_RETRIES : 0;
   let lastError;

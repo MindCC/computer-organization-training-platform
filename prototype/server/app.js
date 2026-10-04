@@ -73,6 +73,7 @@ import { createCpuPracticeRouter } from "./cpuPracticeRoutes.js";
 import { createAssemblyPracticeRepository } from './assemblyPracticeRepository.js';
 import { createAssemblyPracticeRouter } from './assemblyPracticeRoutes.js';
 import { createTeacherAssemblyPracticeRouter } from './teacherAssemblyPractice.js';
+import { createTeacherLearningReviewRouter } from './teacherLearningReview.js';
 import { createCoursewareUploadRouter } from "./coursewareUploadRoutes.js";
 import { createKnowledgeRouter } from "./knowledgeRoutes.js";
 import { createCustomCustomerRouter } from './customCustomerRoutes.js';
@@ -181,6 +182,10 @@ export function createApp(options = {}) {
   app.use("/api", createCpuPracticeRouter({ service: cpuPracticeService, requireRole, audit }));
   app.use('/api', createAssemblyPracticeRouter({ repository: createAssemblyPracticeRepository(db), requireRole }));
   app.use('/api', createTeacherAssemblyPracticeRouter({ db, requireRole }));
+  app.use('/api', createTeacherLearningReviewRouter({ db, requireRole }));
+  app.use('/api', createAssemblyPracticeRouter({ repository: createAssemblyPracticeRepository(db), requireRole, role: 'teacher' }));
+  app.use('/api', createShopServiceRouter({ db, requireRole, role: 'teacher' }));
+  app.use('/api', createLearningPracticeRouter({ db, requireRole, role: 'teacher' }));
   app.use("/api", createCoursewareUploadRouter({
     db,
     requireRole,
