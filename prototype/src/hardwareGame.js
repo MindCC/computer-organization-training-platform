@@ -13,6 +13,7 @@ export const HARDWARE_PARTS = {
     { id: "hdd-1tb", name: "1TB \u673a\u68b0\u786c\u76d8", price: 280, capacity: 1024, performance: 38 },
     { id: "ssd-512", name: "512GB \u56fa\u6001\u786c\u76d8", price: 360, capacity: 512, performance: 78 },
     { id: "ssd-1tb", name: "1TB \u9ad8\u901f\u56fa\u6001\u786c\u76d8", price: 620, capacity: 1024, performance: 92 },
+    { id: "ssd-2tb", name: "2TB 高速固态硬盘", price: 1050, capacity: 2048, performance: 92 },
   ],
   gpu: [
     { id: "gpu-integrated", name: "\u96c6\u6210\u663e\u5361", price: 0, performance: 35 },

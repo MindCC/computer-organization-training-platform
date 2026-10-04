@@ -3,6 +3,8 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium,expect } from '@playwright/test';
 import { gotoApp,fillLoginForm,submitLoginForm } from './lib/qaLogin.mjs';
+import { HARDWARE_GAME_CASES } from '../src/hardwareGame.js';
+import { storyProfile, buildStoryOffers } from '../src/hardwareStory.js';
 let browser;
 try{browser=await chromium.launch({channel:'msedge',headless:true});}catch{browser=await chromium.launch({headless:true});}
 const artifacts=process.env.QA_ARTIFACT_DIR??'qa-artifacts';await mkdir(artifacts,{recursive:true});
@@ -112,5 +114,33 @@ try{
   await page.getByRole('button',{name:'对话记录',exact:true}).click();await expect(page.getByRole('dialog')).toBeVisible();await page.keyboard.press('Escape');
   await page.getByRole('button',{name:'订单与练习',exact:true}).click();await page.locator('.hardware-case').filter({hasText:'学生学习电脑'}).click();await expect(page.getByRole('region',{name:'客户接待'})).toContainText('阿宁');
   await page.getByRole('button',{name:'订单与练习',exact:true}).click();await page.getByRole('button',{name:'返回街角装机店',exact:true}).click();await page.getByRole('button',{name:'订单与练习',exact:true}).click();await page.getByRole('button',{name:'进入装机教学练习',exact:true}).click();await expect(page.getByRole('region',{name:'装机教学练习',exact:true})).toBeVisible();
-  assert.deepEqual(errors,[]);console.log('PASS full first-day narrative, actual offers/assembly/boot, offline and synced delivery, ending, recovery, mobile, classroom orders and teaching entry');
+  await page.getByRole('button',{name:'返回客户订单',exact:true}).click();
+  for(const order of HARDWARE_GAME_CASES.slice(1)) {
+    const profile=storyProfile(order.id);
+    await page.setViewportSize({width:1366,height:900});
+    await page.getByRole('button',{name:'订单与练习',exact:true}).click();await page.locator('.hardware-case').filter({hasText:order.title}).click();
+    await expect(shop).toHaveAttribute('data-customer',profile.name);await expect(page.locator('.hardware-receipt-sync')).toHaveCount(0);
+    await expect(page.locator('.shop-character')).toHaveAttribute('src',profile.portrait);await page.locator('.shop-character').evaluate(img=>img.decode());
+    if(await page.getByRole('button',{name:'重看客户对话',exact:true}).isVisible())await page.getByRole('button',{name:'重看客户对话',exact:true}).click();
+    for(const question of profile.questions){await page.getByRole('button',{name:question.label,exact:true}).click();await expect(page.locator('.shop-dialogue-line')).toHaveText(question.answer);}
+    await page.getByRole('button',{name:'查看需求工单',exact:true}).click();await expect(page.getByRole('dialog')).toContainText(profile.name);await expect(page.getByRole('dialog')).toContainText(String(order.targets.budget));await page.keyboard.press('Escape');
+    await page.getByRole('button',{name:'整理需求，给出方案',exact:true}).click();await expect(page.locator('.shop-dialogue-line')).toHaveText(profile.offersLine);
+    for(const width of [1366,390]){await page.setViewportSize({width,height:width===390?844:900});await assertReceptionLayout(page);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:path.join(artifacts,`customer-${order.id}-${width}.png`),fullPage:true});}
+    await page.setViewportSize({width:1366,height:900});await page.getByRole('button',{name:'采用经济方案',exact:true}).click();await expect(page.locator('.shop-dialogue-line')).toHaveText(profile.quoteLine);
+    await page.getByRole('button',{name:'接下工单 · 开始装机',exact:true}).click();await expect(workshop).toBeVisible();await expect(page.getByRole('button',{name:'请先完成装配与开机自检',exact:true})).toBeDisabled();
+    // Each order must boot its own actual assembly and receive server confirmation.
+    if(await page.getByRole('button',{name:'打开侧板',exact:true}).isVisible())await page.getByRole('button',{name:'打开侧板',exact:true}).press('Enter');
+    for(const name of ['固定主板','固定电源'])if(await page.getByRole('button',{name,exact:true}).isVisible())await page.getByRole('button',{name,exact:true}).press('Enter');
+    const discrete=buildStoryOffers(order.id)[0].selection.gpu!=='gpu-integrated';
+    const items=[['处理器','CPU 插座'],['内存','DIMM 插槽'],['硬盘','硬盘托架'],...(discrete?[['显卡','PCIe 插槽']]:[])];
+    for(const [label,socket] of items){await page.locator('.assembly-part-tabs button').filter({hasText:label}).press('Enter');const install=page.getByRole('button',{name:'安装到'+socket,exact:true}).last();if(await install.isEnabled())await install.press('Enter');}
+    const cooler=page.getByRole('button',{name:'固定CPU 散热器',exact:true});if(await cooler.isVisible())await cooler.press('Enter');
+    for(const [from,to] of [['psu-atx','board-atx'],['psu-cpu','cpu-power'],['cooler-fan','cpu-fan'],['ssd-data','board-sata'],['psu-sata','ssd-power']]){await page.getByRole('combobox',{name:'线缆端',exact:true}).selectOption(from);await page.getByRole('combobox',{name:'目标接口',exact:true}).selectOption(to);await page.getByRole('button',{name:'连接接口',exact:true}).press('Enter');}
+    await page.getByRole('button',{name:'开机自检',exact:true}).press('Enter');await expect(workshop.locator('canvas')).toHaveAttribute('data-monitor-message','开机成功',{timeout:10000});
+    await page.getByRole('button',{name:'交付装机 · 提交方案',exact:true}).click();await expect(stage).toHaveAttribute('data-story-stage','3');await expect(page.locator('.hardware-receipt-sync')).toContainText('已同步到服务器');await expect(page.locator('.shop-dialogue-line')).toHaveText(profile.thanks);
+    const next=storyProfile(HARDWARE_GAME_CASES[(HARDWARE_GAME_CASES.indexOf(order)+1)%HARDWARE_GAME_CASES.length].id);
+    const nextButton=page.getByRole('button',{name:`接待下一位客户 · ${next.name}`,exact:true}).filter({visible:true});await expect(nextButton).toBeEnabled();await nextButton.click();await expect(page.locator('.hardware-receipt-sync')).toHaveCount(0);
+    console.log(`PASS ${profile.name}: portrait, dialogue, desktop/mobile, real assembly/boot, server delivery and next customer`);
+  }
+  assert.deepEqual(errors,[]);console.log('PASS full first-day narrative, all six customers, actual offers/assembly/boot, offline and synced delivery, ending, recovery, mobile, classroom orders and teaching entry');
 }catch(error){await page?.screenshot({path:path.join(artifacts,'shop-error.png'),fullPage:true});throw error;}finally{await browser.close();}

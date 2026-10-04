@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { HARDWARE_GAME_CASES, gradeHardwareBuild } from './hardwareGame.js';
-import { storyProfile, buildStoryOffers, storyStorageKey, readStory, saveStory, storyStage } from './hardwareStory.js';
+import { storyProfile, buildStoryOffers, buildOrderOffers, storyStorageKey, readStory, saveStory, storyStage } from './hardwareStory.js';
 
 test('office offers change the actual configuration and meet the original grading rules',()=>{
   const offers=buildStoryOffers('game-office-pc');
@@ -12,7 +12,8 @@ test('office offers change the actual configuration and meet the original gradin
 });
 test('all customer requirements come from the active order and impossible orders stay visible',()=>{
   for(const order of HARDWARE_GAME_CASES){const profile=storyProfile(order.id);assert.ok(profile.name);assert.ok(profile.questions.find(q=>q.id==='budget').answer.includes(String(order.targets.budget)));}
-  assert.ok(buildStoryOffers('game-video-storage').every(offer=>!offer.passed));
+  for(const order of HARDWARE_GAME_CASES)assert.ok(buildStoryOffers(order.id).every(offer=>gradeHardwareBuild(order.id,offer.selection).passed),`${order.id} must have deliverable offers`);
+  assert.ok(buildOrderOffers({...HARDWARE_GAME_CASES[0],targets:{...HARDWARE_GAME_CASES[0].targets,storageCapacity:4096}}).every(offer=>!offer.passed));
   assert.deepEqual(buildStoryOffers('missing-order'),[]);
 });
 test('story recovery whitelists conversation state and never restores boot or grade',()=>{

@@ -22,7 +22,7 @@ export function CustomerVisitScene({ profile, order, story, onAsk, onAccept, onO
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
   }
-  const line = view === 'thanks' ? profile.thanks : view === 'workshop' ? '我在柜台等你。装好以后，我们一起看看验机结果。' : view === 'quote' ? '这份报价我看到了。能再确认一下是否满足我的学习需求吗？' : view === 'offers' ? '原来不同方案的取舍不一样。你会怎样安排这笔预算？' : latest?.answer ?? profile.intro;
+  const line = view === 'thanks' ? profile.thanks : view === 'workshop' ? '我在柜台等你。装好以后，我们一起看看验机结果。' : view === 'quote' ? profile.quoteLine : view === 'offers' ? profile.offersLine : latest?.answer ?? profile.intro;
   return <section className={'shop-game customer-visit-game' + (workshopOpen ? ' at-workbench' : '')} aria-label="芯邻装机店" data-customer={profile.name}>
     <img className="shop-backdrop" src="/shop-story/shop-empty.webp" alt="阳光照进街角装机店，右侧是装机工作台和元件架" fetchPriority="high" />
     <header className="shop-topbar"><div className="shop-brand"><Cpu size={29} weight="duotone" /><h1>芯邻装机</h1><span>客户来访 · {profile.role}</span></div><div className="shop-tools">
@@ -46,7 +46,7 @@ export function CustomerVisitScene({ profile, order, story, onAsk, onAccept, onO
         </div>{saved === false && <small className="shop-storage-status" role="status">当前浏览器无法保存对话，进度在本次页面保留。</small>}
       </section>
     </>}
-    {panel && <div className="shop-panel-shade" onClick={() => setPanel(null)}><section className="shop-panel" ref={panelRef} role="dialog" aria-modal="true" aria-label={panel === 'menu' ? '订单与练习' : '需求工单'} onClick={event => event.stopPropagation()} onKeyDown={panelKeyboard}><header><h2>{panel === 'menu' ? '订单与练习' : `${profile.name}的需求工单`}</h2><button type="button" aria-label="关闭面板" onClick={() => setPanel(null)}><X size={22} /></button></header>
+    {panel && <div className="shop-panel-shade" onClick={() => setPanel(null)}><section className="shop-panel" ref={panelRef} role="dialog" aria-modal="true" aria-label={panel === 'menu' ? '订单与练习' : '需求工单'} onClick={event => {event.stopPropagation();if(event.target.closest('.hardware-case'))setPanel(null);}} onKeyDown={panelKeyboard}><header><h2>{panel === 'menu' ? '订单与练习' : `${profile.name}的需求工单`}</h2><button type="button" aria-label="关闭面板" onClick={() => setPanel(null)}><X size={22} /></button></header>
       {panel === 'menu' ? <><button type="button" onClick={() => setPanel(null)}>回到客户柜台</button><button type="button" onClick={onReturn}>返回街角装机店</button><button type="button" onClick={onPractice}>进入装机教学练习</button><h3>课堂订单</h3>{orders}</> : <><p className="shop-note-customer">{profile.name} · {order.title}</p>{profile.questions.map(question => <div className="shop-note-row" key={question.id}><CheckCircle size={20} weight={story.asked.includes(question.id) ? 'fill' : 'regular'} /><span>{story.asked.includes(question.id) ? question.answer : `待了解 · ${question.label}`}</span></div>)}<p className="shop-note-budget">元件预算 ¥{order.targets.budget} · 装机服务另报</p><button className="primary" type="button" onClick={() => { setPanel(null); if (story.accepted) onWorkshop(); else setView('questions'); }}>{story.accepted ? '进入装机工作台' : '继续询问客户'}<ArrowRight size={18} /></button></>}
     </section></div>}
   </section>;
