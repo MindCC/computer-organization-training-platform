@@ -34,6 +34,7 @@ try {
   await teacher.getByRole('button',{name:'创建任务',exact:true}).click();
   await teacher.getByRole('tab',{name:'AI 创建',exact:true}).click();await teacher.getByLabel('AI教学要求').fill('45分钟补码运算课，包含诊断、演示、实验、答疑和检验。');const generated=await posted(teacher,`/api/teacher/classes/${cls.id}/task-chain/generate`,()=>teacher.getByRole('button',{name:'生成任务链草稿',exact:true}).click());assert.equal(generated.source,'local');assert.equal(generated.reason,'AI_DISABLED');await teacher.getByText('尚未配置 DeepSeek，已提供本地课程模板建议。',{exact:true}).waitFor();await teacher.getByRole('button',{name:'采用草稿并继续编排',exact:true}).click();
   await teacher.getByLabel('任务链名称').fill('补码运算任务链 QA');
+  await teacher.locator('.chain-outline summary').click();
   const unsavedSessions=await api(jar,`/api/teacher/classes/${cls.id}/sessions/current`);
   assert.equal(unsavedSessions.session,null);
   await teacher.getByRole('button',{name:'预览课堂任务',exact:true}).click();
@@ -49,7 +50,6 @@ try {
   assert.equal((await api(jar,`/api/teacher/classes/${cls.id}/sessions/current`)).session,null,'preview must not create or publish a classroom');
   console.log('PASS teacher previews all tasks and current edited step before saving, with no classroom publication');
   assert.equal(await teacher.locator('.chain-stage-list li').count(),6);
-  await teacher.locator('.chain-outline summary').click();
   await teacher.locator('.chain-stage-list button').last().click();await teacher.getByRole('button',{name:'上移环节',exact:true}).click();await teacher.getByRole('button',{name:'下移环节',exact:true}).click();
   await teacher.locator('.chain-add-palette').getByRole('button',{name:'课程课件',exact:true}).click();assert.equal(await teacher.locator('.chain-stage-list li').count(),7);await teacher.getByRole('button',{name:'删除环节',exact:true}).click();
   await teacher.evaluate(()=>window.scrollTo(0,0));await teacher.screenshot({path:path.join(dir,'task-chain-builder-desktop.png'),fullPage:true});await noOverflow(teacher);

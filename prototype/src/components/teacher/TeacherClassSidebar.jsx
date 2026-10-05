@@ -2,10 +2,7 @@
 export function TeacherClassSidebar({
   teacherClasses,
   selectedTeacherClassId,
-  classNameDraft,
-  setClassNameDraft,
-  teacherMessage,
-  createTeacherClass,
+  onCreateClass,
   onSelectClass,
 }) {
   return (
@@ -13,11 +10,12 @@ export function TeacherClassSidebar({
       <div className="teacher-studio-card">
         <div className="teacher-studio-card-heading"><strong>选择班级</strong></div>
         {teacherClasses.length === 0 ? (
-          <p className="empty-state">还没有班级，先在下方创建一个。</p>
+          <p className="empty-state">还没有班级，点击“创建班级”开始。</p>
         ) : (
           <label className="form-row teacher-class-select">
             <span>当前班级</span>
             <select
+              aria-label="当前班级"
               value={selectedTeacherClassId ?? ""}
               onChange={(event) => {
                 const picked = teacherClasses.find((item) => String(item.id) === event.target.value);
@@ -34,20 +32,7 @@ export function TeacherClassSidebar({
         )}
       </div>
 
-      <details className="teacher-class-create">
-        <summary>创建新班级</summary>
-        <div className="teacher-studio-card">
-        <div className="teacher-studio-card-heading"><strong>创建班级</strong></div>
-        <div className="teacher-create-box">
-          <label className="form-row">
-            <span>新班级名称</span>
-            <input value={classNameDraft} onChange={(event) => setClassNameDraft(event.target.value)} />
-          </label>
-          <button className="primary-button" onClick={createTeacherClass} type="button">创建班级</button>
-        </div>
-        {teacherMessage ? <p className="teacher-message">{teacherMessage}</p> : null}
-        </div>
-      </details>
+      <button className="ghost-button" type="button" onClick={onCreateClass}>创建班级</button>
     </aside>
   );
 }

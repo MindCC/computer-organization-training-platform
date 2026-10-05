@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../apiClient.js";
 import { passwordStrength } from "../passwordStrength.js";
-import { downloadCredentialsCsv } from "../importCredentials.js";
+import { StudentImportPanel } from './teacher/StudentImportPanel.jsx';
 import './accountSettings.css';
 
 const AUDIT_ACTION_LABELS = {
@@ -27,10 +27,7 @@ export function SettingsModal({
   auth,
   teacherClasses,
   selectedTeacherClassId,
-  csvImportText,
-  setCsvImportText,
-  importStudentsToClass,
-  importCredentials = [],
+  onClassesChanged,
   student,
   saveStudentSettings,
   initialSection = 'account',
@@ -132,50 +129,7 @@ export function SettingsModal({
               <p>体验教学流程时，可在登录页选择教师演示，进入独立的演示班级。</p>
             </section>
 
-            {isDemoTeacher ? <section className="settings-block"><span className="eyebrow">演示课堂</span><h3>使用演示班级与学生体验教学</h3><p>可在教师工作台布置作业、评分并查看演示学生的学情。正式学生导入、平台审计和整库备份需使用正式教师账号。</p></section> : <section className="settings-block teacher-import-settings">
-              <div>
-                <span className="eyebrow">学生导入</span>
-                <h3>{selectedClass?.name ?? "请先创建或选择班级"}</h3>
-                <p>CSV 列顺序固定为：学号、姓名、初始密码。导入会新增学生或更新同学号学生信息。</p>
-              </div>
-              <div className="teacher-action-row">
-                <a className="ghost-button settings-template-link" download="student-import-template.csv" href="data:text/csv;charset=utf-8,%E5%AD%A6%E5%8F%B7%2C%E5%A7%93%E5%90%8D%2C%E5%88%9D%E5%A7%8B%E5%AF%86%E7%A0%81%0A2026001%2C%E6%9D%8E%E5%90%8C%E5%AD%A6%2CStudent123!">
-                  下载学生导入模板
-                </a>
-                {selectedTeacherClassId ? (
-                  <a className="ghost-button" href={`/api/teacher/classes/${selectedTeacherClassId}/export.csv`}>
-                    导出当前班级 CSV
-                  </a>
-                ) : null}
-              </div>
-              <textarea
-                aria-label="学生导入 CSV"
-                value={csvImportText}
-                onChange={(event) => setCsvImportText(event.target.value)}
-                placeholder="学号,姓名,初始密码"
-              />
-              <button className="primary-button" disabled={!selectedTeacherClassId} onClick={importStudentsToClass} type="button">
-                导入学生
-              </button>
-              {importCredentials.length > 0 ? (
-                <div className="teacher-import-credentials">
-                  <strong>新账号初始口令（仅本次显示，请立即发放）</strong>
-                  <p>未在 CSV 中指定初始密码的账号会获得随机初始密码，学生登录后可在个人设置中修改密码。</p>
-                  <div className="teacher-credential-list">
-                    {importCredentials.map((item) => (
-                      <div className="teacher-credential-row" key={item.username}>
-                        <span>{item.username}</span>
-                        <span>{item.displayName}</span>
-                        <code>{item.password}</code>
-                      </div>
-                    ))}
-                  </div>
-                  <button className="ghost-button" type="button" onClick={() => downloadCredentialsCsv(importCredentials)}>
-                    下载初始口令 CSV
-                  </button>
-                </div>
-              ) : null}
-            </section>}
+            <StudentImportPanel key={selectedTeacherClassId ?? 'none'} classId={selectedTeacherClassId} className={selectedClass?.name} onImported={onClassesChanged} isDemoTeacher={isDemoTeacher}/>
 
             <section className="settings-block teacher-rule-settings">
               <div>

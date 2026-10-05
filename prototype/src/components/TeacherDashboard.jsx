@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { ArrowsClockwise, ChalkboardTeacher, ChartDonut, ChartLineUp, ClipboardText, DesktopTower, Export, Robot, Student } from "@phosphor-icons/react";
 import { adaptHardwareGameSummary } from "../shared/api/teacherOverviewAdapter.js";
 import { useVisibilityInterval } from "../hooks/useVisibilityInterval.js";
@@ -14,8 +14,10 @@ import { TeacherAssignments } from "./TeacherAssignments.jsx";
 import { TeacherCourseWorkbench } from "./TeacherCourseWorkbench.jsx";
 import { TeacherAssemblyPractice } from './teacher/TeacherAssemblyPractice.jsx';
 import { TaskLibrary } from './classroom/teacher/TaskLibrary.jsx';
+import { TaskLearningPanel } from './classroom/teacher/TaskLearningPanel.jsx';
 
 const OVERVIEW_REFRESH_MS = 45_000;
+const ClassManagement = lazy(()=>import('./teacher/TeacherClassManagement.jsx').then(m=>({default:m.TeacherClassManagement})));
 const STATISTIC_ITEMS = [
   { id: "overview", label: "学情洞察", icon: ChartLineUp },
   { id: "monitor", label: "学习监控", icon: ChartDonut },
@@ -34,7 +36,7 @@ export function TeacherStudioDashboard({
   teacherClasses, selectedTeacherClassId, setSelectedTeacherClassId,
   selectedTeacherClassIdRef, classOverview, assistantReport, assistantLoading,
   assistantError, resetAssistantState, refreshClassOverview, generateAssistantReport,
-  classNameDraft, setClassNameDraft, teacherMessage, createTeacherClass,
+  teacherMessage, refreshTeacherClasses, isDemoTeacher,
   openTeacherStudentDetail, resetStudentPassword, selectedTeacherStudent,
   setSelectedTeacherStudent, buildTeacherAssistantInsights,
   teacherSession, onOpenLab,
@@ -47,6 +49,8 @@ export function TeacherStudioDashboard({
   const [workspace, setWorkspace] = useState('tasks');
   const [statistic, setStatistic] = useState('overview');
   const [adoptedPlan, setAdoptedPlan] = useState(null);
+  const [learningScope,setLearningScope]=useState(null);
+  const [createClassRequest, setCreateClassRequest] = useState(0);
 
   const refreshSelectedClass = useCallback(() => {
     if (!selectedTeacherClassId) return;
@@ -59,6 +63,7 @@ export function TeacherStudioDashboard({
   useVisibilityInterval(refreshSelectedClass, OVERVIEW_REFRESH_MS, Boolean(selectedTeacherClassId));
 
   const selectClass = useCallback((classId) => {
+    setLearningScope(null);
     selectedTeacherClassIdRef.current = classId;
     setSelectedTeacherClassId(classId);
     resetAssistantState();
@@ -75,6 +80,7 @@ export function TeacherStudioDashboard({
           <button type="button" aria-pressed={workspace === 'classroom'} onClick={() => setWorkspace('classroom')}><ChalkboardTeacher size={18} />课堂执行</button>
           <button type="button" aria-pressed={workspace === 'teaching'} onClick={() => setWorkspace('teaching')}><ChalkboardTeacher size={18} />教学活动</button>
           <button type="button" aria-pressed={workspace === 'statistics'} onClick={() => setWorkspace('statistics')}><ChartDonut size={18} />学情统计</button>
+          <button type="button" aria-pressed={workspace === 'classes'} onClick={() => {setCreateClassRequest(0);setWorkspace('classes');}}><Student size={18} />班级管理</button>
           {workspace === 'statistics' && (
             <nav className="statistics-nav" aria-label="统计分类">
               {STATISTIC_ITEMS.map(({ id, label, icon: Icon }) => (
@@ -89,10 +95,7 @@ export function TeacherStudioDashboard({
               <TeacherClassSidebar
                 teacherClasses={teacherClasses}
                 selectedTeacherClassId={selectedTeacherClassId}
-                classNameDraft={classNameDraft}
-                setClassNameDraft={setClassNameDraft}
-                teacherMessage={teacherMessage}
-                createTeacherClass={createTeacherClass}
+                onCreateClass={()=>{setCreateClassRequest(v=>v+1);setWorkspace('classes');}}
                 onSelectClass={selectClass}
               />
             </div>
@@ -111,12 +114,15 @@ export function TeacherStudioDashboard({
           </header>
 
           <section className="teacher-studio-main">
+          {workspace === 'classes' && <Suspense fallback={<p role="status">正在加载班级管理…</p>}><ClassManagement selectedClass={selectedClass} overview={classOverview} onClassesChanged={refreshTeacherClasses} createRequest={createClassRequest} isDemoTeacher={isDemoTeacher} onBack={()=>{setCreateClassRequest(0);setWorkspace('teaching');}}/></Suspense>}
+          {teacherMessage && workspace !== 'classes' && <p className="teacher-message" role="status">{teacherMessage}</p>}
           {workspace === 'teaching' && <header className="statistics-heading"><span className="eyebrow">教学活动</span><h2>作业与课程组织</h2><p>管理班级作业、协作项目与课程资源。</p></header>}
           {workspace === 'classroom' && <header className="statistics-heading"><span className="eyebrow">课堂执行</span><h2>课堂任务与学生反馈</h2><p>演示已发布的课堂任务，查看学生进度和提交反馈。</p></header>}
-          {workspace === 'tasks' && <TaskLibrary classes={teacherClasses} classId={selectedTeacherClassId} activeSession={teacherSession?.viewModel} initialPlan={adoptedPlan} onPlanCreated={()=>setAdoptedPlan(null)} onOpenLab={onOpenLab} onOpenClassroom={()=>setWorkspace('classroom')} onOpenStatistics={({classId,status})=>{if(classId&&classId!==selectedTeacherClassId)selectClass(classId);setWorkspace('statistics');setStatistic(['draft','live','paused'].includes(status)?'monitor':'overview');}} onPublished={session=>{if(session.class_id!==selectedTeacherClassId)selectClass(session.class_id);else teacherSession.loadOverview(session.id);setWorkspace('classroom');}}/>}
+          {workspace === 'tasks' && <TaskLibrary classes={teacherClasses} classId={selectedTeacherClassId} activeSession={teacherSession?.viewModel} initialPlan={adoptedPlan} onPlanCreated={()=>setAdoptedPlan(null)} onOpenLab={onOpenLab} onOpenClassroom={()=>setWorkspace('classroom')} onOpenStatistics={scope=>{if(scope.classId&&scope.classId!==selectedTeacherClassId)selectClass(scope.classId);setLearningScope(scope);setWorkspace('statistics');setStatistic('monitor');}} onPublished={session=>{if(session.class_id!==selectedTeacherClassId)selectClass(session.class_id);else teacherSession.loadOverview(session.id);setWorkspace('classroom');}}/>}
           {workspace === 'statistics' && <header className="statistics-heading"><span className="eyebrow">学情统计</span><h2>{({ overview: '章节完成度与班级概览', monitor: '课堂完成度与报告', assistant: 'AI 学情分析', students: '学生学习明细', practice: '装机练习与操作复盘' })[statistic]}</h2><p>基于当前班级的真实学习记录，查看完成情况与教学反馈。</p></header>}
 
-          {(workspace === 'classroom' || (workspace==='statistics'&&statistic === 'monitor')) && (
+          {workspace==='statistics'&&statistic==='monitor'&&learningScope?<section className="task-learning-statistics"><button type="button" className="ghost-button" onClick={()=>setLearningScope(null)}>返回班级学习监控</button><TaskLearningPanel key={`${learningScope.taskId}:${learningScope.sessionId}:${learningScope.stageId??''}`} task={{id:learningScope.taskId,title:learningScope.title}} initialSessionId={learningScope.sessionId} initialStageId={learningScope.stageId}/></section>:null}
+          {(workspace === 'classroom' || (workspace==='statistics'&&statistic === 'monitor'&&!learningScope)) && (
             <ClassroomCommandCenter key={selectedTeacherClassId} teacherSession={teacherSession} statistics={workspace==='classroom'||(workspace === 'statistics' && statistic === 'monitor')} showSetup={false} onOpenLab={onOpenLab}/>
           )}
           {workspace==='classroom'&&!teacherSession?.viewModel?.active&&<section className="task-library-empty"><h3>暂无课堂任务</h3><p>到任务库选择一个任务发布到当前班级，即可开始课堂。</p><button type="button" className="primary-button" onClick={()=>setWorkspace('tasks')}>打开任务库</button></section>}
@@ -171,12 +177,12 @@ export function TeacherStudioDashboard({
             generateAssistantReport={generateAssistantReport}
             students={students}
             onOpenStudent={(studentId) => { setStatistic('students'); openTeacherStudentDetail(studentId); }}
-            canAdoptPlan={!teacherSession?.viewModel?.active || teacherSession?.viewModel?.ended}
+            canAdoptPlan={Boolean(selectedTeacherClassId)}
             onAdoptPlan={(plan) => { setAdoptedPlan(plan); setWorkspace('tasks'); }}
           />
           </div>
 
-          <div hidden={workspace !== 'statistics' || statistic !== 'monitor'}>
+          <div hidden={workspace !== 'statistics' || statistic !== 'monitor' || Boolean(learningScope)}>
           {selectedTeacherClassId ? (
             <TeacherQuestSection
               selectedClass={selectedClass}

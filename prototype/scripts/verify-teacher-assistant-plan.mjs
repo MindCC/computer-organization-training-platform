@@ -48,15 +48,16 @@ try {
   await expect(focus).toBeVisible();
   await focus.fill('教师修订：先区分地址与数据');
   await page.getByRole('textbox', { name: /课堂步骤/ }).fill('观察数据流\n重做关键连线');
-  const createResponse = page.waitForResponse((response) => response.url().endsWith(`/api/teacher/classes/${classroom.id}/sessions`) && response.request().method() === 'POST');
-  await page.getByRole('button', { name: '创建草稿' }).click();
-  assert.equal((await createResponse).status(), 201);
-  await expect(page.locator('.live-session-lesson-plan')).toContainText('教师修订：先区分地址与数据');
-  const current = await page.request.get(`${apiUrl}/api/teacher/classes/${classroom.id}/sessions/current`);
-  assert.equal(current.status(), 200);
-  assert.deepEqual(JSON.parse((await current.json()).session.config_json).lessonPlan.steps, ['观察数据流', '重做关键连线']);
+  const createResponse = page.waitForResponse((response) => response.url().endsWith('/api/teacher/task-library') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: '保存任务',exact:true }).click();
+  const response=await createResponse;assert.equal(response.status(),201);
+  const {task}=await response.json();
+  assert.deepEqual(task.config.lessonPlan.steps, ['观察数据流', '重做关键连线']);
+  assert.equal((await api(`/api/teacher/classes/${classroom.id}/sessions/current`)).session,null);
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await expect(page.locator('.live-session-lesson-plan')).toContainText('教师修订：先区分地址与数据');
+  await page.locator(`[data-task-id="${task.id}"]`).getByRole('button',{name:'修改',exact:true}).click();
+  await page.locator('.chain-teacher-plan>summary').click();
+  await expect(page.getByRole('textbox',{name:'本节教学重点'})).toHaveValue('教师修订：先区分地址与数据');
   assert.deepEqual(errors, []);
   console.log('PASS: teacher evidence, adoption, editing, draft persistence and reload');
 } finally {

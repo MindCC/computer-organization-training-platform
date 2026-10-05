@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright";
 import { fillLoginForm } from "./lib/qaLogin.mjs";
+import { clickTopNavItem } from './nav-helpers.mjs';
 import { openTeacherWorkspace, TEACHER_WORKSPACE } from "./lib/qaTeacherWorkspace.mjs";
 
 const APP_URL = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
@@ -147,10 +148,8 @@ try {
   const teacherPage = await login(
     teacherContext, TEACHER_USER, TEACHER_PASS, "teacher", errors,
   );
-  await click(
-    teacherPage.getByRole("button", { name: UI.dashboard, exact: true }),
-    "teacher dashboard",
-  );
+  await teacherPage.locator('.topbar').waitFor();
+  await clickTopNavItem(teacherPage,UI.dashboard);
   await teacherPage.getByRole('button',{name:'创建任务',exact:true}).click();
   await teacherPage.getByRole('button',{name:'五大部件与数据流',exact:false}).click();
   const created = await clickJson(
