@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * 通用图表放大弹层：
@@ -38,7 +39,7 @@ export function ZoomableChart({ title, children }) {
         {children}
         <span className="chart-zoom-hint" aria-hidden="true">⤢ 点击放大</span>
       </div>
-      {open ? (
+      {open ? createPortal(
         <div className="chart-zoom-overlay" onClick={close} role="dialog" aria-modal="true" aria-label={`${title} · 大图`}>
           <div className="chart-zoom-dialog" onClick={(event) => event.stopPropagation()}>
             <div className="chart-zoom-toolbar">
@@ -48,7 +49,7 @@ export function ZoomableChart({ title, children }) {
             <div className="chart-zoom-body">{children}</div>
           </div>
         </div>
-      ) : null}
+      , document.body) : null}
     </>
   );
 }

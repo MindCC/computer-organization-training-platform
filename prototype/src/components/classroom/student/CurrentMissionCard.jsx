@@ -2,7 +2,7 @@ import { Play, ClockCountdown, ArrowRight } from "@phosphor-icons/react";
 
 export function CurrentMissionCard({ viewModel, onEnter }) {
   if (!viewModel.active) return null;
-  const { title, stageIndex, currentStage, remainingSeconds, paused } = viewModel;
+  const { title, stageIndex, currentStage, remainingSeconds, paused, lessonPlan } = viewModel;
   const mins = Math.floor(remainingSeconds / 60);
   const secs = remainingSeconds % 60;
 
@@ -15,8 +15,9 @@ export function CurrentMissionCard({ viewModel, onEnter }) {
       <div className="mission-channel-body">
         <div className="mission-channel-info">
           <strong>{title}</strong>
+          {lessonPlan?.focus && <span>本节重点：{lessonPlan.focus}</span>}
           <span>
-            阶段 {stageIndex + 1} / 4 · {currentStage?.title ?? "—"}
+            阶段 {Math.min(stageIndex+1,viewModel.mission?.stages?.length??4)} / {viewModel.mission?.stages?.length??4} · {currentStage?.title ?? "任务已完成"}
           </span>
         </div>
         <div className="mission-channel-meta">

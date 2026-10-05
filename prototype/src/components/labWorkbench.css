@@ -9,6 +9,14 @@
 .lab-mode-shell .lab-overview { flex:1; min-height:0; display:flex; flex-direction:column; }
 .lab-overview-stage { flex:1; min-height:380px; display:flex; overflow:hidden; }
 .lab-overview-stage .computer-exploded { min-height:0; }
+@media (max-width: 1100px) {
+  .lab-overview-stage, .lab-overview-stage > div { min-height:680px; }
+  .lab-overview-stage .exploded-stepbar { bottom:210px; }
+  .lab-overview-stage .exploded-part-list { max-height:calc(100% - 550px); }
+  .lab-overview-stage .exploded-legend { bottom:160px; right:12px; flex-direction:row; flex-wrap:wrap; justify-content:center; }
+  .lab-overview-stage .von-neumann-overview { left:12px; right:12px; text-align:center; }
+  .lab-overview-stage .von-neumann-diagram { width:min(320px, 100%); margin-inline:auto; }
+}
 .lab-experiment-context { display:flex; align-items:center; flex-wrap:wrap; gap:10px 18px; padding:10px 18px; background:#fff; border-bottom:1px solid #dce5eb; }
 .lab-context-back { display:inline-flex; align-items:center; gap:5px; padding:6px 9px; border:1px solid #d9e4eb; border-radius:5px; color:#506c7a; background:#fff; font-size:12px; cursor:pointer; }
 .lab-experiment-context .lab-studio-current { justify-content:flex-start; flex-wrap:wrap; gap:8px; }

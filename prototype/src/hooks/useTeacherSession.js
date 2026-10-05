@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../apiClient.js";
 import { useSessionScope } from './useSessionScope.js';
+import { readSessionLessonPlan } from '../classroomSessionState.js';
+import { missionForSession } from '../shared/classroomMissionRuntime.js';
 
 const POLL_MS = 15_000;
 
@@ -45,6 +47,12 @@ export function useTeacherSession({ classId, enabled, apiClient = api }) {
       throw err;
     }
   }, [apiClient, classId, scope]);
+
+  const updateDraft = useCallback(async (sessionId,config) => {
+    const data=await apiClient.updateClassroomSession(sessionId,config);
+    await loadOverview(sessionId);
+    return data.session;
+  },[apiClient,loadOverview]);
 
   const control = useCallback(async (sessionId, action) => {
     if (!isCurrent()) return;
@@ -99,6 +107,9 @@ export function useTeacherSession({ classId, enabled, apiClient = api }) {
         active: true,
         sessionId: session.id,
         title: session.title,
+        session,
+        mission: missionForSession(session),
+        lessonPlan: readSessionLessonPlan(session),
         status: session.status,
         paused: session.status === "paused",
         ended: session.status === "ended",
@@ -134,11 +145,13 @@ export function useTeacherSession({ classId, enabled, apiClient = api }) {
   }, [enabled, viewModel.active, viewModel.sessionId, viewModel.ended, loadOverview]);
 
   return {
+    classId,
     viewModel,
     setViewModel,
     error,
     lastUpdatedAt,
     createSession,
+    updateDraft,
     control,
     loadOverview,
     loadReport,
@@ -147,17 +160,20 @@ export function useTeacherSession({ classId, enabled, apiClient = api }) {
 
 function buildTeacherVm(data) {
   if (!data || !data.session) return { active: false };
-  const { session, students, updatedAt } = data;
+  const { session, students, updatedAt, mission } = data;
   const stageBuckets = { not_started: [], in_progress: [], completed: [] };
   for (const student of (students ?? [])) {
     const bucket = stageBuckets[student.status] ?? stageBuckets.in_progress;
     bucket.push(student);
   }
-  const needsHelp = (students ?? []).filter((s) => s.status === "in_progress" && s.current_stage_index === 0);
+  const needsHelp = (students ?? []).filter((s) => s.status === "in_progress" && (s.result?.stageAttempts?.[s.currentStageIndex]??0)>1);
   return {
     active: true,
     sessionId: session.id,
     title: session.title,
+    session,
+    mission: mission ?? missionForSession(session),
+    lessonPlan: readSessionLessonPlan(session),
     status: session.status,
     paused: session.status === "paused",
     ended: session.status === "ended",

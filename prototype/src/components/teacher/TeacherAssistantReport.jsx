@@ -1,12 +1,17 @@
 import { Sparkle } from "@phosphor-icons/react";
+import { CHALLENGES } from "../../platformLogic.js";
+
+const challengeNames = new Map(CHALLENGES.map((challenge) => [challenge.id, challenge.title]));
 
 /** 智能助教面板：展示 AI（或本地规则降级）生成的课堂行动建议。 */
-export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assistantLoading, assistantError, generateAssistantReport }) {
+export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assistantLoading, assistantError, generateAssistantReport, students = [], onOpenStudent, canAdoptPlan = true, onAdoptPlan }) {
   const report = assistant?.report ?? {};
   const riskStudents = report.riskStudents ?? [];
   const groupingPlan = report.groupingPlan ?? [];
   const misconceptions = report.commonMisconceptions ?? [];
   const nextClassPlan = report.nextClassPlan ?? [];
+  const evidence = report.evidence ?? [];
+  const studentsById = new Map(students.map((student) => [student.id, student]));
 
   return (
     <section className="teacher-studio-panel teacher-assistant-panel">
@@ -52,6 +57,25 @@ export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assi
             {nextClassPlan.length > 0 ? nextClassPlan.map((n) => <p key={n}>{n}</p>) : <p>暂无课堂安排建议。</p>}
           </section>
           <section><strong>教师讲解提示</strong><p>{report.teacherScript}</p></section>
+          <section className="teacher-assistant-evidence">
+            <strong>建议依据</strong>
+            {evidence.length > 0 ? evidence.map((item, index) => <div className="teacher-evidence-item" key={item.id ?? `${item.type}-${index}`}>
+              <b>{item.id ?? `证据 ${index + 1}`} · {item.label}</b>
+              <span>{item.type === "class_summary" ? `班级人数 ${item.count}` : `${item.count} 条关联记录`}{item.challengeIds?.length ? ` · 关卡：${item.challengeIds.map((id) => challengeNames.get(id) ?? id).join("、")}` : ""}</span>
+              {item.studentIds?.length ? <div className="teacher-evidence-students">涉及学生：{item.studentIds.map((id) => {
+                const student = studentsById.get(id);
+                return student ? <button type="button" key={id} onClick={() => onOpenStudent?.(id)}>{student.displayName ?? student.name ?? `学生 ${id}`}</button> : <span key={id}>学生 {id}</span>;
+              })}</div> : null}
+            </div>) : <p>当前暂无可定位的学习记录，建议先积累课堂提交后再用于备课。</p>}
+          </section>
+          <div className="teacher-assistant-toolbar">
+            <button type="button" className="primary-button" disabled={!canAdoptPlan || !selectedTeacherClassId || evidence.length === 0} onClick={() => onAdoptPlan?.({
+              focus: String(report.lessonFocus ?? "").slice(0, 500),
+              steps: nextClassPlan.length ? nextClassPlan.slice(0, 8).map((step) => String(step).slice(0, 300)) : [String(report.lessonFocus ?? "").slice(0, 300)],
+              teacherScript: String(report.teacherScript ?? "").slice(0, 1000),
+            })}>采纳并编辑课堂草稿</button>
+            {!canAdoptPlan && <p>当前班级已有课堂任务，请结束后再创建下一次草稿。</p>}
+          </div>
         </div>
       ) : (
         <p className="empty-state">选择班级后生成建议；AI 不可用时会自动使用本地规则。</p>

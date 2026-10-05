@@ -1,4 +1,5 @@
 import { ClockCountdown, Pause, Play, Stop, ArrowClockwise } from "@phosphor-icons/react";
+import { TASK_TYPES } from '../../../shared/classroomTaskChain.js';
 
 function formatTime(seconds) {
   const mins = Math.floor(seconds / 60);
@@ -6,7 +7,7 @@ function formatTime(seconds) {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-export function LiveSessionDashboard({ viewModel, onControl, onRefresh, lastUpdatedAt, busy = false }) {
+export function LiveSessionDashboard({ viewModel, onControl, onRefresh, onEdit, onPresent, lastUpdatedAt, busy = false }) {
   const { title, status, paused } = viewModel;
 
   return (
@@ -27,10 +28,11 @@ export function LiveSessionDashboard({ viewModel, onControl, onRefresh, lastUpda
             <ArrowClockwise size={14} /> 刷新
           </button>
           {busy && <span role="status">正在更新课堂…</span>}
+          <button className="secondary-button" type="button" onClick={()=>onPresent(0)}>课堂演示</button>
           {status === "draft" && (
-            <button disabled={busy} className="primary-button" onClick={() => onControl("start")} type="button">
+            <>{onEdit&&<button disabled={busy} className="ghost-button" onClick={onEdit} type="button">编辑任务链</button>}<button disabled={busy} className="primary-button" onClick={() => onControl("start")} type="button">
               <Play size={16} /> 开始课堂
-            </button>
+            </button></>
           )}
           {status === "live" && (
             <>
@@ -54,6 +56,17 @@ export function LiveSessionDashboard({ viewModel, onControl, onRefresh, lastUpda
           )}
         </div>
       </div>
+      {viewModel.mission?.stages && <div className="chain-live-stages" aria-label="课堂任务链进度">{viewModel.mission.stages.map((stage,index)=>{
+        const students=viewModel.students??[],done=students.filter(student=>student.currentStageIndex>index).length;
+        const current=students.filter(student=>student.status==='in_progress'&&student.currentStageIndex===index).length;
+        return <article key={stage.id}><span className={`chain-step-number type-${stage.type??'lab'}`}>{index+1}</span><div><small>{TASK_TYPES[stage.type??'lab']?.label}</small><strong>{stage.title}</strong><span>{status==='draft'?'等待开课':`${done} 人完成 · ${current} 人正在做`}</span><button type="button" className="ghost-button" onClick={()=>onPresent(index)}>打开本步演示</button></div></article>;
+      })}</div>}
+      {viewModel.lessonPlan && <div className="live-session-lesson-plan">
+        <strong>本节教学安排</strong>
+        <p>{viewModel.lessonPlan.focus}</p>
+        <ol>{viewModel.lessonPlan.steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}</ol>
+        {viewModel.lessonPlan.teacherScript && <p>讲解提示：{viewModel.lessonPlan.teacherScript}</p>}
+      </div>}
     </div>
   );
 }

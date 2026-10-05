@@ -95,7 +95,10 @@ test("答案与题目逻辑自洽（抽核关键题）", () => {
   assert.equal(questionOf("ch2-q07").answer, "11111011", "-5 的 8 位补码");
   assert.equal(questionOf("ch3-q05").answer, "true", "S=A⊕B, C=A·B");
   assert.equal(questionOf("ch6-q04").answer, "false", "PC 存下一条指令地址而非当前指令");
-  assert.equal(ASSIGNMENT_QUESTIONS.length, 70, "保留 58 道原题并新增 12 道关卡练习");
+  assert.equal(ASSIGNMENT_QUESTIONS.length, 73, "保留70道原题，新增3道补码课堂检验题");
+  assert.equal(questionOf('ch2-q08').answer,'11111101');
+  assert.equal(questionOf('ch2-q09').answer,'发生有符号溢出，真实和为 200');
+  assert.equal(questionOf('ch2-q10').answer,'false');
 });
 
 /** 从题库自身推导正确答案（仅用于构造全对答案表，不校验内容）。 */
@@ -109,7 +112,7 @@ function rightAnswerFor(question) {
 }
 
 test("题目ID、内容、答案、分数与70题原库完全一致", () => {
-  const hash = createHash("sha256").update(JSON.stringify(ASSIGNMENT_QUESTIONS.map(({ kpId, ...question }) => question))).digest("hex");
+  const hash = createHash("sha256").update(JSON.stringify(ASSIGNMENT_QUESTIONS.filter(question=>!['ch2-q08','ch2-q09','ch2-q10'].includes(question.id)).map(({ kpId, ...question }) => question))).digest("hex");
   assert.equal(hash, "1403f20000a032245b20af0315aa8b94f57a34d154ed2d10a2487ce1643ff04b");
 });
 

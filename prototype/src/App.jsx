@@ -77,6 +77,7 @@ import { useLabState } from "./hooks/useLabState.js";
 import { clearViewSession, readViewSession, resolveRestorableView, writeViewSession } from "./viewSession.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
+import { TaskChainBar } from './components/classroom/student/TaskChainBar.jsx';
 import { useViewHistory } from './hooks/useViewHistory.js';
 import { getActiveGuideForChallenge } from "./courseWorkbenchState.js";
 import avatarImage from "./assets/alex-chen-avatar.webp";
@@ -109,6 +110,7 @@ const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
   .then((module) => ({ default: module.HardwareGamePage })));
 const LabPage = lazy(() => import("./components/LabPage.jsx")
   .then((module) => ({ default: module.LabPage })));
+const TaskChainPage=lazy(()=>import('./components/classroom/student/TaskChainPage.jsx').then(module=>({default:module.TaskChainPage})));
 
 // 「关卡实验」不再出现在学生导航里：实验一律从课程首页的章节卡片进入，
 // 刷新恢复与课堂任务等场景仍可直接落在实验台视图。
@@ -614,7 +616,7 @@ export function App() {
   // 恢复结论落地前不要写回，避免同样的覆盖
   const restoreSettledRef = useRef(false);
   useViewHistory({user:auth.user,enabled:auth.status!=='loading'&&auth.status!=='error'&&!showLogin,route:{view:activeView,challengeId:activeView==='lab'?lab.selectedChallengeId:null,caseId:activeView==='hardware-game'?selectedHardwareCaseId:null,demoId:activeView==='demo'?demoId:null,studyTarget:activeView==='assignments'?studyTarget:null},restore:route=>{
-    if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo'].includes(route.view))return false;
+    if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo','classroom'].includes(route.view))return false;
     if(!auth.user&&!['home','courseware','demos','demo'].includes(route.view))return false;
     if(auth.user?.role==='teacher'&&!['teacher','courseware','demos','demo','hardware-game','records','mistakes','lab','assignments','notes'].includes(route.view))return false;
     if(auth.user?.role==='student'&&route.view==='teacher')return false;
@@ -935,8 +937,10 @@ export function App() {
 
   async function enterClassroomMission(sessionId) {
     try {
+      if(classroomSession.viewModel.ended){changeView('classroom');return;}
       const entered = await classroomSession.enter(sessionId);
       const stageIndex = entered.studentState?.current_stage_index ?? 0;
+      if(entered.mission?.key==='task-chain'){openClassroomStage(entered.mission.stages[stageIndex]);return;}
       const challengeId = entered.mission?.stages?.[stageIndex]?.challengeId ?? "computer-components";
       navigateToChallenge(challengeId);
     } catch (error) {
@@ -944,10 +948,19 @@ export function App() {
     }
   }
 
+  function openClassroomStage(stage=classroomSession.viewModel.currentStage) {
+    if(stage?.type==='lab')navigateToChallenge(stage.challengeId);
+    else changeView('classroom');
+  }
+  function continueClassroomTask(){
+    if(classroomSession.viewModel.studentStatus==='not_started')return enterClassroomMission(classroomSession.viewModel.sessionId);
+    if(classroomSession.viewModel.ended||classroomSession.viewModel.studentStatus==='completed')changeView('classroom');
+    else openClassroomStage();
+  }
   async function persistStudentAttempt(challengeId, result) {
     if (!['student','teacher'].includes(auth.user?.role)) return;
     try {
-      const saved = classroomSession.viewModel.active && !classroomSession.viewModel.ended
+      const saved = classroomSession.viewModel.active && !classroomSession.viewModel.ended && classroomSession.viewModel.currentStage?.challengeId===challengeId
         ? await classroomSession.submit({ challengeId, result })
         : await api.submitAttempt({ challengeId, result });
       if (saved.progress) {
@@ -1084,6 +1097,7 @@ export function App() {
       <div className={'app-shell lab-mode-shell'+(lab.currentChallenge?.id==='computer-components'?' lab-overview-shell':'')}>
         {renderPlatformTopbar()}
         {renderPlatformState()}
+        {auth.user?.role==='student'&&<TaskChainBar viewModel={classroomSession.viewModel} onContinue={continueClassroomTask}/>}
         <ErrorBoundary fallback={(
           <LabFeatureFallback
             challenge={lab.currentChallenge}
@@ -1093,13 +1107,13 @@ export function App() {
           />
         )}>
           <Suspense fallback={<FeatureLoading label="正在加载实验工作台..." />}>
-            <LabPage lab={lab} isMobile={isMobile}
+            <LabPage key={auth.user?.id ?? 'guest'} lab={lab} isMobile={isMobile}
               memoryAddress={memoryAddress} memoryOperation={memoryOperation} memoryWriteValue={memoryWriteValue}
               setMemoryAddress={setMemoryAddress} setMemoryOperation={setMemoryOperation} setMemoryWriteValue={setMemoryWriteValue}
               memoryAccessState={memoryAccessState}
               statusMessage={statusMessage} changeView={changeView}
               courseGuide={activeCourseGuide}
-              classroomLabViewModel={{ ...classroomSession.viewModel, submitAttempt: classroomSession.submit }} />
+              classroomLabViewModel={{ ...classroomSession.viewModel, active: classroomSession.viewModel.active && (classroomSession.viewModel.mission?.key!=='task-chain'||classroomSession.viewModel.currentStage?.challengeId===lab.currentChallenge?.id), ended: classroomSession.viewModel.ended && classroomSession.viewModel.mission?.key!=='task-chain', submitAttempt: classroomSession.submit }} />
           </Suspense>
         </ErrorBoundary>
         {renderSettingsModal()}
@@ -1113,6 +1127,7 @@ export function App() {
     <div className={activeView === "teacher" ? "app-shell teacher-reference-shell" : activeView === "home" ? "app-shell home-shell" : activeView === "demo" ? "app-shell demo-mode-shell" : "app-shell"}>
       {renderPlatformTopbar()}
       {renderPlatformState()}
+      {auth.user?.role==='student'&&activeView!=='home'&&activeView!=='classroom'&&<TaskChainBar viewModel={classroomSession.viewModel} onContinue={continueClassroomTask}/>}
 
       <div className="workspace">
         <main className="dashboard">
@@ -1126,6 +1141,7 @@ export function App() {
           ) : null}
 
           {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
+          {activeView==='classroom'&&auth.user?.role==='student'?<TaskChainPage key={`${auth.user.id}:${classroomSession.viewModel.sessionId}`} classroomSession={classroomSession} userId={auth.user.id} onOpenStage={openClassroomStage} onHome={()=>changeView('home')} onOpenMistakes={()=>changeView('mistakes')}/>:null}
           {['records','mistakes'].includes(activeView) && auth.user?.role === 'teacher' ? <TeacherLearningReview key={auth.user.id} mode={activeView} classes={teacherClasses} classId={selectedTeacherClassId} onClassChange={id=>{selectedTeacherClassIdRef.current=id;setSelectedTeacherClassId(id);refreshClassOverview(id);}} selectedStudent={teacherReviewStudent} onStudentChange={setTeacherReviewStudent} changeView={changeView} navigateToChallenge={navigateToChallenge} openStudyTarget={openStudyTarget}/> : null}
           {activeView === "records" && auth.user?.role !== 'teacher' ? <StudentRecords key={auth.user?.id} userId={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "demos" ? <InteractiveDemos openDemo={openDemo} navigateToChallenge={navigateToChallenge} /> : null}
@@ -1155,6 +1171,7 @@ export function App() {
               selectedTeacherStudent={selectedTeacherStudent} setSelectedTeacherStudent={setSelectedTeacherStudent}
               buildTeacherAssistantInsights={buildTeacherAssistantInsights}
               teacherSession={teacherSession}
+              onOpenLab={navigateToChallenge}
             />
             </ErrorBoundary>
           ) : null}
@@ -1212,6 +1229,9 @@ export function App() {
           : questSettlement}
         onReview={() => setQuestSettlement(null)}
         onContinue={() => {
+          if(classroomSession.viewModel.active&&classroomSession.viewModel.mission?.key==='task-chain'){
+            setQuestSettlement(null);continueClassroomTask();return;
+          }
           const nextId = classroomSession.viewModel.active && !classroomSession.viewModel.ended
             ? classroomSession.viewModel.currentStage?.challengeId : questSettlement.nextId;
           setQuestSettlement(null);

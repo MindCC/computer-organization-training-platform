@@ -21,6 +21,25 @@ test("local development accepts Vite's next available port on loopback", () => {
   assert.equal(isTrustedRequestOrigin(req, "http://127.0.0.1:5173"), true);
 });
 
+test("local direct preview accepts only its exact request origin alongside Vite", () => {
+  for (const host of ["127.0.0.1:8791", "localhost:8791", "[::1]:8791"]) {
+    const req = { protocol: "http", headers: { host, origin: `http://${host}` } };
+    assert.equal(isTrustedRequestOrigin(req, "http://127.0.0.1:5173"), true);
+    req.headers.origin = "http://127.0.0.1:8792";
+    assert.equal(isTrustedRequestOrigin(req, "http://127.0.0.1:5173"), false);
+    req.headers.origin = "https://attacker.example";
+    assert.equal(isTrustedRequestOrigin(req, "http://127.0.0.1:5173"), false);
+  }
+});
+
+test("direct preview exception does not relax explicit public URLs or remote hosts", () => {
+  const req = { protocol: "http", headers: { host: "127.0.0.1:8791", origin: "http://127.0.0.1:8791" } };
+  assert.equal(isTrustedRequestOrigin(req, "https://school.example"), false);
+  req.headers.host = "school.example";
+  req.headers.origin = "http://school.example";
+  assert.equal(isTrustedRequestOrigin(req, "http://127.0.0.1:5173"), false);
+});
+
 test("login failure window restarts after expiry", () => {
   let clock = 1_000;
   const tracker = createLoginFailureTracker({

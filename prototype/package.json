@@ -7,6 +7,13 @@
     "node": ">=22"
   },
   "scripts": {
+    "preqa:mobile": "npm run build -- --manifest",
+    "qa:mobile": "node scripts/run-browser-qa.mjs scripts/verify-mobile.mjs --production --seed-demo",
+    "preqa:study-planning": "npm run build -- --manifest",
+    "qa:study-planning": "node scripts/run-browser-qa.mjs scripts/verify-study-planning.mjs --production",
+    "qa:learning-coach": "node scripts/run-browser-qa.mjs scripts/verify-learning-coach.mjs --production",
+    "preqa:learning-coach": "npm run build -- --manifest",
+    "eval:learning-coach": "node scripts/evaluate-learning-coach.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
     "test": "node --test src/*.test.mjs src/shared/*.test.mjs src/circuit/*.test.mjs src/components/*.test.mjs src/motion/*.test.mjs scripts/*.test.mjs server/*.test.mjs",

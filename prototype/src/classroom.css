@@ -349,6 +349,12 @@
   align-items: flex-end;
 }
 
+.session-plan-intro, .session-plan-fields { flex-basis: 100%; }
+.session-plan-intro { margin: 0; color: var(--muted); line-height: 1.5; }
+.session-plan-fields { display: grid; gap: 12px; }
+.session-plan-fields label { display: grid; gap: 5px; font-size: .85rem; }
+.session-plan-fields input, .session-plan-fields textarea { width: 100%; min-width: 0; padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; font: inherit; }
+
 .session-setup-field {
   display: flex;
   flex-direction: column;
@@ -365,12 +371,17 @@
 /* ---- Live Session Dashboard ---- */
 
 .live-session-dashboard {
+  min-width: 0;
   background: var(--classroom-instrument);
   color: var(--classroom-instrument-ink);
   border-radius: 16px;
   padding: 16px 24px;
   margin-bottom: 16px;
 }
+
+.live-session-lesson-plan { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.22); line-height: 1.5; }
+.live-session-lesson-plan p { margin: 5px 0; }
+.live-session-lesson-plan ol { margin: 7px 0; padding-left: 22px; }
 
 .live-session-status {
   display: flex;
@@ -382,6 +393,8 @@
 
 .live-session-info {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
 }
@@ -401,6 +414,8 @@
 
 .live-session-controls {
   display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
@@ -738,6 +753,8 @@
 }
 .live-session-dashboard .live-session-time { opacity: 0.85; font-weight: 600; }
 .live-session-dashboard .live-session-info > strong { font-size: 1.02rem; }
+.live-session-dashboard .chain-live-stages article { color: #233844; }
+.live-session-dashboard .chain-live-stages .ghost-button { color: #216b5d; background: #edf7f4; border-color: #c9e2da; }
 
 /* ---- 教师工作区：左侧分类导航（参考学情分析布局） ---- */
 .teacher-studio-layout {
@@ -909,8 +926,8 @@
 }
 .teacher-toolbar-button:hover { background: #f4f7fb; color: #2563eb; }
 
-.teacher-studio-main { display: grid; gap: 0; min-width: 0; }
-.teacher-studio-main > div:not([hidden]) { display: grid; gap: 0; }
+.teacher-studio-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; min-width: 0; }
+.teacher-studio-main > div:not([hidden]) { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 0; }
 .teacher-studio-main .teacher-quest-overview,
 .teacher-studio-main .teacher-studio-panel,
 .teacher-studio-main .teacher-assistant-panel,

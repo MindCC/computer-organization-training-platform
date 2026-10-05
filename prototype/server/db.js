@@ -7,6 +7,8 @@ import { reconcileDependencyLocks } from "../src/challengeDependencies.js";
 import { sanitizeProfile } from "./security.js";
 import { ensureShopServiceTables } from './shopServiceRoutes.js';
 import { ensureMindMapTables } from './mindMapRepository.js';
+import { migrateLearningCoach } from './learningCoachRepository.js';
+import { migrateStudyWorkspace } from './studyWorkspace.js';
 
 const DEFAULT_DATABASE_PATH = path.resolve("data/classroom.sqlite");
 
@@ -512,6 +514,8 @@ export function migrate(db) {
     ON student_session_states(student_id, session_id);
   `);
   sanitizeStoredUserProfiles(db);
+  migrateLearningCoach(db);
+  migrateStudyWorkspace(db);
 }
 
 function sanitizeStoredUserProfiles(db) {

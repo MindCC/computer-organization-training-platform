@@ -1,4 +1,5 @@
-import { validateClassroomSessionConfig, getClassroomMission } from "../src/shared/classroomMissionDefinitions.js";
+import { validateClassroomSessionConfig, missionForSession } from "../src/shared/classroomMissionDefinitions.js";
+import { createTaskChainActions, validateChainAssignments, advanceTaskChain } from './classroomTaskChain.js';
 import { recordStudentAttempt, teacherOwnsClass, getStudentProgress } from "./db.js";
 import { gradeClassroomEvidence, classroomError } from "./classroomMissionGrading.js";
 import { buildStudentReplay } from "./classroomAnalytics.js";
@@ -73,6 +74,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
   }
 
   function freezeSessionReport(session) {
+    const mission=missionForSession(session);
     const overview = repository.getOverview(session.id);
     const studentReports = overview.students.map((student) => {
       const result = safeJson(student.result_json);
@@ -83,7 +85,10 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
         xp: student.xp,
         stars: student.stars,
         badges: calculateBadges(result?.passedStageIds ?? []),
-        averageScore: result?.averageScore ?? 0,
+        averageScore: result?.averageScore ?? (mission.key==='task-chain'?null:0),
+        completedStages: student.current_stage_index,
+        totalStages: mission.stages.length,
+        stageResults: result?.stageResults ?? [],
       };
     });
     const completedCount = studentReports.filter((s) => s.status === "completed").length;
@@ -93,7 +98,8 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       totalStudents: overview.students.length,
       completedStudents: completedCount,
       passedStudents: passCount,
-      averageScore: studentReports.reduce((sum, s) => sum + s.averageScore, 0) / (studentReports.length || 1),
+      averageScore: studentReports.some(s=>Number.isFinite(s.averageScore)) ? studentReports.filter(s=>Number.isFinite(s.averageScore)).reduce((sum,s)=>sum+s.averageScore,0)/studentReports.filter(s=>Number.isFinite(s.averageScore)).length : null,
+      stages: mission.stages,
       studentReports,
     };
     repository.freezeReport(session.id, report);
@@ -101,12 +107,14 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
   }
 
   return {
+    ...createTaskChainActions({db,repository,now,expireIfNeeded,assertTeacherOwns}),
     createDraft({ teacherId, classId, config }) {
       if (!teacherOwnsClass(db, teacherId, classId)) {
         throw classroomError("SESSION_NOT_FOUND", "课堂场次不存在", 404, false);
       }
       const validated = validateClassroomSessionConfig(config);
-      const mission = getClassroomMission(validated.templateKey, validated.templateVersion);
+      validateChainAssignments(db,validated,classId);
+      const mission = validated.taskChain ?? missionForSession({template_key:validated.templateKey,template_version:validated.templateVersion});
       return repository.createDraft({
         classId,
         teacherId,
@@ -129,6 +137,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
         throw classroomError("SESSION_ENDED", "课堂已自动结束", 409, false);
       }
       assertAllowableTransition(fresh, "live");
+      validateChainAssignments(db,safeJson(fresh.config_json)??{},fresh.class_id);
       const conflicts = repository.findActiveConflictsForClass(fresh.class_id, fresh.id);
       if (conflicts.length > 0) {
         const err = classroomError("ACTIVE_SESSION_CONFLICT", "有学生在其他活动课堂中", 409, false);
@@ -200,7 +209,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       const studentState = storedState
         ? { ...storedState, result: safeJson(storedState.result_json) }
         : null;
-      const mission = getClassroomMission(fresh.template_key, fresh.template_version);
+      const mission = missionForSession(fresh);
       const remainingSeconds = fresh.status === "live"
         ? Math.max(0, fresh.duration_minutes * 60 - computeActiveSeconds(fresh, now()))
         : fresh.duration_minutes * 60 - (fresh.accumulated_active_seconds ?? 0);
@@ -229,8 +238,8 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       ).get(fresh.class_id, studentId);
       if (!isMember) throw classroomError("NOT_CLASS_MEMBER", "你不在该班级中", 403, false);
       const studentState = repository.enterStudent(fresh.id, studentId);
-      const mission = getClassroomMission(fresh.template_key, fresh.template_version);
-      return { session: fresh, studentState, mission };
+      const mission = missionForSession(fresh);
+      return { session: fresh, studentState: {...studentState,result:safeJson(studentState.result_json)}, mission, remainingSeconds: Math.max(0,fresh.duration_minutes*60-computeActiveSeconds(fresh,now())) };
     },
 
     submitAttempt({ studentId, payload }) {
@@ -260,8 +269,9 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       }
       const studentState = repository.getStudentState(fresh.id, studentId);
       if (!studentState) throw classroomError("NOT_CLASS_MEMBER", "你不在该课堂中", 403, false);
+      if (fresh.template_key === 'task-chain' && studentState.status === 'not_started') throw classroomError('SESSION_NOT_ENTERED','请先接受课堂任务',409,false);
       const stageIndex = studentState?.current_stage_index ?? 0;
-      const mission = getClassroomMission(fresh.template_key, fresh.template_version);
+      const mission = missionForSession(fresh);
       const expectedChallengeId = mission.stages[stageIndex]?.challengeId;
       if (!expectedChallengeId || payload.challengeId !== expectedChallengeId) {
         throw classroomError("STAGE_MISMATCH", "提交的关卡与当前课堂阶段不匹配", 409, false);
@@ -270,6 +280,18 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       const graded = gradeClassroomEvidence({ mission, stageIndex, payload, progress: realProgress });
       if (!graded.ok && graded.ok !== undefined) {
         throw classroomError("INVALID_STAGE_EVIDENCE", graded.error, graded.status, false);
+      }
+      if(mission.key==='task-chain') {
+        const stage=mission.stages[stageIndex];
+        let progress,updated;
+        db.transaction(()=>{
+          progress=recordStudentAttempt(db,studentId,graded.challengeId,graded.result,{sessionId:fresh.id,clientSubmissionId:payload.clientSubmissionId,inTransaction:true});
+          const participation=graded.result.classroomPoints!==undefined;
+          updated=advanceTaskChain({repository,session:fresh,studentState,mission,stageIndex,
+            result:{score:participation?null:graded.result.score,passed:graded.result.passed,errors:graded.result.errors},
+            evidence:{challengeId:stage.challengeId},now});
+        })();
+        return {session:fresh,studentState:updated,progress,summary:{xp:updated.xp,stars:updated.stars}};
       }
       // Calculate updated rewards — track per-stage attempts
       const prevResult = safeJson(studentState.result_json) ?? {};
@@ -341,6 +363,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       const overview = repository.getOverview(fresh.id);
       return {
         session: fresh,
+        mission: missionForSession(fresh),
         students: overview.students.map((s) => ({
           studentId: s.student_id,
           displayName: s.display_name,

@@ -8,6 +8,7 @@ import {
   buildClassroomViewModel,
   buildTeacherSessionViewModel,
   mergeClassroomSubmission,
+  readSessionLessonPlan,
 } from "./classroomSessionState.js";
 
 test("pendingSubmissionKey isolates by user, session, and stage", () => {
@@ -70,6 +71,15 @@ test("buildClassroomViewModel maps paused and live states", () => {
   assert.equal(vm.currentStage.id, "program-flow");
 });
 
+test("saved classroom plan reaches both teacher and student views", () => {
+  const lessonPlan = { focus: "观察进位", steps: ["单步执行"], teacherScript: "先问学生预期" };
+  const session = { id: 3, title: "数据流", status: "live", config_json: JSON.stringify({ lessonPlan }) };
+  assert.deepEqual(readSessionLessonPlan(session), lessonPlan);
+  assert.deepEqual(buildClassroomViewModel({ session, remainingSeconds: 60 }).lessonPlan, lessonPlan);
+  assert.deepEqual(buildTeacherSessionViewModel({ session, students: [] }).lessonPlan, lessonPlan);
+  assert.equal(readSessionLessonPlan({ config_json: "invalid" }), null);
+});
+
 test("buildClassroomViewModel marks paused state", () => {
   const vm = buildClassroomViewModel({
     session: { id: 1, title: "测试课堂", status: "paused" },
@@ -102,7 +112,7 @@ test("buildTeacherSessionViewModel detects needs-help students", () => {
   const vm = buildTeacherSessionViewModel({
     session: { id: 1, title: "帮助测试", status: "live", updated_at: "2026-01-01" },
     students: [
-      { student_id: 1, display_name: "陷入困境", status: "in_progress", current_stage_index: 0, xp: 0 },
+      { student_id: 1, display_name: "重复尝试", status: "in_progress", current_stage_index: 1, result: {stageAttempts:[1,2]}, xp: 0 },
     ],
   });
   assert.equal(vm.needsHelp.length, 1);

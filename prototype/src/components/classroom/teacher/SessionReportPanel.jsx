@@ -33,8 +33,8 @@ export function SessionReportPanel({ report }) {
         </div>
         <div className="report-metric">
           <Star size={20} />
-          <strong>{Math.round(averageScore)}</strong>
-          <span>平均分</span>
+          <strong>{Number.isFinite(averageScore)?Math.round(averageScore):'—'}</strong>
+          <span>计分环节平均分</span>
         </div>
         <div className="report-metric">
           <strong>{completionRate}%</strong>
@@ -51,11 +51,12 @@ export function SessionReportPanel({ report }) {
               <th>星级</th>
               <th>XP</th>
               <th>徽章</th>
+              <th>学习记录</th>
             </tr>
           </thead>
           <tbody>
             {studentReports?.map((student) => {
-              const percent = student.status === "completed" ? 100 : student.status === "in_progress" ? 50 : 0;
+              const percent = student.totalStages ? Math.round(student.completedStages/student.totalStages*100) : student.status === "completed" ? 100 : 0;
               return (
                 <tr key={student.studentId} className={`report-row ${student.status}`}>
                   <td className="report-student-name">{student.displayName}</td>
@@ -67,7 +68,7 @@ export function SessionReportPanel({ report }) {
                       <div className="report-completion-shell">
                         <div className="report-completion-fill" style={{ width: `${percent}%` }} />
                       </div>
-                      <span>{student.status === "completed" ? "100%" : percent > 0 ? "进行中" : "0%"}</span>
+                      <span>{percent}%</span>
                     </div>
                   </td>
                   <td>
@@ -77,6 +78,7 @@ export function SessionReportPanel({ report }) {
                   </td>
                   <td className="report-xp">{student.xp}</td>
                   <td className="report-badges">{student.badges?.length ? student.badges.join(" · ") : "—"}</td>
+                  <td>{student.stageResults?.length?<details><summary>查看环节记录</summary>{student.stageResults.map(result=><div key={result.stageId}><strong>{result.title} · {Number.isFinite(result.score)?`${result.score}分`:'参与记录'}</strong>{result.evidence?.text&&<p className="chain-report-evidence">{result.evidence.text}</p>}</div>)}</details>:'—'}</td>
                 </tr>
               );
             })}

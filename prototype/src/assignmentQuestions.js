@@ -111,6 +111,18 @@ export const ASSIGNMENT_QUESTIONS = Object.freeze([
     analysis: "-5 原码 10000101 → 反码 11111010 → 补码加 1 得 11111011。",
   },
 
+  {id:'ch2-q08',chapterId:'ch2',kpId:'concept-twos-complement',type:'choice',score:10,
+    stem:'用 8 位补码计算 5 − 3，应将 00000101 与哪个位串相加？',
+    options:['11111101','00000011','10000011','11111100'],answer:'11111101',
+    analysis:'减法转为加上 −3，−3 的 8 位补码为 11111101。相加为 1 00000010，保留低 8 位，结果为 2。'},
+  {id:'ch2-q09',chapterId:'ch2',kpId:'concept-signed-range-overflow',type:'choice',score:10,
+    stem:'8 位补码计算 100 + 100，保留的位串读作 −56。应如何解释？',
+    options:['发生有符号溢出，真实和为 200','正确答案就是 −56','发生进位所以答案一定为负','负数不能用补码表示'],answer:'发生有符号溢出，真实和为 200',
+    analysis:'真实和 200 超出 −128～127，01100100 + 01100100 = 11001000。同号相加结果异号，有符号溢出。'},
+  {id:'ch2-q10',chapterId:'ch2',kpId:'concept-signed-range-overflow',type:'truefalse',score:10,
+    stem:'补码加法只要最高位向外产生进位，就一定发生有符号溢出。',answer:'false',
+    analysis:'向外进位与有符号溢出不同。例如 5 + (−3) 有向外进位，结果 2 仍在范围内；100 + 100 没有向外进位，却发生有符号溢出。'},
+
   // ---- 第三章 运算单元设计（数据流 + 门 + 加法器 + 选择器 + ALU） ----
   {
     id: "ch3-q01", chapterId: "ch3", kpId: "concept-boolean-gates", type: "choice", score: 10,

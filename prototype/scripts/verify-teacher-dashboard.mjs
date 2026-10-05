@@ -5,6 +5,7 @@ import { chromium, expect } from "@playwright/test";
 import { openTeacherWorkspace, TEACHER_WORKSPACE } from "./lib/qaTeacherWorkspace.mjs";
 import { selectTeacherClass } from "./helpers/select-teacher-class.mjs";
 import { HARDWARE_GAME_CASES } from '../src/hardwareGame.js';
+import { COURSEWARE } from '../src/courseware.js';
 
 /**
  * 教师看板定向回归：验证按功能拆分后的版块都能渲染，
@@ -97,6 +98,7 @@ try {
   }
   await page.locator("#login-username").fill(teacherUsername);
   await page.locator("#login-password").fill(teacherPassword);
+  await page.locator('[data-login-role="teacher"]').click();
   await page.locator(".login-submit").click();
   await page.waitForLoadState("networkidle");
 
@@ -171,22 +173,35 @@ try {
   await openTeacherWorkspace(page, TEACHER_WORKSPACE.statistics, TEACHER_WORKSPACE.insight);
   await page.locator(".teacher-studio-summary .metric-card").first().waitFor({ state: "visible", timeout: 20_000 });
 
-  // 课堂设置面板：备份改为二次口令确认，导入学生区块的初始口令清单可渲染
-  const settingsButton = page.getByRole("button", { name: "课堂设置" });
-  if (!(await settingsButton.isVisible().catch(() => false))) {
-    await page.locator(".profile-button").click();
-  }
-  await settingsButton.click();
-  await page.locator(".settings-overlay").waitFor({ state: "visible", timeout: 10_000 });
-  assert.equal(await page.getByLabel("备份确认口令").count(), 1, "backup download asks for the account password");
-  assert.equal(await page.getByLabel("学生导入 CSV").count(), 1, "student import block renders");
-  await page.getByRole("button", { name: "关闭" }).click();
+  // 个人设置中的课堂管理页：备份口令确认与学生导入。
+  await page.locator(".profile-button").click();
+  await page.getByRole("button", { name: "个人设置", exact: true }).click();
+  const settings = page.getByRole("dialog");
+  await expect(settings.getByRole("heading", { name: "个人设置", exact: true })).toBeVisible();
+  await settings.getByRole("tab", { name: "课堂管理", exact: true }).click();
+  await expect(settings.getByLabel("备份确认口令")).toBeVisible();
+  await expect(settings.getByLabel("学生导入 CSV")).toBeVisible();
+  await settings.getByRole("button", { name: "关闭", exact: true }).click();
 
-  // 课件页：教师可选发布班级并上传
+  // 课件页：已配置的 AI 互动课件及章节切换。
+  const lectureChapters = COURSEWARE.chapters.filter(chapter => chapter.embeds?.length);
+  assert.ok(lectureChapters.length, "AI lecture chapters are configured");
+  // 外部课件用固定响应隔离网络波动，仍检查真实配置的 iframe 地址。
+  for (const origin of new Set(lectureChapters.flatMap(chapter => chapter.embeds.map(embed => new URL(embed.src).origin)))) {
+    await page.route(`${origin}/**`, route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>AI lecture QA</title>' }));
+  }
   await coursewareNav.click();
-  await page.locator(".courseware-view").waitFor({ state: "visible", timeout: 10_000 });
-  await page.locator(".upload-courseware-panel").waitFor({ state: "visible", timeout: 10_000 });
-  assert.equal(await page.getByLabel("选择发布课件的班级").count(), 1, "teacher can pick the publishing class on the courseware page");
+  const lecture = page.getByRole("region", { name: "AI 互动课件", exact: true });
+  await expect(lecture).toBeVisible();
+  const chapterNav = lecture.getByRole("navigation", { name: "选择 AI 课件章节" });
+  await expect(chapterNav.getByRole("button")).toHaveCount(lectureChapters.length);
+  for (const chapter of lectureChapters) {
+    const chapterButton = chapterNav.getByRole("button", { name: chapter.title, exact: true });
+    await chapterButton.click();
+    await expect(chapterButton).toHaveAttribute("aria-pressed", "true");
+    await expect(lecture.locator("iframe")).toHaveAttribute("src", chapter.embeds[0].src);
+  }
+  await expect(lecture.getByRole("button", { name: "全屏", exact: true })).toBeVisible();
 
   assert.deepEqual(pageErrors, [], "no uncaught page errors during teacher dashboard verification");
   await page.screenshot({ path: path.join(artifactDir, "teacher-dashboard-refactor.png"), fullPage: true });

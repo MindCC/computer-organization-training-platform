@@ -1,41 +1,10 @@
-const deepFreeze = (value) => {
-  if (value && typeof value === "object" && !Object.isFrozen(value)) {
-    Object.freeze(value);
-    Object.values(value).forEach(deepFreeze);
-  }
-  return value;
-};
-
-export const CLASSROOM_MISSIONS = deepFreeze({
-  "computer-data-flow": {
-    1: {
-      key: "computer-data-flow",
-      version: 1,
-      title: "计算机五大部件与数据流",
-      stages: [
-        { id: "components", challengeId: "computer-components", title: "认识五大部件", grading: "participation" },
-        { id: "program-flow", challengeId: "program-flow", title: "观察程序执行", grading: "circuit" },
-        { id: "instruction-data", challengeId: "instruction-data", title: "区分指令与数据", grading: "circuit" },
-        { id: "data-flow", challengeId: "data-flow", title: "完成综合数据流实训", grading: "circuit" },
-      ],
-    },
-  },
-});
-
-export function getClassroomMission(templateKey, templateVersion) {
-  const mission = CLASSROOM_MISSIONS[templateKey]?.[templateVersion];
-  if (!mission) throw new Error("课堂任务包不存在");
-  return mission;
-}
-
-export function getLatestClassroomMission(templateKey) {
-  const versions = Object.keys(CLASSROOM_MISSIONS[templateKey] ?? {}).map(Number);
-  if (versions.length === 0) throw new Error("课堂任务包不存在");
-  return getClassroomMission(templateKey, Math.max(...versions));
-}
+import { getLatestClassroomMission } from './classroomMissionRuntime.js';
+import { validateTaskChain } from './classroomTaskChain.js';
+export { CLASSROOM_MISSIONS, getClassroomMission, getLatestClassroomMission, missionForSession } from './classroomMissionRuntime.js';
 
 export function validateClassroomSessionConfig(input = {}) {
-  const mission = getLatestClassroomMission(String(input.templateKey ?? ""));
+  const taskChain = input.templateKey === 'task-chain' ? validateTaskChain(input.taskChain) : null;
+  const mission = taskChain ? {key:'task-chain',version:1} : getLatestClassroomMission(String(input.templateKey ?? ""));
   const durationMinutes = Number(input.durationMinutes);
   const passScore = Number(input.passScore);
   if (!Number.isInteger(durationMinutes) || durationMinutes < 10 || durationMinutes > 180) {
@@ -44,11 +13,31 @@ export function validateClassroomSessionConfig(input = {}) {
   if (!Number.isInteger(passScore) || passScore < 60 || passScore > 100) {
     throw new Error("及格分必须是 60 到 100 的整数");
   }
+  let lessonPlan = null;
+  if (input.lessonPlan != null) {
+    const raw = input.lessonPlan;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("教学安排格式无效");
+    if (typeof raw.focus !== "string" || (raw.teacherScript != null && typeof raw.teacherScript !== "string")) {
+      throw new Error("教学安排文字格式无效");
+    }
+    const focus = String(raw.focus ?? "").trim();
+    const teacherScript = String(raw.teacherScript ?? "").trim();
+    const steps = raw.steps;
+    if (!focus || focus.length > 500) throw new Error("教学重点须为 1 到 500 字");
+    if (!Array.isArray(steps) || steps.length < 1 || steps.length > 8
+      || !steps.every((step) => typeof step === "string" && step.trim() && step.trim().length <= 300)) {
+      throw new Error("课堂步骤须为 1 到 8 条，每条不超过 300 字");
+    }
+    if (teacherScript.length > 1000) throw new Error("讲解提示不能超过 1000 字");
+    lessonPlan = { focus, steps: steps.map((step) => step.trim()), teacherScript };
+  }
   return {
     templateKey: mission.key,
     templateVersion: mission.version,
     durationMinutes,
     passScore,
     allowMakeup: input.allowMakeup === true,
+    ...(taskChain ? {taskChain} : {}),
+    ...(lessonPlan ? { lessonPlan } : {}),
   };
 }

@@ -94,6 +94,23 @@ test("createDraft rejects invalid config", () => {
   ctx.db.close();
 });
 
+test("teacher-edited lesson plan is saved with the classroom draft", () => {
+  const ctx = makeContext();
+  try {
+    const teacher = createUser(ctx.db, { username: "plan-t", displayName: "T", role: "teacher", passwordHash: "pw" });
+    const classRow = createClass(ctx.db, teacher.id, "备课班");
+    const plan = { focus: "全加器进位", steps: ["先观察 Cout", "再重连全加器"], teacherScript: "学生先独立尝试" };
+    const session = ctx.service.createDraft({ teacherId: teacher.id, classId: classRow.id,
+      config: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80, lessonPlan: plan } });
+    assert.deepEqual(JSON.parse(session.config_json).lessonPlan, plan);
+    assert.deepEqual(JSON.parse(ctx.service.getCurrentForClass({ teacherId: teacher.id, classId: classRow.id }).session.config_json).lessonPlan, plan);
+    assert.throws(() => ctx.service.createDraft({ teacherId: teacher.id, classId: classRow.id,
+      config: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80, lessonPlan: { ...plan, focus: "x".repeat(501) } } }), /教学重点/);
+    assert.throws(() => ctx.service.createDraft({ teacherId: teacher.id, classId: classRow.id,
+      config: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80, lessonPlan: { ...plan, focus: { unsafe: true } } } }), /文字格式/);
+  } finally { ctx.db.close(); }
+});
+
 test("createDraft and full lifecycle creates a live session", () => {
   const ctx = makeContext();
   const teacher = createUser(ctx.db, { username: "t2", displayName: "T2", role: "teacher", passwordHash: "pw" });

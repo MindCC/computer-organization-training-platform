@@ -5,8 +5,8 @@ import "./coursewareView.css";
 
 const AI_CHAPTERS = COURSEWARE.chapters.filter(chapter => (chapter.embeds ?? []).length > 0);
 
-export function CoursewareView() {
-  const [lectureChapter, setLectureChapter] = useState(AI_CHAPTERS[0]?.id ?? null);
+export function CoursewareView({initialChapterId} = {}) {
+  const [lectureChapter, setLectureChapter] = useState(initialChapterId??AI_CHAPTERS[0]?.id ?? null);
   const playerRef = useRef(null);
   const [nativeFullscreen, setNativeFullscreen] = useState(false);
   const [expanded, setExpanded] = useState(false);

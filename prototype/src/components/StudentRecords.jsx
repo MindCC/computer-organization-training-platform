@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { ArrowRight, ChartBar, TreeStructure } from "@phosphor-icons/react";
 import { CHALLENGES } from "../platformLogic.js";
 import { COURSE_CHAPTERS, PARTICIPATION_SCORE_NOTE, isParticipationChallenge, scoreLabelOf } from "../courseChapters.js";
@@ -18,6 +18,7 @@ import { RecentActivityChart } from "./records/RecentActivityChart.jsx";
 import { buildRecentActivityModel } from "../recordsOverviewModel.js";
 import { StudyMascot } from "./ai/StudyMascot.jsx";
 import "./records/recordsTech.css";
+const StudyPlanningPanel = lazy(() => import('./study/StudyPlanningPanel.jsx').then(m => ({ default: m.StudyPlanningPanel })));
 
 const CHALLENGES_BY_CHAPTER = COURSE_CHAPTERS.map((chapter) => ({
   chapter,
@@ -44,7 +45,7 @@ function DisclosureToggle() {
   return <span className="records-disclosure-toggle"><span className="when-closed">展开</span><span className="when-open">收起</span></span>;
 }
 
-export function StudentRecords({ summary = {}, progress = {}, activityLog = [], changeView, selectChallenge, openStudyTarget, userId, reviewData, assistantEnabled = true }) {
+export function StudentRecords({ summary = {}, progress = {}, activityLog = [], changeView, selectChallenge, openStudyTarget, userId, reviewData, assistantEnabled = true, personalTools = true }) {
   const treeModel = useMemo(() => buildLearningTreeModel(progress), [progress]);
   const distribution = useMemo(() => buildStatusDistribution(progress), [progress]);
   const chapterSeries = useMemo(() => buildChapterScoreSeries(progress), [progress]);
@@ -125,6 +126,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
         </div>
       </section>
 
+      {userId && personalTools && <Suspense fallback={<p role="status">正在加载学习计划…</p>}><StudyPlanningPanel key={userId} onOpenChallenge={selectChallenge} onOpenStudyTarget={openStudyTarget}/></Suspense>}
       <details className="records-disclosure" data-testid="records-tree-section">
         <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>章节学习树</strong><small>查看八章分支与全部 {treeModel.totals.total} 个实验叶片</small></span><span className="records-disclosure-meta">{treeModel.totals.lit} 已点亮<DisclosureToggle /></span></summary>
         <section aria-label="章节学习树" className="records-panel records-tree-panel">

@@ -22,19 +22,24 @@ function readNonBlankString(value, fallback) {
   return normalized ? normalized : fallback;
 }
 
-function assertSafeContent(content, indexLabel, maxLength) {
+function assertSafeContent(content, indexLabel, maxLength, contentScope) {
   if (content.length > maxLength) {
     throw createAiError("AI_RESPONSE", `${indexLabel} is too large for the AI boundary`);
   }
 
   for (const rule of FORBIDDEN_PAYLOAD_PATTERNS) {
-    if (rule.pattern.test(content)) {
+    // A public teaching request may name the "学习反思" activity. Structured private
+    // note/reflection fields remain blocked; the task-chain boundary supplies no records.
+    const pattern = contentScope === 'public-teaching-requirements' && rule.label === 'full student note content'
+      ? /\b(student\s*)?notes?\s*[:=]|\bnote\s*content\s*[:=]|\breflection\s*[:=]|学生笔记|笔记内容|课堂记录\s*[:：]/i
+      : rule.pattern;
+    if (pattern.test(content)) {
       throw createAiError("AI_RESPONSE", `Forbidden sensitive content detected in ${indexLabel}: ${rule.label}`);
     }
   }
 }
 
-function validateMessages(messages) {
+function validateMessages(messages, options = {}) {
   if (!Array.isArray(messages) || messages.length === 0) {
     throw createAiError("AI_RESPONSE", "Messages must be a non-empty array");
   }
@@ -56,7 +61,7 @@ function validateMessages(messages) {
     }
 
     const normalizedContent = content.trim();
-    assertSafeContent(normalizedContent, `message ${index}`, MAX_MESSAGE_CONTENT_LENGTH);
+    assertSafeContent(normalizedContent, `message ${index}`, MAX_MESSAGE_CONTENT_LENGTH, options.contentScope);
 
     return {
       role,
@@ -89,7 +94,7 @@ export async function requestChatCompletion(config, messages, options = {}) {
     throw createAiError("AI_DISABLED", "DEEPSEEK_API_KEY is not configured");
   }
 
-  const validatedMessages = validateMessages(messages);
+  const validatedMessages = validateMessages(messages, options);
   const fetchImpl = options.fetchImpl ?? fetch;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), config.timeoutMs);

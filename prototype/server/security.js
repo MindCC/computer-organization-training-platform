@@ -5,6 +5,15 @@ export function isTrustedRequestOrigin(req, publicBaseUrl = "") {
     const expected = new URL(publicBaseUrl || `${req.protocol}://${req.headers.host}`);
     const actual = new URL(source);
     if (actual.origin === expected.origin) return true;
+    // 默认开发配置同时支持直接打开后端静态预览。只接受该本机请求自身的 origin，
+    // 不把其他后端端口或远程 Host 加入跨站白名单。
+    const defaultLocalDevelopment = expected.origin === "http://127.0.0.1:5173";
+    if (defaultLocalDevelopment) {
+      const requestUrl = new URL(`${req.protocol}://${req.headers.host}`);
+      if (requestUrl.protocol === "http:"
+        && ["127.0.0.1", "localhost", "[::1]"].includes(requestUrl.hostname)
+        && actual.origin === requestUrl.origin) return true;
+    }
     // Vite 端口被占用时会依次选择 5174、5175…；只对默认本机开发地址放行该范围。
     const actualPort = Number(actual.port);
     return expected.protocol === "http:"

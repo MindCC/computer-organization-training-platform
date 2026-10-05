@@ -317,6 +317,7 @@ test("AI report labels are mapped back to the real student", async () => {
         commonMisconceptions: [],
         nextClassPlan: [],
         teacherScript: "讲解进位传递",
+        evidenceRefs: ["E1"],
       });
     },
   });
@@ -324,6 +325,7 @@ test("AI report labels are mapped back to the real student", async () => {
   assert.equal(response.source, "ai");
   assert.equal(response.report.riskStudents[0].name, "王小明");
   assert.equal(response.report.riskStudents[0].studentId, student.id);
+  assert.equal(response.report.evidence[0].type, "class_summary");
 });
 
 test("restoreStudentNames leaves unknown names untouched", () => {
@@ -376,6 +378,7 @@ test("parseAssistantJson rejects empty required prose fields", () => {
       commonMisconceptions: [],
       nextClassPlan: [],
       teacherScript: "   ",
+      evidenceRefs: [],
     })),
     /不可为空/,
   );
@@ -389,6 +392,7 @@ test("parseAssistantJson rejects array elements that cannot be rendered safely",
     commonMisconceptions: [],
     nextClassPlan: [],
     teacherScript: "script",
+    evidenceRefs: [],
   };
 
   assert.throws(
@@ -410,11 +414,23 @@ test("parseAssistantJson rejects array elements that cannot be rendered safely",
 
 test("parseAssistantJson accepts markdown-wrapped JSON", () => {
   const report = parseAssistantJson(`\`\`\`json
-{"lessonFocus":"全加器和 Cout","riskStudents":[],"groupingPlan":[],"commonMisconceptions":[],"nextClassPlan":["复盘 Cout"],"teacherScript":"先讲 Cout 的含义。"}
+{"lessonFocus":"全加器和 Cout","riskStudents":[],"groupingPlan":[],"commonMisconceptions":[],"nextClassPlan":["复盘 Cout"],"teacherScript":"先讲 Cout 的含义。","evidenceRefs":[]}
 \`\`\``);
 
   assert.equal(report.lessonFocus, "全加器和 Cout");
   assert.deepEqual(report.nextClassPlan, ["复盘 Cout"]);
+});
+
+test("AI report requires verifiable evidence references", () => {
+  const base = {
+    lessonFocus: "复盘进位", riskStudents: [], groupingPlan: [],
+    commonMisconceptions: [], nextClassPlan: ["重练全加器"], teacherScript: "观察 Cout",
+  };
+  const evidence = [{ id: "E1", type: "carry_path", label: "加法器进位路径", count: 2, studentIds: [7], challengeIds: ["full-adder"] }];
+  assert.throws(() => parseAssistantJson(JSON.stringify(base), evidence), /evidenceRefs/);
+  assert.throws(() => parseAssistantJson(JSON.stringify({ ...base, evidenceRefs: ["E9"] }), evidence), /evidenceRefs/);
+  assert.deepEqual(parseAssistantJson(JSON.stringify({ ...base, evidenceRefs: ["E1"] }), evidence).evidence, evidence);
+  assert.equal(parseAssistantJson(JSON.stringify({ ...base, evidenceRefs: ["E1"], riskStudents: [{ name: "学生1", studentId: 999, reason: "r", suggestion: "s" }] }), evidence).riskStudents[0].studentId, null);
 });
 
 test("buildTeacherAssistantMessages uses only backend-owned user messages", async () => {
@@ -458,6 +474,7 @@ test("generateTeacherAssistantReport uses AI path instead of legacy fallbackReas
       commonMisconceptions: ["Sum 和 Cout 混淆"],
       nextClassPlan: ["复盘端口", "重连全加器"],
       teacherScript: "先看 Cout 的来源。",
+      evidenceRefs: [],
     }),
   });
 
@@ -481,7 +498,7 @@ test("generateTeacherAssistantReport returns ai source when client returns valid
     aiRequester: async (_config, messages) => {
       assert.deepEqual(messages.map((message) => message.role), ["user"]);
       return `\`\`\`json
-{"lessonFocus":"全加器与 Cout","riskStudents":[],"groupingPlan":[],"commonMisconceptions":["把 Sum 和 Cout 混淆"],"nextClassPlan":["复盘口线连接","重练全加器"],"teacherScript":"先看 Cout 的来源。"}
+{"lessonFocus":"全加器与 Cout","riskStudents":[],"groupingPlan":[],"commonMisconceptions":["把 Sum 和 Cout 混淆"],"nextClassPlan":["复盘口线连接","重练全加器"],"teacherScript":"先看 Cout 的来源。","evidenceRefs":[]}
 \`\`\``;
     },
   });

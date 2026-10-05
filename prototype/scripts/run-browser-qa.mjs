@@ -6,6 +6,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const allowedVerifiers = new Set([
+  'scripts/verify-mobile.mjs',
+  'scripts/verify-study-planning.mjs',
+  'scripts/verify-task-chain-ai.mjs',
+  'scripts/verify-task-chain.mjs',
+  'scripts/verify-teacher-assistant-plan.mjs',
+  'scripts/verify-learning-coach.mjs',
   'scripts/verify-mind-map.mjs',
   "scripts/verify-interactive-demos.mjs",
   "scripts/verify-courseware-redesign.mjs",
@@ -54,7 +60,7 @@ const allowedVerifiers = new Set([
 const verifier = String(process.argv[2] ?? "").replaceAll("\\", "/");
 const production = process.argv.includes('--production');
 const liveAi = process.argv.includes('--live-ai');
-if(liveAi && !['scripts/verify-custom-customer.mjs','scripts/verify-study-mascot.mjs'].includes(verifier))throw new Error('Live AI is only enabled for dedicated authorized AI checks');
+if(liveAi && !['scripts/verify-custom-customer.mjs','scripts/verify-study-mascot.mjs','scripts/verify-task-chain-ai.mjs'].includes(verifier))throw new Error('Live AI is only enabled for dedicated authorized AI checks');
 if (!allowedVerifiers.has(verifier)) {
   throw new Error("Unsupported verifier: " + verifier);
 }

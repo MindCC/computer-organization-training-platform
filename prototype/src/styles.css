@@ -4498,6 +4498,12 @@ textarea:focus-visible {
   background: linear-gradient(145deg, rgba(248, 251, 255, 0.96), rgba(237, 246, 255, 0.94));
 }
 
+.teacher-assistant-evidence { display: grid; gap: 10px; }
+.teacher-evidence-item { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 9px; background: #fff; }
+.teacher-evidence-item span { color: var(--muted); font-size: .85rem; }
+.teacher-evidence-students { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: .85rem; }
+.teacher-evidence-students button { border: 1px solid var(--border); border-radius: 6px; background: #fff; padding: 3px 7px; cursor: pointer; }
+
 .teacher-assistant-header h2,
 .teacher-studio-panel h2 {
   margin: 4px 0 6px;
@@ -5993,6 +5999,59 @@ textarea:focus-visible {
 }
 .exploded-step-desc strong { display: block; color: #f7f8f8; font-size: 0.85rem; font-weight: 600; }
 .exploded-step-desc p { color: #8a8f98; font-size: 0.74rem; margin: 4px 0 0; line-height: 1.55; }
+
+@media (max-width: 780px) {
+  .lab-overview-modebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 12px;
+  }
+
+  .exploded-topbar {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: calc(100% - 24px);
+    box-sizing: border-box;
+  }
+
+  .exploded-topbar button {
+    min-width: 0;
+    min-height: 36px;
+    padding: 6px;
+    font-size: 11px;
+  }
+
+  .exploded-step-desc {
+    top: 108px;
+    left: 12px;
+    right: 12px;
+    transform: none;
+    max-width: none;
+    padding: 10px 12px;
+  }
+
+  .exploded-part-list { top: 220px; max-height: calc(100% - 340px); }
+
+  .exploded-stepbar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: calc(100% - 24px);
+    box-sizing: border-box;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .exploded-step-indicator {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    justify-content: center;
+  }
+
+  .exploded-stepbar button { min-height: 40px; white-space: nowrap; }
+}
 
 /* Info card (click part) */
 .exploded-info-card {
@@ -7845,6 +7904,20 @@ body {
 
   .first-use-steps {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .first-use-guide-header {
+    flex-wrap: wrap;
+  }
+
+  .first-use-guide-title {
+    flex: 1 1 180px;
+    min-width: 0;
+  }
+
+  .first-use-dismiss {
+    width: auto;
+    max-width: 100%;
   }
 }
 

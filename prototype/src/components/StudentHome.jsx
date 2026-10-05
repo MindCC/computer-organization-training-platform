@@ -10,6 +10,7 @@ import { buildProjectChapters, buildStudentProjectSummary } from "../courseWorkb
 import { ExperimentThumbnail } from './ExperimentThumbnail.jsx';
 import { CourseAdventureMap } from './learning/CourseAdventureMap.jsx';
 import './studentHome.css';
+import { TaskChainHome } from './classroom/student/TaskChainHome.jsx';
 
 export function StudentHome({ progress, routeGroups, navigateToChallenge, summary, notes, onOpenKnowledge, classroomViewModel, onClassroomEnter, projects = [], onOpenProjects, userId = "anonymous" }) {
   const firstUseSteps = buildFirstUseSteps(progress);
@@ -24,7 +25,8 @@ export function StudentHome({ progress, routeGroups, navigateToChallenge, summar
   const projectChapters = buildProjectChapters(projects);
   const [expandedProjectChapters, setExpandedProjectChapters] = useState({});
 
-  if (classroomViewModel?.active) {
+  if(classroomViewModel?.active&&!classroomViewModel.ended&&classroomViewModel.studentStatus!=='completed'&&classroomViewModel.mission?.key==='task-chain')return <TaskChainHome viewModel={classroomViewModel} onEnter={()=>onClassroomEnter?.(classroomViewModel.sessionId)}/>;
+  if (classroomViewModel?.active && classroomViewModel.mission?.key!=='task-chain') {
     return (
       <main className="mission-home">
         <section className="mission-route-board" aria-label="课程电路路线">
@@ -98,12 +100,13 @@ export function StudentHome({ progress, routeGroups, navigateToChallenge, summar
 
   return (
     <main className="quest-student-home">
+      {classroomViewModel?.active&&classroomViewModel.mission?.key==='task-chain'&&<details className="statistics-details"><summary>查看本节课堂任务链与学习记录</summary><TaskChainHome viewModel={classroomViewModel} onEnter={()=>onClassroomEnter?.(classroomViewModel.sessionId)}/></details>}
       <header className="home-intro">
         <div><span className="eyebrow">计算机组成原理 · 实践课程</span><h1>把原理，接成电路。</h1><p>从认识部件到搭建系统，沿着课程路线完成每一次探索。</p></div>
         <span className="home-course-count">{routeGroups.length} 章课程 <span aria-hidden="true">/</span> {routeGroups.reduce((count, group) => count + group.items.length, 0)} 项实验</span>
       </header>
 
-      <CourseAdventureMap progress={progress} onOpenChallenge={navigateToChallenge} />
+      <CourseAdventureMap progress={progress} onOpenChallenge={navigateToChallenge} userId={userId} />
 
       <section className="home-progress-overview" aria-label="课程进度概览">
         <div className="quest-hero-stats">

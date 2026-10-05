@@ -22,6 +22,11 @@ export function clearPendingSubmission(storage, key) {
   storage.removeItem(key);
 }
 
+export function readSessionLessonPlan(session) {
+  try { return JSON.parse(session?.config_json ?? "{}").lessonPlan ?? null; }
+  catch { return null; }
+}
+
 // View model builders
 
 export function buildClassroomViewModel({ session, studentState, mission, remainingSeconds }) {
@@ -32,6 +37,8 @@ export function buildClassroomViewModel({ session, studentState, mission, remain
     active: true,
     sessionId: session.id,
     title: session.title ?? mission?.title,
+    passScore: session.pass_score,
+    lessonPlan: readSessionLessonPlan(session),
     status: session.status,
     paused: session.status === "paused",
     ended: session.status === "ended",
@@ -57,21 +64,25 @@ export function mergeClassroomSubmission(viewModel, studentState) {
     xp: studentState?.xp ?? viewModel.xp,
     stars: studentState?.stars ?? viewModel.stars,
     streak: studentState?.streak ?? viewModel.streak,
+    result: studentState?.result ?? (()=>{try{return JSON.parse(studentState?.result_json??'null')??viewModel.result;}catch{return viewModel.result;}})(),
   };
 }
 
-export function buildTeacherSessionViewModel({ session, students, updatedAt }) {
+export function buildTeacherSessionViewModel({ session, students, updatedAt, mission }) {
   if (!session) return { active: false };
   const stageBuckets = { not_started: [], in_progress: [], completed: [] };
   for (const student of (students ?? [])) {
     const bucket = stageBuckets[student.status] ?? stageBuckets.in_progress;
     bucket.push(student);
   }
-  const needsHelp = (students ?? []).filter((s) => s.status === "in_progress" && s.current_stage_index === 0);
+  const needsHelp = (students ?? []).filter((s) => s.status === "in_progress" && ((s.result?.stageAttempts?.[s.currentStageIndex??s.current_stage_index]??0)>1));
   return {
     active: true,
     sessionId: session.id,
     title: session.title,
+    session,
+    mission,
+    lessonPlan: readSessionLessonPlan(session),
     status: session.status,
     paused: session.status === "paused",
     ended: session.status === "ended",

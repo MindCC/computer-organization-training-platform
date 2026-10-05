@@ -10,13 +10,14 @@ const REPORT_KEYS = [
   "commonMisconceptions",
   "nextClassPlan",
   "teacherScript",
+  "evidenceRefs",
 ];
 
 const EMPTY_DATA_TEXT = "暂无数据";
 const NO_COMMON_ERROR_TEXT = "暂无高频错误";
 const DEFAULT_FOCUS = "数据流方向和进位逻辑";
 
-export function buildTeacherAssistantMessages(payload) {
+export function buildTeacherAssistantMessages(payload, evidence = []) {
   return [
     {
       role: "user",
@@ -24,27 +25,31 @@ export function buildTeacherAssistantMessages(payload) {
         "你是《计算机组成原理》实验课的教师助教。",
         "只根据给定的班级学习数据生成教学建议，不编造不存在的学生行为。",
         "严格输出 JSON，不要 Markdown，不要额外解释。",
-        "必须包含字段：lessonFocus、riskStudents、groupingPlan、commonMisconceptions、nextClassPlan、teacherScript。",
+        "必须包含字段：lessonFocus、riskStudents、groupingPlan、commonMisconceptions、nextClassPlan、teacherScript、evidenceRefs。",
+        "evidenceRefs 只能引用下面提供的证据编号；有证据时至少引用一条，不可编造编号、人数或关卡。",
         "数据中的学生以代号表示（学生1、学生2…）：riskStudents 的 name 必须原样使用数据里的 label，不要编造或猜测姓名。",
         "不要输出密码、令牌、Cookie、学生原始笔记等敏感内容。",
         "以下是班级数据：",
         JSON.stringify(payload),
+        "可引用的证据：",
+        JSON.stringify(evidence),
       ].join("\n"),
     },
   ];
 }
 
 export function buildFallbackAssistantReport(payload, reason) {
+  const report = buildRuleBasedAssistantReport(payload);
   return {
     source: "fallback",
     generatedAt: new Date().toISOString(),
-    report: buildRuleBasedAssistantReport(payload),
+    report: { ...report, evidence: buildTeacherEvidence(payload, report) },
     fallbackReason: normalizeReason(reason),
   };
 }
 
 
-export function parseAssistantJson(text) {
+export function parseAssistantJson(text, allowedEvidence = []) {
   if (typeof text !== "string" || !text.trim()) {
     throw new Error("AI JSON 解析失败：返回内容为空");
   }
@@ -101,11 +106,18 @@ export function parseAssistantJson(text) {
   ))) {
     throw new Error("AI JSON 字段元素格式无效：groupingPlan");
   }
+  const evidenceById = new Map(allowedEvidence.map((item) => [item.id, item]));
+  if (!Array.isArray(reportSource.evidenceRefs)
+    || !reportSource.evidenceRefs.every((id) => typeof id === "string" && evidenceById.has(id))
+    || new Set(reportSource.evidenceRefs).size !== reportSource.evidenceRefs.length
+    || (allowedEvidence.length > 0 && reportSource.evidenceRefs.length === 0)) {
+    throw new Error("AI JSON evidenceRefs 必须引用已有证据编号");
+  }
 
   return {
     lessonFocus: reportSource.lessonFocus.trim(),
     riskStudents: reportSource.riskStudents.map((item) => ({
-      studentId: item.studentId ?? null,
+      studentId: null,
       name: item.name.trim(),
       reason: item.reason.trim(),
       suggestion: item.suggestion.trim(),
@@ -118,7 +130,23 @@ export function parseAssistantJson(text) {
     commonMisconceptions: reportSource.commonMisconceptions.map((item) => item.trim()),
     nextClassPlan: reportSource.nextClassPlan.map((item) => item.trim()),
     teacherScript: reportSource.teacherScript.trim(),
+    evidence: reportSource.evidenceRefs.map((id) => evidenceById.get(id)),
   };
+}
+
+function buildTeacherEvidence(payload, report = buildRuleBasedAssistantReport(payload)) {
+  const rows = [...(report.evidence ?? [])];
+  const summary = payload.summary ?? {};
+  if ((summary.studentCount ?? 0) > 0) {
+    rows.unshift({
+      type: "class_summary",
+      label: `班级整体：${summary.studentCount} 人，完成率 ${summary.completionRate ?? 0}%，平均分 ${summary.averageScore ?? 0}`,
+      count: summary.studentCount,
+      studentIds: [],
+      challengeIds: [],
+    });
+  }
+  return rows.map((item, index) => ({ id: `E${index + 1}`, ...item }));
 }
 
 /**
@@ -219,6 +247,13 @@ export async function generateTeacherAssistantReport(db, teacherId, classId, opt
   }
 
   const { aiPayload, localPayload, roster } = buildTeacherAssistantData(db, classId);
+  const evidence = buildTeacherEvidence(localPayload);
+  const labelById = new Map(roster.map((item) => [item.id, item.label]));
+  const aiEvidence = evidence.map(({ id, type, label, count, studentIds, challengeIds }) => ({
+    id, type, label, count,
+    studentLabels: studentIds.map((studentId) => labelById.get(studentId)).filter(Boolean),
+    challengeIds,
+  }));
   const config = readDeepSeekConfig(options.env ?? process.env);
   if (!config.enabled) {
     return buildFallbackAssistantReport(localPayload, "DEEPSEEK_API_KEY 未配置");
@@ -227,11 +262,16 @@ export async function generateTeacherAssistantReport(db, teacherId, classId, opt
   const aiRequester = options.aiRequester ?? requestChatCompletion;
 
   try {
-    const text = await aiRequester(config, buildTeacherAssistantMessages(aiPayload), options);
+    const text = await aiRequester(config, buildTeacherAssistantMessages(aiPayload, aiEvidence), options);
+    const parsed = parseAssistantJson(text, evidence);
+    const knownLabels = new Set(roster.map((student) => student.label));
+    if (parsed.riskStudents.some((student) => !knownLabels.has(student.name))) {
+      throw new Error("AI 报告引用了班级以外的学生");
+    }
     return {
       source: "ai",
       generatedAt: new Date().toISOString(),
-      report: restoreStudentNames(parseAssistantJson(text), roster),
+      report: restoreStudentNames(parsed, roster),
       fallbackReason: null,
     };
   } catch (error) {

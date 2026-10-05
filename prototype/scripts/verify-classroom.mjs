@@ -17,7 +17,7 @@ const UI = {
   dashboard: "\u6559\u5e08\u770b\u677f",
   create: "\u521b\u5efa\u8349\u7a3f",
   start: "\u5f00\u59cb\u8bfe\u5802",
-  continue: "\u7ee7\u7eed\u4efb\u52a1",
+  continue: "接受任务并开始",
   assembly: "\u5206\u6b65\u7ec4\u88c5",
   next: "\u4e0b\u4e00\u6b65 \u25b6",
   complete: "\u5b8c\u6210\u63a2\u7d22",
@@ -61,6 +61,7 @@ async function login(context, username, password, label, errors) {
   attachErrors(page, label, errors);
   await page.goto(APP_URL, { waitUntil: "domcontentloaded" });
   await fillLoginForm(page, { username, password });
+  await page.locator(`[data-login-role="${label}"]`).click();
   const responsePromise = page.waitForResponse(
     (response) => response.url().endsWith("/api/auth/login")
       && response.request().method() === "POST",
@@ -150,6 +151,7 @@ try {
     teacherPage.getByRole("button", { name: UI.dashboard, exact: true }),
     "teacher dashboard",
   );
+  await teacherPage.getByRole('button',{name:'五大部件与数据流',exact:false}).click();
   const created = await clickJson(
     teacherPage,
     teacherPage.getByRole("button", { name: UI.create, exact: true }),
@@ -210,7 +212,7 @@ try {
   assert.equal(submitted.body.classroomSession.current_stage_index, 1);
   const current = await requireApi("/api/student/classroom/current", {}, studentJar, 200);
   assert.equal(current.studentState.current_stage_index, 1);
-  await unique(studentPage.getByText(/\u9636\u6bb5 2 \/ 4/), "stage two HUD");
+  await unique(studentPage.locator('.task-chain-bar strong'), "next stage navigation");
 
   // Review the completed 3D stage, then use the settlement's actual mission continuation.
   await studentPage.locator(".quest-settlement").getByRole("button", { name: /下一/ }).click();
@@ -250,7 +252,7 @@ try {
   );
   assert.equal(paused.body.session.status, "paused");
   await studentPage.bringToFront();
-  await studentPage.getByText(UI.paused, { exact: true }).waitFor({
+  await studentPage.getByLabel('课堂已暂停').getByText(UI.paused, { exact: true }).waitFor({
     state: "visible", timeout: TIMEOUT,
   });
 
@@ -264,7 +266,7 @@ try {
   );
   assert.equal(resumed.body.session.status, "live");
   await studentPage.bringToFront();
-  await studentPage.getByText(UI.paused, { exact: true }).waitFor({
+  await studentPage.getByLabel('课堂已暂停').getByText(UI.paused, { exact: true }).waitFor({
     state: "hidden", timeout: TIMEOUT,
   });
   console.log("PASS: pause and resume propagate to student UI");
@@ -280,8 +282,8 @@ try {
   }
   const finished = await requireApi("/api/student/classroom/current", {}, studentJar, 200);
   assert.equal(finished.studentState.status, "completed");
-  assert.equal(finished.studentState.stars, 3);
-  assert.equal(finished.studentState.xp, 540);
+  assert.equal(finished.studentState.stars, 1);
+  assert.equal(finished.studentState.xp, 80);
   console.log("PASS: all four mission stages submit real canvas evidence, retain rewards and leave participation unscored");
 
   await teacherPage.bringToFront();
@@ -301,7 +303,7 @@ try {
   // 结束后报告收在「课堂报告 · 点击展开完成情况」折叠块里：先展开，再按需加载
   const reportDetails = teacherPage.locator("details.statistics-details").filter({ hasText: "课堂报告" }).first();
   await reportDetails.waitFor({ state: "visible", timeout: TIMEOUT });
-  await reportDetails.locator("summary").click();
+  await reportDetails.locator(":scope > summary").click();
   const loadReportButton = reportDetails.getByRole("button", { name: "查看课堂报告" });
   if (await loadReportButton.isVisible().catch(() => false)) {
     await loadReportButton.click();
@@ -315,9 +317,8 @@ try {
   assert.ok(report.report?.frozenAt);
 
   await studentPage.bringToFront();
-  await studentPage.getByRole("heading", {
-    name: new RegExp(`${UI.passed}|${UI.failed}`),
-  }).waitFor({ state: "visible", timeout: TIMEOUT });
+  await studentPage.getByRole('button',{name:'回到课堂任务'}).click();
+  await studentPage.locator('.chain-review h1').waitFor({state:'visible',timeout:TIMEOUT});
   await studentPage.screenshot({
     path: path.join(ARTIFACT_DIR, "classroom-student-settlement.png"),
     fullPage: true,

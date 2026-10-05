@@ -80,7 +80,10 @@ import { createMindMapRouter } from './mindMapRoutes.js';
 import { createCustomCustomerRouter } from './customCustomerRoutes.js';
 import { createShopServiceRouter, serviceRecords } from './shopServiceRoutes.js';
 import { createStudyAssistantRouter } from './studyAssistantRoutes.js';
+import { createLearningCoachRouter } from './learningCoachRoutes.js';
+import { createStudyWorkspaceRouter } from './studyWorkspaceRoutes.js';
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
+import { createTaskLibraryRouter } from './taskLibraryRoutes.js';
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 import { buildUnifiedMistakeBook, createLearningPracticeRouter } from "./learningPractice.js";
 import { hostedDemoMiddleware } from "../src/shared/demoNavigation.js";
@@ -175,7 +178,8 @@ export function createApp(options = {}) {
   });
 
   // Feature routers must run after global logging and CSRF middleware.
-  app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole }));
+  app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole, generatorOptions:options.taskChainGeneratorOptions }));
+  app.use('/api',createTaskLibraryRouter({db,sessionService,requireRole}));
   app.use("/api", createAssignmentRouter({ service: assignmentService, requireRole }));
   app.use("/api", createLearningPracticeRouter({ db, requireRole }));
   app.use("/api", createCourseWorkbenchRouter({ service: courseWorkbenchService, requireRole, audit }));
@@ -198,6 +202,8 @@ export function createApp(options = {}) {
   app.use('/api', createCustomCustomerRouter({db,requireRole,options:options.customCustomerOptions??{}}));
   app.use('/api', createShopServiceRouter({db,requireRole}));
   app.use('/api', createStudyAssistantRouter({requireRole, options:options.studyAssistantOptions??{}}));
+  app.use('/api', createLearningCoachRouter({db,requireRole,options:options.learningCoachOptions??{}}));
+  app.use('/api', createStudyWorkspaceRouter({db,requireRole,options:options.studyWorkspaceOptions??{}}));
 
   // Deep health check
   const _startedAt = Date.now();
@@ -660,7 +666,7 @@ export function createApp(options = {}) {
         if (result.session === null) {
           // No active classroom session — fall through to ordinary practice
         } else if (result.duplicateResult) {
-          return res.status(200).json({ progress: getStudentProgress(db, req.user.id), summary: summarizeLearning(LEARNING_ITEMS, getStudentProgress(db, req.user.id)), duplicateResult: result.duplicateResult });
+          return res.status(200).json({ progress: getStudentProgress(db, req.user.id), summary: summarizeLearning(LEARNING_ITEMS, getStudentProgress(db, req.user.id)), duplicateResult: result.duplicateResult, classroomSession: result.studentState });
         } else {
           return res.status(201).json({ progress: result.progress, summary: result.summary, classroomSession: result.studentState });
         }

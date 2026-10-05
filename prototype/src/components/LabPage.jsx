@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Flame, Play, SealCheck, Sparkle, Target, WarningCircle } from "@phosphor-icons/react";
 import { CHALLENGES, challengeOrderOf } from "../platformLogic.js";
 import { COURSE_CHAPTERS, isParticipationChallenge } from "../courseChapters.js";
@@ -34,6 +34,8 @@ import './labWorkbench.css';
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
 const OverviewExplodedView = lazy(() => import("./OverviewExplodedView.jsx").then((m) => ({ default: m.OverviewExplodedView })));
+const LearningCoachPanel = lazy(() => import('./LearningCoachPanel.jsx').then(m => ({default:m.LearningCoachPanel})));
+const FocusTimer = lazy(() => import('./study/FocusTimer.jsx').then(m => ({default:m.FocusTimer})));
 
 export function LabPage({
   lab, isMobile, memoryAddress, memoryOperation, memoryWriteValue,
@@ -134,6 +136,8 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
     const [parameterMode, setParameterMode] = useState(false);
     useExplorationShortcuts(parameterMode);
     const [draft,setDraft]=useState(null);
+    const fixedDraft = useCallback(next => setDraft({...next,mode:'fixed',challengeId:cur.id}),[cur.id]);
+    const freeDraft = useCallback(next => setDraft({...next,mode:'freeform',challengeId:cur.id}),[cur.id]);
     const draftDiagnostics=useMemo(()=>describeCircuitDraft(draft),[draft]);
 
     // 挑战路径：可拖拽调宽 / 可整体收起 / 高度限高内滚
@@ -200,6 +204,7 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
             <div aria-label="拖拽调整挑战路径宽度" aria-orientation="vertical" className="route-resize-handle" onPointerDown={startRouteResize} role="separator" title="拖拽调整宽度" />
           </aside>
           <section className="lab-studio-workspace">
+            <Suspense fallback={null}><FocusTimer target={{kind:'lab',id:cur.id}} title={cur.title}/></Suspense>
             <div className="lab-studio-controls">
               <div><span className="eyebrow">主画布</span><h1>{parameterMode ? `${cur.title} · 参数探索` : mapMode ? "挑战依赖地图" : sandboxMode ? "逻辑门沙盒" : assemblyMode ? `${cur.title} · 自由拼装` : cur.title}</h1><p>{parameterMode ? "改变条件，实时观察计算结果；可随时返回当前工作台。" : mapMode ? "完成一个关卡，解锁依赖它的后续关卡（仿图灵完备）" : sandboxMode ? "拖拽逻辑门自由拼装，实时看结果（练习模式，不计分）" : assemblyMode ? "自己拖门组装电路，判分通过即算过关" : l.currentCircuitModel.goal}</p>{!parameterMode && !sandboxMode && !assemblyMode && !mapMode && l.submitBlocked ? <p className="lab-studio-locked-notice" role="status"><WarningCircle size={16} weight="fill" />{l.submitBlockedReason}</p> : null}</div>
               <div className="lab-studio-actionbar">
@@ -217,9 +222,9 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
             ) : sandboxMode ? (
               <div className="lab-studio-canvas-shell sandbox-shell"><LogicGateSandbox progress={l._progress}/></div>
             ) : assemblyMode && freeformSpec ? (
-              <div className="lab-studio-canvas-shell sandbox-shell"><GateAssemblyChallenge challenge={cur} circuitModel={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} onDraft={setDraft} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></div>
+              <div className="lab-studio-canvas-shell sandbox-shell"><GateAssemblyChallenge challenge={cur} circuitModel={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} onDraft={freeDraft} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></div>
             ) : (<>
-            <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} onDraft={setDraft} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
+            <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} onDraft={fixedDraft} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
             {cur.id === "instruction-data" ? <CpuExecutionPanel /> : null}
             {js.length > 0 ? <DataJourneyPanel steps={js} activeStep={l.activeStep} /> : null}
             {cur.id === "memory-address" ? <MemorySystemPanel address={memoryAddress} operation={memoryOperation} state={memoryAccessState} writeValue={memoryWriteValue} onAddressChange={setMemoryAddress} onOperationChange={setMemoryOperation} onWriteValueChange={setMemoryWriteValue} /> : null}
@@ -228,10 +233,11 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
               <section><span className="eyebrow">元件属性</span><strong>{l.selectedComponent}</strong><p>{l.selectedComponentDetail?.description ?? "选择一个元件查看端口、职责和信号走向。"}</p></section>
               <section><span className="eyebrow">实时状态</span><strong>{statusMessage}</strong><p>必要连线 {reqEdges} 条 · 测试用例 {tc || cur.requiredConnections.length} 组 · 最近得分 {labScoreText(cur, l.currentRecord)}</p></section>
               <section><span className="eyebrow">检测反馈</span>{l.feedback ? l.feedback.passed ? <p className="lab-studio-feedback passed"><SealCheck size={18} weight="fill" /> 本关通过，记录已保存。</p> : <p className="lab-studio-feedback failed"><WarningCircle size={18} weight="fill" /> 发现 {l.feedback.errors.length} 类问题，请按提示修正。</p> : <p className="lab-studio-feedback neutral"><Target size={18} /> 等待提交检测。</p>}</section>
-              <LabAssistantPanel challenge={cur} connections={(draft?.edges??[]).map(e=>`${e.from.nodeId}.${e.from.portId}->${e.to.nodeId}.${e.to.portId}`)} inputState={draft?.inputs??{}} feedback={l.feedback} realtimeDiagnostics={draftDiagnostics} />
+              {cur.id !== 'full-adder' && <LabAssistantPanel challenge={cur} connections={(draft?.edges??[]).map(e=>`${e.from.nodeId}.${e.from.portId}->${e.to.nodeId}.${e.to.portId}`)} inputState={draft?.inputs??{}} feedback={l.feedback} realtimeDiagnostics={draftDiagnostics} />}
               <section className={`realtime-diagnostics ${draftDiagnostics.status}`}><strong>实时数据流检测</strong><p>{draftDiagnostics.summary}</p><div className="diagnostic-test-list">{draftDiagnostics.testRows.map((r) => <div className={r.passed ? "passed" : "needs-work"} key={r.label}><span>{r.label}</span><small>实际：{r.actual}</small></div>)}</div>{draftDiagnostics.issues.length ? <div className="diagnostic-issues">{draftDiagnostics.issues.slice(0, 3).map((i) => <span key={`${i.type}-${i.message}`}>{i.type}</span>)}</div> : null}</section>
             </div></details>
             </>)}
+            {cur.id === 'full-adder' && !mapMode && !sandboxMode && <Suspense fallback={<p role="status">正在加载小芯诊断…</p>}><LearningCoachPanel key={cur.id} draft={draft?.challengeId === cur.id && draft.mode === (assemblyMode ? 'freeform' : 'fixed') ? draft : null}/></Suspense>}
             </div>
           </section>
         </main>

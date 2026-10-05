@@ -305,7 +305,7 @@ function ChapterTab({ chapter, active, graded, onSelect }) {
   );
 }
 
-function PracticeQuestion({ question, index, value, result, focusKpId, onAnswer, onFocusKp, assistantEnabled }) {
+export function PracticeQuestion({ question, index, value, result, focusKpId, onAnswer, onFocusKp, assistantEnabled }) {
   const kp = knowledgePointOf(question.kpId);
   const graded = Boolean(result);
   const stateClass = graded ? (result.correct ? " is-correct" : " is-wrong") : "";
@@ -401,7 +401,7 @@ function referenceAnswerOf(question) {
 
 /* ==================== 教师作业（原有功能，保持不变） ==================== */
 
-function TeacherAssignments({ userId,destination, onOpenMistakes }) {
+export function TeacherAssignments({ userId,destination, onOpenMistakes, onlyAssignmentId }) {
   const [assignments, setAssignments] = useState([]);
   const [submissions, setSubmissions] = useState([]);
   const [active, setActive] = useState(null);
@@ -482,7 +482,7 @@ function TeacherAssignments({ userId,destination, onOpenMistakes }) {
       <div className="assignment-cards">
         {error ? <div className="form-error" role="alert"><p>{error}</p><button className="ghost-button" type="button" onClick={load}>重试加载教师作业</button></div> : null}
         {(loading||opening)&&<p role="status">{opening?'正在打开作业…':'正在读取作业列表…'}</p>}
-        {assignments.map((a) => {
+        {assignments.filter(a=>!onlyAssignmentId||a.id===onlyAssignmentId).map((a) => {
           const sub = subMap.get(a.id);
           return (
             <button type="button" className="assignment-card" key={a.id} onClick={() => openAssignment(a.id)}>

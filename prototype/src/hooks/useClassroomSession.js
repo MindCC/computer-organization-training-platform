@@ -85,11 +85,14 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
     writePendingSubmission(storage, key, pending);
     setError(null);
     try {
-      const result = await apiClient.submitAttempt(submission);
+      const result = submission.stageId
+        ? await apiClient.completeClassroomStage(viewModel.sessionId,submission)
+        : await apiClient.submitAttempt(submission);
       clearPendingSubmission(storage, key);
       if (result.classroomSession) {
         setViewModel((prev) => mergeClassroomSubmission(prev, result.classroomSession));
       }
+      if(result.studentState)setViewModel(prev=>mergeClassroomSubmission(prev,result.studentState));
       return result;
     } catch (err) {
       if (err instanceof Error && err.retryable) {
@@ -111,11 +114,14 @@ export function useClassroomSession({ userId, enabled, apiClient = api, storage 
       const pending = readPendingSubmission(storage, key);
       if (!pending) return;
       try {
-        const result = await apiClient.submitAttempt(pending.payload);
+        const result = pending.payload.stageId
+          ? await apiClient.completeClassroomStage(viewModel.sessionId,pending.payload)
+          : await apiClient.submitAttempt(pending.payload);
         clearPendingSubmission(storage, key);
         if (result.classroomSession) {
           setViewModel((prev) => mergeClassroomSubmission(prev, result.classroomSession));
         }
+        if(result.studentState)setViewModel(prev=>mergeClassroomSubmission(prev,result.studentState));
         if (isCurrent()) setError(null);
       } catch (err) {
         if (err.code === "SESSION_PAUSED" || err.code === "SESSION_ENDED" || err.code === "STAGE_MISMATCH") {

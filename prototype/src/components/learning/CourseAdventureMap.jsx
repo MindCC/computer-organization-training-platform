@@ -1,10 +1,11 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ADVENTURE_MAP_SIZE, buildAdventureMap } from "../../adventureMapModel.js";
 import { COURSEWARE } from "../../courseware.js";
 import { ExperimentThumbnail } from '../ExperimentThumbnail.jsx';
 import "./courseAdventureMap.css";
 
 const { width: MAP_W, height: MAP_H } = ADVENTURE_MAP_SIZE;
+const CoachNextStep = lazy(() => import('../CoachNextStep.jsx').then(m => ({default:m.CoachNextStep})));
 const FULL_VIEW = { x: 0, y: 0, width: MAP_W, height: MAP_H };
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 2.5;
@@ -70,7 +71,7 @@ function Compass() {
   );
 }
 
-export function CourseAdventureMap({ progress = {}, onOpenChallenge }) {
+export function CourseAdventureMap({ progress = {}, onOpenChallenge, userId = null }) {
   const model = useMemo(() => buildAdventureMap(progress), [progress]);
   const [selectedId, setSelectedId] = useState(() => model.currentRegionId ?? "ch1");
   const [view, setView] = useState(FULL_VIEW);
@@ -353,6 +354,7 @@ export function CourseAdventureMap({ progress = {}, onOpenChallenge }) {
             <div><span>本章关卡</span><strong>{selected.completed} <span>/ {selected.total} 已完成</span></strong></div>
             <div className="adventure-map-progress-track" role="progressbar" aria-label="本章完成进度" aria-valuemin={0} aria-valuemax={selected.total} aria-valuenow={selected.completed}><span style={{ width: `${selected.completed / selected.total * 100}%` }} /></div>
           </div>
+          {userId && userId !== 'anonymous' && <Suspense fallback={null}><CoachNextStep key={userId} onOpenChallenge={onOpenChallenge}/></Suspense>}
           <p className="adventure-map-preview-note">全部关卡都可浏览。未解锁关卡可先预习，提交条件以实验台提示为准。</p>
           <ul className="adventure-map-challenge-list">
             {selected.items.map((item) => (

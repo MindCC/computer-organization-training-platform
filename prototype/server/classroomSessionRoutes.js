@@ -1,9 +1,31 @@
 import { Router } from "express";
 import { buildClassroomHeatmap } from "./classroomAnalytics.js";
-import { getClassroomMission } from "../src/shared/classroomMissionDefinitions.js";
+import { missionForSession } from "../src/shared/classroomMissionDefinitions.js";
+import { generateTaskChain } from './taskChainGenerator.js';
 
-export function createClassroomSessionRouter({ service, requireRole }) {
+export function createClassroomSessionRouter({ service, requireRole, generatorOptions }) {
   const router = Router();
+  const pending=new Set(),requests=new Map();
+  router.post('/teacher/classes/:classId/task-chain/generate',requireRole('teacher'),async(req,res,next)=>{
+    res.set('Cache-Control','no-store');
+    const teacherId=req.user.id;
+    try {
+      service.getCurrentForClass({teacherId,classId:Number(req.params.classId)});
+      const now=Date.now();for(const [id,times] of requests)if(times.every(time=>now-time>=60000))requests.delete(id);
+      const times=(requests.get(teacherId)??[]).filter(time=>now-time<60000);
+      if(pending.has(teacherId)||times.length>=5)return res.status(429).json({error:{code:'AI_BUSY',message:'任务链正在生成，请稍后重试；每分钟最多生成五次。'}});
+      // Allowlist only the explicitly entered teaching request. Ignore all injected records.
+      const body=req.body??{},payload={prompt:body.prompt,consent:body.consent};
+      pending.add(teacherId);requests.set(teacherId,[...times,now]);
+      try {res.json(await generateTaskChain(payload,generatorOptions));}finally{pending.delete(teacherId);}
+    }catch(error){next(error);}
+  });
+  router.put('/teacher/sessions/:id',requireRole('teacher'),(req,res,next)=>{
+    try{res.json({session:service.updateDraft({teacherId:req.user.id,sessionId:Number(req.params.id),config:req.body})});}catch(error){next(error);}
+  });
+  router.post('/student/classroom/:sessionId/complete-stage',requireRole('student'),(req,res,next)=>{
+    try{res.json(service.completeStage({studentId:req.user.id,sessionId:Number(req.params.sessionId),payload:req.body}));}catch(error){next(error);}
+  });
 
   router.post("/teacher/classes/:classId/sessions", requireRole("teacher"), (req, res, next) => {
     try {
@@ -58,8 +80,8 @@ export function createClassroomSessionRouter({ service, requireRole }) {
     try {
       const overview = service.getTeacherOverview({ teacherId: req.user.id, sessionId: Number(req.params.id) });
       const s = overview.session;
-      const m = getClassroomMission(s.template_key, s.template_version);
-      res.json(buildClassroomHeatmap({ session: s, students: overview.students, mission: m }));
+      const m = missionForSession(s);
+      res.json(buildClassroomHeatmap({ session: s, students: overview.students.map(student=>({...student,current_stage_index:student.currentStageIndex,result_json:JSON.stringify(student.result),last_activity_at:student.lastActivityAt})), mission: m }));
     } catch (error) { next(error); }
   });
 

@@ -7,8 +7,8 @@ export function buildClassroomHeatmap({ session, students, mission }) {
     const inStage = students.filter((s) => s.current_stage_index === stageIndex);
     const notStarted = inStage.filter((s) => s.status === "not_started").length;
     const inProgress = inStage.filter((s) => s.status === "in_progress").length;
-    const completed = inStage.filter((s) => s.status === "completed").length;
-    const total = notStarted + inProgress + completed;
+    const completed = students.filter(s=>s.current_stage_index>stageIndex).length;
+    const total = students.length;
     return {
       stageId: stage.id,
       stageTitle: stage.title,
