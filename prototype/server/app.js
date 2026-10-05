@@ -734,7 +734,27 @@ export function createApp(options = {}) {
       GROUP BY day
       ORDER BY day ASC
     `).all(req.user.id);
-    res.json({ challenges, demos });
+    // 学习热力图：按「本地日期 + 小时」聚合两张表的真实时间戳（0-23 整点）
+    const hourly = db.prepare(`
+      SELECT day, hour, SUM(attempts) AS attempts, SUM(minutes) AS minutes FROM (
+        SELECT date(created_at, 'localtime') AS day,
+               CAST(strftime('%H', created_at, 'localtime') AS INTEGER) AS hour,
+               COUNT(*) AS attempts,
+               SUM(elapsed_minutes) AS minutes
+        FROM challenge_attempts WHERE student_id = ?
+        GROUP BY day, hour
+        UNION ALL
+        SELECT date(created_at, 'localtime') AS day,
+               CAST(strftime('%H', created_at, 'localtime') AS INTEGER) AS hour,
+               COUNT(*) AS attempts,
+               SUM(elapsed_minutes) AS minutes
+        FROM demo_attempts WHERE student_id = ?
+        GROUP BY day, hour
+      )
+      GROUP BY day, hour
+      ORDER BY day ASC, hour ASC
+    `).all(req.user.id, req.user.id);
+    res.json({ challenges, demos, hourly });
   });
 
   // 课堂演示页练习成绩（独立静态页，成绩独立存储，不与关卡提交互冒充）

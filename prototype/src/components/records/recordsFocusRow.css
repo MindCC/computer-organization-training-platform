@@ -1,0 +1,44 @@
+/* 专注区：树钟（左）+ 学习计划（右）并排，把计划放进树钟右侧原本空着的位置 */
+.records-focus-row {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  /* 左列给树钟固定上限，右列吃掉剩余空间（树钟右侧原本的空白） */
+  grid-template-columns: minmax(0, 1080px) minmax(340px, 1fr);
+}
+
+/* 右栏：教师任务卡在上，我的学习计划在下 */
+.records-focus-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+/* 计划面板在这个窄栏里改为单列排布 */
+.records-focus-row .study-plan-layout { display: block; }
+/* 它自带的番茄钟卡片与紧邻的树钟重复：这一栏只保留计划本身 */
+.records-focus-row .study-timer-card { display: none; }
+.records-focus-row .study-planning { padding: 14px 16px 12px; }
+.records-focus-row .study-planning-header { margin-bottom: 10px; }
+.records-focus-row .study-planning-header h2,
+.records-focus-row .study-planning-header h1 { font-size: 1.15rem; }
+.records-focus-row .study-plan-list { margin-top: 8px; }
+
+@media (max-width: 1240px) {
+  .records-focus-row { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* 次级信息行：学习日历（宽）+ 学习热力图（窄）并排，缩短页面长度 */
+.records-secondary-row {
+  align-items: start;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+}
+
+/* 窄栏里日历与热力图都要更紧凑 */
+.records-secondary-row .records-calendar-panel { min-width: 0; }
+.records-secondary-row .cal-cell { min-height: 76px; padding: 5px 6px 6px; }
+.records-secondary-row .cal-sticker { height: 32px; width: 32px; }
+.records-secondary-row .cal-wrap { padding: 12px 14px 14px; }
+.records-secondary-row .records-heatmap-panel { min-width: 0; }
+
+@media (max-width: 1240px) {
+  .records-secondary-row { grid-template-columns: minmax(0, 1fr); }
+}

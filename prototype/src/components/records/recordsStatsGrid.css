@@ -1,0 +1,33 @@
+/* 学习统计：4 列基准网格，两张重点图表各占两列（趋势类图更需要宽度）
+   行 1：树杈点亮分布(1) + 各章得分与点亮率(2) + 章节点亮进度(1)
+   行 2：各章累计学习时长(1) + 高频错误 Top(1) + 最近学习活动(2)          */
+[data-testid="records-statistics-grid"].records-charts-column {
+  grid-auto-rows: 264px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+[data-testid="records-statistics-grid"] > .chart-zoomable:nth-child(2),
+[data-testid="records-statistics-grid"] > .chart-zoomable:nth-child(6) {
+  grid-column: span 2;
+}
+
+/* 中等宽度回到 2 列，重点图表改为整行，避免半行留空 */
+@media (max-width: 1400px) {
+  [data-testid="records-statistics-grid"].records-charts-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  [data-testid="records-statistics-grid"] > .chart-zoomable:nth-child(2),
+  [data-testid="records-statistics-grid"] > .chart-zoomable:nth-child(6) {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 900px) {
+  [data-testid="records-statistics-grid"].records-charts-column {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  [data-testid="records-statistics-grid"] > .chart-zoomable:nth-child(2),
+  [data-testid="records-statistics-grid"] > .chart-zoomable:nth-child(6) {
+    grid-column: span 1;
+  }
+}

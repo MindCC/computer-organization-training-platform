@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChartBar, TreeStructure } from "@phosphor-icons/react";
 import { CHALLENGES } from "../platformLogic.js";
 import { COURSE_CHAPTERS, PARTICIPATION_SCORE_NOTE, isParticipationChallenge, scoreLabelOf } from "../courseChapters.js";
@@ -13,6 +13,11 @@ import { ChapterLitBars, ChapterScoreLine, ChapterStudyTimeChart, StatusDonut, T
 import { DemoPracticePanel } from "./records/DemoPracticePanel.jsx";
 import { ZoomableChart } from "./records/ChartZoomModal.jsx";
 import { RecordsCalendar } from "./records/RecordsCalendar.jsx";
+import { ClassroomTaskCard } from "./records/ClassroomTaskCard.jsx";
+import { api } from "../apiClient.js";
+import { RecordsHeatmap } from "./records/RecordsHeatmap.jsx";
+import "./records/recordsFocusRow.css";
+import "./records/recordsStatsGrid.css";
 import { PomodoroPanel } from "./records/PomodoroPanel.jsx";
 import { LearningWorkspace } from "./learning/LearningWorkspace.jsx";
 import { ShopServiceRecords } from './records/ShopServiceRecords.jsx';
@@ -70,6 +75,19 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, "zh-Hans-CN"));
   }, [progress]);
 
+  // 课堂任务（教师发布）：进度 / 经验值 / 剩余时间。只读展示，不在这里进入任务内部。
+  const [classroomTask, setClassroomTask] = useState(null);
+  useEffect(() => {
+    if (!userId) return undefined;
+    let cancelled = false;
+    const load = () => api.currentClassroom()
+      .then((data) => { if (!cancelled) setClassroomTask(data ?? null); })
+      .catch(() => { if (!cancelled) setClassroomTask(null); });
+    load();
+    const id = window.setInterval(load, 60000); // 每分钟与服务端重同步一次
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, [userId]);
+
   return (
     <div className="records-screen">
       <header className="records-screen-header">
@@ -113,11 +131,27 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
         </div>
       </section>
 
-      {/* 番茄钟：自习节奏工具，状态跨页面/刷新保留 */}
-      <PomodoroPanel />
+      {/* 专注区：树钟在左（木板上印任务经验值），右栏是教师任务卡 + 我的学习计划 */}
+      <div className="records-focus-row">
+        <PomodoroPanel task={classroomTask} />
+        <div className="records-focus-side">
+          <ClassroomTaskCard task={classroomTask} />
+          {userId && personalTools && (
+            <Suspense fallback={<p role="status">正在加载学习计划…</p>}>
+              <StudyPlanningPanel key={userId} onOpenChallenge={selectChallenge} onOpenStudyTarget={openStudyTarget} allowNavigation={false} />
+            </Suspense>
+          )}
+        </div>
+      </div>
 
-      {/* 学习日历：按天回看实验与课堂演示记录 */}
-      <RecordsCalendar onOpenChallenge={selectChallenge} />
+      {/* 次级信息行：学习日历 + 学习热力图并排 */}
+      <div className="records-secondary-row">
+        {/* 学习日历：按天回看实验与课堂演示记录 */}
+        <RecordsCalendar onOpenChallenge={selectChallenge} />
+
+        {/* 学习热力图：近 7 天 × 每 2 小时，全部来自真实提交时间戳 */}
+        <RecordsHeatmap />
+      </div>
 
       <section className="records-statistics" aria-labelledby="records-statistics-title">
         <div className="records-section-heading">
@@ -134,7 +168,6 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
         </div>
       </section>
 
-      {userId && personalTools && <Suspense fallback={<p role="status">正在加载学习计划…</p>}><StudyPlanningPanel key={userId} onOpenChallenge={selectChallenge} onOpenStudyTarget={openStudyTarget}/></Suspense>}
       <details className="records-disclosure" data-testid="records-tree-section">
         <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>章节学习树</strong><small>查看八章分支与全部 {treeModel.totals.total} 个实验叶片</small></span><span className="records-disclosure-meta">{treeModel.totals.lit} 已点亮<DisclosureToggle /></span></summary>
         <section aria-label="章节学习树" className="records-panel records-tree-panel">

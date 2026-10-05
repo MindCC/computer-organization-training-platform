@@ -62,7 +62,12 @@ try {
   check("KPI 白底卡片", kpiBg === "rgb(255, 255, 255)", kpiBg);
   const cards = page.locator('[data-testid="records-statistics-grid"] > .chart-zoomable');
   const sizes = await cards.evaluateAll(nodes => nodes.map(node => ({width:node.getBoundingClientRect().width,height:node.getBoundingClientRect().height})));
-  check('六张统计卡统一宽高', sizes.length === 6 && sizes.every(size => Math.abs(size.height-sizes[0].height)<1 && Math.abs(size.width-sizes[0].width)<1), JSON.stringify(sizes));
+  // 2026-10-05 版式调整：改成 4 列基准网格，两张趋势类图表各占两列。
+  // 新契约：6 张卡高度仍完全一致，且恰好 2 张为双列宽（其余等宽）。
+  const wide = sizes.filter(size => size.width > sizes[0].width + 1);
+  const narrow = sizes.filter(size => Math.abs(size.width - sizes[0].width) < 1 || size.width < sizes[0].width - 1);
+  check('六张统计卡统一高度', sizes.length === 6 && sizes.every(size => Math.abs(size.height - sizes[0].height) < 1), JSON.stringify(sizes.map(s => Math.round(s.height))));
+  check('恰好两张重点图表占双列，其余等宽', wide.length === 2 && new Set(narrow.map(size => Math.round(size.width))).size === 1, JSON.stringify(sizes.map(s => Math.round(s.width))));
   check('最近活动在统计图卡片内', await page.locator('[data-testid="records-statistics-grid"] [data-testid="chart-recent-activity"]').count() === 1);
   const mascot = page.locator('.records-kpi-review .study-mascot-trigger');
   await mascot.hover();

@@ -7,12 +7,14 @@ import './studyPlanning.css';
 
 const today = () => { const date = new Date(); return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; };
 const targetValue = target => target.kind === 'custom' ? 'custom' : `${target.kind}:${target.id}`;
-export function StudyPlanningPanel({ onOpenChallenge, onOpenStudyTarget }) {
+export function StudyPlanningPanel({ onOpenChallenge, onOpenStudyTarget, allowNavigation = true }) {
   const controller = useStudyWorkspace(), { data, busy, loading, mutate, start } = controller;
   const [editor, setEditor] = useState(null), [showCompleted, setShowCompleted] = useState(false);
   const pending = data?.plans.filter(p => p.status === 'pending') ?? [], completed = data?.plans.filter(p => p.status === 'completed') ?? [];
   const newPlan = suggestion => setEditor({ title: suggestion?.title ?? '', date: today(), minutes: suggestion?.minutes ?? 25, target: suggestion?.target ?? { kind: 'custom' } });
   function openTarget(target) {
+    // 学习记录页只做展示：不允许从这里跳到实验/任务/作业（用户决定 2026-10-05）
+    if (allowNavigation === false) return;
     if (target.kind === 'lab') onOpenChallenge(target.id);
     else if (target.kind === 'coach') onOpenChallenge('full-adder');
     else if (target.kind === 'chapter') onOpenStudyTarget({ source: 'practice', chapterId: target.id });
@@ -30,8 +32,8 @@ export function StudyPlanningPanel({ onOpenChallenge, onOpenStudyTarget }) {
           <div className="study-actions"><button type="submit" className="primary-button" disabled={busy}>保存学习计划</button><button type="button" className="ghost-button" disabled={busy} onClick={() => setEditor(null)}>取消编辑</button></div>
         </form>}
         {!pending.length && !editor && <p className="study-empty">还没有待完成计划。可选择下面的建议，或安排自己的学习目标。</p>}
-        <div className="study-plan-list">{pending.map(p => <article className="study-plan-item" key={p.id}><div><strong>{p.title}</strong><small>{p.date} · 预计 {p.minutes} 分钟 · {p.target.label}{p.date < today() ? ' · 待重新安排' : ''}</small></div><div className="study-actions">{p.target.kind !== 'custom' && <button type="button" className="ghost-button" onClick={() => openTarget(p.target)}>前往学习</button>}<button type="button" className="ghost-button" disabled={busy || Boolean(controller.active)} onClick={() => start({ planId:p.id,minutes:Math.min(p.minutes,90) })}>开始计时</button><button type="button" className="study-text-button" disabled={busy} onClick={() => setEditor({...p})}>调整</button><button type="button" className="study-text-button" disabled={busy} onClick={() => mutate(`/plans/${p.id}/complete`,{revision:p.revision})}>我已完成</button><button type="button" className="study-text-button" disabled={busy} onClick={() => mutate(`/plans/${p.id}/archive`,{revision:p.revision})}>归档</button></div></article>)}</div>
-        <p className="study-note">实验的新检测通过、教师补练的复测通过和作业提交会自动更新对应计划。“我已完成”标记为个人确认；计划和计时保存到本人账号。</p>
+        <div className="study-plan-list">{pending.map(p => <article className="study-plan-item" key={p.id}><div><strong>{p.title}</strong><small>{p.date} · 预计 {p.minutes} 分钟 · {p.target.label}{p.date < today() ? ' · 待重新安排' : ''}</small></div><div className="study-actions">{allowNavigation !== false && p.target.kind !== 'custom' && <button type="button" className="ghost-button" onClick={() => openTarget(p.target)}>前往学习</button>}{allowNavigation !== false && <button type="button" className="ghost-button" disabled={busy || Boolean(controller.active)} onClick={() => start({ planId:p.id,minutes:Math.min(p.minutes,90) })}>开始计时</button>}<button type="button" className="study-text-button" disabled={busy} onClick={() => setEditor({...p})}>调整</button><button type="button" className="study-text-button" disabled={busy} onClick={() => mutate(`/plans/${p.id}/complete`,{revision:p.revision})}>我已完成</button><button type="button" className="study-text-button" disabled={busy} onClick={() => mutate(`/plans/${p.id}/archive`,{revision:p.revision})}>归档</button></div></article>)}</div>
+        <p className="study-note">实验的新检测通过、教师补练的复测通过和作业提交会自动更新对应计划。“我已完成”标记为个人确认；计划和计时保存到本人账号。{allowNavigation === false ? '学习记录页只做进度展示：开始学习、进入实验请从课程首页进入。' : ''}</p>
         {data?.suggestions.length > 0 && <details className="study-suggestions" open={!pending.length}><summary>根据当前任务选择学习内容 · {data.suggestions.length} 项</summary>{data.suggestions.map((s,i) => <div className="study-suggestion" key={i}><div><strong>{s.title}</strong><small>{s.reason}</small></div><button type="button" className="ghost-button" disabled={busy} onClick={() => newPlan(s)}>加入计划</button></div>)}</details>}
         <button type="button" className="study-text-button" aria-expanded={showCompleted} onClick={() => setShowCompleted(v => !v)}>已完成计划（{completed.length}）{showCompleted ? ' · 收起' : ' · 展开'}</button>{showCompleted && completed.map(p => <article className="study-plan-item completed" key={p.id}><div><strong>{p.title}</strong><small>{p.completionNote} · {p.date}</small></div><button type="button" className="study-text-button" disabled={busy} onClick={() => mutate(`/plans/${p.id}/archive`,{revision:p.revision})}>归档</button></article>)}
       </div>
