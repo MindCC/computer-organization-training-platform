@@ -114,3 +114,43 @@ test('existing classrooms become reusable library copies; deleting a copy never 
     assert.equal(c.db.prepare('SELECT count(*) n FROM classroom_sessions WHERE id=?').get(legacy.id).n,1);
   }finally{c.db.close();}
 });
+
+test('learning drilldown preserves the selected historical classroom and separates changed node definitions',()=>{
+  const c=setup();try{
+    const task=c.library.create(c.teacher.id,c.config);
+    const first=c.library.publish(c.teacher.id,task.id,{classId:c.cls.id,revision:1,clientSubmissionId:'history-publish-001'}).session;
+    c.service.enterStudent({studentId:c.student.id,sessionId:first.id});
+    const text='负数使用补码表示，符号位一起参加加法运算。';
+    c.service.completeStage({studentId:c.student.id,sessionId:first.id,payload:{stageId:'discussion',evidence:{text},clientSubmissionId:'history-submit-001'}});
+    c.service.end({teacherId:c.teacher.id,sessionId:first.id});
+    const updated={...c.config,taskChain:{...c.config.taskChain,stages:[{...c.config.taskChain.stages[0],title:'新的讨论内容',instructions:'解释溢出'}]}};
+    c.library.update(c.teacher.id,task.id,{revision:1,config:updated});
+    const second=c.library.publish(c.teacher.id,task.id,{classId:c.cls.id,revision:2,clientSubmissionId:'history-publish-002'}).session;
+    const all=c.library.learning(c.teacher.id,task.id);
+    assert.equal(all.summary.totalStudents,2,'two classroom participations, one student');
+    assert.equal(all.stages.length,2,'changed definitions must not share averages');
+    const historical=c.library.learning(c.teacher.id,task.id,first.id);
+    assert.equal(historical.publications[0].status,'ended');assert.equal(historical.sessionId,first.id);
+    assert.equal(historical.summary.completed,1);assert.equal(historical.stages[0].title,'解释补码');
+    assert.equal(historical.stages[0].students[0].result.evidence.text,text);
+    const live=c.library.learning(c.teacher.id,task.id,second.id);
+    assert.equal(live.stages[0].students[0].status,'not_started');assert.equal(live.stages[0].students[0].result,null);
+    assert.throws(()=>c.library.learning(c.teacher.id,task.id,999),/对应的课堂/);
+    assert.throws(()=>c.library.learning(c.other.id,task.id,first.id),/不存在/);
+  }finally{c.db.close();}
+});
+
+test('imported legacy classrooms use actual attempt feedback and do not turn participation rewards into grades',()=>{
+  const c=setup();try{
+    const draft=c.service.createDraft({teacherId:c.teacher.id,classId:c.cls.id,config:{templateKey:'computer-data-flow',durationMinutes:45,passScore:80}});
+    c.service.start({teacherId:c.teacher.id,sessionId:draft.id});c.service.enterStudent({studentId:c.student.id,sessionId:draft.id});
+    c.service.submitAttempt({studentId:c.student.id,payload:{clientSubmissionId:'legacy-explore-001',challengeId:'computer-components',result:{completed:true,elapsedMinutes:1}}});
+    const [task]=c.library.list(c.teacher.id);
+    const learning=c.library.learning(c.teacher.id,task.id,draft.id);
+    assert.equal(learning.stages[0].completed,1);assert.equal(learning.stages[0].submitted,1);
+    assert.equal(learning.stages[0].students[0].result.passed,true);
+    assert.equal(learning.stages[0].averageScore,null);
+    assert.equal(learning.summary.averageScore,null);
+    assert.equal(task.learning.averageScore,null);
+  }finally{c.db.close();}
+});

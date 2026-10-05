@@ -37,21 +37,24 @@ export function createTaskLibrary({db,sessionService}) {
   // 一次查询汇总教师全部任务的课堂记录，供任务库卡片显示完成度与学情。
   function learningSummaries(teacherId){
     const rows=[
-      ...db.prepare(`SELECT p.task_id AS task_id,sss.status,sss.result_json FROM task_library_publications p
+      ...db.prepare(`SELECT p.task_id AS task_id,sss.status,sss.result_json,sss.student_id,s.id AS session_id,s.template_key FROM task_library_publications p
         JOIN teacher_task_library t ON t.id=p.task_id AND t.teacher_id=? AND t.deleted_at IS NULL
+        JOIN classroom_sessions s ON s.id=p.session_id
         JOIN student_session_states sss ON sss.session_id=p.session_id`).all(teacherId),
-      ...db.prepare(`SELECT t.id AS task_id,sss.status,sss.result_json FROM teacher_task_library t
+      ...db.prepare(`SELECT t.id AS task_id,sss.status,sss.result_json,sss.student_id,s.id AS session_id,s.template_key FROM teacher_task_library t
         JOIN student_session_states sss ON sss.session_id=t.imported_session_id
+        JOIN classroom_sessions s ON s.id=t.imported_session_id
         WHERE t.teacher_id=? AND t.deleted_at IS NULL AND t.imported_session_id IS NOT NULL`).all(teacherId),
     ];
-    const totals=new Map(),averages=new Map();
+    const totals=new Map(),averages=new Map(),legacy=new Map();
     for(const row of rows){
       if(!totals.has(row.task_id)){totals.set(row.task_id,{totalStudents:0,completed:0,inProgress:0,notStarted:0});averages.set(row.task_id,[]);}
       const entry=totals.get(row.task_id);entry.totalStudents+=1;
       if(row.status==='completed')entry.completed+=1;
       else if(row.status==='in_progress')entry.inProgress+=1;
       else entry.notStarted+=1;
-      const average=studentGradedAverage(parseJson(row.result_json));
+      if(row.template_key!=='task-chain'&&!legacy.has(row.session_id))legacy.set(row.session_id,sessionLearning(db.prepare('SELECT * FROM classroom_sessions WHERE id=?').get(row.session_id)).studentAverages);
+      const average=row.template_key==='task-chain'?studentGradedAverage(parseJson(row.result_json)):(legacy.get(row.session_id).get(row.student_id)??null);
       if(average!==null)averages.get(row.task_id).push(average);
     }
     const summaries=new Map();
@@ -65,21 +68,29 @@ export function createTaskLibrary({db,sessionService}) {
   function sessionLearning(session){
     let mission;try{mission=missionForSession(session);}catch{mission={stages:[]};}
     const students=db.prepare('SELECT s.status,s.current_stage_index,s.result_json,u.id AS studentId,u.display_name AS displayName FROM student_session_states s JOIN users u ON u.id=s.student_id WHERE s.session_id=? ORDER BY u.id').all(session.id);
+    const legacyAttempts=new Map();
+    if(mission.key!=='task-chain')for(const attempt of db.prepare('SELECT * FROM challenge_attempts WHERE session_id=? ORDER BY id').all(session.id)){
+      const result=parseJson(attempt.result_json);
+      legacyAttempts.set(`${attempt.student_id}:${attempt.challenge_id}`,{score:result?.classroomPoints!==undefined?null:attempt.score,passed:Boolean(attempt.passed),errors:parseJson(attempt.errors_json)??[],evidence:{challengeId:attempt.challenge_id}});
+    }
     const stages=mission.stages.map(stage=>({stageId:stage.id,title:stage.title,type:stage.type??'lab',definitionKey:JSON.stringify({...stage,position:undefined,minutes:undefined}),completed:0,inProgress:0,submitted:0,gradedCount:0,scoreSum:0,errors:new Map(),students:[]}));
-    const summary={totalStudents:students.length,completed:0,inProgress:0,notStarted:0},averages=[];
+    const summary={totalStudents:students.length,completed:0,inProgress:0,notStarted:0},averages=[],studentAverages=new Map();
     for(const student of students){
       if(student.status==='completed')summary.completed+=1;
       else if(student.status==='in_progress')summary.inProgress+=1;
       else summary.notStarted+=1;
       const result=parseJson(student.result_json);
-      const average=studentGradedAverage(result);
+      const average=mission.key==='task-chain'?studentGradedAverage(result):meanOf(mission.stages.map(stage=>legacyAttempts.get(`${student.studentId}:${stage.challengeId}`)?.score).filter(Number.isFinite));
+      studentAverages.set(student.studentId,average);
       if(average!==null)averages.push(average);
       const stageResults=Array.isArray(result?.stageResults)?result.stageResults:[];
       const progressIndex=student.status==='completed'?stages.length:Math.max(0,Math.min(stages.length,student.current_stage_index??0));
       stages.forEach((stage,index)=>{
         if(index<progressIndex)stage.completed+=1;
         else if(student.status==='in_progress'&&index===progressIndex)stage.inProgress+=1;
-        const entry=stageResults[index];
+        const original=mission.stages[index];
+        const legacyEntry=legacyAttempts.get(`${student.studentId}:${original.challengeId}`);
+        const entry=stageResults[index]??(legacyEntry?{...legacyEntry,stageId:stage.stageId,attempts:result?.stageAttempts?.[index]??1}:null);
         stage.students.push({studentId:student.studentId,displayName:student.displayName,
           status:index<progressIndex?'completed':student.status==='in_progress'&&index===progressIndex?'in_progress':'not_started',
           result:entry?.stageId===stage.stageId?entry:null});
@@ -92,7 +103,7 @@ export function createTaskLibrary({db,sessionService}) {
         }
       });
     }
-    return {stages,students:summary,averages,
+    return {stages,students:summary,averages,studentAverages,
       completionRate:summary.totalStudents?Math.round(summary.completed/summary.totalStudents*100):0,
       averageScore:meanOf(averages)};
   }

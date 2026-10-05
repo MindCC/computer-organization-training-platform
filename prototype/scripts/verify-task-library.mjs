@@ -1,0 +1,51 @@
+import assert from 'node:assert/strict';
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
+import { chromium } from 'playwright';
+import { fillLoginForm } from './lib/qaLogin.mjs';
+const url=process.env.PROTOTYPE_APP_URL,apiUrl=process.env.PROTOTYPE_API_URL;
+const dir=process.env.QA_ARTIFACT_DIR??path.resolve('qa-artifacts');mkdirSync(dir,{recursive:true});
+const browser=await chromium.launch({headless:true}),context=await browser.newContext({viewport:{width:1366,height:768}});
+const errors=[];
+async function api(jar,route,method='GET',body){const response=await fetch(apiUrl+route,{method,headers:{'content-type':'application/json',...(jar.cookie?{cookie:jar.cookie}:{})},...(body?{body:JSON.stringify(body)}:{})});if(response.headers.get('set-cookie'))jar.cookie=response.headers.get('set-cookie').split(';')[0];const data=await response.json();assert.ok(response.ok,`${route}: ${JSON.stringify(data)}`);return data;}
+async function posted(page,route,click){const waiting=page.waitForResponse(response=>response.url().endsWith(route)&&response.request().method()!=='GET');await click();const response=await waiting;const data=await response.json();assert.ok(response.ok(),JSON.stringify(data));return data;}
+try{
+  const jar={};await api(jar,'/api/auth/login','POST',{username:process.env.TEACHER_USERNAME,password:process.env.TEACHER_PASSWORD});
+  const {class:cls}=await api(jar,'/api/classes','POST',{name:'工作流课堂 QA'});
+  await api(jar,`/api/teacher/classes/${cls.id}/import-students`,'POST',{csv:'flow101,工作流学生,Student123!'});
+  const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(url);await fillLoginForm(page,{username:process.env.TEACHER_USERNAME,password:process.env.TEACHER_PASSWORD});await page.locator('[data-login-role="teacher"]').click();await page.locator('.login-submit').click();
+  await page.getByRole('heading',{name:'我的教学任务'}).waitFor();await page.getByText('暂无教学任务',{exact:true}).waitFor();
+  await page.screenshot({path:path.join(dir,'task-library-empty.png'),fullPage:true});
+  await page.getByRole('button',{name:'创建任务',exact:true}).click();await page.getByRole('tab',{name:'手动编排',exact:true}).click();await page.getByRole('button',{name:/自定义任务链/}).click();
+  await page.getByLabel('任务链名称').fill('补码讨论工作流');
+  await page.locator('.chain-add-palette').getByRole('button',{name:'自定义任务',exact:true}).click();
+  await page.getByLabel('环节名称').fill('观察补码');await page.getByLabel('学习目标与操作要求').fill('观察负数的补码表示并完成课堂讨论。');await page.getByLabel('自定义完成条件').selectOption('confirm');
+  await page.locator('.chain-add-palette').getByRole('button',{name:'自定义任务',exact:true}).click();
+  await page.getByLabel('环节名称').fill('小组解释');await page.getByLabel('学习目标与操作要求').fill('说明补码运算中符号位参与运算的规则。');await page.getByLabel('自定义完成条件').selectOption('text');
+  await page.locator('.react-flow__controls-fitview').click();
+  const first=page.locator('.task-workflow-node',{hasText:'观察补码'}),second=page.locator('.task-workflow-node',{hasText:'小组解释'});
+  const a=await first.boundingBox(),b=await second.boundingBox();assert.ok(a&&b);
+  await page.mouse.move(b.x+b.width/2,b.y+45);await page.mouse.down();await page.mouse.move(a.x+10,a.y+145,{steps:18});await page.mouse.up();
+  await page.locator('.chain-outline summary').click();
+  await page.locator('.chain-stage-list button').first().getByText('小组解释',{exact:true}).waitFor();
+  await page.locator('.react-flow__controls-fitview').click();
+  await page.screenshot({path:path.join(dir,'task-workflow-desktop.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:path.join(dir,'task-workflow-mobile.png'),fullPage:true});await page.setViewportSize({width:1366,height:768});
+  const {task}=await posted(page,'/api/teacher/task-library',()=>page.getByRole('button',{name:'保存任务',exact:true}).click());
+  assert.equal(task.config.taskChain.stages[0].title,'小组解释');assert.ok(task.config.taskChain.stages[0].position.y>90);
+  assert.equal((await api(jar,`/api/teacher/classes/${cls.id}/sessions/current`)).session,null,'save only creates reusable task');
+  await page.reload();let card=page.locator(`[data-task-id="${task.id}"]`);await card.getByRole('button',{name:'修改',exact:true}).click();
+  await page.getByLabel('任务链名称').fill('补码讨论工作流（已核对）');
+  const updated=await posted(page,`/api/teacher/task-library/${task.id}`,()=>page.getByRole('button',{name:'保存任务',exact:true}).click());assert.deepEqual(updated.task.config.taskChain.stages.map(stage=>stage.position),task.config.taskChain.stages.map(stage=>stage.position));
+  await page.getByLabel('搜索任务').fill('不存在的任务');await page.getByText('没有匹配的任务',{exact:true}).waitFor();await page.getByLabel('搜索任务').fill('');
+  await card.getByRole('button',{name:'查看',exact:true}).click();await page.getByRole('dialog',{name:'教师任务预览'}).waitFor();await page.getByRole('button',{name:'关闭演示',exact:true}).click();
+  await page.screenshot({path:path.join(dir,'task-library-populated.png'),fullPage:true});
+  await card.getByRole('button',{name:'发布',exact:true}).click();const published=await posted(page,`/api/teacher/task-library/${task.id}/publish`,()=>page.getByRole('button',{name:'确认发布',exact:true}).click());assert.equal(published.session.status,'live');
+  const student={};await api(student,'/api/auth/login','POST',{username:'flow101',password:'Student123!'});await api(student,`/api/student/classroom/${published.session.id}/enter`,'POST');
+  for(const stage of updated.task.config.taskChain.stages){await api(student,`/api/student/classroom/${published.session.id}/complete-stage`,'POST',{stageId:stage.id,evidence:stage.submissionMode==='text'?{text:'负数用补码表示，符号位一起参加运算，进位不同于溢出。'}:{completed:true},clientSubmissionId:`flow-submit-${stage.id}`});}
+  await page.getByRole('button',{name:'任务库',exact:true}).click();await card.getByRole('button',{name:'学情',exact:true}).click();const dialog=page.getByRole('dialog',{name:'补码讨论工作流（已核对） 学情'});await dialog.getByText('1 / 1 人次完成 · 100%',{exact:true}).waitFor();await dialog.getByRole('button',{name:'查看本次课堂',exact:true}).click();await dialog.locator('.task-learning-stages ol>li').first().getByRole('button',{name:'查看学生反馈',exact:true}).click();await dialog.getByRole('region',{name:'单个任务学生反馈'}).getByText(/负数用补码表示/).waitFor();await dialog.getByRole('button',{name:'关闭',exact:true}).click();
+  await card.getByRole('button',{name:'删除',exact:true}).click();await posted(page,`/api/teacher/task-library/${task.id}`,()=>page.getByRole('button',{name:'确认删除',exact:true}).click());await card.waitFor({state:'detached'});
+  const retained=await api(jar,`/api/teacher/sessions/${published.session.id}/overview`);assert.equal(retained.session.title,'补码讨论工作流（已核对）');assert.equal(retained.students[0].status,'completed');
+  assert.deepEqual(errors,[]);console.log('PASS task library CRUD, real workflow drag, saved node positions, custom completion, publication snapshots, student feedback, desktop/mobile and zero page errors');
+}catch(error){console.error(error.stack);process.exitCode=1;}finally{await context.close();await browser.close();}

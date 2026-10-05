@@ -51,11 +51,12 @@
 .task-library-learning progress{width:100%;height:6px;accent-color:#2c9b7f}
 .task-learning-dialog{box-sizing:border-box;width:min(880px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;text-align:left}
 .task-learning-dialog h3{font-size:14px;color:#2c4f43;margin:22px 0 10px}
+.task-learning-statistics{padding:20px;background:white;border:1px solid #d9e8e0;border-radius:12px}.task-learning-panel h3{font-size:14px;margin:22px 0 10px}.task-learning-controls{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:12px 0}.task-learning-controls small,.task-learning-scope{color:#68817a;font-size:12px}.task-learning-feedback article{border:1px solid #d9e8e0;border-radius:9px;padding:14px;margin:10px 0;font-size:13px}.task-learning-feedback header{display:flex;justify-content:space-between;gap:12px}.task-learning-text{white-space:pre-wrap;overflow-wrap:anywhere;color:#345649}.task-chain-builder .chain-add-palette{grid-template-columns:repeat(4,minmax(0,1fr))}@media(max-width:600px){.task-chain-builder .chain-add-palette{grid-template-columns:repeat(2,minmax(0,1fr))}.task-learning-statistics{padding:12px}}
 .task-learning-summary{display:flex;flex-wrap:wrap;gap:10px 22px;padding:14px 16px;border:1px solid #d9e8e0;border-radius:10px;background:#f3faf6;color:#3c6255;font-size:12px}
 .task-learning-summary strong{color:#1d7a5f;font-size:15px}
 .task-learning-empty{padding:14px 16px;border:1px dashed #c7dcd3;border-radius:10px;color:#5d7f71;font-size:13px;line-height:1.7}
 .task-learning-stages ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
-.task-learning-stages li{display:flex;gap:12px;align-items:flex-start;border:1px solid #e0e9e4;border-radius:9px;padding:12px 14px;background:#fbfdfc}
+.task-learning-stages>ol>li{display:flex;gap:12px;align-items:flex-start;border:1px solid #e0e9e4;border-radius:9px;padding:12px 14px;background:#fbfdfc}
 .task-learning-stage-main{display:grid;gap:4px;min-width:0}
 .task-learning-stage-main small{color:#6a8379;font-size:11px}
 .task-learning-stage-main strong{font-size:13px;color:#24443a;overflow-wrap:anywhere}
@@ -73,4 +74,4 @@
 .task-learning-status.ended{background:#e8eef2;color:#54687a}
 .task-learning-publications article>span{flex:1;min-width:150px}
 .task-learning-note{margin-top:14px;font-size:11px;color:#7b948a;line-height:1.7}
-@media(max-width:600px){.task-learning-publications article{align-items:flex-start;flex-direction:column;gap:6px}}
+@media(max-width:600px){.task-learning-publications article{align-items:flex-start;flex-direction:column;gap:6px}.task-workflow-toolbar{align-items:stretch;flex-direction:column}.task-workflow-toolbar small{width:100%;overflow-wrap:break-word}.task-workflow-toolbar button{align-self:flex-end;width:auto}}
