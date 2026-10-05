@@ -33,8 +33,11 @@ try {
   await page.goForward();
   await expect(page.locator('.courseware-demo-grid')).toBeVisible();
   await clickTopNavItem(page, '课程课件');
-  await expect(page.locator('.courseware-lecture-player iframe')).toBeVisible();
+  // 课件页为章节大纲版式：讲演在折叠的章节内，未展开不挂载 iframe
+  await expect(page.locator('.courseware-outline')).toBeVisible();
   await expect(page.locator('.courseware-chapter-card, .parameter-playground')).toHaveCount(0);
+  await page.locator('.outline-chapter', { hasText: '第三章' }).first().locator('summary').click();
+  await expect(page.locator('.outline-lecture iframe').first()).toBeVisible();
 
   for (const demo of HOSTED_DEMOS) {
     await page.goto(`${base}/?demo=${demo.id}`,{waitUntil:'domcontentloaded'});

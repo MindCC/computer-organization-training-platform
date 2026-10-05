@@ -101,6 +101,12 @@ try {
   await page.locator(".topbar-nav .topbar-nav-item").first().waitFor();
   await clickTopNavItem(page, "学习记录");
   await page.waitForSelector(".records-screen", { timeout: 15000 });
+  // 记录页次要区块默认折叠：演示练习面板在「课堂练习与维修记录」折叠区里，先展开
+  const demoDisclosure = page.locator("[data-testid='records-practice-section']");
+  if (await demoDisclosure.count()) {
+    const expanded = await demoDisclosure.evaluate((el) => el.open);
+    if (!expanded) await demoDisclosure.locator("summary").click();
+  }
   const panel = page.locator("[data-testid='demo-practice-panel']");
   check("学习记录显示演示练习面板", await panel.count() === 1 && (await panel.innerText()).includes("指令系统与寻址方式"), await panel.count());
   await page.screenshot({ path: `${ARTIFACT_DIR}/demo-linkage.png`, fullPage: true });

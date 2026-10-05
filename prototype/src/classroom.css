@@ -1238,6 +1238,42 @@
 .outline-chapter summary span { color: var(--muted); font-size: .8rem; font-weight: 600; }
 .outline-body { border-top: 1px solid var(--border); display: grid; gap: 12px; padding: 12px 14px; }
 .outline-points { color: var(--ink); font-size: .86rem; line-height: 1.6; margin: 0; padding-left: 18px; }
+/* 章节大纲内嵌的 AI 互动讲演（展开才挂载 iframe） */
+.outline-lecture {
+  background: #0b1424;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 26px rgba(31,42,56,0.14);
+  margin-top: 2px;
+  overflow: hidden;
+}
+.outline-lecture iframe {
+  background: #fff;
+  border: 0;
+  display: block;
+  height: 66vh;
+  min-height: 440px;
+  width: 100%;
+}
+.outline-lecture-note { margin-right: auto; }
+.outline-lecture-fullscreen {
+  align-items: center;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.28);
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-flex;
+  flex: none;
+  font-size: .8rem;
+  font-weight: 600;
+  gap: 5px;
+  padding: 5px 11px;
+}
+.outline-lecture-fullscreen:hover { background: rgba(255,255,255,0.24); }
+/* 全屏时播放器铺满屏幕（标题条留在顶部，便于退出） */
+.outline-lecture:fullscreen { background: #0b1424; border: 0; border-radius: 0; display: flex; flex-direction: column; }
+.outline-lecture:fullscreen iframe { flex: 1; height: auto; min-height: 0; }
 
 @media (max-width: 760px) {
   .lecture-chapter-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
