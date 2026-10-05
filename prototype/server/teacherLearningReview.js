@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { learningActivity } from './learningActivity.js';
+import { buildStudentMarkdownReport } from './studentReport.js';
 import { getStudentProgress, listClassStudents, teacherOwnsClass, summarizeDemoAttempts, recordStudentAttempt } from './db.js';
 import { normalizeStudentAttemptPayload } from './submissionValidation.js';
 import { buildUnifiedMistakeBook, practiceState } from './learningPractice.js';
@@ -28,6 +30,9 @@ export function learningReviewData(db, user, classId = null) {
 }
 export function createTeacherLearningReviewRouter({ db, requireRole }) {
   const router = Router();
+  router.get('/teacher/activity', requireRole('teacher'), (req,res) => {
+    res.set('Cache-Control','no-store');res.json(learningActivity(db,req.user.id));
+  });
   router.get('/teacher/progress', requireRole('teacher'), (req,res) => {
     const progress = getStudentProgress(db, req.user.id);
     res.json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress), allowSkipLocked: true });
@@ -49,6 +54,13 @@ export function createTeacherLearningReviewRouter({ db, requireRole }) {
   }
   router.get('/teacher/learning-review', requireRole('teacher'), (req,res) => {
     res.set('Cache-Control','no-store'); res.json(detail({ id: req.user.id, username: req.user.username, displayName: req.user.display_name }, null));
+  });
+  router.get('/teacher/report.md', requireRole('teacher'), (req,res) => {
+    const user={id:req.user.id,username:req.user.username,displayName:req.user.display_name};
+    const data=detail(user,null);
+    res.set('Cache-Control','no-store');res.set('Content-Type','text/markdown; charset=utf-8');
+    res.set('Content-Disposition','attachment; filename=teacher-practice-report.md');
+    res.send(buildStudentMarkdownReport({user,...data,demoAttempts:data.demos,shopServiceRecords:data.serviceRecords}));
   });
   const base = '/teacher/classes/:classId/learning-review';
   router.use(base, requireRole('teacher'), (req,res,next) => {

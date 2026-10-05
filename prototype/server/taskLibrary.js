@@ -1,6 +1,7 @@
 import { validateClassroomSessionConfig, missionForSession } from '../src/shared/classroomMissionDefinitions.js';
 import { classroomError } from './classroomMissionGrading.js';
 import { teacherOwnsClass } from './db.js';
+import { taskKnowledgeLearning,compareKnowledge } from './taskKnowledgeLearning.js';
 
 const fail=(code,message,status=400)=>{throw classroomError(code,message,status,false);};
 const parseJson=value=>{try{return value?JSON.parse(value):null;}catch{return null;}};
@@ -27,7 +28,15 @@ export function createTaskLibrary({db,sessionService}) {
     session_id INTEGER NOT NULL UNIQUE REFERENCES classroom_sessions(id), client_submission_id TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(teacher_id,client_submission_id)
   );`);
-  function normalize(config){try{return validateClassroomSessionConfig({...config,templateKey:'task-chain'});}catch(error){fail('INVALID_TASK',error.message);}}
+  function normalize(config){try{return validateClassroomSessionConfig({...config,targetStudentIds:undefined,templateKey:'task-chain'});}catch(error){fail('INVALID_TASK',error.message);}}
+  function sourceFor(teacherId,config,checkRecipients=false){
+    const source=config.taskChain?.followUp;if(!source)return null;
+    const task=db.prepare('SELECT * FROM teacher_task_library WHERE id=? AND teacher_id=?').get(source.sourceTaskId,teacherId);
+    const session=db.prepare('SELECT * FROM classroom_sessions WHERE id=? AND teacher_id=?').get(source.sourceSessionId,teacherId);
+    if(!task||!session||!(learningSessions(task).some(s=>s.id===session.id)))fail('INVALID_TASK_SOURCE','后续任务来源不存在或不属于你',404);
+    if(checkRecipients&&source.studentIds?.some(id=>!db.prepare('SELECT 1 FROM class_members WHERE class_id=? AND student_id=?').get(session.class_id,id)))fail('INVALID_TARGET_STUDENTS','后续任务的目标学生须属于来源班级');
+    return session;
+  }
   function own(teacherId,id){
     const row=db.prepare('SELECT * FROM teacher_task_library WHERE id=? AND teacher_id=? AND deleted_at IS NULL').get(id,teacherId);
     if(!row)fail('TASK_NOT_FOUND','任务不存在',404);return row;
@@ -142,7 +151,14 @@ export function createTaskLibrary({db,sessionService}) {
         imported:session.imported===1,publishedAt:session.published_at??session.started_at,endedAt:session.ended_at??null,
         students:data.students,completionRate:data.completionRate,averageScore:data.averageScore};
     });
-    return {taskId:row.id,title:row.title,revision:row.revision,sessionId,
+    const selected=sessionId===null?null:sessions[0];
+    const knowledge=selected?taskKnowledgeLearning(db,selected):null;
+    const source=selected?sourceFor(teacherId,parseJson(selected.config_json)):null;
+    if(knowledge&&source)knowledge.comparison=compareKnowledge(taskKnowledgeLearning(db,source),knowledge);
+    else if(knowledge&&missionForSession(selected).stages.some(s=>s.purpose==='retest'))knowledge.comparison=compareKnowledge(knowledge,knowledge,true);
+    const followUps=selected?db.prepare(`SELECT p.task_id AS taskId,p.session_id AS sessionId,s.class_id AS classId,s.title,s.status FROM task_library_publications p JOIN classroom_sessions s ON s.id=p.session_id
+      WHERE p.teacher_id=? AND json_extract(s.config_json,'$.taskChain.followUp.sourceSessionId')=? ORDER BY p.id DESC`).all(teacherId,sessionId):[];
+    return {taskId:row.id,title:row.title,revision:row.revision,sessionId,knowledge,followUps,
       summary:{publishedCount:sessions.length,classCount:classIds.size,...totals,
         completionRate:totals.totalStudents?Math.round(totals.completed/totals.totalStudents*100):0,averageScore:meanOf(allAverages)},
       stages:stageOrder.map((stage,index)=>({key:String(index),stageId:stage.stageId,title:stage.title,type:stage.type,
@@ -169,10 +185,11 @@ export function createTaskLibrary({db,sessionService}) {
     list(teacherId){importExisting(teacherId);const summaries=learningSummaries(teacherId);
       return db.prepare('SELECT * FROM teacher_task_library WHERE teacher_id=? AND deleted_at IS NULL ORDER BY id DESC').all(teacherId).map(row=>dto(row,summaries.get(row.id)??null));},
     get(teacherId,id){return dto(own(teacherId,id));},
-    create(teacherId,input){const config=normalize(input);const result=db.prepare('INSERT INTO teacher_task_library(teacher_id,title,config_json) VALUES(?,?,?)').run(teacherId,config.taskChain.title,JSON.stringify(config));return this.get(teacherId,Number(result.lastInsertRowid));},
+    create(teacherId,input){const config=normalize(input);sourceFor(teacherId,config,true);const result=db.prepare('INSERT INTO teacher_task_library(teacher_id,title,config_json) VALUES(?,?,?)').run(teacherId,config.taskChain.title,JSON.stringify(config));return this.get(teacherId,Number(result.lastInsertRowid));},
     update(teacherId,id,input){
       const row=own(teacherId,id);if(input.revision!==row.revision)fail('TASK_VERSION_CONFLICT','任务已被修改，请重新打开最新版本',409);
       const config=normalize(input.config);
+      sourceFor(teacherId,config,true);
       db.prepare('UPDATE teacher_task_library SET title=?,config_json=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(config.taskChain.title,JSON.stringify(config),id);
       return this.get(teacherId,id);
     },
@@ -184,10 +201,17 @@ export function createTaskLibrary({db,sessionService}) {
       if(!Number.isInteger(classId)||!teacherOwnsClass(db,teacherId,classId))fail('CLASS_NOT_FOUND','班级不存在',404);
       const previous=db.prepare('SELECT * FROM task_library_publications WHERE teacher_id=? AND client_submission_id=?').get(teacherId,key);
       if(previous){if(previous.task_id!==id||previous.class_id!==classId||previous.revision!==input.revision)fail('PUBLISH_CONFLICT','同一次发布的内容不能更改',409);
+        const oldTargets=parseJson(db.prepare('SELECT config_json FROM classroom_sessions WHERE id=?').get(previous.session_id).config_json)?.targetStudentIds??null;
+        const targets=Array.isArray(input.targetStudentIds)?[...input.targetStudentIds].sort((a,b)=>a-b):input.targetStudentIds??null;
+        if(JSON.stringify(oldTargets)!==JSON.stringify(targets))fail('PUBLISH_CONFLICT','同一次发布的内容不能更改',409);
         return {session:db.prepare('SELECT * FROM classroom_sessions WHERE id=?').get(previous.session_id),duplicate:true};}
       const row=own(teacherId,id);if(row.revision!==input.revision)fail('TASK_VERSION_CONFLICT','任务已被修改，请重新打开最新版本',409);
-      if(db.prepare("SELECT 1 FROM classroom_sessions WHERE class_id=? AND status IN ('live','paused')").get(classId))fail('ACTIVE_SESSION_CONFLICT','该班级已有进行中的课堂，请先结束当前课堂',409);
-      const draft=sessionService.createDraft({teacherId,classId,config:JSON.parse(row.config_json)});
+      if(input.targetStudentIds===undefined&&db.prepare("SELECT 1 FROM classroom_sessions WHERE class_id=? AND status IN ('live','paused')").get(classId))fail('ACTIVE_SESSION_CONFLICT','该班级已有进行中的课堂，请先结束当前课堂',409);
+      const config=JSON.parse(row.config_json),source=sourceFor(teacherId,config);
+      if(source&&source.class_id!==classId)fail('INVALID_TASK_SOURCE','后续任务须发布到来源班级');
+      if(source&&source.status!=='ended')fail('SOURCE_SESSION_ACTIVE','请先结束来源课堂，再发布后续任务');
+      if(source&&!input.targetStudentIds)fail('INVALID_TARGET_STUDENTS','后续任务请选择目标学生');
+      const draft=sessionService.createDraft({teacherId,classId,config:{...config,...(input.targetStudentIds!==undefined?{targetStudentIds:input.targetStudentIds}:{})}});
       const session=sessionService.start({teacherId,sessionId:draft.id});
       db.prepare('INSERT INTO task_library_publications(task_id,teacher_id,revision,class_id,session_id,client_submission_id) VALUES(?,?,?,?,?,?)').run(id,teacherId,row.revision,classId,session.id,key);
       return {session,duplicate:false};

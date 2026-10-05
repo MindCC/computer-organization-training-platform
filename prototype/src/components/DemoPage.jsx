@@ -12,14 +12,14 @@ export function DemoPage({ demoId, changeView, openStudyTarget, role }) {
   const [activeMode, setActiveMode] = useState("principles");
   useEffect(() => { setLoaded(false); setActiveMode("principles"); }, [demoId]);
   const parentView = demoId === "courseware" ? "courseware" : "demos";
-  const backLabel = parentView === "demos" ? "返回互动演示" : "返回课程课件";
+  const backLabel = parentView === "demos" ? "返回互动演示" : "返回AI讲演";
   if (!demo) return <section className="section-panel"><h1>演示页面不存在</h1><button type="button" className="primary-button" onClick={() => changeView(parentView)}>{backLabel}</button></section>;
   const chapter = COURSE_CHAPTERS.find(item => item.id === demo.chapterId);
   const parameterExperiment = parameterExperimentForChapter(demo.chapterId);
   return <section className="hosted-demo" aria-label="课程互动演示">
     <header className="hosted-demo-context">
       <button type="button" className="ghost-button" onClick={() => changeView(parentView)}><ArrowLeft size={17} /> {backLabel}</button>
-      <div className="hosted-demo-title"><span>{chapter ? `第${chapter.number}章 · 课堂互动演示` : "课程课件"}</span><h1>{demo.title}</h1>{parameterExperiment && <nav className="hosted-demo-modes" role="tablist" aria-label="本章演示内容">
+      <div className="hosted-demo-title"><span>{chapter ? `第${chapter.number}章 · 课堂互动演示` : "AI讲演"}</span><h1>{demo.title}</h1>{parameterExperiment && <nav className="hosted-demo-modes" role="tablist" aria-label="本章演示内容">
         <button type="button" role="tab" id="demo-principles-tab" aria-controls="demo-principles-panel" aria-selected={activeMode === "principles"} onClick={() => setActiveMode("principles")}>原理演示</button>
         <button type="button" role="tab" id="demo-parameters-tab" aria-controls="demo-parameters-panel" aria-selected={activeMode === "parameters"} onClick={() => setActiveMode("parameters")}>性能参数实验</button>
       </nav>}</div>

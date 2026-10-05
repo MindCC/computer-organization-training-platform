@@ -19,6 +19,7 @@ import { ShopServiceRecords } from './records/ShopServiceRecords.jsx';
 import { RecentActivityChart } from "./records/RecentActivityChart.jsx";
 import { buildRecentActivityModel } from "../recordsOverviewModel.js";
 import { StudyMascot } from "./ai/StudyMascot.jsx";
+import { personalLearningPath } from '../personalLearningApi.js';
 import "./records/recordsTech.css";
 const StudyPlanningPanel = lazy(() => import('./study/StudyPlanningPanel.jsx').then(m => ({ default: m.StudyPlanningPanel })));
 
@@ -78,7 +79,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
           <p className="records-subtitle">整理知识联系，查看自己的学习进度；课程地图已移至课程首页。</p>
         </div>
         <div className="records-screen-actions">
-          <a className="ghost-button" href="/api/student/report.md">导出实验报告</a>
+          {personalTools && <a className="ghost-button" href={personalLearningPath('/api/student/report.md')}>导出实验报告</a>}
           <button className="ghost-button" onClick={() => changeView("home")} type="button">回到课程首页继续实验</button>
         </div>
       </header>
@@ -114,10 +115,10 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       </section>
 
       {/* 番茄钟：自习节奏工具，状态跨页面/刷新保留 */}
-      <PomodoroPanel />
+      {personalTools && <PomodoroPanel />}
 
       {/* 学习日历：按天回看实验与课堂演示记录 */}
-      <RecordsCalendar onOpenChallenge={selectChallenge} />
+      {personalTools && <RecordsCalendar onOpenChallenge={selectChallenge} />}
 
       <section className="records-statistics" aria-labelledby="records-statistics-title">
         <div className="records-section-heading">

@@ -41,7 +41,9 @@ test("teacher publishes a course, assigns a team, then reviews the student's mil
     let result = await request(baseUrl, "/api/classes", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "课程班" }) }, teacherJar);
     const classId = result.body.class.id;
     await request(baseUrl, `/api/teacher/classes/${classId}/import-students`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ csv: "course-student,学生,Student123!" }) }, teacherJar);
-    await request(baseUrl, "/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "course-student", password: "Student123!" }) }, studentJar);
+    const studentLogin = await request(baseUrl, "/api/auth/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ username: "course-student", password: "Student123!" }) }, studentJar);
+    assert.equal(studentLogin.response.status, 200);
+    const studentId = studentLogin.body.user.id;
 
     result = await request(baseUrl, `/api/teacher/classes/${classId}/course-drafts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }, teacherJar);
     assert.equal(result.response.status, 201);
@@ -50,7 +52,7 @@ test("teacher publishes a course, assigns a team, then reviews the student's mil
     assert.equal(result.response.status, 200);
     const projectId = result.body.project.id;
     const courseVersionId = result.body.project.courseVersion.id;
-    result = await request(baseUrl, `/api/teacher/course-drafts/${draftId}/project/teams`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "第一组", members: [{ studentId: 2, role: "实验" }] }) }, teacherJar);
+    result = await request(baseUrl, `/api/teacher/course-drafts/${draftId}/project/teams`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "第一组", members: [{ studentId, role: "实验" }] }) }, teacherJar);
     assert.equal(result.response.status, 201);
 
     result = await request(baseUrl, "/api/student/projects", {}, studentJar);

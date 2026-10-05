@@ -65,7 +65,7 @@ try {
   // Browser-side deterministic AI fixtures verify image transport and failure preservation.
   // Real provider transport, schema and large payloads are checked by server tests.
   await page.route('**/api/mind-maps/capabilities',r=>r.fulfill({json:{textAi:true,imageAi:true}}));
-  await nav('课程课件').click();await expect(board).toHaveCount(0);await goBoard();
+  await nav('AI讲演').click();await expect(board).toHaveCount(0);await goBoard();
   await board.getByLabel('打开已保存画板').selectOption(String(id));await expect(board.locator('.react-flow__node')).toHaveCount(11);
   await board.locator('.mind-source>summary').click();await board.getByRole('tab',{name:'图片转导图',exact:true}).click();
   await board.getByLabel('选择思维导图图片').setInputFiles('qa-artifacts/mind-map-export.png');await expect(board.locator('.mind-image-preview img')).toBeVisible();

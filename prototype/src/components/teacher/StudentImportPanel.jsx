@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../../apiClient.js';
 import { downloadCredentialsCsv } from '../../importCredentials.js';
 import './classManagement.css';
@@ -7,7 +7,10 @@ export const STUDENT_TEMPLATE = 'data:text/csv;charset=utf-8,%EF%BB%BF%E5%AD%A6%
 
 export function StudentImportPanel({ classId, className, onImported, isDemoTeacher = false }) {
   const [csv, setCsv] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [report, setReport] = useState(null), [fileName, setFileName] = useState('');
+  const [credentials,setCredentials] = useState([]);
   const pending = useRef(false);
+  const mounted = useRef(true);
+  useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
   async function readFile(event) {
     const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
     setError('');
@@ -25,7 +28,8 @@ export function StudentImportPanel({ classId, className, onImported, isDemoTeach
     event.preventDefault(); if (pending.current || !classId || !csv.trim()) return;
     const targetClassId = classId; pending.current = true; setBusy(true); setError('');
     try {
-      const result = await api.importStudents(targetClassId, csv); setReport(result);
+      const result = await api.importStudents(targetClassId, csv); if(!mounted.current)return; setReport(result);
+      setCredentials(previous=>[...new Map([...previous,...(result.credentials??[])].map(item=>[item.username,item])).values()]);
       try { await onImported(targetClassId); } catch { setError('导入结果已保存，名单刷新失败。请刷新班级名单核对。'); }
     } catch (failure) { setError(failure.message); }
     finally {pending.current = false; setBusy(false);}
@@ -43,7 +47,7 @@ export function StudentImportPanel({ classId, className, onImported, isDemoTeach
     </form>
     {error && <p className="note-error" role="alert">{error}</p>}
     {report && <div className="class-import-result"><p className="note-success" role="status">导入完成：新增 {report.imported}，已有账号加入或更新 {report.updated}，跳过 {report.skipped}。</p>{report.errors?.length > 0 && <div><strong>请修改以下行后重新导入</strong><ul>{report.errors.map((item,index)=><li key={index}>第{item.line}行：{item.message}</li>)}</ul></div>}
-      {report.credentials?.length > 0 && <div className="teacher-import-credentials"><strong>新账号初始口令</strong><p>关闭本页后不会再次显示，请先下载并发放给学生。</p><div className="teacher-credential-list">{report.credentials.map(item=><div className="teacher-credential-row" key={item.username}><span>{item.username}</span><span>{item.displayName}</span><code>{item.password}</code></div>)}</div><button className="ghost-button" type="button" onClick={()=>downloadCredentialsCsv(report.credentials)}>下载初始口令 CSV</button></div>}
+      {credentials.length > 0 && <div className="teacher-import-credentials"><strong>本页导入的新账号初始口令</strong><p>连续导入会保留本页已有口令。关闭本页后不会再次显示，请先下载并发放给学生。</p><div className="teacher-credential-list">{credentials.map(item=><div className="teacher-credential-row" key={item.username}><span>{item.username}</span><span>{item.displayName}</span><code>{item.password}</code></div>)}</div><button className="ghost-button" type="button" onClick={()=>downloadCredentialsCsv(credentials)}>下载初始口令 CSV</button></div>}
     </div>}
   </section>;
 }

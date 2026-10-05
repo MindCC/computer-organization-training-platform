@@ -216,7 +216,7 @@ try {
 
   await fallbackPage.getByRole("button", { name: /返回课程首页/ }).click();
   // 首页已改为章节折叠布局，不再有「课程探索地图」区块；等首页渲染出来即可。
-  await fallbackPage.locator(".project-chapter-board, .mission-route-board").first().waitFor({ state: "visible", timeout: 20_000 });
+  await fallbackPage.getByTestId('course-adventure-map').waitFor({ state: "visible", timeout: 20_000 });
   // 结算层可能在导航回首页时才渲染，先关掉再继续点击导航。
   await dismissQuestSettlement(fallbackPage);
   await clickTopNavItem(fallbackPage, "硬件配置挑战");

@@ -56,6 +56,8 @@ export function createTaskChainActions({db,repository,now,expireIfNeeded,assertT
       assertTeacherOwns(session,teacherId);
       if(session.status!=='draft')fail('仅草稿可以修改任务链','SESSION_ALREADY_STARTED',409);
       const normalized=validateClassroomSessionConfig(config);
+      const storedTargets=parse(session.config_json).targetStudentIds??null;
+      if(JSON.stringify(storedTargets)!==JSON.stringify(normalized.targetStudentIds??null))fail('草稿不能更改发布对象，请通过任务库重新发布');
       validateChainAssignments(db,normalized,session.class_id);
       const mission=normalized.taskChain??missionForSession(session);
       db.prepare(`UPDATE classroom_sessions SET template_key=?,template_version=?,title=?,duration_minutes=?,pass_score=?,allow_makeup=?,config_json=?,updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='draft'`)
@@ -66,6 +68,7 @@ export function createTaskChainActions({db,repository,now,expireIfNeeded,assertT
       const session=repository.getById(sessionId);
       if(!session)fail('课堂场次不存在','SESSION_NOT_FOUND',404);
       if(!db.prepare('SELECT 1 FROM class_members WHERE class_id=? AND student_id=?').get(session.class_id,studentId))fail('你不在该班级中','NOT_CLASS_MEMBER',403);
+      if(parse(session.config_json).targetStudentIds&&!parse(session.config_json).targetStudentIds.includes(studentId))fail('你不是本任务的发布对象','NOT_TASK_RECIPIENT',403);
       const state=repository.getStudentState(sessionId,studentId);
       if(!state||state.status==='not_started')fail('请先接受课堂任务','NOT_ENTERED',409);
       const id=payload?.clientSubmissionId;

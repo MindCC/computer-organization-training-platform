@@ -32,12 +32,11 @@ try {
   await expect(page.locator('.hosted-demo-frame')).toHaveAttribute('src','/demos/arithmetic-basics.html?embedded=1');
   await page.goForward();
   await expect(page.locator('.courseware-demo-grid')).toBeVisible();
-  await clickTopNavItem(page, '课程课件');
-  // 课件页为章节大纲版式：讲演在折叠的章节内，未展开不挂载 iframe
-  await expect(page.locator('.courseware-outline')).toBeVisible();
-  await expect(page.locator('.courseware-chapter-card, .parameter-playground')).toHaveCount(0);
-  await page.locator('.outline-chapter', { hasText: '第三章' }).first().locator('summary').click();
-  await expect(page.locator('.outline-lecture iframe').first()).toBeVisible();
+  await clickTopNavItem(page, 'AI讲演');
+  await expect(page.locator('.ai-lecture-card')).toHaveCount(4);
+  await expect(page.locator('.ai-lecture-player iframe')).toHaveCount(0);
+  await page.locator('.ai-lecture-card').filter({ hasText: '第三章' }).first().locator('button').first().click();
+  await expect(page.locator('.ai-lecture-player iframe')).toHaveCount(1);
 
   for (const demo of HOSTED_DEMOS) {
     await page.goto(`${base}/?demo=${demo.id}`,{waitUntil:'domcontentloaded'});
@@ -75,7 +74,7 @@ try {
     }
     await page.screenshot({path:`qa-artifacts/interactive-demo-${demo.id}-desktop.png`});
     await page.setViewportSize({width:390,height:844});
-    await expect(nav('互动演示')).toBeVisible();
+    await expect(nav('互动演示')).toHaveClass(/active/);
     for (let i=0;i<count;i++) {
       await tabs.nth(i).click();
       const width = await frame.locator('body').evaluate(()=>({actual:document.documentElement.scrollWidth,limit:innerWidth}));

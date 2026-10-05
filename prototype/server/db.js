@@ -45,12 +45,13 @@ export function openDatabase(databasePath = process.env.DATABASE_PATH) {
 }
 
 export function migrate(db) {
+  migrateAdministratorRole(db);
   db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
       display_name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('teacher', 'student')),
+      role TEXT NOT NULL CHECK (role IN ('teacher', 'student', 'admin')),
       password_hash TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'disabled')),
       profile_json TEXT NOT NULL DEFAULT '{}',
@@ -525,9 +526,10 @@ export function migrate(db) {
   ensureColumn(db, "sessions", "user_agent", "TEXT");
   ensureColumn(db, "sessions", "last_active_at", "TEXT");
   db.exec(`
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_active_session_per_class
+    DROP INDEX IF EXISTS idx_active_session_per_class;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_active_whole_class_session
     ON classroom_sessions(class_id)
-    WHERE status IN ('live', 'paused');
+    WHERE status IN ('live', 'paused') AND json_type(config_json,'$.targetStudentIds') IS NULL;
 
     CREATE UNIQUE INDEX IF NOT EXISTS idx_attempts_student_submission
     ON challenge_attempts(student_id, client_submission_id)
@@ -539,6 +541,31 @@ export function migrate(db) {
   sanitizeStoredUserProfiles(db);
   migrateLearningCoach(db);
   migrateStudyWorkspace(db);
+}
+
+// SQLite cannot alter a CHECK constraint. Rebuild only the user table, retaining
+// its columns, IDs, indexes and triggers, while all existing foreign keys keep
+// referencing the final users table. Foreign key enforcement is restored even
+// if the transaction fails.
+function migrateAdministratorRole(db) {
+  const schema = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'users'").get()?.sql;
+  if (!schema || schema.includes("'admin'")) return;
+  const expanded = schema.replace(/CHECK\s*\(role IN \('teacher', 'student'\)\)/i, "CHECK (role IN ('teacher', 'student', 'admin'))");
+  if (expanded === schema) throw new Error('无法扩展现有账号角色约束');
+  const create = expanded.replace(/^CREATE TABLE\s+(?:IF NOT EXISTS\s+)?["`]?users["`]?/i, 'CREATE TABLE users_with_admin');
+  const dependencies = db.prepare("SELECT sql FROM sqlite_master WHERE tbl_name = 'users' AND type IN ('index', 'trigger') AND sql IS NOT NULL").all();
+  const sequence = db.prepare("SELECT seq FROM sqlite_sequence WHERE name = 'users'").get()?.seq;
+  const foreignKeys = db.pragma('foreign_keys', { simple: true });
+  db.pragma('foreign_keys = OFF');
+  try {
+    db.transaction(() => {
+      db.exec(create);
+      db.exec('INSERT INTO users_with_admin SELECT * FROM users');
+      db.exec('DROP TABLE users; ALTER TABLE users_with_admin RENAME TO users');
+      if (sequence !== undefined) db.prepare("UPDATE sqlite_sequence SET seq = MAX(seq, ?) WHERE name = 'users'").run(sequence);
+      for (const dependency of dependencies) db.exec(dependency.sql);
+    })();
+  } finally { db.pragma(`foreign_keys = ${foreignKeys ? 'ON' : 'OFF'}`); }
 }
 
 function sanitizeStoredUserProfiles(db) {

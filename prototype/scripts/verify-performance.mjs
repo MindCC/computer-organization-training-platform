@@ -59,7 +59,7 @@ async function login(page, student) {
   await gotoApp(page, baseUrl);
   await fillLoginForm(page, { username: student.username, password: student.password });
   await submitLoginForm(page);
-  await page.getByText("当前任务", { exact: true }).first().waitFor({
+  await page.getByTestId('course-adventure-map').waitFor({
     state: "visible",
     timeout: 20_000,
   });
@@ -78,7 +78,7 @@ async function openOverview(page) {
 
 async function returnHome(page) {
   await page.getByRole("button", { name: /返回课程首页/ }).click();
-  await page.getByText("当前任务", { exact: true }).first().waitFor({
+  await page.getByTestId('course-adventure-map').waitFor({
     state: "visible",
     timeout: 20_000,
   });

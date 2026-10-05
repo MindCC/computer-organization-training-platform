@@ -134,37 +134,13 @@ try {
   await page.waitForTimeout(500);
   console.log("monitor view rendered, report details count:", await page.locator("details").count());
 
-  // ── 修复 1：课件页上传 PPTX 并在浏览器内渲染 ──
-  await clickTopNavItem(page, "课程课件");
-  await page.locator(".upload-courseware-panel").waitFor({ state: "visible", timeout: 10_000 });
-  await page.getByLabel("选择发布课件的班级").selectOption({ label: className });
-  await page.locator(".upload-label input[type=file]").setInputFiles(samplePptx);
-  await page.locator(".courseware-message").filter({ hasText: "上传完成" }).waitFor({ timeout: 20_000 });
-  const uploadedCard = page.locator(".uploaded-courseware").filter({ hasText: "sample-deck" }).first();
-  await uploadedCard.waitFor({ state: "visible" });
-  assert.match(await uploadedCard.locator("small").innerText(), /可演示/, "upload is immediately ready (no conversion)");
-  await uploadedCard.click();
-  await page.locator(".pptx-render-host").waitFor({ state: "visible", timeout: 20_000 });
-  await page.waitForFunction(() => {
-    const host = document.querySelector(".pptx-render-host");
-    return host && host.querySelectorAll("section, .pptx-preview-wrapper, div").length > 0 && host.innerText.length >= 0;
-  }, { timeout: 20_000 });
-  const slideText = await page.locator(".pptx-render-host").innerText();
-  assert.ok(slideText.includes("前端渲染验证"), "pptx renders text content in the browser");
-  const noteInput=page.getByRole('textbox',{name:'本页笔记内容',exact:true});
-  await noteInput.fill('笔记失败后保留，成功后同步。');
-  await page.route('**/api/courseware/uploads/*/notes',async route=>{if(route.request().method()==='POST')await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'笔记保存故障注入'})});else await route.continue();});
-  await page.getByRole('button',{name:'保存笔记',exact:true}).click();await expect(page.locator('.page-notes')).toContainText('保存失败');await expect(noteInput).toHaveValue('笔记失败后保留，成功后同步。');
-  await page.unroute('**/api/courseware/uploads/*/notes');await page.getByRole('button',{name:'保存笔记',exact:true}).click();await expect(page.locator('.page-note-list')).toContainText('笔记失败后保留，成功后同步。');await expect(noteInput).toHaveValue('');
-  // A second upload verifies drafts stay with their file, rather than moving with the reader.
-  await noteInput.fill('第一份课件的未保存草稿');
-  await page.locator('.upload-label input[type=file]').setInputFiles(samplePptx);
-  await expect(page.locator('.uploaded-courseware')).toHaveCount(2);
-  await page.locator('.uploaded-courseware').first().click();await expect(noteInput).toHaveValue('');await noteInput.fill('第二份课件的未保存草稿');
-  await page.locator('.uploaded-courseware').last().click();await expect(noteInput).toHaveValue('第一份课件的未保存草稿');
-  await expect(page.locator('.page-note-list')).toContainText('笔记失败后保留，成功后同步。');
-  console.log('PASS courseware note failure/retry and per-file draft isolation');
-  await page.screenshot({ path: path.join(artifactDir, "fix-pptx-render.png"), fullPage: true });
+  // AI讲演为讲演目录与独立播放器，PPT 上传入口已移除。
+  await clickTopNavItem(page, "AI讲演");
+  await expect(page.locator(".ai-lecture-card")).toHaveCount(4);
+  await expect(page.locator(".upload-courseware-panel")).toHaveCount(0);
+  await page.locator(".ai-lecture-card-links button").first().click();
+  await expect(page.locator(".ai-lecture-player iframe")).toHaveCount(1);
+  await page.screenshot({ path: path.join(artifactDir, "fix-ai-lecture-player.png"), fullPage: true });
 
   assert.deepEqual(pageErrors, [], "no uncaught page errors");
   console.log("teacher fixes verification passed");

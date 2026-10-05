@@ -162,7 +162,7 @@ await clickTopNavItem(page, "错题本");
 await page.locator(".mistakes-layout").waitFor({ state: "visible", timeout: 10_000 });
 await clickTopNavItem(page, "课后作业");
 await page.locator(".student-assignments").waitFor({ state: "visible", timeout: 10_000 });
-await clickTopNavItem(page, "课程课件");
+await clickTopNavItem(page, "AI讲演");
 await page.locator(".courseware-view").waitFor({ state: "visible", timeout: 10_000 });
 await clickTopNavItem(page, "知识库");
 await page.getByLabel("笔记内容").fill("3D 与总线关系复盘");

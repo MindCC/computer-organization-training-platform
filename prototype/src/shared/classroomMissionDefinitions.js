@@ -14,6 +14,11 @@ export function validateClassroomSessionConfig(input = {}) {
     throw new Error("及格分必须是 60 到 100 的整数");
   }
   let lessonPlan = null;
+  let targetStudentIds;
+  if(input.targetStudentIds!==undefined){
+    if(!taskChain||!Array.isArray(input.targetStudentIds)||input.targetStudentIds.length<1||input.targetStudentIds.length>500||input.targetStudentIds.some(id=>!Number.isInteger(id)||id<1)||new Set(input.targetStudentIds).size!==input.targetStudentIds.length)throw new Error('请选择有效的目标学生');
+    targetStudentIds=[...input.targetStudentIds].sort((a,b)=>a-b);
+  }
   if (input.lessonPlan != null) {
     const raw = input.lessonPlan;
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("教学安排格式无效");
@@ -38,6 +43,7 @@ export function validateClassroomSessionConfig(input = {}) {
     passScore,
     allowMakeup: input.allowMakeup === true,
     ...(taskChain ? {taskChain} : {}),
+    ...(targetStudentIds ? {targetStudentIds} : {}),
     ...(lessonPlan ? { lessonPlan } : {}),
   };
 }

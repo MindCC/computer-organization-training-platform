@@ -75,3 +75,27 @@
 .task-learning-publications article>span{flex:1;min-width:150px}
 .task-learning-note{margin-top:14px;font-size:11px;color:#7b948a;line-height:1.7}
 @media(max-width:600px){.task-learning-publications article{align-items:flex-start;flex-direction:column;gap:6px}.task-workflow-toolbar{align-items:stretch;flex-direction:column}.task-workflow-toolbar small{width:100%;overflow-wrap:break-word}.task-workflow-toolbar button{align-self:flex-end;width:auto}}
+
+/* 全课程模板与教学闭环：操作与证据在同一区域 */
+.teaching-template-picker,.teaching-goals,.teaching-followup-context{padding:18px;margin:16px 0;border:1px solid #dce7eb;border-radius:10px;background:#f7fafc;min-width:0}
+.teaching-template-picker h3,.teaching-goals h3,.teaching-followup-context h3{margin:0 0 10px;font-size:16px}
+.teaching-template-picker p,.teaching-goals p,.teaching-followup-context p,.teaching-loop-panel p{font-size:13px;color:#607586;line-height:1.7}
+.teaching-template-scope{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.teaching-template-scope label,.teaching-goals label{display:grid;gap:8px;font-size:13px}
+.teaching-template-scope select,.teaching-goals select{width:100%;min-width:0;padding:10px;border:1px solid #ccdbe5;border-radius:7px;background:white;font:inherit}
+.teaching-template-disclosure{margin:15px 0}.teaching-template-disclosure>summary,.teaching-goals summary{cursor:pointer;color:#235879;font-size:14px;padding:8px 0}
+.teaching-selected-goals,.teaching-goal-options,.teaching-node-goals,.teaching-recipients>div:last-child{display:flex;gap:10px;flex-wrap:wrap}
+.teaching-selected-goals>span{display:flex;gap:8px;align-items:center;padding:6px 10px;background:#e9f2fa;color:#265d81;border-radius:6px;font-size:12px}
+.teaching-selected-goals button{border:0;background:transparent;color:inherit;cursor:pointer}
+.teaching-goal-options{margin-top:12px}.teaching-goal-options label,.teaching-node-goals label,.teaching-recipients label{display:flex!important;align-items:center;gap:8px;font-size:13px}
+.teaching-goal-options input,.teaching-node-goals input,.teaching-recipients input{width:auto!important;min-height:0!important;accent-color:#167d69}
+.teaching-node-goals,.teaching-recipients{padding:12px;border:1px solid #d5e1e7;border-radius:8px;min-width:0}.teaching-node-goals legend,.teaching-recipients legend{font-size:13px;font-weight:600}
+.teaching-recipient-actions{display:flex;gap:8px;margin-bottom:10px}.teaching-followup-context small{display:block;margin-top:10px;font-size:12px;line-height:1.7;color:#69818a}
+.teaching-loop-panel{border-top:1px solid #dbe6eb;margin-top:20px;padding-top:12px;min-width:0}
+.teaching-loop-panel>small{display:block;line-height:1.8;color:#677c89;font-size:12px;margin-top:15px}
+.teaching-knowledge-point{border:1px solid #dbe6eb;padding:12px;margin:8px 0;border-radius:8px;background:#fbfdff;min-width:0}
+.teaching-knowledge-point>summary{display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;cursor:pointer;font-size:13px}.teaching-knowledge-point>summary span{color:#587889}
+.teaching-evidence-table{max-width:100%;overflow:auto;margin-top:12px}.teaching-evidence-table table{border-collapse:collapse;width:100%;font-size:12px;text-align:left}.teaching-evidence-table th,.teaching-evidence-table td{padding:10px;border-bottom:1px solid #dce7ed;vertical-align:top;min-width:70px}.teaching-evidence-table ul{padding-left:18px;line-height:1.8}.teaching-evidence-table summary{cursor:pointer;color:#236486;margin-top:6px}
+.teaching-recommendation,.teaching-loop-panel section[aria-label="关联后续课堂"] article{padding:15px;border:1px solid #d9e6ed;border-radius:8px;margin:10px 0;background:white}.teaching-recommendation header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px}.teaching-recommendation header span{color:#507985}.teaching-recommendation .primary-button{margin-top:6px}
+.teaching-comparison{padding:14px;background:#f3faf7;border-radius:9px;margin:20px 0;min-width:0}.teaching-comparison h4{font-size:13px}
+@media(max-width:600px){.teaching-template-scope{grid-template-columns:1fr}.teaching-template-picker,.teaching-goals,.teaching-followup-context{padding:12px}.teaching-knowledge-point>summary{display:grid}.teaching-evidence-table table{min-width:440px}.teaching-recipients{max-height:280px;overflow:auto}}

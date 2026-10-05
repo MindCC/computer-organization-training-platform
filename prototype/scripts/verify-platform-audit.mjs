@@ -30,7 +30,7 @@ try{
   await page.getByRole('button',{name:'通知',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('待巩固错题');await expect(page.getByRole('dialog')).not.toContainText('你有 3 条');await page.screenshot({path:path.join(artifacts,'platform-notifications.png'),fullPage:true});await page.keyboard.press('Escape');pass('学生提醒读取实际错题和课程记录');
   await page.locator('.profile-button').click();await expect(page.locator('.profile-menu')).not.toContainText('查看学情');await expect(page.locator('.profile-menu')).not.toContainText('打开笔记');await page.getByRole('button',{name:'帮助支持',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('先选功能分类');await page.getByText('装机店：接待、装配、自检和交付',{exact:true}).click();await expect(page.getByRole('dialog')).toContainText('等待服务器返回验收结果');await page.keyboard.press('Escape');pass('账号菜单入口精简，帮助包含逐步指南，Escape 关闭并恢复焦点');
 
-  for(const [label,selector] of [['课程首页','.quest-student-home'],['学习记录','.records-screen'],['课后作业','.student-assignments'],['错题本','.mistakes-layout'],['知识库','.kb-vault'],['课程课件','.courseware-view']]) {
+  for(const [label,selector] of [['课程首页','.quest-student-home'],['学习记录','.records-screen'],['课后作业','.student-assignments'],['错题本','.mistakes-layout'],['知识库','.kb-vault'],['AI讲演','.courseware-view']]) {
     await nav(label);await expect(page.locator(selector)).toBeVisible();
     for(const width of [1366,768,390,320]){
       await page.setViewportSize({width,height:width<500?844:900});

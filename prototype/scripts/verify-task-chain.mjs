@@ -51,7 +51,7 @@ try {
   console.log('PASS teacher previews all tasks and current edited step before saving, with no classroom publication');
   assert.equal(await teacher.locator('.chain-stage-list li').count(),6);
   await teacher.locator('.chain-stage-list button').last().click();await teacher.getByRole('button',{name:'上移环节',exact:true}).click();await teacher.getByRole('button',{name:'下移环节',exact:true}).click();
-  await teacher.locator('.chain-add-palette').getByRole('button',{name:'课程课件',exact:true}).click();assert.equal(await teacher.locator('.chain-stage-list li').count(),7);await teacher.getByRole('button',{name:'删除环节',exact:true}).click();
+  await teacher.locator('.chain-add-palette').getByRole('button',{name:'AI讲演',exact:true}).click();assert.equal(await teacher.locator('.chain-stage-list li').count(),7);await teacher.getByRole('button',{name:'删除环节',exact:true}).click();
   await teacher.evaluate(()=>window.scrollTo(0,0));await teacher.screenshot({path:path.join(dir,'task-chain-builder-desktop.png'),fullPage:true});await noOverflow(teacher);
   await teacher.setViewportSize({width:390,height:844});await noOverflow(teacher);await teacher.screenshot({path:path.join(dir,'task-chain-builder-mobile.png'),fullPage:true});await teacher.setViewportSize({width:1366,height:768});
   const created=await posted(teacher,'/api/teacher/task-library',()=>teacher.getByRole('button',{name:'保存任务',exact:true}).click());const taskId=created.task.id;

@@ -4,6 +4,12 @@ import { promisify } from "node:util";
 const scryptAsync = promisify(crypto.scrypt);
 const KEY_LENGTH = 64;
 
+// Used once when provisioning the requested administrator at server startup.
+export function hashPasswordSync(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  return `scrypt$${salt}$${crypto.scryptSync(String(password), salt, KEY_LENGTH).toString('hex')}`;
+}
+
 export async function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString("hex");
   const derived = await scryptAsync(String(password), salt, KEY_LENGTH);
