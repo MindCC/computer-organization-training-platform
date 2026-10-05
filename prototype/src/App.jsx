@@ -800,7 +800,7 @@ export function App() {
       requestId !== classOverviewRequestIdRef.current
       || selectedTeacherClassIdRef.current !== classId
     ) return;
-    setClassOverview(overview);
+    setClassOverview({...overview,classId});
     setSelectedTeacherStudent(null);
   }
 
@@ -1265,8 +1265,7 @@ export function App() {
               classOverview={classOverview} assistantReport={assistantReport} assistantLoading={assistantLoading}
               assistantError={assistantError} resetAssistantState={resetAssistantState}
               refreshClassOverview={refreshClassOverview} generateAssistantReport={generateAssistantReport}
-              classNameDraft={classNameDraft} setClassNameDraft={setClassNameDraft}
-              teacherMessage={teacherMessage} createTeacherClass={createTeacherClass}
+              teacherMessage={teacherMessage} refreshTeacherClasses={refreshTeacherClasses} isDemoTeacher={auth.user?.profile?.demoAccount === true}
               openTeacherStudentDetail={openTeacherStudentDetail} resetStudentPassword={resetStudentPassword}
               selectedTeacherStudent={selectedTeacherStudent} setSelectedTeacherStudent={setSelectedTeacherStudent}
               buildTeacherAssistantInsights={buildTeacherAssistantInsights}

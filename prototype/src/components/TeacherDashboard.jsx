@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useState } from "react";
 import { ArrowsClockwise, ChalkboardTeacher, ChartDonut, ChartLineUp, ClipboardText, DesktopTower, Export, Robot, Student } from "@phosphor-icons/react";
 import { adaptHardwareGameSummary } from "../shared/api/teacherOverviewAdapter.js";
 import { useVisibilityInterval } from "../hooks/useVisibilityInterval.js";
@@ -16,6 +16,7 @@ import { TeacherAssemblyPractice } from './teacher/TeacherAssemblyPractice.jsx';
 import { TaskLibrary } from './classroom/teacher/TaskLibrary.jsx';
 
 const OVERVIEW_REFRESH_MS = 45_000;
+const ClassManagement = lazy(()=>import('./teacher/TeacherClassManagement.jsx').then(m=>({default:m.TeacherClassManagement})));
 const STATISTIC_ITEMS = [
   { id: "overview", label: "学情洞察", icon: ChartLineUp },
   { id: "monitor", label: "学习监控", icon: ChartDonut },
@@ -34,7 +35,7 @@ export function TeacherStudioDashboard({
   teacherClasses, selectedTeacherClassId, setSelectedTeacherClassId,
   selectedTeacherClassIdRef, classOverview, assistantReport, assistantLoading,
   assistantError, resetAssistantState, refreshClassOverview, generateAssistantReport,
-  classNameDraft, setClassNameDraft, teacherMessage, createTeacherClass,
+  teacherMessage, refreshTeacherClasses, isDemoTeacher,
   openTeacherStudentDetail, resetStudentPassword, selectedTeacherStudent,
   setSelectedTeacherStudent, buildTeacherAssistantInsights,
   teacherSession, onOpenLab,
@@ -47,6 +48,7 @@ export function TeacherStudioDashboard({
   const [workspace, setWorkspace] = useState('tasks');
   const [statistic, setStatistic] = useState('overview');
   const [adoptedPlan, setAdoptedPlan] = useState(null);
+  const [createClassRequest, setCreateClassRequest] = useState(0);
 
   const refreshSelectedClass = useCallback(() => {
     if (!selectedTeacherClassId) return;
@@ -75,6 +77,7 @@ export function TeacherStudioDashboard({
           <button type="button" aria-pressed={workspace === 'classroom'} onClick={() => setWorkspace('classroom')}><ChalkboardTeacher size={18} />课堂执行</button>
           <button type="button" aria-pressed={workspace === 'teaching'} onClick={() => setWorkspace('teaching')}><ChalkboardTeacher size={18} />教学活动</button>
           <button type="button" aria-pressed={workspace === 'statistics'} onClick={() => setWorkspace('statistics')}><ChartDonut size={18} />学情统计</button>
+          <button type="button" aria-pressed={workspace === 'classes'} onClick={() => {setCreateClassRequest(0);setWorkspace('classes');}}><Student size={18} />班级管理</button>
           {workspace === 'statistics' && (
             <nav className="statistics-nav" aria-label="统计分类">
               {STATISTIC_ITEMS.map(({ id, label, icon: Icon }) => (
@@ -89,10 +92,7 @@ export function TeacherStudioDashboard({
               <TeacherClassSidebar
                 teacherClasses={teacherClasses}
                 selectedTeacherClassId={selectedTeacherClassId}
-                classNameDraft={classNameDraft}
-                setClassNameDraft={setClassNameDraft}
-                teacherMessage={teacherMessage}
-                createTeacherClass={createTeacherClass}
+                onCreateClass={()=>{setCreateClassRequest(v=>v+1);setWorkspace('classes');}}
                 onSelectClass={selectClass}
               />
             </div>
@@ -111,6 +111,8 @@ export function TeacherStudioDashboard({
           </header>
 
           <section className="teacher-studio-main">
+          {workspace === 'classes' && <Suspense fallback={<p role="status">正在加载班级管理…</p>}><ClassManagement selectedClass={selectedClass} overview={classOverview} onClassesChanged={refreshTeacherClasses} createRequest={createClassRequest} isDemoTeacher={isDemoTeacher} onBack={()=>{setCreateClassRequest(0);setWorkspace('teaching');}}/></Suspense>}
+          {teacherMessage && workspace !== 'classes' && <p className="teacher-message" role="status">{teacherMessage}</p>}
           {workspace === 'teaching' && <header className="statistics-heading"><span className="eyebrow">教学活动</span><h2>作业与课程组织</h2><p>管理班级作业、协作项目与课程资源。</p></header>}
           {workspace === 'classroom' && <header className="statistics-heading"><span className="eyebrow">课堂执行</span><h2>课堂任务与学生反馈</h2><p>演示已发布的课堂任务，查看学生进度和提交反馈。</p></header>}
           {workspace === 'tasks' && <TaskLibrary classes={teacherClasses} classId={selectedTeacherClassId} activeSession={teacherSession?.viewModel} initialPlan={adoptedPlan} onPlanCreated={()=>setAdoptedPlan(null)} onOpenLab={onOpenLab} onOpenClassroom={()=>setWorkspace('classroom')} onOpenStatistics={({classId,status})=>{if(classId&&classId!==selectedTeacherClassId)selectClass(classId);setWorkspace('statistics');setStatistic(['draft','live','paused'].includes(status)?'monitor':'overview');}} onPublished={session=>{if(session.class_id!==selectedTeacherClassId)selectClass(session.class_id);else teacherSession.loadOverview(session.id);setWorkspace('classroom');}}/>}

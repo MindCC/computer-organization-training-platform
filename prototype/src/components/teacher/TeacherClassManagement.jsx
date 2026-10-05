@@ -19,7 +19,7 @@ export function TeacherClassManagement({ selectedClass, overview, onClassesChang
     }catch(failure){setError(failure.message);}
     finally{pending.current=false;setBusy(false);}
   }
-  const ready=overview?.class?.id === selectedClass?.id;
+  const ready=Boolean(selectedClass) && overview?.classId === selectedClass.id;
   const students=ready ? overview.students??[] : [];
   return <section className="class-management" data-testid="class-management" aria-labelledby="class-management-heading">
     <header className="class-management-heading"><div><span className="eyebrow">班级与学生</span><h2 id="class-management-heading">班级管理</h2><p>创建班级、导入学生，再核对名单并开始教学。</p></div><div className="class-management-actions"><button className="ghost-button" type="button" disabled={busy} onClick={onBack}>返回教学活动</button>{!creating&&<button className="primary-button" type="button" onClick={()=>{setCreating(true);setNotice('');}}>新建班级</button>}</div></header>
