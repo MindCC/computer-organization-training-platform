@@ -151,7 +151,7 @@ export const api = {
   completeClassroomStage: (sessionId,payload) => apiRequest(`/api/student/classroom/${sessionId}/complete-stage`, {method:'POST',body:JSON.stringify(payload)}),
   taskLibrary: () => apiRequest('/api/teacher/task-library'),
   taskLibraryDetail: id => apiRequest(`/api/teacher/task-library/${id}`),
-  taskLibraryLearning: id => apiRequest(`/api/teacher/task-library/${id}/learning`),
+  taskLibraryLearning: (id,sessionId) => apiRequest(`/api/teacher/task-library/${id}/learning${sessionId==null?'':`?sessionId=${sessionId}`}`),
   createLibraryTask: config => apiRequest('/api/teacher/task-library',{method:'POST',body:JSON.stringify(config)}),
   updateLibraryTask: (id,payload) => apiRequest(`/api/teacher/task-library/${id}`,{method:'PUT',body:JSON.stringify(payload)}),
   deleteLibraryTask: (id,revision) => apiRequest(`/api/teacher/task-library/${id}`,{method:'DELETE',body:JSON.stringify({revision})}),

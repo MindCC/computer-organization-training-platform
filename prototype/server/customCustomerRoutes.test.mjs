@@ -9,6 +9,7 @@ const parts={cpu:'cpu-i3',memory:'mem-8',storage:'ssd-512',gpu:'gpu-integrated'}
 async function setup(customCustomerOptions){
   const db=openDatabase(':memory:');migrate(db);const passwordHash=await hashPassword('Student123!');
   for(const username of ['one','two'])createUser(db,{username,displayName:username,role:'student',passwordHash});
+  createUser(db,{username:'teacher',displayName:'teacher',role:'teacher',passwordHash});
   const app=createApp({db,serveStatic:false,customCustomerOptions}),server=app.listen(0);await new Promise(r=>server.once('listening',r));
   const base=`http://127.0.0.1:${server.address().port}`;
   async function request(route,{cookie='',body,method=body?'POST':'GET',headers={}}={}){
@@ -42,4 +43,19 @@ test('missing AI config, bad AI response and incomplete requirements create no u
   const s=await setup({env:{DEEPSEEK_API_KEY:'test'},aiRequester:async()=>JSON.stringify({...story,targets:null,questions:['资料需要多大空间？']})});
   try{const cookie=await s.login('one');const created=await s.request('/api/student/custom-customers',{cookie,body:input});assert.equal(created.status,201);assert.equal((await s.request(`/api/student/custom-customers/${created.data.order.id}/receipts`,{cookie,body:{selection:parts,operationId:'operation-1'}})).status,409);}finally{await s.close();}
   const invalid=await setup({env:{DEEPSEEK_API_KEY:'test'},aiRequester:async()=> 'invalid json'});try{const cookie=await invalid.login('one');const result=await invalid.request('/api/student/custom-customers',{cookie,body:input});assert.equal(result.status,502);assert.equal(result.data.error.code,'AI_RESPONSE');assert.equal(invalid.db.prepare('SELECT COUNT(*) AS n FROM custom_customer_orders').get().n,0);}finally{await invalid.close();}
+});
+
+test('teachers have private custom customer practice with student account isolation',async()=>{
+  const s=await setup({env:{DEEPSEEK_API_KEY:'test'},aiRequester:async()=>JSON.stringify(story)});
+  try{
+    const teacher=await s.login('teacher'),student=await s.login('one');
+    assert.equal((await s.request('/api/teacher/custom-customers/status',{cookie:teacher})).status,200);
+    assert.equal((await s.request('/api/teacher/custom-customers/status',{cookie:student})).status,403);
+    assert.equal((await s.request('/api/student/custom-customers/status',{cookie:teacher})).status,403);
+    const created=await s.request('/api/teacher/custom-customers',{cookie:teacher,body:input});assert.equal(created.status,201);
+    const id=created.data.order.id,path=`/api/teacher/custom-customers/${id}/receipts`;
+    assert.equal((await s.request(`/api/student/custom-customers/${id}`,{cookie:student})).status,404);
+    const result=await s.request(path,{cookie:teacher,body:{selection:parts,operationId:'teacher-trial-1'}});assert.equal(result.status,201);assert.equal(result.data.result.score,100);
+    assert.equal(s.db.prepare('SELECT COUNT(*) AS n FROM challenge_attempts').get().n,0,'custom trials do not create classroom grades');
+  }finally{await s.close();}
 });

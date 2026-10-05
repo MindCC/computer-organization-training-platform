@@ -510,7 +510,6 @@ export function App() {
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [showLogin, setShowLogin] = useState(false);
-  const [importCredentials, setImportCredentials] = useState([]);
   const pendingDestinationRef = useRef(null);
   const [demoId, setDemoId] = useState(() => new URLSearchParams(window.location.search).get("demo"));
   const [activeView, setActiveView] = useState(demoId ? "demo" : "home");
@@ -584,8 +583,6 @@ export function App() {
   const [assistantError, setAssistantError] = useState("");
   const [selectedTeacherStudent, setSelectedTeacherStudent] = useState(null);
   const [teacherReviewStudent, setTeacherReviewStudent] = useState('all');
-  const [classNameDraft, setClassNameDraft] = useState("\u8ba1\u7ec4\u4e00\u73ed");
-  const [csvImportText, setCsvImportText] = useState("\u5b66\u53f7,\u59d3\u540d,\u521d\u59cb\u5bc6\u7801\n2026001,\u674e\u540c\u5b66,Student123!");
   const [teacherMessage, setTeacherMessage] = useState("");
   const [selectedHardwareCaseId, setSelectedHardwareCaseId] = useState(HARDWARE_GAME_CASES[0].id);
   const [hardwareSelection, setHardwareSelection] = useState({ cpu: "cpu-i3", memory: "mem-8", storage: "ssd-512", gpu: "gpu-integrated" });
@@ -1023,30 +1020,6 @@ export function App() {
     return response;
   }
 
-  async function createTeacherClass() {
-    try {
-      const { class: createdClass } = await api.createClass({ name: classNameDraft });
-      setTeacherMessage("\u73ed\u7ea7\u5df2\u521b\u5efa\uff1a" + createdClass.name);
-      selectedTeacherClassIdRef.current = createdClass.id;
-      setSelectedTeacherClassId(createdClass.id);
-      await refreshTeacherClasses(createdClass.id);
-    } catch (error) {
-      setTeacherMessage("\u521b\u5efa\u73ed\u7ea7\u5931\u8d25\uff1a" + error.message);
-    }
-  }
-
-  async function importStudentsToClass() {
-    if (!selectedTeacherClassId) return;
-    try {
-      const report = await api.importStudents(selectedTeacherClassId, csvImportText);
-      setTeacherMessage(`导入完成：新增 ${report.imported}，更新 ${report.updated}，跳过 ${report.skipped}`);
-      setImportCredentials(report.credentials ?? []);
-      await refreshTeacherClasses(selectedTeacherClassId);
-    } catch (error) {
-      setTeacherMessage(`导入失败：${error.message}`);
-    }
-  }
-
   async function openTeacherStudentDetail(studentId) {
     if (!selectedTeacherClassId) return;
     try {
@@ -1313,7 +1286,7 @@ export function App() {
     return (
       <ErrorBoundary key="settings-modal">
         <Suspense fallback={<FeatureLoading label="正在加载设置..." />}>
-          <SettingsModal setShowSettings={setShowSettings} initialSection={settingsSection} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} csvImportText={csvImportText} setCsvImportText={setCsvImportText} importStudentsToClass={importStudentsToClass} importCredentials={importCredentials} student={student} saveStudentSettings={saveStudentSettings} />
+          <SettingsModal setShowSettings={setShowSettings} initialSection={settingsSection} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onClassesChanged={refreshTeacherClasses} student={student} saveStudentSettings={saveStudentSettings} />
         </Suspense>
       </ErrorBoundary>
     );

@@ -64,8 +64,8 @@ export function createTaskLibrary({db,sessionService}) {
   // 得分与错误取该生最近一次提交（stageResults 按下标与环节一一对应）。
   function sessionLearning(session){
     let mission;try{mission=missionForSession(session);}catch{mission={stages:[]};}
-    const students=db.prepare('SELECT status,current_stage_index,result_json FROM student_session_states WHERE session_id=?').all(session.id);
-    const stages=mission.stages.map(stage=>({stageId:stage.id,title:stage.title,type:stage.type??'lab',completed:0,inProgress:0,submitted:0,gradedCount:0,scoreSum:0,errors:new Map()}));
+    const students=db.prepare('SELECT s.status,s.current_stage_index,s.result_json,u.id AS studentId,u.display_name AS displayName FROM student_session_states s JOIN users u ON u.id=s.student_id WHERE s.session_id=? ORDER BY u.id').all(session.id);
+    const stages=mission.stages.map(stage=>({stageId:stage.id,title:stage.title,type:stage.type??'lab',definitionKey:JSON.stringify({...stage,position:undefined,minutes:undefined}),completed:0,inProgress:0,submitted:0,gradedCount:0,scoreSum:0,errors:new Map(),students:[]}));
     const summary={totalStudents:students.length,completed:0,inProgress:0,notStarted:0},averages=[];
     for(const student of students){
       if(student.status==='completed')summary.completed+=1;
@@ -80,6 +80,9 @@ export function createTaskLibrary({db,sessionService}) {
         if(index<progressIndex)stage.completed+=1;
         else if(student.status==='in_progress'&&index===progressIndex)stage.inProgress+=1;
         const entry=stageResults[index];
+        stage.students.push({studentId:student.studentId,displayName:student.displayName,
+          status:index<progressIndex?'completed':student.status==='in_progress'&&index===progressIndex?'in_progress':'not_started',
+          result:entry?.stageId===stage.stageId?entry:null});
         if(entry&&entry.stageId===stage.stageId){
           stage.submitted+=1;
           if(Number.isFinite(entry.score)){stage.gradedCount+=1;stage.scoreSum+=entry.score;}
@@ -105,9 +108,11 @@ export function createTaskLibrary({db,sessionService}) {
     }
     return sessions;
   }
-  function learning(teacherId,id){
+  function learning(teacherId,id,sessionId=null){
     const row=own(teacherId,id);
-    const sessions=learningSessions(row);
+    const allSessions=learningSessions(row);
+    const sessions=sessionId===null?allSessions:allSessions.filter(session=>session.id===sessionId);
+    if(sessionId!==null&&!sessions.length)fail('SESSION_NOT_FOUND','该任务没有对应的课堂记录',404);
     const classIds=new Set(),totals={totalStudents:0,completed:0,inProgress:0,notStarted:0},allAverages=[],stageOrder=[],stageMap=new Map();
     const publications=sessions.map(session=>{
       const data=sessionLearning(session);
@@ -116,8 +121,8 @@ export function createTaskLibrary({db,sessionService}) {
       totals.inProgress+=data.students.inProgress;totals.notStarted+=data.students.notStarted;
       allAverages.push(...data.averages);
       for(const stage of data.stages){
-        let aggregate=stageMap.get(stage.stageId);
-        if(!aggregate){aggregate={...stage,errors:new Map(stage.errors)};stageMap.set(stage.stageId,aggregate);stageOrder.push(aggregate);}
+        let aggregate=stageMap.get(stage.definitionKey);
+        if(!aggregate){aggregate={...stage,errors:new Map(stage.errors)};stageMap.set(stage.definitionKey,aggregate);stageOrder.push(aggregate);}
         else{aggregate.completed+=stage.completed;aggregate.inProgress+=stage.inProgress;aggregate.submitted+=stage.submitted;
           aggregate.gradedCount+=stage.gradedCount;aggregate.scoreSum+=stage.scoreSum;
           for(const [message,count] of stage.errors)aggregate.errors.set(message,(aggregate.errors.get(message)??0)+count);}
@@ -126,12 +131,13 @@ export function createTaskLibrary({db,sessionService}) {
         imported:session.imported===1,publishedAt:session.published_at??session.started_at,endedAt:session.ended_at??null,
         students:data.students,completionRate:data.completionRate,averageScore:data.averageScore};
     });
-    return {taskId:row.id,title:row.title,revision:row.revision,
+    return {taskId:row.id,title:row.title,revision:row.revision,sessionId,
       summary:{publishedCount:sessions.length,classCount:classIds.size,...totals,
         completionRate:totals.totalStudents?Math.round(totals.completed/totals.totalStudents*100):0,averageScore:meanOf(allAverages)},
-      stages:stageOrder.map(stage=>({stageId:stage.stageId,title:stage.title,type:stage.type,
+      stages:stageOrder.map((stage,index)=>({key:String(index),stageId:stage.stageId,title:stage.title,type:stage.type,
         completed:stage.completed,inProgress:stage.inProgress,submitted:stage.submitted,gradedCount:stage.gradedCount,
         averageScore:stage.gradedCount?Math.round(stage.scoreSum/stage.gradedCount):null,
+        students:sessionId===null?undefined:stage.students,
         topErrors:[...stage.errors.entries()].sort((a,b)=>b[1]-a[1]).slice(0,3).map(([message,count])=>({message,count}))})),
       publications};
   }
