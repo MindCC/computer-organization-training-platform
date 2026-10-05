@@ -2,19 +2,20 @@ import assert from 'node:assert/strict';
 import { mkdirSync } from 'node:fs';
 import { chromium, expect } from '@playwright/test';
 import { gotoApp, fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 const app=process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:8788';
 mkdirSync('qa-artifacts',{recursive:true});
 let browser;try{browser=await chromium.launch({channel:'msedge',headless:true});}catch{browser=await chromium.launch({headless:true});}
 const page=await browser.newPage({viewport:{width:1366,height:768}}),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
-const nav=(p,name)=>p.locator('.topbar-nav').getByRole('button',{name,exact:true});
+const nav=(p,name)=>({click:()=>clickTopNavItem(p,name)});
 const panel=page.getByTestId('study-planning');
 let teacher;
 async function post(p,path,body,method='POST'){const r=await p.request.fetch(app+path,{method,data:body});assert.ok(r.ok(),`${path}: ${r.status()} ${await r.text()}`);return r.json();}
 try{
   teacher=await browser.newPage({viewport:{width:1366,height:768}});teacher.on('pageerror',e=>errors.push(e.message));
-  await gotoApp(teacher,app);await fillLoginForm(teacher,{username:'teacher',password:'ChangeMe123!'});await teacher.locator('[data-login-role="teacher"]').click();await Promise.all([teacher.waitForResponse(r=>r.url().endsWith('/api/auth/login')&&r.status()===200),submitLoginForm(teacher)]);await expect(nav(teacher,'学习记录')).toBeVisible();
+  await gotoApp(teacher,app);await fillLoginForm(teacher,{username:'teacher',password:'ChangeMe123!'});await teacher.locator('[data-login-role="teacher"]').click();await Promise.all([teacher.waitForResponse(r=>r.url().endsWith('/api/auth/login')&&r.status()===200),submitLoginForm(teacher)]);await expect(teacher.locator('.topbar-nav-toggle').filter({hasText:'学习复盘'})).toBeVisible();
   const cls=(await post(teacher,'/api/classes',{name:'学习计划验收班'})).class;
   const username='studyqa-'+Date.now();await post(teacher,`/api/teacher/classes/${cls.id}/import-students`,{csv:`username,displayName,password\n${username},计划验收学生,Student123!`});
   await post(teacher,`/api/teacher/classes/${cls.id}/skip-locked`,{allow:true},'PUT');

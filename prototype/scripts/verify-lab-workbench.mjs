@@ -5,6 +5,7 @@ import { chromium, expect } from '@playwright/test';
 import { gotoApp, fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
 import { openChallengeFromHome } from './lib/qaHome.mjs';
 import { CIRCUIT_CHALLENGES } from '../src/circuit/challengeCircuitModel.js';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 let browser;
 try { browser = await chromium.launch({channel:'msedge',headless:true}); }
@@ -124,11 +125,11 @@ try {
     })).toBe(true);
     await page.screenshot({path:path.join(artifacts,`lab-workbench-${viewport.width}.png`),fullPage:true});
   }
-  await page.locator('.topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();
+  await clickTopNavItem(page,'硬件配置挑战');
   await expect(page.getByRole('region',{name:'芯邻装机店'})).toBeVisible();
   assert.deepEqual(await page.locator('.topbar-nav-item').allTextContents(),platformNav);
   await page.locator('.topbar').screenshot({path:path.join(artifacts,'hardware-shared-topbar.png')});
-  await page.locator('.topbar-nav-item').filter({hasText:'课程首页'}).click();
+  await clickTopNavItem(page,'课程首页');
   await expect(page.locator('.project-chapter-board')).toBeVisible();
   await openChallengeFromHome(page,'认识计算机五大部件');
   await expect(page.locator('.lab-overview')).toBeVisible();await expect(page.locator('.topbar')).toHaveCount(1);

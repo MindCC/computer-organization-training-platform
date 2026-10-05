@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, expect } from "@playwright/test";
 import { selectTeacherClass } from "./helpers/select-teacher-class.mjs";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 /**
  * 针对性回归：验证本轮四项修复——
@@ -134,7 +135,7 @@ try {
   console.log("monitor view rendered, report details count:", await page.locator("details").count());
 
   // ── 修复 1：课件页上传 PPTX 并在浏览器内渲染 ──
-  await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "课程课件" }).click();
+  await clickTopNavItem(page, "课程课件");
   await page.locator(".upload-courseware-panel").waitFor({ state: "visible", timeout: 10_000 });
   await page.getByLabel("选择发布课件的班级").selectOption({ label: className });
   await page.locator(".upload-label input[type=file]").setInputFiles(samplePptx);

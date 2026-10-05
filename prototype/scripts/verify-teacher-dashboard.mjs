@@ -165,6 +165,7 @@ try {
   await page.locator(".teacher-studio").waitFor({ state: "visible", timeout: 30_000 });
   await selectTeacherClass(page, className);
   const commandCenter = page.locator(".classroom-command-center");
+  await page.getByRole('button',{name:'课堂执行',exact:true}).click();
   await commandCenter.locator(".danger-button").first().waitFor({ state: "visible", timeout: 30_000 });
   assert.equal(await commandCenter.getByText("创建课堂任务").count(), 0, "running session is reattached instead of showing the setup panel");
 

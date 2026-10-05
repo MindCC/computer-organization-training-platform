@@ -3,6 +3,7 @@ import { chromium } from "@playwright/test";
 import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
 import { openChallengeFromHome } from "./lib/qaHome.mjs";
 import { enterAssemblyPractice } from './lib/qaShop.mjs';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 const baseUrl = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
 const apiUrl = process.env.PROTOTYPE_API_URL ?? "http://127.0.0.1:8787";
@@ -192,13 +193,13 @@ try {
 
   assert.deepEqual(pageErrors, [], "performance QA must not emit page errors");
   async function openAssembly() {
-    await page.locator('.topbar-nav .topbar-nav-item').filter({ hasText: '硬件配置挑战' }).click();
+    await clickTopNavItem(page, '硬件配置挑战');
     const accept=page.getByRole('button',{name:'接下工单 · 开始装机',exact:true});
     if(await accept.count())await accept.click();
     await page.locator('.assembly-workshop canvas[data-model-source="blender-glb"]').waitFor({ state: 'visible' });
   }
   async function leaveAssembly() {
-    await page.locator('.topbar-nav .topbar-nav-item').filter({ hasText: '课程首页' }).click();
+    await clickTopNavItem(page, '课程首页');
     await page.locator('.assembly-workshop canvas').waitFor({ state: 'detached' });
   }
   await returnHome(page);

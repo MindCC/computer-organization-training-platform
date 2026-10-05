@@ -150,6 +150,7 @@ export const api = {
   completeClassroomStage: (sessionId,payload) => apiRequest(`/api/student/classroom/${sessionId}/complete-stage`, {method:'POST',body:JSON.stringify(payload)}),
   taskLibrary: () => apiRequest('/api/teacher/task-library'),
   taskLibraryDetail: id => apiRequest(`/api/teacher/task-library/${id}`),
+  taskLibraryLearning: id => apiRequest(`/api/teacher/task-library/${id}/learning`),
   createLibraryTask: config => apiRequest('/api/teacher/task-library',{method:'POST',body:JSON.stringify(config)}),
   updateLibraryTask: (id,payload) => apiRequest(`/api/teacher/task-library/${id}`,{method:'PUT',body:JSON.stringify(payload)}),
   deleteLibraryTask: (id,revision) => apiRequest(`/api/teacher/task-library/${id}`,{method:'DELETE',body:JSON.stringify({revision})}),
@@ -175,6 +176,18 @@ export const api = {
   assignmentAnalytics: (classId) => apiRequest(`/api/teacher/classes/${classId}/assignment-analytics`),
   studentAssignmentAnalytics: (studentId) => apiRequest(`/api/teacher/students/${studentId}/assignment-analytics`),
   studentAssignments: () => apiRequest("/api/student/assignments"),
+  // 题库与自动出卷（教师）
+  questionBank: (params = {}) => {
+    const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value != null && value !== "")).toString();
+    return apiRequest(`/api/teacher/question-bank${query ? `?${query}` : ""}`);
+  },
+  createBankQuestion: (payload) => apiRequest("/api/teacher/question-bank", { method: "POST", body: JSON.stringify(payload) }),
+  updateBankQuestion: (id, payload) => apiRequest(`/api/teacher/question-bank/${id}`, { method: "PUT", body: JSON.stringify(payload) }),
+  deleteBankQuestion: (id) => apiRequest(`/api/teacher/question-bank/${id}`, { method: "DELETE" }),
+  importBankQuestions: (payload) => apiRequest("/api/teacher/question-bank/import", { method: "POST", body: JSON.stringify(payload) }),
+  aiGenerateBankQuestions: (payload) => apiRequest("/api/teacher/question-bank/ai-generate", { method: "POST", body: JSON.stringify(payload), timeoutMs: 70000 }),
+  composeBankPaper: (payload) => apiRequest("/api/teacher/question-bank/compose", { method: "POST", body: JSON.stringify(payload) }),
+  teacherKnowledgeDocuments: () => apiRequest("/api/teacher/knowledge/documents"),
   studentAssignmentDetail: (assignmentId) => apiRequest(`/api/student/assignments/${assignmentId}`),
   saveAssignmentDraft: (assignmentId, answers) => apiRequest(`/api/student/assignments/${assignmentId}/draft`, { method: "POST", body: JSON.stringify({ answers }) }),
   submitAssignment: (assignmentId, answers) => apiRequest(`/api/student/assignments/${assignmentId}/submit`, { method: "POST", body: JSON.stringify({ answers }) }),

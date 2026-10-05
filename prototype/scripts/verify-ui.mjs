@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { CIRCUIT_CHALLENGES } from "../src/circuit/challengeCircuitModel.js";
 import { CHALLENGES } from "../src/platformLogic.js";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 const text = {
   appTitle: "\u7ec4\u6210\u539f\u7406\u5b9e\u8bad\u5e73\u53f0",
@@ -157,17 +158,17 @@ if (await lockedCard.isVisible().catch(() => false)) {
   // 未解锁 ≠ 打不开：默认不允许跳关只拦截「提交检测」，卡片仍可进入练习。
   assert.equal(await lockedCard.isDisabled(), false, "locked challenge card stays enterable for practice");
 }
-await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "\u9519\u9898\u672c" }).click();
+await clickTopNavItem(page, "错题本");
 await page.locator(".mistakes-layout").waitFor({ state: "visible", timeout: 10_000 });
-await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "\u8bfe\u540e\u4f5c\u4e1a" }).click();
+await clickTopNavItem(page, "课后作业");
 await page.locator(".student-assignments").waitFor({ state: "visible", timeout: 10_000 });
-await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "\u8bfe\u7a0b\u8bfe\u4ef6" }).click();
+await clickTopNavItem(page, "课程课件");
 await page.locator(".courseware-view").waitFor({ state: "visible", timeout: 10_000 });
-await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "学习笔记" }).click();
+await clickTopNavItem(page, "知识库");
 await page.getByLabel("笔记内容").fill("3D 与总线关系复盘");
 await page.getByRole("button", { name: "保存笔记" }).click();
 await assertVisible(page, "3D 与总线关系复盘");
-await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "\u8bfe\u7a0b\u9996\u9875" }).click();
+await clickTopNavItem(page, "课程首页");
 await openChallenge(page, "\u8ba4\u8bc6\u8ba1\u7b97\u673a\u4e94\u5927\u90e8\u4ef6");
 await page.getByRole("button", { name: "\u6253\u5f00\u4e2a\u4eba\u8bbe\u7f6e" }).click();
 await page.locator(".settings-overlay").waitFor({ state: "visible", timeout: 10_000 });
@@ -191,7 +192,7 @@ await page.getByRole("button", { name: new RegExp(text.backHome) }).click();
 await assertVisible(page, "当前任务");
 
 await dismissQuestSettlementNow(page);
-await page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "课程首页" }).click();
+await clickTopNavItem(page, "课程首页");
 await assertVisible(page, "当前任务");
 
 
@@ -285,17 +286,19 @@ await page.setViewportSize({ width: 390, height: 900 });
 await page.goto(baseUrl, { waitUntil: "networkidle" });
 await assertVisible(page, text.teacherHeading);
 await page.screenshot({ path: artifactPath("mobile-teacher.png"), fullPage: true });
-// 窄屏导航契约：顶栏导航换到第二行并横向滚动，所有入口都能滚到、页面不横向溢出。
+// 窄屏导航契约：分组下拉后一级按钮很少，顶栏导航换行排列即可，
+// 不能用横向滚动（滚动容器会裁剪下拉菜单），所有入口都在视口内、页面不横向溢出。
 // （早先是固定在底部的 .sidebar-nav，顶栏重构后那段 DOM 已不存在。）
 const mobileNav = await page.locator(".topbar-nav").evaluate((node) => ({
   visible: node.getBoundingClientRect().height > 0,
+  flexWrap: getComputedStyle(node).flexWrap,
   overflowX: getComputedStyle(node).overflowX,
   clientWidth: node.clientWidth,
   scrollWidth: node.scrollWidth,
   right: Math.round(node.getBoundingClientRect().right),
 }));
 assert.equal(mobileNav.visible, true, "mobile navigation stays reachable");
-assert.equal(mobileNav.overflowX, "auto", "mobile navigation scrolls its own items instead of pushing the page wide");
+assert.equal(mobileNav.flexWrap, "wrap", "mobile navigation wraps its groups instead of clipping dropdown menus");
 assert.equal(mobileNav.right <= 390, true, `mobile navigation must stay inside the viewport: ${JSON.stringify(mobileNav)}`);
 assert.equal(await page.locator(".topbar-nav .topbar-nav-item").count() > 0, true, "mobile navigation keeps its items");
 const mobileOverflow = await page.evaluate(() => ({
@@ -380,11 +383,11 @@ async function openChallenge(targetPage, title) {
 }
 
 async function openRecords(targetPage) {
-  await targetPage.locator(".topbar-nav .topbar-nav-item").filter({ hasText: text.records }).click();
+  await clickTopNavItem(targetPage, text.records);
 }
 
 async function openHardwareGame(targetPage) {
-  await targetPage.locator(".topbar-nav .topbar-nav-item").filter({ hasText: text.hardwareGame }).click();
+  await clickTopNavItem(targetPage, text.hardwareGame);
 }
 
 async function selectClass(targetPage, className) {

@@ -9,9 +9,9 @@ const STORAGE_KEY = "zcyl:view-session";
 const STUDENT_VIEWS = new Set([
   "home", "lab", "hardware-game", "records", "mistakes", "notes", "assignments", "courseware", "demos", "classroom",
 ]);
-// 教师的首页就是「教师看板」：不把 home 当作可恢复视图，
-// 否则登录态切换过程中的中间值会把教师带到学生首页。
-const TEACHER_VIEWS = new Set(["teacher", "courseware", "demos", "hardware-game", "records", "mistakes", "lab", "assignments", "notes"]);
+// 教师拥有学生端全部页面（含课程首页），外加教师看板；
+// 课堂任务链（classroom）仍是学生专属，教师通过教师看板管理课堂。
+const TEACHER_VIEWS = new Set(["teacher", "home", "courseware", "demos", "hardware-game", "records", "mistakes", "lab", "assignments", "notes", "question-bank"]);
 const GUEST_VIEWS = new Set(["home", "courseware", "demos"]);
 
 const CHALLENGE_ID_PATTERN = /^[a-z0-9-]{1,64}$/;

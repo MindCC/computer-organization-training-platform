@@ -3,6 +3,7 @@
  * 前置：API(8787) 与 Vite(5173) 已启动。
  */
 import { chromium } from "playwright";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 const BASE_URL = process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
 const results = [];
@@ -59,7 +60,7 @@ try {
   check("顶栏显示演示学生", (await page.locator(".profile-button").innerText()).length > 0);
 
   // 4. 登录后学习记录可用
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await clickTopNavItem(page, "学习记录");
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   check("演示账号学习记录大屏可用", await page.locator(".learning-tree-canvas").count() === 1);
 

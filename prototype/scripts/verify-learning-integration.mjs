@@ -4,6 +4,7 @@ import {chromium,expect} from "@playwright/test";
 import {gotoApp,fillLoginForm,submitLoginForm} from "./lib/qaLogin.mjs";
 import {questionsForChapter} from "../src/assignmentQuestions.js";
 import {HOSTED_DEMOS} from "../src/shared/demoNavigation.js";
+import {clickTopNavItem} from "./nav-helpers.mjs";
 
 const app = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
 const artifacts = process.env.QA_ARTIFACT_DIR ?? "qa-artifacts";
@@ -20,7 +21,7 @@ async function json(request,path,data) {
 const context = await browser.newContext({viewport:{width:1366,height:768}});
 context.on("page",page => page.on("pageerror",error => errors.push(error.message)));
 const page = await context.newPage();
-const nav = label => page.locator(".topbar-nav").getByRole("button",{name:label,exact:true});
+const nav = label => ({ click: () => clickTopNavItem(page, label) });
 try {
   await gotoApp(page,app);
   await fillLoginForm(page,{username:"demo2026001",password:"Student123!"});
@@ -183,8 +184,8 @@ try {
   const teacherPage = await teacherContext.newPage();
   await teacherPage.goto(`${app}/demos/alu.html`,{waitUntil:"domcontentloaded"});
   await expect(teacherPage.locator(".hosted-demo-context h1")).toContainText("定点乘除与浮点运算");
-  await expect(teacherPage.locator(".topbar-nav").getByRole("button",{name:"教师看板",exact:true})).toBeVisible();
-  await teacherPage.locator(".topbar-nav").getByRole("button",{name:"教师看板",exact:true}).click();
+  await expect(teacherPage.locator(".topbar-nav").getByRole("button",{name:"教学活动",exact:true})).toBeVisible();
+  await clickTopNavItem(teacherPage, "教师看板");
   await expect(teacherPage.locator(".teacher-reference-shell")).toBeVisible();
   pass("教师演示顶栏保持身份导航并可返回教师看板");
   assert.deepEqual(errors,[]);pass("上述操作无浏览器运行错误");

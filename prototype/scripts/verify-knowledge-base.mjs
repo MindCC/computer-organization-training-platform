@@ -10,6 +10,7 @@ import { createRequire } from "node:module";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 const require = createRequire(new URL("../package.json", import.meta.url));
 const { chromium } = require("playwright");
@@ -68,7 +69,7 @@ try {
   }
 
   // 1. 进入知识库页（路由 id 仍为 notes，nav 文案为「知识库」）
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "知识库" }).click();
+  await clickTopNavItem(page, "知识库");
   await page.waitForSelector(".kb-layout", { timeout: 15000 });
   check("知识库显示左侧工具栏、文件侧栏与主阅读区",
     await page.locator(".kb-ribbon").count() === 1

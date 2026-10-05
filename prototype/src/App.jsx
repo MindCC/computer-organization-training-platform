@@ -6,6 +6,7 @@ import {
   CaretDown,
   ChartPieSlice,
   CheckCircle,
+  Exam,
   ClockCountdown,
   Cpu,
   Flame,
@@ -111,18 +112,44 @@ const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
 const LabPage = lazy(() => import("./components/LabPage.jsx")
   .then((module) => ({ default: module.LabPage })));
 const TaskChainPage=lazy(()=>import('./components/classroom/student/TaskChainPage.jsx').then(module=>({default:module.TaskChainPage})));
+const QuestionBankPage = lazy(() => import("./components/teacher/QuestionBankPage.jsx")
+  .then((module) => ({ default: module.QuestionBankPage })));
 
 // 「关卡实验」不再出现在学生导航里：实验一律从课程首页的章节卡片进入，
 // 刷新恢复与课堂任务等场景仍可直接落在实验台视图。
+// 顶栏采用「一级分组 + 二级菜单」：课程首页单独直出，其余按功能相近分组；
+// 只有一个可见项的分组直接渲染成一级按钮（如学生的「课后作业」）。
 const navGroups = [
+  {
+    id: "home",
+    label: "课程首页",
+    items: [
+      { id: "home", label: "课程首页", icon: House },
+    ],
+  },
   {
     id: "learn",
     label: "课程学习",
     items: [
-      { id: "home", label: "课程首页", icon: House },
-      { id: "hardware-game", label: "硬件配置挑战", icon: Cpu },
       { id: "courseware", label: "课程课件", icon: BookOpen },
       { id: "demos", label: "互动演示", icon: MonitorPlay },
+      { id: "hardware-game", label: "硬件配置挑战", icon: Cpu },
+    ],
+  },
+  {
+    id: "tasks",
+    label: "学习任务",
+    items: [
+      { id: "assignments", label: "课后作业", icon: Notebook, role: "student" },
+    ],
+  },
+  {
+    id: "teach",
+    label: "教学活动",
+    items: [
+      { id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" },
+      { id: "question-bank", label: "题库出卷", icon: Exam, role: "teacher" },
+      { id: "assignments", label: "课后作业", icon: Notebook, role: "teacher" },
     ],
   },
   {
@@ -134,21 +161,13 @@ const navGroups = [
       { id: "notes", label: "知识库", icon: Notebook },
     ],
   },
-  {
-    id: "extend",
-    label: "拓展协作",
-    items: [
-      { id: "assignments", label: "课后作业", icon: Notebook },
-    ],
-  },
-  {
-    id: "manage",
-    label: "教学管理",
-    items: [
-      { id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" },
-    ],
-  },
 ];
+// 顶栏可见性：教师看到除学生专属外的全部入口，学生看不到教师入口，游客只看课程浏览。
+function navItemVisibleForRole(item, role) {
+  if (role === "teacher") return item.role !== "student";
+  if (role === "student") return item.role !== "teacher" && item.id !== "teacher";
+  return ["home", "courseware", "demos"].includes(item.id);
+}
 function FeatureLoading({ label }) {
   return <div className="flow-loading">{label}</div>;
 }
@@ -522,6 +541,26 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsSection, setSettingsSection] = useState('account');
   const [supportPanel,setSupportPanel]=useState(null);
+  // 顶栏分组下拉：悬停展开、点击锁定（触屏友好），Esc/点外部/跳转后关闭。
+  const [openNavGroup, setOpenNavGroup] = useState(null);
+  const navPinnedRef = useRef(false);
+  const topbarNavRef = useRef(null);
+  useEffect(() => {
+    if (!openNavGroup) return undefined;
+    const closeOutside = (event) => {
+      if (topbarNavRef.current && !topbarNavRef.current.contains(event.target)) {
+        navPinnedRef.current = false;
+        setOpenNavGroup(null);
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') { navPinnedRef.current = false; setOpenNavGroup(null); }
+    };
+    document.addEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeOnEscape); };
+  }, [openNavGroup]);
+  useEffect(() => { navPinnedRef.current = false; setOpenNavGroup(null); }, [activeView]);
   const [roleDataError,setRoleDataError]=useState('');
   const [roleDataLoading,setRoleDataLoading]=useState(false);
   const [bootstrapVersion,setBootstrapVersion]=useState(0);
@@ -616,10 +655,10 @@ export function App() {
   // 恢复结论落地前不要写回，避免同样的覆盖
   const restoreSettledRef = useRef(false);
   useViewHistory({user:auth.user,enabled:auth.status!=='loading'&&auth.status!=='error'&&!showLogin,route:{view:activeView,challengeId:activeView==='lab'?lab.selectedChallengeId:null,caseId:activeView==='hardware-game'?selectedHardwareCaseId:null,demoId:activeView==='demo'?demoId:null,studyTarget:activeView==='assignments'?studyTarget:null},restore:route=>{
-    if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo','classroom'].includes(route.view))return false;
+    if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo','classroom','question-bank'].includes(route.view))return false;
     if(!auth.user&&!['home','courseware','demos','demo'].includes(route.view))return false;
-    if(auth.user?.role==='teacher'&&!['teacher','courseware','demos','demo','hardware-game','records','mistakes','lab','assignments','notes'].includes(route.view))return false;
-    if(auth.user?.role==='student'&&route.view==='teacher')return false;
+    if(auth.user?.role==='teacher'&&!['teacher','home','courseware','demos','demo','hardware-game','records','mistakes','lab','assignments','notes','question-bank'].includes(route.view))return false;
+    if(auth.user?.role==='student'&&['teacher','question-bank'].includes(route.view))return false;
     if(route.view==='lab'&&!lab.selectChallenge(route.challengeId))return false;
     if(route.view==='hardware-game'&&!HARDWARE_GAME_CASES.some(item=>item.id===route.caseId))return false;
     if(route.caseId)setSelectedHardwareCaseId(route.caseId);
@@ -854,7 +893,6 @@ export function App() {
   }
 
   function changeView(view) {
-    if (auth.user?.role === 'teacher' && view === 'home') view = 'teacher';
     if (!auth.user && !["home", "courseware", "demos"].includes(view)) {
       requestLogin({ type: "view", view });
       return;
@@ -1038,6 +1076,13 @@ export function App() {
   }
 
   function renderPlatformTopbar() {
+    const role = auth.user?.role;
+    const visibleNavGroups = navGroups
+      .map((group) => ({ ...group, items: group.items.filter((item) => navItemVisibleForRole(item, role)) }))
+      .filter((group) => group.items.length > 0);
+    const isActiveNavItem = (id) => activeView === id
+      || (activeView === "lab" && id === "home")
+      || (activeView === "demo" && id === (demoId === "courseware" ? "courseware" : "demos"));
     return (
       <header ref={platformTopbarRef} className="topbar">
         <button className="brand" onClick={() => changeView("home")} type="button">
@@ -1045,18 +1090,66 @@ export function App() {
           <img className="brand-logo" src="/home/logo.png" alt="芯游记" />
         </button>
 
-        <nav className="topbar-nav" aria-label="主导航">
-          {navGroups.flatMap((group) => group.items).filter((item) => auth.user?.role === "teacher" ? ["teacher", "hardware-game", "records", "mistakes", "courseware", "demos", "notes"].includes(item.id) : auth.user?.role === "student" ? item.id !== "teacher" : ["home", "courseware", "demos"].includes(item.id)).map(({ id, icon: Icon, label }) => (
-            <button
-              className={(activeView === id || (activeView === "lab" && id === "home") || (activeView === "demo" && id === (demoId === "courseware" ? "courseware" : "demos"))) ? "topbar-nav-item active" : "topbar-nav-item"}
-              key={id}
-              onClick={() => changeView(id)}
-              type="button"
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-            </button>
-          ))}
+        <nav className="topbar-nav" aria-label="主导航" ref={topbarNavRef}>
+          {visibleNavGroups.map((group) => {
+            if (group.items.length === 1) {
+              const { id, icon: Icon, label } = group.items[0];
+              return (
+                <button
+                  className={isActiveNavItem(id) ? "topbar-nav-item active" : "topbar-nav-item"}
+                  key={id}
+                  onClick={() => changeView(id)}
+                  type="button"
+                >
+                  <Icon size={18} />
+                  <span>{label}</span>
+                </button>
+              );
+            }
+            const isOpen = openNavGroup === group.id;
+            const groupActive = group.items.some((item) => isActiveNavItem(item.id));
+            return (
+              <div
+                className={isOpen ? "topbar-nav-group open" : "topbar-nav-group"}
+                key={group.id}
+                onMouseEnter={() => { navPinnedRef.current = false; setOpenNavGroup(group.id); }}
+                onMouseLeave={() => { if (!navPinnedRef.current) setOpenNavGroup(null); }}
+              >
+                <button
+                  aria-controls={`nav-menu-${group.id}`}
+                  aria-expanded={isOpen}
+                  aria-haspopup="true"
+                  className={groupActive ? "topbar-nav-toggle active" : "topbar-nav-toggle"}
+                  onClick={() => {
+                    if (isOpen && navPinnedRef.current) {
+                      navPinnedRef.current = false;
+                      setOpenNavGroup(null);
+                    } else {
+                      navPinnedRef.current = true;
+                      setOpenNavGroup(group.id);
+                    }
+                  }}
+                  type="button"
+                >
+                  <span>{group.label}</span>
+                  <CaretDown className="topbar-nav-caret" size={15} />
+                </button>
+                <div className="topbar-nav-menu" hidden={!isOpen} id={`nav-menu-${group.id}`}>
+                  {group.items.map(({ id, icon: Icon, label }) => (
+                    <button
+                      className={isActiveNavItem(id) ? "topbar-nav-item active" : "topbar-nav-item"}
+                      key={id}
+                      onClick={() => { navPinnedRef.current = false; setOpenNavGroup(null); changeView(id); }}
+                      type="button"
+                    >
+                      <Icon size={18} />
+                      <span>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </nav>
 
         <div className="topbar-actions">
@@ -1157,6 +1250,13 @@ export function App() {
           {activeView === "notes" ? <NotesPage key={auth.user?.id} userId={auth.user?.id} /> : null}
           {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} practiceOnly={auth.user?.role === 'teacher'} destination={studyTarget} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} onOpenLearning={() => changeView('records')} /> : null}
           {activeView === "courseware" ? <CoursewareView key={auth.user?.id??'guest'} navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
+          {activeView === "question-bank" && auth.user?.role === 'teacher' ? (
+            <ErrorBoundary>
+              <Suspense fallback={<FeatureLoading label="正在加载题库出卷..." />}>
+                <QuestionBankPage key={auth.user.id} teacherClasses={teacherClasses} />
+              </Suspense>
+            </ErrorBoundary>
+          ) : null}
           {activeView === "teacher" ? (
             <ErrorBoundary>
             <TeacherStudioDashboard

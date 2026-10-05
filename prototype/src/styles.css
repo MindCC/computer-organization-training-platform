@@ -6370,6 +6370,33 @@ body {
   border-radius: 10px;
   background: #fff;
   box-shadow: var(--shadow-soft);
+  animation: topbar-nav-menu-in 0.14s ease-out;
+}
+
+.topbar-nav-menu[hidden] {
+  display: none;
+}
+
+@keyframes topbar-nav-menu-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.topbar-nav-caret {
+  transition: transform 0.15s ease;
+}
+
+.topbar-nav-group.open .topbar-nav-caret {
+  transform: rotate(180deg);
+}
+
+.topbar-nav-group.open .topbar-nav-toggle {
+  color: var(--ink);
+  background: var(--soft);
+}
+
+.topbar-nav-group.open .topbar-nav-toggle.active {
+  color: var(--blue);
 }
 
 .topbar-nav-item {
@@ -7504,7 +7531,8 @@ body {
   }
 }
 
-/* Shared navigation keeps its own row before desktop content becomes cramped. */
+/* Shared navigation keeps its own row before desktop content becomes cramped.
+   分组下拉后一级按钮只有 3-4 个，不再横向滚动，避免下拉菜单被 overflow 裁剪。 */
 @media (max-width: 1400px) {
   .topbar {
     flex-wrap: wrap;
@@ -7517,11 +7545,10 @@ body {
     max-width: 100%;
     min-width: 0;
     order: 3;
-    overflow-x: auto;
-    scrollbar-width: none;
+    flex-wrap: wrap;
+    row-gap: 4px;
   }
 
-  .topbar-nav::-webkit-scrollbar { display: none; }
   .topbar-nav-item { flex: none; }
 }
 
@@ -7560,7 +7587,8 @@ body {
   }
 
   /* 窄屏导航：早先是固定在底部的 .sidebar-nav，顶栏重构后那段样式已无人使用，
-     导航会把页面直接撑出横向溢出。现在让它换到第二行并横向滚动。 */
+     导航会把页面直接撑出横向溢出。分组下拉后一级按钮很少，换行排列即可，
+     且不能用横向滚动，否则下拉菜单会被 overflow 裁剪。 */
   .topbar {
     flex-wrap: wrap;
     row-gap: 8px;
@@ -7572,12 +7600,8 @@ body {
     max-width: 100%;
     min-width: 0;
     order: 3;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .topbar-nav::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    row-gap: 4px;
   }
 
   .topbar-nav-item {

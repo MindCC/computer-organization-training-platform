@@ -40,9 +40,13 @@ test("restoring a view respects the current role", () => {
   assert.deepEqual(resolveRestorableView(teacherSession, "teacher"), teacherSession);
   assert.equal(resolveRestorableView(teacherSession, "student"), null);
 
-  // 教师的落地页是看板：登录过程中的 "home" 中间值不能把教师带到学生首页
-  assert.equal(resolveRestorableView({ view: "home", challengeId: null }, "teacher"), null);
+  // 教师同样拥有课程首页：刷新后停留在 home 的教师应回到课程首页
+  assert.deepEqual(resolveRestorableView({ view: "home", challengeId: null }, "teacher"), { view: "home", challengeId: null });
   assert.deepEqual(resolveRestorableView({ view: "home", challengeId: null }, "student"), { view: "home", challengeId: null });
+
+  // 课堂任务链仍是学生专属，教师停留在 classroom 的记录不恢复
+  assert.equal(resolveRestorableView({ view: "classroom", challengeId: null }, "teacher"), null);
+  assert.deepEqual(resolveRestorableView({ view: "classroom", challengeId: null }, "student"), { view: "classroom", challengeId: null });
 
   assert.deepEqual(resolveRestorableView({ view: "courseware", challengeId: null }, null), { view: "courseware", challengeId: null });
 });

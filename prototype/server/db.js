@@ -264,6 +264,29 @@ export function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_submissions_student ON student_submissions(student_id);
     CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON student_submissions(assignment_id);
 
+    -- 教师题库：手工录入 / 批量导入 / 内置题库 / 知识库 AI 出题均可入库；
+    -- client_key 是幂等键（导入批次号:序号 或内置题 id），重复导入自动跳过。
+    CREATE TABLE IF NOT EXISTS question_bank (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      chapter_id TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('choice', 'truefalse', 'fill', 'short_answer')),
+      stem TEXT NOT NULL,
+      options_json TEXT NOT NULL DEFAULT '[]',
+      answer_json TEXT NOT NULL,
+      keywords_json TEXT,
+      analysis TEXT NOT NULL DEFAULT '',
+      score INTEGER NOT NULL DEFAULT 10,
+      source TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'import', 'ai', 'builtin')),
+      import_batch TEXT,
+      client_key TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(teacher_id, client_key)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_question_bank_teacher ON question_bank(teacher_id, chapter_id, type);
+
     CREATE TABLE IF NOT EXISTS course_drafts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

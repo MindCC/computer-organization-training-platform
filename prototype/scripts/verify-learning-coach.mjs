@@ -2,19 +2,20 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { chromium, expect } from '@playwright/test';
 import { gotoApp, fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 const app = process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:8787';
 mkdirSync('qa-artifacts', { recursive: true });
 let browser; try { browser = await chromium.launch({ channel: 'msedge', headless: true }); } catch { browser = await chromium.launch({ headless: true }); }
 const page = await browser.newPage({ viewport: { width: 1366, height: 900 } }), errors = [];
 page.on('pageerror', error => errors.push(error.message));
-const nav = (target, name) => target.locator('.topbar-nav').getByRole('button', { name, exact: true });
+const nav = (target, name) => ({ click: () => clickTopNavItem(target, name) });
 const coach = page.getByTestId('learning-coach');
 async function post(context, path, body) { const response = await context.post(app + path, { data: body }); assert.ok(response.ok(), `${path}: ${response.status()} ${await response.text()}`); return response.json(); }
 try {
   const teacher = await browser.newPage({ viewport: { width: 1366, height: 900 } }); teacher.on('pageerror', error => errors.push(error.message));
   await gotoApp(teacher, app); await fillLoginForm(teacher, { username: 'teacher', password: 'ChangeMe123!' }); await teacher.locator('[data-login-role="teacher"]').click(); await submitLoginForm(teacher);
-  await expect(nav(teacher, '学习记录')).toBeVisible();
+  await clickTopNavItem(teacher, '学习记录');
   const classroom = (await post(teacher.request, '/api/classes', { name: '智能体验收班' })).class;
   const username = 'coachqa-' + Date.now();
   await post(teacher.request, `/api/teacher/classes/${classroom.id}/import-students`, { csv: `${username},诊断验收学生,Student123!` });

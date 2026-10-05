@@ -2,12 +2,13 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync } from 'node:fs';
 import { chromium, expect } from '@playwright/test';
 import { gotoApp, fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
+import { clickTopNavItem } from './nav-helpers.mjs';
 const app=process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173';
 mkdirSync('qa-artifacts',{recursive:true});
 let browser;try{browser=await chromium.launch({channel:'msedge',headless:true});}catch{browser=await chromium.launch({headless:true});}
 const page=await browser.newPage({viewport:{width:1366,height:900}}), errors=[];
 page.on('pageerror',e=>errors.push(e.message));
-const nav=label=>page.locator('.topbar-nav').getByRole('button',{name:label,exact:true});
+const nav=label=>({click:()=>clickTopNavItem(page,label)});
 const board=page.locator('.mind-board');
 async function goBoard() {await nav('知识库').click();await page.locator('.kb-ribbon').getByRole('button',{name:'思维画板',exact:true}).click();await expect(board).toBeVisible();}
 async function save() {await board.getByRole('button',{name:'保存画板',exact:true}).click();await expect(board.locator('.mind-save-status')).toHaveText('已保存到账号');}
@@ -82,7 +83,7 @@ try {
   // Teacher navigation reaches the same working feature with a separate owner scope.
   const teacher=await browser.newPage({viewport:{width:1366,height:900}});
   await gotoApp(teacher,app);await fillLoginForm(teacher,{username:process.env.TEACHER_USERNAME??'teacher',password:process.env.TEACHER_PASSWORD??'ChangeMe123!'});await teacher.locator('[data-login-role="teacher"]').click();await submitLoginForm(teacher);
-  await teacher.locator('.topbar-nav').getByRole('button',{name:'知识库',exact:true}).click();await teacher.locator('.kb-ribbon').getByRole('button',{name:'思维画板',exact:true}).click();
+  await clickTopNavItem(teacher,'知识库');await teacher.locator('.kb-ribbon').getByRole('button',{name:'思维画板',exact:true}).click();
   await expect(teacher.locator('.mind-board')).toBeVisible();await expect(teacher.getByLabel('打开已保存画板')).toHaveValue('');
   assert.equal((await (await teacher.request.get(app+'/api/mind-maps')).json()).maps.length,0);
   assert.deepEqual(errors,[]);

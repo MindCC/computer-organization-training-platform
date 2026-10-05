@@ -14,6 +14,7 @@ import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { LEARNING_ITEMS } from "../src/platformLogic.js";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 const BASE_URL = process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
 const API_URL = process.env.QA_API_URL ?? "http://127.0.0.1:8787";
@@ -57,7 +58,7 @@ try {
     `averageScore=${apiBody.summary?.averageScore}`);
 
   // 2. 学习记录明细
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await clickTopNavItem(page, "学习记录");
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   const rows = await page.locator(".record-row").evaluateAll((nodes) => nodes.map((node) => {
     const cells = [...node.querySelectorAll(":scope > *")].map((cell) => cell.textContent.trim());
@@ -88,7 +89,7 @@ try {
   await page.locator(".record-chapter").first().screenshot({ path: `${ARTIFACT_DIR}/participation-records.png` });
 
   // 4. 实验台：参与型关卡不显示得分 0 / 100
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "课程首页" }).click();
+  await clickTopNavItem(page, "课程首页");
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
   const ch4 = page.locator(".project-chapter-toggle", { hasText: "第 4 章" });
   await ch4.click();

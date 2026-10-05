@@ -5,6 +5,7 @@ import { gotoApp, fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
 import { KNOWLEDGE_POINTS, knowledgePointsByChapter, knowledgeEvidenceOf } from '../src/knowledgePoints.js';
 import { buildAdventureMap } from '../src/adventureMapModel.js';
 import { questionsForKp } from '../src/assignmentQuestions.js';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 const app = process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173';
 const artifacts = process.env.QA_ARTIFACT_DIR ?? 'qa-artifacts';
@@ -16,7 +17,7 @@ const errors = [], checks = [];
 const page = await context.newPage();
 page.on('pageerror', error => errors.push(error.message));
 const pass = name => { checks.push(name); console.log('PASS ' + name); };
-const nav = label => page.locator('.topbar-nav').getByRole('button', { name: label, exact: true });
+const nav = label => ({ click: () => clickTopNavItem(page, label) });
 async function json(request, path, data) {
   const response = data === undefined ? await request.get(app + path) : await request.post(app + path, { data });
   assert.ok(response.ok(), path + ': ' + response.status() + ' ' + await response.text());

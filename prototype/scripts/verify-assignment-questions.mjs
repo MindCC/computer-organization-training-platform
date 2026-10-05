@@ -12,6 +12,7 @@
 import { createRequire } from "node:module";
 import { questionOf, questionsForChapter } from "../src/assignmentQuestions.js";
 import { knowledgeEvidenceOf, knowledgePointsByChapter, layoutKnowledgeGraph } from "../src/knowledgePoints.js";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 const require = createRequire(new URL("../package.json", import.meta.url));
 const { chromium } = require("playwright");
@@ -39,7 +40,7 @@ try {
   await page.waitForSelector(".topbar-nav", { timeout: 20000 });
 
   // 1. 进入课后作业
-  await page.locator(".topbar-nav").getByRole("button", { name: "课后作业" }).click();
+  await clickTopNavItem(page, "课后作业");
   await page.waitForSelector(".student-assignments", { timeout: 10000 });
   await page.waitForSelector(".assignment-mode-switch", { timeout: 10000 });
   check("模式切换存在（按章练习/教师作业）", await page.locator(".assignment-mode-switch .mode-tab").count() === 2);

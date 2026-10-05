@@ -64,6 +64,8 @@
     "qa:teacher-fixes": "node scripts/run-browser-qa.mjs scripts/verify-teacher-fixes.mjs",
     "qa:overview-exploration": "node scripts/run-browser-qa.mjs scripts/verify-overview-exploration.mjs --seed-demo",
     "qa:middle-pan": "node scripts/run-browser-qa.mjs scripts/verify-middle-pan.mjs",
+    "preqa:task-library-learning": "npm run build -- --manifest",
+    "qa:task-library-learning": "node scripts/run-browser-qa.mjs scripts/verify-task-library-learning.mjs --production",
     "preqa:classroom": "npm run build -- --manifest",
     "qa:classroom": "node scripts/run-browser-qa.mjs scripts/verify-classroom.mjs --production",
     "qa:classroom-load": "node scripts/verify-classroom-load.mjs"

@@ -61,6 +61,8 @@ import { createClassroomSessionRouter } from "./classroomSessionRoutes.js";
 import { createAssignmentRepository } from "./assignmentRepository.js";
 import { createAssignmentService } from "./assignmentService.js";
 import { createAssignmentRouter } from "./assignmentRoutes.js";
+import { createQuestionBankService } from "./questionBankService.js";
+import { createQuestionBankRouter } from "./questionBankRoutes.js";
 import { createCourseWorkbenchRepository } from "./courseWorkbenchRepository.js";
 import { createCourseWorkbenchService } from "./courseWorkbenchService.js";
 import { createCourseWorkbenchRouter } from "./courseWorkbenchRoutes.js";
@@ -148,6 +150,11 @@ export function createApp(options = {}) {
   const sessionService = createClassroomSessionService({ db, repository: sessionRepository });
   const assignmentRepository = createAssignmentRepository(db);
   const assignmentService = createAssignmentService({ db, repository: assignmentRepository });
+  const questionBankService = createQuestionBankService({
+    db, assignmentService,
+    env: options.questionBankOptions?.env ?? process.env,
+    fetchImpl: options.questionBankOptions?.fetchImpl ?? fetch,
+  });
   const courseWorkbenchRepository = createCourseWorkbenchRepository(db);
   const courseWorkbenchService = createCourseWorkbenchService({ db, repository: courseWorkbenchRepository, generateSuggestion: options.generateCourseDraftSuggestion });
   const labRunRepository = createLabRunRepository(db);
@@ -181,6 +188,7 @@ export function createApp(options = {}) {
   app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole, generatorOptions:options.taskChainGeneratorOptions }));
   app.use('/api',createTaskLibraryRouter({db,sessionService,requireRole}));
   app.use("/api", createAssignmentRouter({ service: assignmentService, requireRole }));
+  app.use("/api", createQuestionBankRouter({ db, service: questionBankService, requireRole }));
   app.use("/api", createLearningPracticeRouter({ db, requireRole }));
   app.use("/api", createCourseWorkbenchRouter({ service: courseWorkbenchService, requireRole, audit }));
   app.use("/api", createLabRunRouter({ service: labRunService, requireRole, audit }));

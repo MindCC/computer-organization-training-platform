@@ -8,6 +8,7 @@
  * 前置：API(8787) 与 Vite(5173) 已启动，演示班级已 seed。
  */
 import { chromium } from "playwright";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 const BASE_URL = process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
 const results = [];
@@ -40,7 +41,7 @@ try {
   await page.locator("#login-password").fill("Student123!");
   await page.locator(".login-submit").click();
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "课程课件" }).click();
+  await clickTopNavItem(page, "课程课件");
   await page.locator(".chapter-header", { hasText: "第二章" }).click();
   const demoLink = page.locator(".chapter-body .linked-challenges a[href='/demos/twos-complement.html']");
   check("ch2 课件含「课堂演示」入口", await demoLink.count() === 1);

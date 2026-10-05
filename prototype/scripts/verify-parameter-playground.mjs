@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { chromium, expect } from "@playwright/test";
 import { gotoApp, fillLoginForm } from "./lib/qaLogin.mjs";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 const base = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173/";
 const artifacts = process.env.QA_ARTIFACT_DIR ?? "qa-artifacts";
@@ -16,7 +17,7 @@ try {
   await gotoApp(page, base);
   await fillLoginForm(page, { username: "", password: "" });
   await page.locator('[data-demo-role="student"]').click();
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "互动演示" }).click();
+  await clickTopNavItem(page, "互动演示");
   await expect(page.locator(".courseware-chapter-card")).toHaveCount(8);
   await expect(page.locator(".parameter-playground")).toHaveCount(0);
   const playground = page.locator(".hosted-demo-parameters .parameter-playground");

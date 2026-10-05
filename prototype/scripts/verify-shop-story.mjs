@@ -5,6 +5,7 @@ import { chromium,expect } from '@playwright/test';
 import { gotoApp,fillLoginForm,submitLoginForm } from './lib/qaLogin.mjs';
 import { HARDWARE_GAME_CASES } from '../src/hardwareGame.js';
 import { storyProfile, buildStoryOffers } from '../src/hardwareStory.js';
+import { clickTopNavItem } from './nav-helpers.mjs';
 let browser;
 try{browser=await chromium.launch({channel:'msedge',headless:true});}catch{browser=await chromium.launch({headless:true});}
 const artifacts=process.env.QA_ARTIFACT_DIR??'qa-artifacts';await mkdir(artifacts,{recursive:true});
@@ -25,7 +26,7 @@ try{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await gotoApp(page,process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173');
   await fillLoginForm(page,{username:'demo2026001',password:'Student123!'});await submitLoginForm(page);
-  const enter=()=>page.locator('.topbar-nav .topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();await enter();
+  const enter=()=>clickTopNavItem(page,'硬件配置挑战');await enter();
   const shop=page.getByRole('region',{name:'芯邻装机店'}),stage=page.locator('.hardware-game-layout'),workshop=page.getByRole('region',{name:'3D 交互装机工作台'});
   await expect(shop).toHaveAttribute('data-chapter-node','opening');await expect(page.locator('.assembly-viewport canvas')).toHaveCount(0);
   await page.getByRole('button',{name:'打开营业门牌',exact:true}).click();

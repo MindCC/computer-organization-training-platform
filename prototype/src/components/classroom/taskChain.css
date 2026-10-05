@@ -41,3 +41,36 @@
 .chain-student-evidence{padding:18px;margin-top:15px;background:#f6faf9;border:1px solid #dce8e1;border-radius:9px}.chain-student-evidence>header{display:flex;align-items:center;justify-content:space-between}.chain-student-evidence article{padding:12px 0;border-top:1px solid #e0e9e5;font-size:13px}
 @media(max-width:1000px){.chain-builder-layout{grid-template-columns:minmax(240px,.9fr) minmax(0,1fr)}.chain-stage-options{grid-template-columns:1fr}.chain-template-picker small{font-size:11px}}
 @media(max-width:760px){.task-chain-builder{padding:15px!important}.chain-builder-layout,.chain-template-picker{grid-template-columns:1fr}.chain-template-picker{gap:7px}.chain-template-picker button{padding:12px}.chain-stage-editor{padding:15px}.chain-stage-list{max-height:430px;overflow:auto;padding:2px}.chain-stage-editor>header{flex-wrap:wrap}.chain-publish-settings label{width:100px}.chain-save-note{width:100%;flex-basis:100%}.task-chain-bar{padding:10px 13px;flex-wrap:wrap}.task-chain-bar>svg{display:none}.task-chain-bar>div{min-width:180px}.student-chain-intro h1,.chain-activity-heading h1{font-size:22px}.student-chain-action{flex-direction:column;align-items:stretch;padding:17px}.student-chain-route li{padding:15px;gap:12px;align-items:start}.student-chain-route li+li:before{left:31px}.chain-route-status{font-size:11px}.chain-demo-frame{height:1050px}.chain-ai-guide{align-items:start;gap:10px}.chain-ai-guide>img{width:65px;height:65px}.chain-activity-content{padding:12px}.chain-demo-toolbar .chain-activity-controls{width:100%}.chain-activity-controls{justify-content:flex-start}}
+
+/* 任务库任务链学情：卡片完成度汇总与学情详情弹窗 */
+.task-library-learning{display:grid;gap:7px;width:100%;box-sizing:border-box;margin-top:14px;padding:11px 13px;border:1px solid #d8e9e0;border-radius:9px;background:#f3faf6;cursor:pointer;text-align:left;font:inherit;color:#2f5648}
+.task-library-learning:hover{border-color:#2f9679;background:#ecf7f1}
+.task-library-learning-top{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px}
+.task-library-learning-top strong{color:#1d7a5f;font-size:13px}
+.task-library-learning-top em{font-style:normal;color:#5d7f71;font-size:11px}
+.task-library-learning progress{width:100%;height:6px;accent-color:#2c9b7f}
+.task-learning-dialog{box-sizing:border-box;width:min(880px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;text-align:left}
+.task-learning-dialog h3{font-size:14px;color:#2c4f43;margin:22px 0 10px}
+.task-learning-summary{display:flex;flex-wrap:wrap;gap:10px 22px;padding:14px 16px;border:1px solid #d9e8e0;border-radius:10px;background:#f3faf6;color:#3c6255;font-size:12px}
+.task-learning-summary strong{color:#1d7a5f;font-size:15px}
+.task-learning-empty{padding:14px 16px;border:1px dashed #c7dcd3;border-radius:10px;color:#5d7f71;font-size:13px;line-height:1.7}
+.task-learning-stages ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.task-learning-stages li{display:flex;gap:12px;align-items:flex-start;border:1px solid #e0e9e4;border-radius:9px;padding:12px 14px;background:#fbfdfc}
+.task-learning-stage-main{display:grid;gap:4px;min-width:0}
+.task-learning-stage-main small{color:#6a8379;font-size:11px}
+.task-learning-stage-main strong{font-size:13px;color:#24443a;overflow-wrap:anywhere}
+.task-learning-stage-stats{font-size:12px;color:#4c6f60}
+.task-learning-errors{list-style:none;margin:6px 0 0;padding:8px 10px;display:grid;gap:5px;background:#fdf4ec;border-radius:7px}
+.task-learning-errors li{display:flex;justify-content:space-between;gap:10px;font-size:11px;color:#8a5a28;line-height:1.6}
+.task-learning-errors small{color:#a98251;white-space:nowrap}
+.task-learning-publications article{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-top:1px solid #e6efea;padding:11px 0;font-size:12px;color:#41604f}
+.task-learning-class{display:flex;align-items:center;gap:8px;min-width:0}
+.task-learning-class strong{font-size:13px}
+.task-learning-class small{color:#7b948a;font-size:11px}
+.task-learning-status{padding:3px 9px;border-radius:6px;font-size:11px;font-weight:600;background:#eef3f1;color:#5b7770;white-space:nowrap}
+.task-learning-status.live{background:#ddf2e4;color:#17724f}
+.task-learning-status.paused{background:#faf0d8;color:#8c6a22}
+.task-learning-status.ended{background:#e8eef2;color:#54687a}
+.task-learning-publications article>span{flex:1;min-width:150px}
+.task-learning-note{margin-top:14px;font-size:11px;color:#7b948a;line-height:1.7}
+@media(max-width:600px){.task-learning-publications article{align-items:flex-start;flex-direction:column;gap:6px}}

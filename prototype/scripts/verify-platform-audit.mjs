@@ -6,6 +6,7 @@ import {gotoApp,fillLoginForm,submitLoginForm} from './lib/qaLogin.mjs';
 import {openTeacherWorkspace,TEACHER_WORKSPACE} from './lib/qaTeacherWorkspace.mjs';
 import {questionsForChapter} from '../src/assignmentQuestions.js';
 import {randomUUID} from 'node:crypto';
+import {clickTopNavItem} from './nav-helpers.mjs';
 
 const app=process.env.PROTOTYPE_APP_URL??process.env.PROTOTYPE_URL, artifacts=process.env.QA_ARTIFACT_DIR??'qa-artifacts';
 await mkdir(artifacts,{recursive:true});
@@ -14,7 +15,7 @@ let page;const results=[],errors=[];
 const pass=label=>{results.push(label);console.log('PASS '+label);};
 try{
   page=await browser.newPage({viewport:{width:1366,height:900},reducedMotion:'reduce'});page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
-  const nav=name=>page.locator('.topbar-nav').getByRole('button',{name,exact:true}).click();
+  const nav=name=>clickTopNavItem(page,name);
   const login=async(name='demo2026001')=>{await fillLoginForm(page,{username:name,password:name==='teacher'?'ChangeMe123!':'Student123!'});if(name==='teacher')await page.getByRole('tab',{name:'教师入口'}).click();await submitLoginForm(page);await expect(page.locator('.profile-button')).toBeVisible();};
   const logout=async()=>{await page.locator('.profile-button').click();await page.getByRole('button',{name:'退出登录',exact:true}).click();};
   await page.route('**/api/auth/me',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'审核故障注入'})}));

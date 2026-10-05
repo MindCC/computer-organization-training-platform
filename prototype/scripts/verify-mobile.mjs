@@ -6,6 +6,7 @@ import { fillLoginForm, gotoApp } from './lib/qaLogin.mjs';
 import { openTeacherWorkspace, TEACHER_WORKSPACE } from './lib/qaTeacherWorkspace.mjs';
 import { selectTeacherClass } from './helpers/select-teacher-class.mjs';
 import { COURSEWARE } from '../src/courseware.js';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 const url = process.env.PROTOTYPE_APP_URL;
 const dir = path.join(process.env.QA_ARTIFACT_DIR ?? 'qa-artifacts', 'mobile');
@@ -52,8 +53,8 @@ async function sizes(page, name) {
 }
 async function nav(page, label, selector) {
   if (await page.getByRole('dialog').isVisible().catch(() => false)) await page.reload({ waitUntil: 'domcontentloaded' });
-  const button = page.locator('.topbar-nav').getByRole('button', { name: label, exact: true });
-  await button.click();
+  await clickTopNavItem(page, label);
+  const button = page.locator('.topbar-nav-item').filter({ hasText: label }).first();
   await expect(button).toHaveClass(/active/);
   await expect(page.locator(selector).first()).toBeVisible({ timeout: 20000 }).catch(async error => {
     console.error('PAGE STATE', label, (await page.locator('body').innerText()).slice(-1800));

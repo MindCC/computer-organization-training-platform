@@ -51,6 +51,57 @@ test('publication is atomic and idempotent; library changes cannot alter classro
     assert.equal(c.service.getReport({teacherId:c.teacher.id,sessionId:first.session.id}).studentReports[0].completedStages,1);
   }finally{c.db.close();}
 });
+test('task learning aggregates completion from real classroom records, participation stays unscored',()=>{
+  const c=setup();try{
+    const task=c.library.create(c.teacher.id,c.config);
+    const {session}=c.library.publish(c.teacher.id,task.id,{classId:c.cls.id,revision:1,clientSubmissionId:'publish-learning-001'});
+    let learning=c.library.learning(c.teacher.id,task.id);
+    assert.equal(learning.summary.totalStudents,1);assert.equal(learning.summary.notStarted,1);assert.equal(learning.summary.completed,0);
+    assert.equal(learning.stages.length,1);assert.equal(learning.stages[0].submitted,0);assert.equal(learning.stages[0].completed,0);
+    assert.equal(learning.publications.length,1);assert.equal(learning.publications[0].className,'课堂');assert.equal(learning.publications[0].status,'live');
+    assert.equal(c.library.list(c.teacher.id)[0].learning.totalStudents,1);
+    c.service.enterStudent({studentId:c.student.id,sessionId:session.id});
+    learning=c.library.learning(c.teacher.id,task.id);
+    assert.equal(learning.summary.inProgress,1);assert.equal(learning.stages[0].inProgress,1);
+    c.service.completeStage({studentId:c.student.id,sessionId:session.id,payload:{stageId:'discussion',evidence:{text:'用负数的补码作为加数，符号位一起参与运算。'},clientSubmissionId:'student-learning-001'}});
+    learning=c.library.learning(c.teacher.id,task.id);
+    assert.equal(learning.summary.completed,1);assert.equal(learning.summary.completionRate,100);
+    assert.equal(learning.stages[0].completed,1);assert.equal(learning.stages[0].submitted,1);
+    // 参与型环节不计知识成绩：平均分保持 null，不能当成 0 分
+    assert.equal(learning.stages[0].averageScore,null);assert.equal(learning.summary.averageScore,null);
+    const listed=c.library.list(c.teacher.id)[0];
+    assert.equal(listed.learning.completed,1);assert.equal(listed.learning.averageScore,null);
+    assert.throws(()=>c.library.learning(c.other.id,task.id),/不存在/);
+  }finally{c.db.close();}
+});
+test('graded stage learning averages the latest real submissions and keeps common errors',()=>{
+  const c=setup();try{
+    const config={templateKey:'task-chain',durationMinutes:30,passScore:80,taskChain:{title:'诊断任务',stages:[
+      {id:'quiz',type:'practice',title:'课前诊断',instructions:'',chapterId:'ch2',questionIds:['ch2-q02','ch2-q04','ch2-q07'],completion:'passed'},
+      {id:'wrap',type:'custom',title:'总结确认',instructions:'',submissionMode:'confirm'}]}};
+    const task=c.library.create(c.teacher.id,config);
+    const {session}=c.library.publish(c.teacher.id,task.id,{classId:c.cls.id,revision:1,clientSubmissionId:'publish-learning-002'});
+    c.service.enterStudent({studentId:c.student.id,sessionId:session.id});
+    const wrong=Object.fromEntries(['ch2-q02','ch2-q04','ch2-q07'].map(id=>[id,'错误答案']));
+    const failed=c.service.completeStage({studentId:c.student.id,sessionId:session.id,payload:{stageId:'quiz',evidence:{answers:wrong},clientSubmissionId:'student-learning-002a'}});
+    assert.equal(failed.result.passed,false);assert.equal(failed.result.score,0);
+    let learning=c.library.learning(c.teacher.id,task.id);
+    assert.equal(learning.stages[0].submitted,1);assert.equal(learning.stages[0].completed,0);assert.equal(learning.stages[0].inProgress,1);
+    assert.equal(learning.stages[0].averageScore,0,'真实考出的 0 分要显示');assert.equal(learning.stages[0].topErrors.length,3);
+    assert.equal(learning.summary.averageScore,0);
+    const right={'ch2-q02':'-128 ~ 127','ch2-q04':'-1','ch2-q07':'11111011'};
+    const passed=c.service.completeStage({studentId:c.student.id,sessionId:session.id,payload:{stageId:'quiz',evidence:{answers:right},clientSubmissionId:'student-learning-002b'}});
+    assert.equal(passed.result.score,100);
+    learning=c.library.learning(c.teacher.id,task.id);
+    assert.equal(learning.stages[0].completed,1);assert.equal(learning.stages[0].averageScore,100,'平均分取最近一次真实提交');
+    assert.equal(learning.stages[0].topErrors.length,0);
+    assert.equal(learning.stages[1].completed,0);assert.equal(learning.stages[1].inProgress,1);
+    c.service.completeStage({studentId:c.student.id,sessionId:session.id,payload:{stageId:'wrap',evidence:{completed:true},clientSubmissionId:'student-learning-002c'}});
+    learning=c.library.learning(c.teacher.id,task.id);
+    assert.equal(learning.summary.completed,1);assert.equal(learning.summary.averageScore,100);
+    assert.equal(learning.stages[1].submitted,1);assert.equal(learning.stages[1].averageScore,null);
+  }finally{c.db.close();}
+});
 test('existing classrooms become reusable library copies; deleting a copy never deletes or reimports the classroom',()=>{
   const c=setup();try{
     const existing=c.service.createDraft({teacherId:c.teacher.id,classId:c.cls.id,config:c.config});

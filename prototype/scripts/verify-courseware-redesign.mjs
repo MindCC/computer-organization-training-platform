@@ -1,6 +1,7 @@
 import { chromium, expect } from '@playwright/test';
 import assert from 'node:assert/strict';
 import { COURSEWARE } from '../src/courseware.js';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 const base = process.env.PROTOTYPE_APP_URL ?? process.env.QA_BASE_URL ?? 'http://127.0.0.1:5173';
 const browser = await chromium.launch({ headless: true });
@@ -13,7 +14,7 @@ async function stubLecture(context) {
   await context.route(new URL(originalEmbed.src).origin + '/**',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:lectureStub}));
 }
 async function checkCourseware(page) {
-  await page.locator('.topbar-nav').getByRole('button', { name: '课程课件', exact: true }).click();
+  await clickTopNavItem(page, '课程课件');
   await expect(page.locator('.courseware-lecture-player iframe')).toHaveAttribute('src', originalEmbed.src);
   await expect(page.getByRole('button',{name:'全屏',exact:true})).toBeVisible();
   await expect(page.getByText(/独立打开 AI 课件|若课件未显示/)).toHaveCount(0);
@@ -50,7 +51,7 @@ try {
   await expect(player).toHaveClass(/is-expanded/);
   await page.keyboard.press('Escape'); await expect(player).not.toHaveClass(/is-expanded/);
   await expect(frame.getByRole('button',{name:'1',exact:true})).toBeVisible();
-  await page.locator('.topbar-nav').getByRole('button', { name: '互动演示', exact: true }).click();
+  await clickTopNavItem(page, '互动演示');
   await expect(page.locator('.courseware-chapter-card')).toHaveCount(8);
   assert.equal(await page.locator('.courseware-demo-grid').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length), 4);
   await expect(page.locator('.courseware-chapter-card').nth(1).locator('.courseware-demo-entry')).toHaveCount(2);
@@ -64,7 +65,7 @@ try {
   await expect(player).toHaveClass(/is-expanded/);
   await page.getByRole('button',{name:'退出全屏',exact:true}).click();
   await expect(player).not.toHaveClass(/is-expanded/);
-  await page.locator('.topbar-nav').getByRole('button', { name: '互动演示', exact: true }).click();
+  await clickTopNavItem(page, '互动演示');
   await expect(page.locator('.courseware-chapter-card')).toHaveCount(8);
   assert.equal(await page.locator('.courseware-demo-grid').evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length), 1);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));

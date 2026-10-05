@@ -8,6 +8,7 @@
 import { chromium } from "playwright";
 import { mkdirSync, existsSync } from "node:fs";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 const BASE_URL = process.env.PROTOTYPE_APP_URL ?? process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
 const API_URL = process.env.PROTOTYPE_API_URL ?? process.env.QA_API_URL ?? "http://127.0.0.1:8787";
@@ -33,7 +34,7 @@ try {
   await page.locator("#login-password").fill("Student123!");
   await page.locator(".login-submit").click();
   await page.waitForSelector(".quest-student-home", { timeout: 15000 });
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "互动演示" }).click();
+  await clickTopNavItem(page, "互动演示");
   await page.waitForSelector(".courseware-demo-grid", { timeout: 15000 });
   const demoLink = page.locator(".courseware-demo-card a[href='/demos/addressing.html']");
   check("互动演示页含寻址演示入口", await demoLink.count() === 1);
@@ -97,8 +98,8 @@ try {
   check("report.md 含课堂演示练习章节", reportText.includes("课堂演示练习") && reportText.includes("指令系统与寻址方式"));
 
   // 6. 学习记录页显示演示练习面板
-  await page.locator(".topbar-nav .topbar-nav-item", hasText => hasText).first().waitFor();
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await page.locator(".topbar-nav .topbar-nav-item").first().waitFor();
+  await clickTopNavItem(page, "学习记录");
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   const panel = page.locator("[data-testid='demo-practice-panel']");
   check("学习记录显示演示练习面板", await panel.count() === 1 && (await panel.innerText()).includes("指令系统与寻址方式"), await panel.count());

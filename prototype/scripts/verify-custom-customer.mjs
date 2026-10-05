@@ -3,13 +3,14 @@ import { mkdir,writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium,expect } from '@playwright/test';
 import { gotoApp,fillLoginForm,submitLoginForm } from './lib/qaLogin.mjs';
+import { clickTopNavItem } from './nav-helpers.mjs';
 let browser;try{browser=await chromium.launch({channel:'msedge',headless:true});}catch{browser=await chromium.launch({headless:true});}
 const artifacts=process.env.QA_ARTIFACT_DIR??'qa-artifacts';await mkdir(artifacts,{recursive:true});let page;
 try{
   page=await browser.newPage({viewport:{width:1366,height:900},reducedMotion:'reduce'});page.setDefaultTimeout(15000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await gotoApp(page,process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173');await fillLoginForm(page,{username:'demo2026001',password:'Student123!'});await submitLoginForm(page);
-  const enter=async()=>{await page.locator('.topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();await page.getByRole('button',{name:'自定义客户 · AI',exact:true}).click();};await enter();
+  const enter=async()=>{await clickTopNavItem(page,'硬件配置挑战');await page.getByRole('button',{name:'自定义客户 · AI',exact:true}).click();};await enter();
   const scene=page.getByRole('region',{name:'自定义客户工坊'});await expect(scene).toHaveAttribute('data-custom-mode','create');await expect(scene.locator('canvas')).toHaveCount(0);
   await page.getByLabel('名字',{exact:true}).fill('阿禾');await page.getByLabel('职业',{exact:true}).fill('社区志愿者');await page.getByLabel('性格',{exact:true}).fill('温和、仔细，喜欢先问清楚再决定');
   const requirements=page.getByRole('textbox',{name:'装机需求',exact:true});

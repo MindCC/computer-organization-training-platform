@@ -151,22 +151,24 @@ try {
     teacherPage.getByRole("button", { name: UI.dashboard, exact: true }),
     "teacher dashboard",
   );
+  await teacherPage.getByRole('button',{name:'创建任务',exact:true}).click();
   await teacherPage.getByRole('button',{name:'五大部件与数据流',exact:false}).click();
   const created = await clickJson(
     teacherPage,
-    teacherPage.getByRole("button", { name: UI.create, exact: true }),
-    (response) => response.url().endsWith(`/api/teacher/classes/${classId}/sessions`)
+    teacherPage.getByRole("button", { name: '保存任务', exact: true }),
+    (response) => response.url().endsWith('/api/teacher/task-library')
       && response.request().method() === "POST",
     "create draft",
   );
-  const sessionId = created.body.session.id;
+  await teacherPage.locator(`[data-task-id="${created.body.task.id}"]`).getByRole('button',{name:'发布',exact:true}).click();
   const started = await clickJson(
     teacherPage,
-    teacherPage.getByRole("button", { name: UI.start, exact: true }),
-    (response) => response.url().endsWith(`/api/teacher/sessions/${sessionId}/start`)
+    teacherPage.getByRole("button", { name: '确认发布', exact: true }),
+    (response) => response.url().endsWith(`/api/teacher/task-library/${created.body.task.id}/publish`)
       && response.request().method() === "POST",
     "start classroom",
   );
+  const sessionId = started.body.session.id;
   assert.equal(started.body.session.status, "live");
   console.log("PASS: teacher creates and starts through UI");
 

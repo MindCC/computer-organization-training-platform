@@ -4,6 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { HOSTED_DEMOS } from '../src/shared/demoNavigation.js';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 const base = process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173';
 await mkdir('qa-artifacts', { recursive:true });
@@ -14,8 +15,8 @@ try {
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   await page.goto(base, {waitUntil:'domcontentloaded'});
-  const nav = label => page.locator('.topbar-nav').getByRole('button', {name:label,exact:true});
-  await nav('互动演示').click();
+  const nav = label => page.locator('.topbar-nav-item').filter({ hasText: label }).first();
+  await clickTopNavItem(page, '互动演示');
   await expect(page.locator('.courseware-chapter-card')).toHaveCount(8);
   await expect(nav('互动演示')).toHaveClass(/active/);
   assert.equal(await page.locator('.courseware-demo-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),4);
@@ -31,7 +32,7 @@ try {
   await expect(page.locator('.hosted-demo-frame')).toHaveAttribute('src','/demos/arithmetic-basics.html?embedded=1');
   await page.goForward();
   await expect(page.locator('.courseware-demo-grid')).toBeVisible();
-  await nav('课程课件').click();
+  await clickTopNavItem(page, '课程课件');
   await expect(page.locator('.courseware-lecture-player iframe')).toBeVisible();
   await expect(page.locator('.courseware-chapter-card, .parameter-playground')).toHaveCount(0);
 
@@ -95,7 +96,7 @@ try {
     await p.getByRole('button',{name:'登录',exact:true}).click();
     await p.locator(`[data-demo-role="${role}"]`).click();
     await expect(p.locator('.profile-button')).toBeVisible();
-    await p.locator('.topbar-nav').getByRole('button',{name:'互动演示',exact:true}).click();
+    await clickTopNavItem(p, '互动演示');
     await expect(p.locator('.courseware-chapter-card')).toHaveCount(8);
     assert.ok(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`${role} desktop nav overflow`);
     const bounds=await p.locator('.topbar').evaluate(el=>[...el.children].map(c=>({left:c.getBoundingClientRect().left,right:c.getBoundingClientRect().right,width:innerWidth})));

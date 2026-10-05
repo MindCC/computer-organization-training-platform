@@ -5,6 +5,7 @@ import { chromium,expect } from '@playwright/test';
 import { gotoApp,fillLoginForm,submitLoginForm } from './lib/qaLogin.mjs';
 import { openChallengeFromHome } from './lib/qaHome.mjs';
 import { SERVICE_ORDERS } from '../src/shopServiceGame.js';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 let browser;try{browser=await chromium.launch({channel:'msedge',headless:true});}catch{browser=await chromium.launch({headless:true});}
 const artifacts=process.env.QA_ARTIFACT_DIR??'qa-artifacts';await mkdir(artifacts,{recursive:true});
@@ -18,7 +19,7 @@ const layout=async label=>{assert.ok(await page.evaluate(()=>document.documentEl
 try{
   await gotoApp(page,process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173');
   await fillLoginForm(page,{username:'demo2026001',password:'Student123!'});await submitLoginForm(page);
-  await page.locator('.topbar-nav-item').filter({hasText:'硬件配置挑战'}).click();
+  await clickTopNavItem(page,'硬件配置挑战');
   await page.getByRole('button',{name:'进入维修与升级工单'}).click();await expect(scene).toBeVisible();
   await scene.locator('.service-person').evaluate(img=>img.decode());await layout('service-reception-desktop');
   await page.setViewportSize({width:390,height:844});await layout('service-reception-mobile');await page.setViewportSize({width:1366,height:768});
@@ -67,11 +68,11 @@ try{
     if(index<2)await scene.getByRole('button',{name:'下一位维修客户'}).click();
   }
   const response=await page.request.get(new URL('/api/student/shop-service',page.url()).href);const records=(await response.json()).records;assert.equal(records.filter(r=>r.state.result?.passed).length,3);
-  await page.locator('.topbar-nav-item').filter({hasText:'学习记录'}).click();await expect(page.getByRole('region',{name:'维修与升级记录'})).toContainText('验收通过');
-  await page.locator('.topbar-nav-item').filter({hasText:'错题本'}).click();await page.getByRole('button',{name:/维修诊断 ·/}).click();
+  await clickTopNavItem(page,'学习记录');await expect(page.getByRole('region',{name:'维修与升级记录'})).toContainText('验收通过');
+  await clickTopNavItem(page,'错题本');await page.getByRole('button',{name:/维修诊断 ·/}).click();
   await expect(page.locator('.mistake-group')).toContainText('小周');await expect(page.locator('.mistake-group')).toContainText('已订正');
   await page.getByRole('button',{name:'重做维修工单'}).click();await expect(scene.locator('.service-reception-copy')).toContainText('小周');
-  await page.locator('.topbar-nav-item').filter({hasText:'课程首页'}).click();await openChallengeFromHome(page,'办公电脑');
+  await clickTopNavItem(page,'课程首页');await openChallengeFromHome(page,'办公电脑');
   await expect(page.getByRole('region',{name:'芯邻装机店'})).toBeVisible();await expect(scene).toHaveCount(0);
   await page.getByRole('button',{name:'进入维修与升级工单'}).click();await expect(scene).toBeVisible();
   await scene.getByRole('button',{name:'返回装机店',exact:true}).click();await expect(page.getByRole('region',{name:'芯邻装机店'})).toBeVisible();

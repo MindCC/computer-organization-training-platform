@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
 import { gotoApp } from './lib/qaLogin.mjs';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
 const page = await browser.newPage({ viewport: { width: 1366, height: 768 } });
@@ -53,7 +54,7 @@ try {
   await openLogin();
   await page.locator('[data-demo-role="student"]').click();
   await expect(page.locator('.profile-button')).toContainText('演示学生1', { timeout: 20_000 });
-  await page.locator('.topbar-nav-item').filter({ hasText: '课后作业' }).click();
+  await clickTopNavItem(page,'课后作业');
   await page.getByRole('tab', { name: '教师作业' }).click();
   await page.locator('.assignment-card').filter({ hasText: title }).click();
   await expect(page.locator('.assignment-view-header')).toContainText(title);
@@ -79,7 +80,7 @@ try {
   await openLogin();
   await page.locator('[data-demo-role="student"]').click();
   await expect(page.locator('.profile-button')).toContainText('演示学生1', { timeout: 20_000 });
-  await page.locator('.topbar-nav-item').filter({ hasText: '课后作业' }).click();
+  await clickTopNavItem(page,'课后作业');
   await page.getByRole('tab', { name: '教师作业' }).click();
   const gradedCard = page.locator('.assignment-card').filter({ hasText: title });
   await expect(gradedCard).toContainText('8/10');

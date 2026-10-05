@@ -10,6 +10,7 @@
  */
 import { chromium } from "playwright";
 import { mkdirSync } from "node:fs";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 import { fileURLToPath } from "node:url";
 import { COURSE_CHAPTERS } from "../src/courseChapters.js";
 import { CHALLENGES, challengeOrderOf } from "../src/platformLogic.js";
@@ -106,7 +107,7 @@ try {
   check("课程首页没有不可进入的关卡卡片", routeCards.every((card) => !card.disabled),
     routeCards.filter((card) => card.disabled).map((card) => card.text.slice(0, 20)).join(" | ") || "无");
 
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await clickTopNavItem(page, "学习记录");
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   const recordRows = await page.locator(".record-row").evaluateAll((nodes) => nodes.map((node) => node.disabled));
   check("学习记录明细里未解锁关卡也能点开", recordRows.every((disabled) => !disabled));

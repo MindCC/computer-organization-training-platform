@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import { CHALLENGES, LEARNING_ITEMS } from "../src/platformLogic.js";
 import { buildAdventureMap } from "../src/adventureMapModel.js";
 import { gotoApp, fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 const BASE_URL = process.env.PROTOTYPE_APP_URL ?? process.env.QA_BASE_URL ?? "http://127.0.0.1:5173";
 const API_URL = process.env.PROTOTYPE_API_URL ?? process.env.QA_API_URL ?? "http://127.0.0.1:8787";
@@ -42,7 +43,7 @@ try {
   await page.waitForSelector(".quest-student-home", { timeout: 15000 });
 
   // 进入学习记录
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await clickTopNavItem(page, "学习记录");
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   check("大屏标题「个人学情记录」", await page.getByRole("heading", { name: "个人学情记录" }).count() > 0);
 
@@ -160,7 +161,7 @@ try {
   check("从冒险地图章节清单进入对应实验", true);
   await page.getByRole("button", { name: "课程首页", exact: true }).click();
   await page.waitForSelector(".quest-student-home", { timeout: 15000 });
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await clickTopNavItem(page, "学习记录");
   await page.locator('[data-testid="records-tree-section"] > summary').click();
   await page.waitForSelector(".records-screen .tree-leaf", { timeout: 15000 });
 
@@ -172,7 +173,7 @@ try {
   check("点击叶子进入对应实验", true);
   await page.getByRole("button", { name: "课程首页", exact: true }).click();
   await page.waitForSelector(".quest-student-home", { timeout: 15000 });
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await clickTopNavItem(page, "学习记录");
   await page.locator('[data-testid="records-tree-section"] > summary').click();
   await page.waitForSelector(".records-screen .tree-leaf", { timeout: 15000 });
 
@@ -195,7 +196,7 @@ try {
   await page.screenshot({ path: `${ARTIFACT_DIR}/records-tech-screen.png`, fullPage: false });
 
   // 明细契约保留（verify-ui 依赖 .record-table .record-row）
-  await page.locator(".topbar-nav .topbar-nav-item", { hasText: "学习记录" }).click();
+  await clickTopNavItem(page, "学习记录");
   await page.waitForSelector(".records-screen", { timeout: 15000 });
   await page.locator('[data-testid="records-details-section"] > summary').click();
   const rowCount = await page.locator(".record-table .record-row").count();

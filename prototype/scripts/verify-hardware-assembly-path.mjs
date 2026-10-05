@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { expect } from '@playwright/test';
 import { acceptCustomerOrder,selectCustomerOrder } from './lib/qaShop.mjs';
+import { clickTopNavItem } from './nav-helpers.mjs';
 
 export async function verifyHardwareAssembly(page, artifactDir) {
   await acceptCustomerOrder(page);
@@ -122,7 +123,7 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await expect(workshop.locator('canvas')).toHaveAttribute('data-monitor-message','');
   const caseName = '办公电脑';
   await page.reload({ waitUntil: 'networkidle' });
-  await page.locator('.topbar-nav .topbar-nav-item').filter({ hasText: '硬件配置挑战' }).click();
+  await clickTopNavItem(page, '硬件配置挑战');
   await selectCustomerOrder(page,page.locator('.hardware-case').filter({ hasText: caseName }));
   await expect(page.locator('.assembly-counter strong')).toHaveText('3 / 3');
   await expect(page.getByRole('button', { name: '请先完成装配与开机自检' })).toBeDisabled();
@@ -155,7 +156,7 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await expect(page.locator('[data-rack="gpu"]')).toBeVisible();
   await expect(page.locator('.assembly-counter strong')).toHaveText('2 / 4');
   await page.reload({ waitUntil: 'networkidle' });
-  await page.locator('.topbar-nav .topbar-nav-item').filter({ hasText: '硬件配置挑战' }).click();
+  await clickTopNavItem(page, '硬件配置挑战');
   await selectCustomerOrder(page,page.locator('.hardware-case').filter({ hasText: caseName }));
   await expect(page.locator('.assembly-counter strong')).toHaveText('2 / 4');
   await page.locator('.assembly-part-tabs button').filter({ hasText: '硬盘' }).click();
@@ -182,7 +183,7 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.route('**/models/teaching-pc.glb*', route => route.abort());
   await page.reload({ waitUntil: 'networkidle' });
-  await page.locator('.topbar-nav .topbar-nav-item').filter({ hasText: '硬件配置挑战' }).click();
+  await clickTopNavItem(page, '硬件配置挑战');
   await acceptCustomerOrder(page);
   await expect(workshop.locator('canvas')).toHaveAttribute('data-model-source', 'procedural');
   await expect(page.locator('.assembly-model-status')).toContainText('加载失败');

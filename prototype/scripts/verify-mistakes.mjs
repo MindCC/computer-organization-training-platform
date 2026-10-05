@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
+import { clickTopNavItem } from "./nav-helpers.mjs";
 
 // P2-B: 错题本页面浏览器实测
 const appUrl = process.env.PROTOTYPE_URL ?? process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:8787";
@@ -17,11 +18,8 @@ await fillLoginForm(page, { username: "demo2026040", password: "Student123!" });
 await submitLoginForm(page);
 await page.waitForTimeout(2500);
 
-// 主导航应有「错题本」入口
-const mistakesNav = page.locator(".topbar-nav").getByRole("button", { name: "错题本" });
-await mistakesNav.waitFor({ state: "visible", timeout: 10_000 });
-console.log("错题本 nav entry visible");
-await mistakesNav.click();
+// 主导航应有「错题本」入口（在「学习复盘」分组菜单里）
+await clickTopNavItem(page, "错题本");
 await page.waitForTimeout(1500);
 
 // 页面应显示错题本标题
