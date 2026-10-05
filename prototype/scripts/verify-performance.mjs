@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { chromium } from "@playwright/test";
 import { fillLoginForm, submitLoginForm, gotoApp } from "./lib/qaLogin.mjs";
 import { openChallengeFromHome } from "./lib/qaHome.mjs";
-import { enterAssemblyPractice } from './lib/qaShop.mjs';
+import { acceptCustomerOrder, enterAssemblyPractice } from './lib/qaShop.mjs';
 import { clickTopNavItem } from './nav-helpers.mjs';
 
 const baseUrl = process.env.PROTOTYPE_APP_URL ?? "http://127.0.0.1:5173";
@@ -194,8 +194,7 @@ try {
   assert.deepEqual(pageErrors, [], "performance QA must not emit page errors");
   async function openAssembly() {
     await clickTopNavItem(page, '硬件配置挑战');
-    const accept=page.getByRole('button',{name:'接下工单 · 开始装机',exact:true});
-    if(await accept.count())await accept.click();
+    await acceptCustomerOrder(page);
     await page.locator('.assembly-workshop canvas[data-model-source="blender-glb"]').waitFor({ state: 'visible' });
   }
   async function leaveAssembly() {
