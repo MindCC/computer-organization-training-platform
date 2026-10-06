@@ -106,6 +106,16 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
   const [status, setStatus] = useState(() => `拖动两个端口即可连接，系统会自动识别输出端和输入端，完成${model.title}结构。`);
   const [report, setReport] = useState(null);
   const [hintLevel,setHintLevel]=useState(0);
+  const [showHints,setShowHints]=useState(true);
+  const hintButtonRef=useRef(null);
+  const hintCount=model.hints?.length??0;
+  const hintPanelId=`circuit-hints-${model.id}`;
+  function closeHints(){setShowHints(false);hintButtonRef.current?.focus();}
+  function toggleHints(){
+    if(!showHints){setShowHints(true);if(hintLevel===0&&hintCount>0)setHintLevel(1);}
+    else if(hintLevel<hintCount)setHintLevel(level=>level+1);
+    else closeHints();
+  }
   const [traceIndex,setTraceIndex]=useState(null);
   const [expanded,setExpanded]=useState(false);
   const [showLivePanel,setShowLivePanel]=useState(false);
@@ -354,17 +364,23 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
           <button className="ghost-button" disabled={!selectedEdgeId} onClick={removeSelectedEdge} type="button"><Trash size={17}/>{copy.actionDelete}</button>
           <button className="ghost-button" onClick={reset} type="button">{copy.actionReset}</button>
           <button className="primary-button" disabled={submitBlocked} onClick={submit} title={submitBlocked ? submitBlockedReason : undefined} type="button">{copy.actionSubmit}</button>
+          <button ref={hintButtonRef} className="ghost-button" aria-expanded={showHints} aria-controls={showHints?hintPanelId:undefined} title={showHints&&hintLevel>=hintCount?'再次点击关闭提示':'查看提示'} onClick={toggleHints} type="button">提示 {hintLevel}/{hintCount}</button>
           <button className="ghost-button" aria-expanded={showLivePanel} aria-controls="circuit-live-panel" onClick={()=>setShowLivePanel(current=>!current)} type="button">{showLivePanel?'收起数据面板':'显示数据面板'}</button>
           <button className="ghost-button circuit-expand-button" onClick={()=>setExpanded(current=>!current)} type="button">{expanded?<ArrowsIn size={17}/>:<ArrowsOut size={17}/>} {expanded?'退出放大':'放大工作台'}</button>
         </div>
       </div>
 
       <div className="circuit-stage">
-      <section className="workbench-mission" aria-label="关卡任务">
+      {showHints&&<section id={hintPanelId} className="workbench-mission" aria-label="关卡任务">
         <div><small>{model.section??'课程电路挑战'} · {model.gradingMode==='functional'?'功能等价方案均可通过':'引导探索'}</small><p>{model.goal}</p><span>公开样例 {model.testCases.length} 组 · 完整检测 {model.testCases.length+(model.hiddenTestCases?.length??0)} 组</span></div>
-        <button type="button" className="ghost-button" disabled={hintLevel>=(model.hints?.length??0)} onClick={()=>setHintLevel(level=>level+1)}>提示 {hintLevel}/{model.hints?.length??0}</button>
-        {hintLevel>0?<ol className="workbench-hints">{model.hints.slice(0,hintLevel).map((hint,index)=><li key={index}>{hint}</li>)}</ol>:null}
-      </section>
+        <button type="button" className="ghost-button" onClick={closeHints} aria-label="关闭提示">关闭提示</button>
+        {hintLevel>0?<ol className="workbench-hints" start={hintLevel} aria-live="polite"><li key={hintLevel}>{model.hints[hintLevel-1]}</li></ol>:null}
+        {hintCount>0&&<div className="workbench-hint-navigation">
+          <button type="button" className="ghost-button" aria-label="上一条提示" disabled={hintLevel<=1} onClick={()=>setHintLevel(level=>level-1)}>上一条</button>
+          <span>{hintLevel>0?`第 ${hintLevel}/${hintCount} 条`:'按需查看提示'}</span>
+          <button type="button" className="ghost-button" aria-label={hintLevel>=hintCount?'收起提示':'下一条提示'} onClick={()=>hintLevel>=hintCount?closeHints():setHintLevel(level=>level+1)}>{hintLevel>=hintCount?'收起':'下一条'}</button>
+        </div>}
+      </section>}
 
       <div className="circuit-flow-canvas-grid">
         <div ref={canvasRef} className="circuit-flow-canvas" data-testid="react-flow-circuit-canvas">
