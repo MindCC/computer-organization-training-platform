@@ -73,19 +73,54 @@ export async function generateMindMap(input, {env=process.env,fetchImpl=fetch}={
   finally {clearTimeout(timer);}
 }
 
+/* 本地提纲整理（无 AI 时的兜底）。
+   2026-10-06 修复：原先只按行首空白分层、只清理极少几种前缀，导致"把文字原样铺进画布"。
+   现在：① 清理中文序号/引号/省略号/加粗等标记；② 没有缩进时按序号样式推断层级。 */
+function markerDepth(line) {
+  if (/^第[一二三四五六七八九十]+[章节部分]\s*/.test(line)) return 1;
+  if (/^[一二三四五六七八九十]+\s*[、.．)）]/.test(line)) return 1;
+  if (/^[（(][一二三四五六七八九十]+[)）]/.test(line)) return 2;
+  if (/^\d+(?:\.\d+)+[、.．)）\s]/.test(line)) return Math.min(4, 1 + line.match(/^\d+(?:\.\d+)+/)[0].split('.').length - 1);
+  if (/^[（(]\d+[)）]/.test(line)) return 3;
+  if (/^\d+\s*[、.．)）]/.test(line)) return 2;
+  if (/^[①②③④⑤⑥⑦⑧⑨⑩]/.test(line)) return 2;
+  return null;
+}
 function localOutline(text) {
-  const lines=text.split(/\r?\n/).filter(l=>l.trim());
-  const clean=line=>line.trim().replace(/^(?:#{1,6}\s+|[-*]\s+|\d+(?:[.)]\s+|、\s*))/,'').trim().slice(0,160);
-  const rootLabel=clean(lines[0])||'思维导图';
-  const nodes=[{id:'root',label:rootLabel,parentId:null}];
-  const stack=[{indent:-1,id:'root'}];
-  const entries=lines.length>1?lines.slice(1):text.split(/[。；;！？]/).slice(1);
-  for(const line of entries.slice(0,79)) {
-    const indent=line.match(/^\s*/)[0].replace(/\t/g,'  ').length;
-    const label=clean(line);
-    if(!label)continue;
-    while(stack.length>1 && (stack.at(-1).indent>=indent || stack.length>=8))stack.pop();
-    const node={id:`n${nodes.length}`,label,parentId:stack.at(-1).id};nodes.push(node);stack.push({indent,id:node.id});
+  const clean = line => line.trim()
+    .replace(/^#{1,6}\s+/, '')
+    .replace(/^[-*•·]\s+/, '')
+    .replace(/^[…⋯]+\s*/, '')
+    .replace(/[…⋯]+$/, '')
+    .replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
+    .replace(/^第[一二三四五六七八九十]+[章节部分]\s*/, '')
+    .replace(/^(?:[一二三四五六七八九十]+\s*[、.．)）]|[（(][一二三四五六七八九十\d]+[)）]|\d+(?:\.\d+)*\s*[、.．)）])\s*/, '')
+    .replace(/^\d+\s+/, '')
+    .replace(/^\*\*|\*\*$/g, '')
+    .replace(/^["“”'‘’「」『』]+|["“”'‘’「」『』]+$/g, '')
+    .trim().slice(0, 160);
+  const split = value => value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  let lines = split(text);
+  if (lines.length <= 1) lines = text.split(/[。；;！？]/).map(l => l.trim()).filter(Boolean);
+  const rootLabel = clean(lines[0]) || '思维导图';
+  const nodes = [{ id: 'root', label: rootLabel, parentId: null }];
+  const stack = [{ level: 0, id: 'root' }];
+  const entries = lines.length > 1 ? lines.slice(1) : [];
+  let lastMarked = 1; // 最近一个带序号的行所处层级；无序号的行挂到它下面
+  for (const line of entries.slice(0, 79)) {
+    const label = clean(line);
+    if (!label) continue;
+    const indent = line.match(/^\s*/)[0].replace(/\t/g, '  ').length;
+    const marked = markerDepth(line);
+    let level;
+    if (indent > 0) level = 2 + Math.min(3, Math.floor(indent / 2));
+    else if (marked !== null) { level = marked; lastMarked = marked; }
+    else level = Math.min(8, lastMarked + 1);
+    while (stack.length > 1 && stack[stack.length - 1].level >= level) stack.pop();
+    while (stack.length >= 8) stack.pop();
+    const node = { id: `n${nodes.length}`, label, parentId: stack[stack.length - 1].id };
+    nodes.push(node);
+    stack.push({ level, id: node.id });
   }
-  return layoutMindMap(normalizeMindMap({title:rootLabel,nodes,relations:[]}));
+  return layoutMindMap(normalizeMindMap({ title: rootLabel, nodes, relations: [] }));
 }
