@@ -20,6 +20,7 @@
     "eval:learning-coach": "node scripts/evaluate-learning-coach.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",
+    "postbuild": "node scripts/compress-dist.mjs",
     "preqa:study-companion": "npm run build -- --manifest",
     "qa:study-companion": "node scripts/run-browser-qa.mjs scripts/verify-study-companion.mjs --production",
     "test": "node --test src/*.test.mjs src/shared/*.test.mjs src/circuit/*.test.mjs src/components/*.test.mjs src/motion/*.test.mjs scripts/*.test.mjs server/*.test.mjs",

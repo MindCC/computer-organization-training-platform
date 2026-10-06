@@ -548,23 +548,26 @@ export function App() {
   // 顶栏分组下拉：悬停展开、点击锁定（触屏友好），Esc/点外部/跳转后关闭。
   const [openNavGroup, setOpenNavGroup] = useState(null);
   const navPinnedRef = useRef(false);
+  const navCloseTimerRef = useRef(null);
+  const cancelNavClose = () => { clearTimeout(navCloseTimerRef.current); navCloseTimerRef.current = null; };
+  const closeNav = () => { cancelNavClose(); navPinnedRef.current = false; setOpenNavGroup(null); };
   const topbarNavRef = useRef(null);
+  useEffect(() => () => clearTimeout(navCloseTimerRef.current), []);
   useEffect(() => {
     if (!openNavGroup) return undefined;
     const closeOutside = (event) => {
       if (topbarNavRef.current && !topbarNavRef.current.contains(event.target)) {
-        navPinnedRef.current = false;
-        setOpenNavGroup(null);
+        closeNav();
       }
     };
     const closeOnEscape = (event) => {
-      if (event.key === 'Escape') { navPinnedRef.current = false; setOpenNavGroup(null); }
+      if (event.key === 'Escape') closeNav();
     };
     document.addEventListener('pointerdown', closeOutside);
     document.addEventListener('keydown', closeOnEscape);
     return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeOnEscape); };
   }, [openNavGroup]);
-  useEffect(() => { navPinnedRef.current = false; setOpenNavGroup(null); }, [activeView]);
+  useEffect(() => { closeNav(); }, [activeView]);
   const [roleDataError,setRoleDataError]=useState('');
   const [roleDataLoading,setRoleDataLoading]=useState(false);
   const [bootstrapVersion,setBootstrapVersion]=useState(0);
@@ -1049,7 +1052,7 @@ export function App() {
   }
 
   if (auth.status === "loading" || auth.status==='error') {
-    return <main className="platform-connection"><img src="/home/wordmark.png" alt="芯游记"/><section className="section-panel"><Cpu size={32}/><h1>{auth.status==='error'?'暂时无法连接课堂服务':'正在连接课堂服务'}</h1><p>{auth.status==='error'?roleDataError:'正在确认账号与学习记录，请稍候。'}</p>{auth.status==='error'&&<button className="primary-button" type="button" onClick={()=>{setAuth({status:'loading',user:null});setRoleDataError('');setBootstrapVersion(version=>version+1);}}>重新连接</button>}</section></main>;
+    return <main className="platform-connection"><img src="/home/wordmark-small.webp" alt="芯游记"/><section className="section-panel"><Cpu size={32}/><h1>{auth.status==='error'?'暂时无法连接课堂服务':'正在连接课堂服务'}</h1><p>{auth.status==='error'?roleDataError:'正在确认账号与学习记录，请稍候。'}</p>{auth.status==='error'&&<button className="primary-button" type="button" onClick={()=>{setAuth({status:'loading',user:null});setRoleDataError('');setBootstrapVersion(version=>version+1);}}>重新连接</button>}</section></main>;
   }
 
   if (showLogin) {
@@ -1067,8 +1070,8 @@ export function App() {
     return (
       <header ref={platformTopbarRef} className="topbar">
         <button className="brand" onClick={() => changeView("home")} type="button">
-          <img className="brand-wordmark" src="/home/wordmark.png" alt="芯游记" />
-          <img className="brand-logo" src="/home/logo.png" alt="芯游记" />
+          <img className="brand-wordmark" src="/home/wordmark-small.webp" alt="芯游记" />
+          <img className="brand-logo" src="/home/logo-small.webp" alt="芯游记" />
         </button>
 
         <nav className="topbar-nav" aria-label="主导航" ref={topbarNavRef}>
@@ -1093,8 +1096,8 @@ export function App() {
               <div
                 className={isOpen ? "topbar-nav-group open" : "topbar-nav-group"}
                 key={group.id}
-                onMouseEnter={() => { navPinnedRef.current = false; setOpenNavGroup(group.id); }}
-                onMouseLeave={() => { if (!navPinnedRef.current) setOpenNavGroup(null); }}
+                onMouseEnter={() => { cancelNavClose(); if (!isOpen) navPinnedRef.current = false; setOpenNavGroup(group.id); }}
+                onMouseLeave={() => { cancelNavClose(); if (!navPinnedRef.current) navCloseTimerRef.current = setTimeout(() => setOpenNavGroup(current => current === group.id ? null : current), 350); }}
               >
                 <button
                   aria-controls={`nav-menu-${group.id}`}
@@ -1102,6 +1105,7 @@ export function App() {
                   aria-haspopup="true"
                   className={groupActive ? "topbar-nav-toggle active" : "topbar-nav-toggle"}
                   onClick={() => {
+                    cancelNavClose();
                     if (isOpen && navPinnedRef.current) {
                       navPinnedRef.current = false;
                       setOpenNavGroup(null);
@@ -1120,7 +1124,7 @@ export function App() {
                     <button
                       className={isActiveNavItem(id) ? "topbar-nav-item active" : "topbar-nav-item"}
                       key={id}
-                      onClick={() => { navPinnedRef.current = false; setOpenNavGroup(null); changeView(id); }}
+                      onClick={() => { closeNav(); changeView(id); }}
                       type="button"
                     >
                       <Icon size={18} />

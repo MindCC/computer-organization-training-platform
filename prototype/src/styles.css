@@ -6442,6 +6442,8 @@ body {
   box-shadow: none;
 }
 
+.topbar-nav-menu::before { content: ""; position: absolute; left: 0; right: 0; top: -7px; height: 7px; }
+
 .brand-logo {
   position: absolute;
   left: -32px;

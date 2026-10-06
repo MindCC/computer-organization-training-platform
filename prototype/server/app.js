@@ -1,4 +1,5 @@
 import express from "express";
+import { staticAssets } from './staticAssets.js';
 import crypto from "node:crypto";
 import { execSync } from "node:child_process";
 import fs from "node:fs";
@@ -881,8 +882,8 @@ export function createApp(options = {}) {
   if (options.serveStatic !== false) {
     const distDir = options.distDir ?? path.resolve(__dirname, "../dist");
     app.use(hostedDemoMiddleware);
-    app.use(express.static(distDir));
-    app.get(/^(?!\/api\/).*/, (_req, res) => res.sendFile(path.join(distDir, "index.html")));
+    app.use(staticAssets(distDir));
+    app.get(/^(?!\/api\/).*/, (_req, res) => { res.set('Cache-Control', 'no-cache'); res.sendFile(path.join(distDir, "index.html")); });
   }
 
   app.use((error, _req, res, _next) => {
