@@ -185,6 +185,13 @@ const CHAPTER_CONTENT = {
       "DRAM存储器为什么要刷新？有哪几种常用的刷新方法？",
       "计算机存储系统分那几个层次？每一层次主要采用什么存储介质？",
     ],
+    embeds: [
+      {
+        title: "第四章 存储器系统概述",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-9q6gAqkJ?code=R9WETMSQQ",
+        note: "课程讲演",
+      },
+    ],
     demos: [
       {
         title: "存储器系统",
