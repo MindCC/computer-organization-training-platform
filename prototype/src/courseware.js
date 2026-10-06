@@ -145,6 +145,16 @@ const CHAPTER_CONTENT = {
     ],
     embeds: [
       {
+        title: "第三章第一节 逻辑运算和移位运算",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-ZDEVQz6Y?code=ET4W4G3TK",
+        note: "课程讲演",
+      },
+      {
+        title: "第三章第二节 定点数运算",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-aAkBpj65?code=ADT244SZ7",
+        note: "课程讲演",
+      },
+      {
         title: "第三章 浮点数运算",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-bVemjD6Z?code=LDTRKWGEZ",
         note: "课程讲演",
