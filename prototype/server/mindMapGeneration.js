@@ -10,9 +10,16 @@ export function readMindMapConfig(env=process.env) {
     model:dedicated?(env.MINDMAP_MODEL??'').trim():fallback.model,
     vision:dedicated && ['1','true'].includes(env.MINDMAP_VISION_ENABLED), timeoutMs:Math.min(60000,Math.max(1000,Number(env.MINDMAP_TIMEOUT_MS)||45000)) };
 }
+export function readMindMapVisionConfig(env=process.env) {
+  const fallback=readMindMapConfig(env);
+  const apiKey=env.MINDMAP_VISION_API_KEY?.trim();
+  if(!apiKey)return fallback;
+  return {enabled:true,dedicated:true,apiKey,baseUrl:(env.MINDMAP_VISION_BASE_URL??'').trim(),model:(env.MINDMAP_VISION_MODEL??'').trim(),
+    vision:['1','true'].includes(env.MINDMAP_VISION_ENABLED),timeoutMs:Math.min(60000,Math.max(1000,Number(env.MINDMAP_VISION_TIMEOUT_MS)||fallback.timeoutMs))};
+}
 export function mindMapCapabilities(env=process.env) {
-  const c=readMindMapConfig(env), ready=c.enabled && Boolean(c.baseUrl && c.model);
-  return { textAi:ready, imageAi:ready && c.vision };
+  const text=readMindMapConfig(env), image=readMindMapVisionConfig(env);
+  return {textAi:text.enabled && Boolean(text.baseUrl && text.model),imageAi:image.enabled && image.vision && Boolean(image.baseUrl && image.model)};
 }
 function validateImage(image) {
   if (typeof image!=='string') throw mindMapError(400,'图片格式无效');
@@ -32,7 +39,7 @@ export async function generateMindMap(input, {env=process.env,fetchImpl=fetch}={
   let previous;
   if(input.graph) { try {previous=normalizeMindMap(input.graph);} catch(e){throw mindMapError(400,e.message);} }
   if(!text && !image && !previous) throw mindMapError(400,'请输入文字或选择一张图片');
-  const config=readMindMapConfig(env);
+  const config=image?readMindMapVisionConfig(env):readMindMapConfig(env);
   if(image && (!config.vision || !config.enabled || !config.baseUrl || !config.model)) throw mindMapError(503,'图片识别尚未配置视觉模型，请联系管理员，或改用文字生成');
   if(!config.enabled) {
     const graph=previous ? layoutMindMap(normalizeMindMap({...previous,nodes:previous.nodes.map(({x,y,color,...n})=>n)}),{force:true}) : localOutline(text);
