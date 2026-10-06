@@ -40,7 +40,7 @@ test('ambiguous standalone questions ask for course details without an external 
  assert.equal(result.reason,'COURSE_SCOPE_UNVERIFIED');assert.equal(calls,0);assert.match(result.explanation,/章节|概念|实验/);
 });
 test('rare course terms and English questions reach semantic review without a keyword requirement',async()=>{
- for(const question of ['冯诺依曼结构的瓶颈是什么？','How does a scoreboard resolve WAR hazards?']){
+ for(const question of ['冯诺依曼结构的瓶颈是什么？','How does a scoreboard resolve WAR hazards?','How does a CPU ignore invalid instructions?','CPU为什么忽略无效指令？']){
   let reviews=0;
   const result=await askStudyAssistant({question,consent:'deepseek-public-question'},{env:{DEEPSEEK_API_KEY:'test'},scopeRequester:async()=>{reviews++;return '{"decision":"course"}';},requester:async()=>JSON.stringify({explanation:'控制读写顺序可避免数据冒险。',steps:[],check:'什么情况下操作数尚未准备好？'})});
   assert.equal(result.source,'ai');assert.equal(reviews,2);
