@@ -31,11 +31,12 @@ export function CoursewareView({ initialChapterId } = {}) {
     function fitPlayer() {
       if (document.fullscreenElement === player) return;
       const bounds = page.getBoundingClientRect();
-      const scale = bounds.width / page.clientWidth || 1;
-      // 2026-10-06 用户反馈：就要这个宽度 —— 播放器铺满内容区整宽（不再设上限）
-      void scale;
-      const width = page.clientWidth;
-      player.style.setProperty("--ai-lecture-width", `${Math.floor(width)}px`);
+      // 2026-10-06 用户反馈：要截图那种长宽 —— 满宽 + 撑到屏幕底（扁盒子），
+      // 但小屏上不能矮成一条（1366×768 实测只剩 422px），所以给 620px 下限，宁可页面滚动一点。
+      const available = window.innerHeight - (bounds.top + window.scrollY)
+        - back.getBoundingClientRect().height - head.getBoundingClientRect().height - 30;
+      player.style.setProperty("--ai-lecture-width", `${Math.floor(page.clientWidth)}px`);
+      player.style.setProperty("--ai-lecture-height", `${Math.max(620, Math.floor(available))}px`);
     }
     const observer = new ResizeObserver(fitPlayer);
     [page, head, page.closest(".dashboard"), document.querySelector(".topbar")]

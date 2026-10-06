@@ -202,8 +202,23 @@ const CHAPTER_CONTENT = {
         note: "课程讲演",
       },
       {
+        title: "第四章第二节 主存储器",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-9MeQgpEL?code=XQJQ38W9J",
+        note: "课程讲演",
+      },
+      {
         title: "第四章第三节 高速缓冲存储器",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-QRkXYpew?code=R9WETMSQQ",
+        note: "课程讲演",
+      },
+      {
+        title: "第四章第四节 虚拟存储器",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-yA67lPEd?code=G93QG5Q3V",
+        note: "课程讲演",
+      },
+      {
+        title: "第四章第五节 辅助存储器",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-ZgEzBnEz?code=XQJQ38W9J",
         note: "课程讲演",
       },
     ],
