@@ -15,6 +15,7 @@ import {
   House,
   Lifebuoy,
   Notebook,
+  MonitorPlay,
   Play,
   SealCheck,
   Sparkle,
@@ -106,6 +107,8 @@ const StudentAssignments = lazy(() => import("./components/StudentAssignments.js
   .then((module) => ({ default: module.StudentAssignments })));
 const DemoPage = lazy(() => import("./components/DemoPage.jsx")
   .then((module) => ({ default: module.DemoPage })));
+const InteractiveDemos = lazy(() => import("./components/InteractiveDemos.jsx")
+  .then((module) => ({ default: module.InteractiveDemos })));
 const CoursewareView = lazy(() => import("./components/CoursewareView.jsx")
   .then((module) => ({ default: module.CoursewareView })));
 const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
@@ -133,6 +136,7 @@ const navGroups = [
     label: "课程学习",
     items: [
       { id: "courseware", label: "AI讲演", icon: BookOpen },
+      { id: "demos", label: "互动演示", icon: MonitorPlay },
       { id: "hardware-game", label: "硬件配置挑战", icon: Cpu },
     ],
   },
@@ -1059,7 +1063,7 @@ export function App() {
       .filter((group) => group.items.length > 0);
     const isActiveNavItem = (id) => activeView === id
       || (activeView === "lab" && id === "home")
-      || (activeView === "demo" && id === "courseware");
+      || (activeView === "demo" && id === (demoId === "courseware" ? "courseware" : "demos"));
     return (
       <header ref={platformTopbarRef} className="topbar">
         <button className="brand" onClick={() => changeView("home")} type="button">
@@ -1217,6 +1221,7 @@ export function App() {
           {activeView==='classroom'&&auth.user?.role==='student'?<TaskChainPage key={`${auth.user.id}:${classroomSession.viewModel.sessionId}`} classroomSession={classroomSession} userId={auth.user.id} onOpenStage={openClassroomStage} onHome={()=>changeView('home')} onOpenMistakes={()=>changeView('mistakes')}/>:null}
           {['records','mistakes'].includes(activeView) && auth.user?.role === 'teacher' ? <TeacherLearningReview key={auth.user.id} mode={activeView} classes={teacherClasses} classId={selectedTeacherClassId} onClassChange={id=>{selectedTeacherClassIdRef.current=id;setSelectedTeacherClassId(id);refreshClassOverview(id);}} selectedStudent={teacherReviewStudent} onStudentChange={setTeacherReviewStudent} changeView={changeView} navigateToChallenge={navigateToChallenge} openStudyTarget={openStudyTarget}/> : null}
           {activeView === "records" && auth.user?.role !== 'teacher' ? <StudentRecords key={auth.user?.id} userId={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
+          {activeView === "demos" ? <InteractiveDemos openDemo={openDemo} navigateToChallenge={navigateToChallenge} /> : null}
           {activeView === "demo" ? <DemoPage demoId={demoId} role={auth.user?.role} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "mistakes" && auth.user?.role !== 'teacher' ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "hardware-game" ? (

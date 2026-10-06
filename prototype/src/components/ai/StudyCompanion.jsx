@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { studyAnswerSourceLabel } from './studyAnswerSource.js';
 import { apiRequest } from '../../apiClient.js';
 import { assemblyHelp, safeAssemblySnapshot } from '../../assemblyHelp.js';
 import { useStudySnapshot } from './currentStudyContext.js';
@@ -67,7 +68,7 @@ export function StudyCompanion({userId,page,pageTitle,chapterId}) {
      {snapshot?.testRows?.length>0&&<p>{snapshot.testRows.slice(0,6).map(row=>`${row.label}：${row.actual}`).join('；')}</p>}
     </section>
     {busy&&<p role="status">小芯正在整理讲解…</p>}{error&&<p role="alert" className="study-mascot-error">{error}</p>}
-    {answer&&<section aria-live="polite"><span className="study-mascot-source">{answer.source==='ai'?'AI 讲解 · DeepSeek':answer.reason==='AI_DISABLED'?'AI 尚未配置 · 课程参考':'AI 暂时不可用 · 课程参考'}</span>{sentKey.current!==stateKey&&<p className="companion-stale">页面状态已变化，下面是上次提问时的回答；请参考上方实时提示或重新提问。</p>}<p>{answer.explanation}</p><ol>{answer.steps?.map((step,index)=><li key={index}>{step}</li>)}</ol>{answer.check&&<div className="study-mascot-check"><strong>试着想一想</strong><p>{answer.check}</p></div>}</section>}
+    {answer&&<section aria-live="polite"><span className="study-mascot-source">{studyAnswerSourceLabel(answer)}</span>{sentKey.current!==stateKey&&<p className="companion-stale">页面状态已变化，下面是上次提问时的回答；请参考上方实时提示或重新提问。</p>}<p>{answer.explanation}</p><ol>{answer.steps?.map((step,index)=><li key={index}>{step}</li>)}</ol>{answer.check&&<div className="study-mascot-check"><strong>试着想一想</strong><p>{answer.check}</p></div>}</section>}
    </div>
    <form onSubmit={ask}><label htmlFor="companion-question">你的课程问题</label><textarea ref={field} id="companion-question" rows={2} maxLength={1600} placeholder={help?'例如：为什么部件装齐了还不能开机？':'我不理解……'} value={question} onChange={event=>setQuestion(event.target.value)} disabled={busy}/>
     {(current||snapshot?.circuit)&&!snapshot?.expert&&<label className="companion-state-consent"><input type="checkbox" checked={includeState} onChange={event=>setIncludeState(event.target.checked)} disabled={busy}/>本次提问附带当前{current?'装配与接线快照':'电路输入与检查计数'}（含最近操作）</label>}
