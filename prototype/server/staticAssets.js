@@ -23,7 +23,7 @@ export function staticAssets(distDir) {
     const available = ['br', 'gzip'].filter(encoding => fs.existsSync(`${file}.${encoding === 'br' ? 'br' : 'gz'}`));
     const encoding = req.acceptsEncodings(...available, 'identity');
     if (!available.includes(encoding)) return next();
-    res.type(file);
+    res.type(path.extname(file));
     res.set('Content-Encoding', encoding);
     cacheHeaders(res, file);
     res.sendFile(`${file}.${encoding === 'br' ? 'br' : 'gz'}`, error => { if (error) next(error); });
