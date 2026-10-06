@@ -64,7 +64,7 @@ function loadPersisted() {
   }
 }
 
-export function PomodoroPanel() {
+export function PomodoroPanel({ task = null }) {
   const [state, setState] = useState(() => loadPersisted() ?? initialPhaseState());
   const baseTitle = useRef(typeof document === "undefined" ? "" : document.title);
   const audioRef = useRef(null);
@@ -143,6 +143,22 @@ export function PomodoroPanel() {
 
   const dots = useMemo(() => cycleDots(state.completedFocus), [state.completedFocus]);
 
+  // 木板上的任务进度：只取服务端已验证的阶段完成数与经验值，自证/未验证的东西不进进度
+  const boardTask = useMemo(() => {
+    const studentState = task?.studentState;
+    const stages = task?.mission?.stages;
+    if (!studentState || !Array.isArray(stages) || stages.length === 0) return null;
+    const total = stages.length;
+    const done = Math.max(0, Math.min(total, Number(studentState.current_stage_index ?? 0)));
+    return {
+      xp: Number(studentState.xp ?? 0),
+      stars: Number(studentState.stars ?? 0),
+      done,
+      total,
+      percent: Math.round((done / total) * 100),
+    };
+  }, [task]);
+
   // 循环动画只在计时运行时播放：这是 1280×720 的视频，静止时暂停可省掉持续解码
   const videoRef = useRef(null);
   const reducedMotion = useMemo(
@@ -214,6 +230,18 @@ export function PomodoroPanel() {
         <div className="pomo-sign">
           <strong className="pomo-sign-clock">{formatClock(state.remainingMs)}</strong>
         </div>
+
+        {/* 任务进度（经验值样式）：印在画面自带的木板上，位置同样由像素测量而来。
+            只读展示，不在这里进入任务的其它部分。数据来自服务端的课堂任务状态。 */}
+        {boardTask ? (
+          <div className="pomo-board" aria-label={`任务经验值 ${boardTask.xp}，已完成 ${boardTask.done} / ${boardTask.total} 阶段`}>
+            <span className="pomo-board-xp"><b>{boardTask.xp}</b> XP</span>
+            <span className="pomo-board-track">
+              <i style={{ width: `${boardTask.percent}%` }} />
+            </span>
+            <span className="pomo-board-stages">{boardTask.done} / {boardTask.total} 阶段</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="pomo-bar">

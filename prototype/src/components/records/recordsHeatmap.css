@@ -1,0 +1,50 @@
+/* 学习热力图：近 7 天 × 每 2 小时，teal 强度分档（浅色主题） */
+.records-heatmap-panel { padding: 16px 18px 14px; }
+
+.heatmap-body { align-items: stretch; display: flex; gap: 8px; }
+
+.heatmap-hours {
+  color: #9aa8b4;
+  display: grid;
+  font-size: .68rem;
+  font-variant-numeric: tabular-nums;
+  gap: 3px;
+  text-align: right;
+  width: 26px;
+}
+.heatmap-hours span { align-items: center; display: flex; height: 22px; justify-content: flex-end; }
+
+.heatmap-grid-wrap { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+
+.heatmap-weekdays,
+.heatmap-dates { display: grid; gap: 3px; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.heatmap-weekdays span,
+.heatmap-dates span { color: #7b8b95; font-size: .7rem; text-align: center; }
+.heatmap-weekdays span.is-today,
+.heatmap-dates span.is-today { color: #0f766e; font-weight: 700; }
+
+/* 按行优先填充：先铺满一行的 7 天，再进入下一个时段（与组件里的渲染顺序一致） */
+.heatmap-grid { display: grid; gap: 3px; grid-auto-rows: 22px; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+
+.heatmap-cell { border-radius: 4px; display: block; height: 22px; width: 100%; }
+.heatmap-cell.level-0 { background: #eef2f4; }
+.heatmap-cell.level-1 { background: #d3ece8; }
+.heatmap-cell.level-2 { background: #9fd9d1; }
+.heatmap-cell.level-3 { background: #5cbdb0; }
+.heatmap-cell.level-4 { background: #0f766e; }
+
+.heatmap-foot { align-items: center; display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: space-between; margin-top: 12px; }
+.heatmap-summary { color: #526775; font-size: .8rem; margin: 0; }
+.heatmap-summary strong { color: #17333d; }
+
+.heatmap-legend { align-items: center; color: #7b8b95; display: inline-flex; font-size: .72rem; gap: 4px; }
+.heatmap-legend .heatmap-cell { height: 13px; width: 13px; }
+
+.heatmap-hint { align-items: center; color: #9aa8b4; display: flex; font-size: .72rem; gap: 5px; margin: 8px 0 0; }
+.heatmap-empty { color: #8a7d69; font-size: .82rem; margin: 12px 0 2px; }
+
+@media (max-width: 760px) {
+  .heatmap-grid { grid-auto-rows: 17px; }
+  .heatmap-cell, .heatmap-hours span { height: 17px; }
+  .heatmap-hours span { font-size: .62rem; }
+}

@@ -5,6 +5,7 @@ import { CHALLENGES, LEARNING_ITEMS } from "./platformLogic.js";
 import { COURSE_CHAPTERS } from "./courseChapters.js";
 import {
   buildChapterScoreSeries,
+  buildHeatmapModel,
   buildLearningTreeModel,
   buildScreenKpis,
   buildStatusDistribution,
@@ -127,4 +128,52 @@ test("大屏 KPI 与树杈点亮口径一致", () => {
   assert.equal(kpis.total, LEARNING_ITEMS.length);
   assert.equal(kpis.completionRate, 33);
   assert.equal(kpis.weakSpot, "进位路径缺失");
+});
+
+test("学习热力图：按本地日期+小时归格，跨两表合并", () => {
+  const now = new Date(2026, 9, 5); // 2026-10-05
+  const model = buildHeatmapModel(
+    {
+      hourly: [
+        { day: "2026-10-02", hour: 13, attempts: 6, minutes: 6 },
+        { day: "2026-10-04", hour: 19, attempts: 4, minutes: 4 },
+        { day: "2026-10-04", hour: 20, attempts: 6, minutes: 6 },
+      ],
+    },
+    { now },
+  );
+
+  assert.equal(model.days, 7);
+  assert.equal(model.bucketHours, 2);
+  assert.equal(model.columns.length, 7);
+  assert.equal(model.columns[6].day, "2026-10-05");
+  assert.equal(model.columns[6].isToday, true);
+  assert.equal(model.rows.length, 12); // 24h / 2h
+  assert.equal(model.total, 16);
+  assert.equal(model.minutes, 16);
+  assert.equal(model.activeDays, 2);
+
+  // 13 点落在 12-14 格；19/20 点分别落在 18-20 与 20-22 格
+  const cell = (day, startHour) => model.rows.find((r) => r.startHour === startHour).cells.find((c) => c.day === day);
+  assert.equal(cell("2026-10-02", 12).attempts, 6);
+  assert.equal(cell("2026-10-04", 18).attempts, 4);
+  assert.equal(cell("2026-10-04", 20).attempts, 6);
+  assert.equal(cell("2026-10-03", 12).attempts, 0);
+  // 分档相对本人峰值：6 次为满档
+  assert.equal(cell("2026-10-02", 12).level, 4);
+  assert.equal(cell("2026-10-04", 18).level, 3);
+  assert.equal(model.peak.attempts, 6);
+});
+
+test("学习热力图：没有数据时不编造，且忽略窗口外的日子", () => {
+  const now = new Date(2026, 9, 5);
+  const empty = buildHeatmapModel({}, { now });
+  assert.equal(empty.hasData, false);
+  assert.equal(empty.total, 0);
+  assert.equal(empty.activeDays, 0);
+  assert.equal(empty.peak, null);
+  assert.equal(empty.rows.flatMap((r) => r.cells).every((c) => c.level === 0), true);
+
+  const outside = buildHeatmapModel({ hourly: [{ day: "2026-08-11", hour: 21, attempts: 5, minutes: 76 }] }, { now });
+  assert.equal(outside.hasData, false, "7 天窗口外的记录不应进入热力图");
 });
