@@ -96,7 +96,7 @@ export function CourseAdventureMap({ progress = {}, onOpenChallenge, userId = nu
     const artwork = new Image();
     artwork.onload = () => setArtLoaded(true);
     artwork.onerror = () => setArtLoaded(false);
-    artwork.src = '/learning-map/course-adventure.webp';
+    artwork.src = '/learning-map/course-adventure-light.webp';
     return () => { artwork.onload = null; artwork.onerror = null; };
   }, []);
 
@@ -276,7 +276,7 @@ export function CourseAdventureMap({ progress = {}, onOpenChallenge, userId = nu
               <rect x="0" y="0" width={MAP_W} height={MAP_H} fill={`url(#paper-grain-${ids})`} />
               <image
                 className="adventure-map-art"
-                href="/learning-map/course-adventure.webp"
+                href="/learning-map/course-adventure-light.webp"
                 x="0" y="0" width={MAP_W} height={MAP_H}
                 preserveAspectRatio="xMidYMid slice"
                 onLoad={() => setArtLoaded(true)}

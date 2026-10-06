@@ -1,0 +1,50 @@
+/* AI讲演章节大纲（用户决定 2026-10-06）：行式列表 + 点击展开，替代原卡片网格 */
+.ai-lecture-outline { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+
+.ai-lecture-row {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.ai-lecture-row:hover { border-color: #c9d8e4; }
+.ai-lecture-row.is-open { border-color: #9ec9c0; box-shadow: 0 4px 16px rgba(15, 118, 110, .08); }
+
+.ai-lecture-row-head {
+  align-items: center;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  gap: 10px;
+  padding: 16px 18px;
+  text-align: left;
+  width: 100%;
+}
+.ai-lecture-row-head:hover { background: #f7fbfa; }
+.ai-lecture-row-caret { color: #7b8b95; flex: none; transition: transform .18s ease; }
+.ai-lecture-row.is-open .ai-lecture-row-caret { transform: rotate(90deg); color: #0f766e; }
+.ai-lecture-row-head strong { color: #17333d; font-size: 1.05rem; font-weight: 800; }
+.ai-lecture-row-meta { color: #7b8b95; font-size: .82rem; margin-left: auto; text-align: right; }
+
+.ai-lecture-row-body { border-top: 1px solid #eef2f4; padding: 14px 18px 16px; }
+
+.ai-lecture-sections { color: #526775; display: grid; font-size: .82rem; gap: 5px; list-style: none; margin: 0 0 12px; padding: 0; }
+.ai-lecture-sections li { line-height: 1.5; padding-left: 14px; position: relative; }
+.ai-lecture-sections li::before { background: #b7c9d1; border-radius: 50%; content: ""; height: 5px; left: 0; position: absolute; top: .55em; width: 5px; }
+
+.ai-lecture-row-empty { color: #9aa8b4; font-size: .82rem; margin: 2px 0; }
+
+/* 播放器长宽（用户反馈 2026-10-06）：满宽 + 高度撑到屏幕底（截图那种扁盒子），高度由 JS 给出并带 620px 下限。 */
+.ai-lecture-player { max-width: none; width: var(--ai-lecture-width, 100%); }
+.ai-lecture-player iframe {
+  aspect-ratio: auto;
+  height: var(--ai-lecture-height, 620px);
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .ai-lecture-row-head { flex-wrap: wrap; }
+  .ai-lecture-row-meta { margin-left: 26px; text-align: left; width: 100%; }
+}
