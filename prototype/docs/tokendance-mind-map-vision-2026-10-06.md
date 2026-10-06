@@ -31,6 +31,18 @@ MINDMAP_VISION_TIMEOUT_MS=60000
 
 独立 `STUDY_ASSISTANT_API_KEY` / `STUDY_ASSISTANT_BASE_URL` / `STUDY_ASSISTANT_MODEL` / `STUDY_ASSISTANT_TIMEOUT_MS`，Token Dance 模型 `deepseek-v4-flash`，15s 单调用预算和原有22s总预算。问题审核、回答生成、完整回答审核都使用同一专属配置。旧文字模型仍为 DeepSeek，因此现有“AI 讲解 · DeepSeek”标签对应实际模型；接入网关改为 Token Dance。保留旧客户端 consent 标识以兼容版本，用户错误信息使用“课程助教服务”。
 
-新增专属配置测试先失败，接入后画板及小芯服务/路由 **33 项测试通过**。真实 Token Dance 小芯调用成功，课程问题的三阶段审核/生成都在新接口；无关、关键词伪装、混合要求、指令覆盖四类请求仍拒答，合计约13.5s。独立配置缺地址或模型时不会发送凭据，也不会把专属 Key 发给默认官方接口。
+新增专属配置测试先失败，接入后画板及小芯服务/路由 **34 项测试通过**。真实 Token Dance 小芯调用成功，课程问题的三阶段审核/生成都在新接口；无关、关键词伪装、混合要求、指令覆盖四类请求仍拒答，合计约13.5s。独立配置缺地址或模型时不会发送凭据，也不会把专属 Key 发给默认官方接口。
+
+## 生产交付验收（2026-10-06）
+
+- 已推送 Gitee，部署代码版本 `63d1702330c2d897c5a25eb3815e29090a640140`。发布前完整备份位于服务器 `/var/backups/zcyl/vision-code-20261006-63d1702`，包含原程序、前端、SQLite、服务配置和助教配置。
+- 从该 Git 版本的干净源码构建和验证，避免将共享工作树中其他尚未提交的教师功能带入此次发布。构建成功，首屏 JS 门禁 **509,523 / 512,000 字节**，画板浏览器回归通过。合并远端课程内容时发现提纲缩进丢失和小数前缀误删，已修复并增加中文编号测试。
+- 服务重启后健康检查返回该版本及 `db=ok`；读取实际服务进程配置确认画板 `qwen3-vl-plus`、小芯 `deepseek-v4-flash` 均使用 Token Dance，Key 相同且非空，配置权限640。其他模块的原 DeepSeek 配置保留。
+- 生产页面上传上述 CPU 图，真实生成接口 HTTP200、`source=ai`、4节点，生成约 **8.3s**；画板可保存，刷新页面并重新进入思维画板后可打开原画板。验收创建的临时画板已删除。
+- 生产小芯真实答疑 HTTP200、`source=ai`；无关、关键词伪装、混合要求、指令覆盖四类请求均被拒绝。服务器上的34项相关测试全部通过。
+- 移动端390×844实测和截图检查通过，无横向溢出，画板保存控件和小芯问答可使用；两个页面均无浏览器错误。
+- 浏览器验收使用 Chromium，通过 Node fetch 转发到公开服务的真实静态资源与接口，以绕开本机 Chromium 直接访问公网的网络故障；此结果验证生产功能，不代表浏览器直连网络速度。较广的本地画板交互回归使用模拟识图响应，以上生产图片生成与小芯答疑使用真实模型。
+
+验收日志与截图保存在 gitignored `prototype/qa-artifacts/tokendance-production-*.log`、`production-vision-mobile.png`、`assistant-live-mobile.png`，未记录密钥。
 
 接口参考：[Token Dance](https://tokendance.space/)，[Qwen 结构化输出](https://help.aliyun.com/zh/model-studio/qwen-structured-output)。
