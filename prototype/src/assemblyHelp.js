@@ -1,6 +1,7 @@
 import { HARDWARE_PARTS } from './hardwareGame.js';
 import { assemblyCheck, ASSEMBLY_PARTS, reconcileInstallation } from './hardwareAssembly.js';
 import { CABLES, reconcileStructure, structureCheck } from './completeAssembly.js';
+import { safeAssemblyAction, assemblyActionEvidence } from './assemblyActionEvidence.js';
 
 // Reconstruct the current simulated machine; arbitrary user fields never cross this boundary.
 export function safeAssemblySnapshot(raw) {
@@ -13,7 +14,8 @@ export function safeAssemblySnapshot(raw) {
  const installed = reconcileInstallation(raw.installed ?? {}, selection);
  const structure = reconcileStructure(raw.structure, installed, selection);
  const ready = assemblyCheck(installed, selection).ready && structureCheck(structure, installed, selection).ready;
- return {selection, installed, structure, powered: ready && raw.powered === true, booting: ready && raw.booting === true};
+ const lastAction=safeAssemblyAction(raw.lastAction);
+ return {selection, installed, structure, powered: ready && raw.powered === true, booting: ready && raw.booting === true,...(lastAction?{lastAction}:{})};
 }
 
 export function assemblyHelp(raw) {
@@ -31,6 +33,6 @@ export function assemblyHelp(raw) {
  if (!state.structure.cooler) steps.push('处理器安装后，点击“固定CPU 散热器”。');
  for (const c of cableMissing) steps.push(`连接${c.label}：在线缆端选择“${c.fromLabel}”，目标接口选择“${c.toLabel}”，点击“连接接口”。也可在3D接线模式点击这两个端点。`);
  if (ready) steps.push(state.powered ? '自检已通过；检查订单要求后交付，或查看练习复盘。' : state.booting ? '自检正在进行，请等待显示器上的启动结果。' : '必要装配与接线已完成，点击“开机自检”。侧板合上不会阻止自检。');
- return {ready,missing,steps,installed:status.installed,total:status.total,cables:CABLES.length-cableMissing.length,
+ return {ready,missing,steps,action:assemblyActionEvidence(state.lastAction),installed:status.installed,total:status.total,cables:CABLES.length-cableMissing.length,
   summary:state.powered?'开机自检已通过。':state.booting?'正在开机自检。':ready?'装配与必要连接已完成，可以开机自检。':`部件 ${status.installed}/${status.total}，必要接线 ${CABLES.length-cableMissing.length}/${CABLES.length}。还缺 ${missing.length} 项：${missing.join('、')}。`};
 }

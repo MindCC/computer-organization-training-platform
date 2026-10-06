@@ -13,11 +13,11 @@ export function reconcileStructure(raw={},installed={},parts={}) {
 }
 export function structureAction(raw,id,value,installed,parts) {
  const state=reconcileStructure(raw,installed,parts);
- const fail=message=>({ok:false,state,message});
+ const fail=(message,code)=>({ok:false,state,message,code});
  if(!['open','motherboard','psu','cooler'].includes(id)) return fail('未知装配步骤。');
- if(id!=='open' && !state.open) return fail('请先打开侧板。');
- if(id==='cooler' && value && (!state.motherboard || !installed.cpu)) return fail('请先安装主板和处理器。');
- if(id==='motherboard' && !value && (Object.keys(installed).length || state.cooler)) return fail('请先拆下主板上的部件。');
+ if(id!=='open' && !state.open) return fail('请先打开侧板。','cover-closed');
+ if(id==='cooler' && value && (!state.motherboard || !installed.cpu)) return fail('请先安装主板和处理器。','cpu-required');
+ if(id==='motherboard' && !value && (Object.keys(installed).length || state.cooler)) return fail('请先拆下主板上的部件。','remove-parts-first');
  state[id]=id==='cooler' && value ? parts.cpu:Boolean(value);
  if(!value && id==='psu') state.cables={};
  return {ok:true,state:reconcileStructure(state,installed,parts),message:id==='open' ? (value?'侧板已打开。':'侧板已合上。') : value?'部件已固定，请继续装配。':'部件已拆下，相关连接已清除。'};
@@ -25,9 +25,9 @@ export function structureAction(raw,id,value,installed,parts) {
 export function connectCable(raw,from,to,installed,parts) {
  const state=reconcileStructure(raw,installed,parts);
  const cable=CABLES.find(c=>c.from===from && c.to===to);
- if(!state.open) return {ok:false,state,message:'请先打开侧板。'};
- if(!cable) return {ok:false,state,message:'接口不匹配，请检查接口名称和防呆方向。'};
- if(!cable.requires.every(id=>Boolean(state[id] || installed[id] && installed[id]===parts[id]))) return {ok:false,state,message:'请先安装这条线缆两端的部件。'};
+ if(!state.open) return {ok:false,code:'cover-closed',state,message:'请先打开侧板。'};
+ if(!cable) return {ok:false,code:'interface-mismatch',state,message:'接口不匹配，请检查接口名称和防呆方向。'};
+ if(!cable.requires.every(id=>Boolean(state[id] || installed[id] && installed[id]===parts[id]))) return {ok:false,code:'endpoints-missing',state,message:'请先安装这条线缆两端的部件。'};
  return {ok:true,state:{...state,cables:{...state.cables,[cable.id]:true}},message:cable.label+'已连接。'};
 }
 export function structureCheck(raw,installed,parts) {

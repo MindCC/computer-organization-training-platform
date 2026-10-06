@@ -15,9 +15,9 @@ export function reconcileInstallation(installed, selection) {
 
 export function installPart(installed, selection, partId, socketId) {
   const part = ASSEMBLY_PARTS.find(part => part.id === partId);
-  if (!part || partId !== socketId) return { ok: false, installed, message: '插槽不匹配，请对准高亮的安装位置。' };
+  if (!part || partId !== socketId) return { ok: false, code:'socket-mismatch', installed, message: '插槽不匹配，请对准高亮的安装位置。' };
   if (selection[partId] === 'gpu-integrated' || !HARDWARE_PARTS[partId].some(part => part.id === selection[partId])) {
-    return { ok: false, installed, message: '此配置没有需要安装的独立部件。' };
+    return { ok: false, code:'no-discrete-part', installed, message: '此配置没有需要安装的独立部件。' };
   }
   return { ok: true, installed: { ...installed, [partId]: selection[partId] }, message: `${part.label}已安装到${part.socket}。` };
 }

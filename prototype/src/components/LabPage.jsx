@@ -30,6 +30,7 @@ import { ParameterExperiment } from "./ParameterExperiment.jsx";
 import { freeformSpecOf } from "../circuit/freeformGrading.js";
 import { describeCircuitDraft } from '../circuit/circuitDraftDiagnostics.js';
 import { useCurrentStudyContext } from './ai/currentStudyContext.js';
+import { circuitActionEvidence, safeCircuitAction } from '../circuit/circuitActionEvidence.js';
 import './labWorkbench.css';
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
@@ -140,13 +141,15 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
     const freeDraft = useCallback(next => setDraft({...next,mode:'freeform',challengeId:cur.id}),[cur.id]);
     const draftDiagnostics=useMemo(()=>describeCircuitDraft(draft),[draft]);
     const modeTitle=parameterMode?'参数探索':mapMode?'挑战地图':sandboxMode?'逻辑门沙盒':assemblyMode?'自由拼装':'电路工作台';
-    const liveDraft=draft?.challengeId===cur.id&&!parameterMode&&!mapMode&&!sandboxMode ? draft : null;
+    const liveDraft=draft?.challengeId===cur.id&&draft.mode===(assemblyMode?'freeform':'fixed')&&!parameterMode&&!mapMode&&!sandboxMode ? draft : null;
     useCurrentStudyContext({kind:'circuit',title:`${cur.title} · ${modeTitle}`,publicContext:{chapterId:cur.chapterId},
       summary:liveDraft?draftDiagnostics.summary:`当前为${modeTitle}。${isMobile?'手机端可学习概念；接线实验请使用电脑。':'完成连接后，小芯会同步显示现场检查。'}`,
       issues:liveDraft?draftDiagnostics.issues.map(item=>item.message??item.type):[],
       testRows:liveDraft?draftDiagnostics.testRows:[],
+      action:liveDraft?circuitActionEvidence(liveDraft.lastAction,liveDraft.model):null,
       circuit:liveDraft?{challengeId:cur.id,connectionCount:liveDraft.edges.length,issueCount:draftDiagnostics.issues.length,unknownOutputCount:draftDiagnostics.testRows.filter(row=>!row.passed).length,
-        inputs:liveDraft.model.nodes.filter(node=>node.type==='input').slice(0,16).map(node=>liveDraft.inputs[node.id]).filter(value=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<=1e9)}:null});
+        lastAction:safeCircuitAction(liveDraft.lastAction,liveDraft.model),
+        inputs:liveDraft.model.nodes.filter(node=>node.type==='input').slice(0,16).map(node=>liveDraft.inputs[`${node.id}.out`]??liveDraft.inputs[node.id]).filter(value=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<=1e9)}:null});
 
     // 挑战路径：可拖拽调宽 / 可整体收起 / 高度限高内滚
     const [routeWidth, setRouteWidth] = useState(232);
@@ -230,7 +233,7 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
             ) : sandboxMode ? (
               <div className="lab-studio-canvas-shell sandbox-shell"><LogicGateSandbox progress={l._progress}/></div>
             ) : assemblyMode && freeformSpec ? (
-              <div className="lab-studio-canvas-shell sandbox-shell"><GateAssemblyChallenge challenge={cur} circuitModel={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} onDraft={freeDraft} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></div>
+              <div className="lab-studio-canvas-shell sandbox-shell"><GateAssemblyChallenge key={cur.id} challenge={cur} circuitModel={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} onDraft={freeDraft} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></div>
             ) : (<>
             <div className="lab-studio-canvas-shell">{isMobile ? <MobileLabFallback challengeTitle={cur.title} /> : (<Suspense fallback={<div className="flow-loading">正在加载 React Flow 工作台...</div>}><CircuitFlowCanvas key={l.currentCircuitModel.id} model={l.currentCircuitModel} onResult={l.handleCircuitFlowResult} onDraft={fixedDraft} submitBlocked={l.submitBlocked} submitBlockedReason={l.submitBlockedReason} /></Suspense>)}</div>
             {cur.id === "instruction-data" ? <CpuExecutionPanel /> : null}

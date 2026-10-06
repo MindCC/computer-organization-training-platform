@@ -14,11 +14,11 @@ try {
   const row=page.locator('.practice-question').first(); await expect(row).toBeVisible();
   await row.locator('.study-mascot-trigger').click();
   const dialog=page.locator('.study-mascot-dialog'); await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('button',{name:'发送到 DeepSeek'})).toBeDisabled();
+  await expect(dialog.getByRole('button',{name:'询问助教'})).toBeDisabled();
   assert.ok(await dialog.locator('img').evaluate(img=>img.complete&&img.naturalWidth>0));
   await dialog.getByLabel('你的课程问题').fill('半加器与全加器有什么区别？请给一个输入例子。');
   const sent=page.waitForRequest(req=>req.url().endsWith('/api/student/study-assistant')&&req.method()==='POST');
-  await dialog.getByRole('button',{name:'发送到 DeepSeek'}).click();
+  await dialog.getByRole('button',{name:'询问助教'}).click();
   const payload=(await sent).postDataJSON();
   assert.deepEqual(Object.keys(payload).sort(),['consent','context','question']);
   assert.deepEqual(Object.keys(payload.context).sort(),['chapterId','questionId']);

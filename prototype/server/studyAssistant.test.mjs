@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { askStudyAssistant, publicStudyContext, studyAssistantMessages, safeCircuitSnapshot } from './studyAssistant.js';
+import { getCircuitChallenge } from '../src/circuit/challengeCircuitModel.js';
 
 test('study AI uses public course material and drops all private fields', () => {
   const context = { questionId: 'ch3-q01', studentAnswer: 'PRIVATE_ANSWER', teacherFeedback: 'PRIVATE_FEEDBACK', grades: [77], activityLog: 'PRIVATE_LOG' };
@@ -47,4 +48,18 @@ test('current circuit counts are bounded, opt-in and never include wiring or ide
  const result=await askStudyAssistant({...payload,stateConsent:'current-task-state'},{env:{}});assert.match(result.explanation,/4 条/);
  let messages;await askStudyAssistant({...payload,stateConsent:'current-task-state'},{env:{DEEPSEEK_API_KEY:'test'},requester:async(_config,m)=>{messages=m;return '{}';}});
  assert.ok(!JSON.stringify(messages).includes('PRIVATE'));assert.ok(!JSON.stringify(messages).includes('SECRET'));
+});
+
+test('recent failed operations are opt-in, explainable and exclude free-form private text',async()=>{
+ const selection={cpu:'cpu-i3',memory:'mem-8',storage:'ssd-512',gpu:'gpu-entry'};
+ const assembly={selection,installed:selection,structure:{open:true,motherboard:true,psu:true,cooler:'cpu-i3',cables:{}},lastAction:{kind:'connect',source:'psu-cpu',target:'board-atx',ok:false,code:'interface-mismatch',sequence:1,message:'PRIVATE_NAME'}};
+ const payload={question:'刚才为什么接错？',consent:'deepseek-public-question',context:{assembly}};
+ const omitted=await askStudyAssistant(payload,{env:{}});assert.ok(!omitted.explanation.includes('CPU 8-pin'));
+ const answer=await askStudyAssistant({...payload,stateConsent:'current-task-state'},{env:{}});
+ assert.match(answer.explanation,/CPU 8-pin.*主板 24-pin/);assert.match(answer.steps[0],/CPU 8-pin 供电接口/);
+ const model=getCircuitChallenge('full-adder'),edge=model.requiredEdges[0];
+ const circuit={challengeId:model.id,connectionCount:1,issueCount:1,unknownOutputCount:1,lastAction:{kind:'connect',...edge,ok:false,code:'输入端重复驱动',sequence:2,message:'PRIVATE_NAME'}};
+ const circuitAnswer=await askStudyAssistant({...payload,context:{circuit},stateConsent:'current-task-state'},{env:{}});assert.match(circuitAnswer.explanation,/已经/);assert.match(circuitAnswer.steps[0],/删除/);
+ let messages;await askStudyAssistant({...payload,context:{circuit},stateConsent:'current-task-state'},{env:{DEEPSEEK_API_KEY:'test'},requester:async(_config,input)=>{messages=input;return '{}';}});
+ assert.ok(!JSON.stringify(messages).includes('PRIVATE_NAME'));assert.match(JSON.stringify(messages),/输入端重复驱动/);
 });

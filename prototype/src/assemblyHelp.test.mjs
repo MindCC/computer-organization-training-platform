@@ -24,3 +24,23 @@ test('assembly context reconstructs known hardware state and removes private/for
  assert.ok(!Object.hasOwn(safe.structure.cables,'unknown'));
  assert.equal(safeAssemblySnapshot(null),null);
 });
+
+test('a rejected cable attempt explains the actual endpoints despite unchanged cable state',()=>{
+ const raw={selection,installed:selection,structure:{...structure,open:true},lastAction:{kind:'connect',source:'psu-cpu',target:'board-atx',ok:false,code:'interface-mismatch',sequence:2,message:'PRIVATE'}};
+ const help=assemblyHelp(raw);
+ assert.match(help.action.description,/CPU 8-pin.*主板 24-pin/);
+ assert.match(help.action.reason,/不同/);assert.match(help.action.fix,/CPU 8-pin 供电接口/);
+ assert.equal(help.cables,0);assert.ok(!JSON.stringify(safeAssemblySnapshot(raw)).includes('PRIVATE'));
+ const corrected=assemblyHelp({...raw,structure:{...raw.structure,cables:{eps:true}},lastAction:{...raw.lastAction,target:'cpu-power',ok:true,code:'ok',sequence:3}});
+ assert.equal(corrected.action.ok,true);assert.match(corrected.action.reason,/成功/);assert.equal(corrected.cables,1);
+});
+
+test('operation evidence covers installation and ordering and rejects arbitrary identities',()=>{
+ const raw={selection,installed:{},structure:{open:true,motherboard:true,psu:true}};
+ const misplaced=assemblyHelp({...raw,lastAction:{kind:'install',source:'cpu',target:'memory',ok:false,code:'socket-mismatch',sequence:1}});
+ assert.match(misplaced.action.description,/处理器.*DIMM/);assert.match(misplaced.action.fix,/CPU 插座/);
+ const closed=assemblyHelp({...raw,lastAction:{kind:'connect',source:'psu-cpu',target:'cpu-power',ok:false,code:'cover-closed',sequence:2}});
+ assert.match(closed.action.fix,/打开侧板/);
+ assert.ok(!safeAssemblySnapshot({...raw,lastAction:{kind:'connect',source:'SECRET',target:'cpu-power',ok:false,code:'SECRET',sequence:4}}).lastAction);
+ assert.ok(!safeAssemblySnapshot({...raw,lastAction:{kind:'boot',ok:false,code:'interface-mismatch',sequence:5}}).lastAction);
+});
