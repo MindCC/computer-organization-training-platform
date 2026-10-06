@@ -191,6 +191,11 @@ const CHAPTER_CONTENT = {
         src: "https://ppt.gkk.cn/#/ai/gkk-share-9q6gAqkJ?code=R9WETMSQQ",
         note: "课程讲演",
       },
+      {
+        title: "第四章 高速缓冲存储器",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-QRkXYpew?code=R9WETMSQQ",
+        note: "课程讲演",
+      },
     ],
     demos: [
       {
