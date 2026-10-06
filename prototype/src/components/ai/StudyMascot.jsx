@@ -35,7 +35,7 @@ export function StudyMascot({ context = {}, suggestion = '哪里不懂？告诉�
     finally{if(sequence===generation.current)setBusy(false);}
   }
   return <div className={`study-mascot${compact?' is-compact':''}`}>
-    <button ref={button} className="study-mascot-trigger" type="button" aria-label={compact ? "小芯复习建议，点击提问" : "向小芯 AI 助教提问"} aria-expanded={open} aria-describedby={open ? undefined : `${id}-tip`} onClick={()=>setOpen(value=>!value)}>
+    <button ref={button} className="study-mascot-trigger" type="button" aria-label={compact ? "小芯复习建议，点击提问" : "向小芯 AI 助教提问"} aria-expanded={open} aria-describedby={open ? undefined : `${id}-tip`} onClick={()=>{if(document.querySelector('[data-testid="study-companion"]'))window.dispatchEvent(new CustomEvent('study-companion-request',{detail:{context,suggestion}}));else setOpen(value=>!value);}}>
       <img src="/ai/study-mascot.webp" alt="小芯，抱着课本的芯片机器人" width="88" height="88"/><span><strong>小芯助教</strong><small>{compact?'问一问':'有疑问，问小芯'}</small></span>
     </button>
     {!open&&<div className="study-mascot-tip" id={`${id}-tip`} role="tooltip"><strong>小芯的复习提示</strong><p>{suggestion}</p><small>点击小芯，输入问题获得讲解。</small></div>}

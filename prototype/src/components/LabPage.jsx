@@ -22,7 +22,6 @@ import { statusText, statusTone, formatEndpointLabel } from "./labUtils.js";
 import { MissionHud } from "./classroom/student/MissionHud.jsx";
 import { MissionPauseOverlay } from "./classroom/student/MissionPauseOverlay.jsx";
 import { MissionSettlement } from "./classroom/student/MissionSettlement.jsx";
-import { LabAssistantPanel } from "./LabAssistantPanel.jsx";
 import { CpuExecutionPanel } from "./CpuExecutionPanel.jsx";
 import { LogicGateSandbox } from "./LogicGateSandbox.jsx";
 import { GateAssemblyChallenge } from "./GateAssemblyChallenge.jsx";
@@ -30,6 +29,7 @@ import { ChallengeMap } from "./ChallengeMap.jsx";
 import { ParameterExperiment } from "./ParameterExperiment.jsx";
 import { freeformSpecOf } from "../circuit/freeformGrading.js";
 import { describeCircuitDraft } from '../circuit/circuitDraftDiagnostics.js';
+import { useCurrentStudyContext } from './ai/currentStudyContext.js';
 import './labWorkbench.css';
 
 const CircuitFlowCanvas = lazy(() => import("./CircuitFlowCanvas.jsx").then((m) => ({ default: m.CircuitFlowCanvas })));
@@ -139,6 +139,14 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
     const fixedDraft = useCallback(next => setDraft({...next,mode:'fixed',challengeId:cur.id}),[cur.id]);
     const freeDraft = useCallback(next => setDraft({...next,mode:'freeform',challengeId:cur.id}),[cur.id]);
     const draftDiagnostics=useMemo(()=>describeCircuitDraft(draft),[draft]);
+    const modeTitle=parameterMode?'参数探索':mapMode?'挑战地图':sandboxMode?'逻辑门沙盒':assemblyMode?'自由拼装':'电路工作台';
+    const liveDraft=draft?.challengeId===cur.id&&!parameterMode&&!mapMode&&!sandboxMode ? draft : null;
+    useCurrentStudyContext({kind:'circuit',title:`${cur.title} · ${modeTitle}`,publicContext:{chapterId:cur.chapterId},
+      summary:liveDraft?draftDiagnostics.summary:`当前为${modeTitle}。${isMobile?'手机端可学习概念；接线实验请使用电脑。':'完成连接后，小芯会同步显示现场检查。'}`,
+      issues:liveDraft?draftDiagnostics.issues.map(item=>item.message??item.type):[],
+      testRows:liveDraft?draftDiagnostics.testRows:[],
+      circuit:liveDraft?{challengeId:cur.id,connectionCount:liveDraft.edges.length,issueCount:draftDiagnostics.issues.length,unknownOutputCount:draftDiagnostics.testRows.filter(row=>!row.passed).length,
+        inputs:liveDraft.model.nodes.filter(node=>node.type==='input').slice(0,16).map(node=>liveDraft.inputs[node.id]).filter(value=>typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)<=1e9)}:null});
 
     // 挑战路径：可拖拽调宽 / 可整体收起 / 高度限高内滚
     const [routeWidth, setRouteWidth] = useState(232);
@@ -233,11 +241,10 @@ function ReactFlowLab({l,cur,isMobile,memoryAddress,memoryOperation,memoryWriteV
               <section><span className="eyebrow">元件属性</span><strong>{l.selectedComponent}</strong><p>{l.selectedComponentDetail?.description ?? "选择一个元件查看端口、职责和信号走向。"}</p></section>
               <section><span className="eyebrow">实时状态</span><strong>{statusMessage}</strong><p>必要连线 {reqEdges} 条 · 测试用例 {tc || cur.requiredConnections.length} 组 · 最近得分 {labScoreText(cur, l.currentRecord)}</p></section>
               <section><span className="eyebrow">检测反馈</span>{l.feedback ? l.feedback.passed ? <p className="lab-studio-feedback passed"><SealCheck size={18} weight="fill" /> 本关通过，记录已保存。</p> : <p className="lab-studio-feedback failed"><WarningCircle size={18} weight="fill" /> 发现 {l.feedback.errors.length} 类问题，请按提示修正。</p> : <p className="lab-studio-feedback neutral"><Target size={18} /> 等待提交检测。</p>}</section>
-              {cur.id !== 'full-adder' && <LabAssistantPanel challenge={cur} connections={(draft?.edges??[]).map(e=>`${e.from.nodeId}.${e.from.portId}->${e.to.nodeId}.${e.to.portId}`)} inputState={draft?.inputs??{}} feedback={l.feedback} realtimeDiagnostics={draftDiagnostics} />}
               <section className={`realtime-diagnostics ${draftDiagnostics.status}`}><strong>实时数据流检测</strong><p>{draftDiagnostics.summary}</p><div className="diagnostic-test-list">{draftDiagnostics.testRows.map((r) => <div className={r.passed ? "passed" : "needs-work"} key={r.label}><span>{r.label}</span><small>实际：{r.actual}</small></div>)}</div>{draftDiagnostics.issues.length ? <div className="diagnostic-issues">{draftDiagnostics.issues.slice(0, 3).map((i) => <span key={`${i.type}-${i.message}`}>{i.type}</span>)}</div> : null}</section>
             </div></details>
             </>)}
-            {cur.id === 'full-adder' && !mapMode && !sandboxMode && <Suspense fallback={<p role="status">正在加载小芯诊断…</p>}><LearningCoachPanel key={cur.id} draft={draft?.challengeId === cur.id && draft.mode === (assemblyMode ? 'freeform' : 'fixed') ? draft : null}/></Suspense>}
+            {l.currentCircuitModel && !parameterMode && !mapMode && !sandboxMode && <Suspense fallback={<p role="status">正在加载小芯诊断…</p>}><LearningCoachPanel key={cur.id} challenge={cur} draft={draft?.challengeId === cur.id && draft.mode === (assemblyMode ? 'freeform' : 'fixed') ? draft : null}/></Suspense>}
             </div>
           </section>
         </main>

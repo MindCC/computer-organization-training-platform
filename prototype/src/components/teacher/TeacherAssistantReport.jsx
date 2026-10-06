@@ -10,6 +10,7 @@ export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assi
   const groupingPlan = report.groupingPlan ?? [];
   const misconceptions = report.commonMisconceptions ?? [];
   const nextClassPlan = report.nextClassPlan ?? [];
+  const planItems = report.planItems ?? nextClassPlan.map((text,index)=>({id:`P${index+1}`,text,evidence:[],basis:'unverified'}));
   const evidence = report.evidence ?? [];
   const studentsById = new Map(students.map((student) => [student.id, student]));
 
@@ -54,7 +55,11 @@ export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assi
           </section>
           <section>
             <strong>课堂安排</strong>
-            {nextClassPlan.length > 0 ? nextClassPlan.map((n) => <p key={n}>{n}</p>) : <p>暂无课堂安排建议。</p>}
+            {planItems.length > 0 ? planItems.map(item => <article className="teacher-plan-suggestion" key={item.id}>
+              <p><b>{item.id} · </b>{item.text}</p>
+              <small>{item.basis==='summary'?'仅班级概览 · 请补充诊断后决定':item.basis==='unverified'?'暂无直接依据 · 请教师核实':'建议需教师审核'}。有效引用不代表生成解释已经核实。</small>
+              {item.evidence?.map(row=><p className="teacher-plan-basis" key={row.id}>依据 {row.id}：{row.label} · {row.count} {row.type==='class_summary'?'人':'条关联记录'}</p>)}
+            </article>) : <p>暂无课堂安排建议。</p>}
           </section>
           <section><strong>教师讲解提示</strong><p>{report.teacherScript}</p></section>
           <section className="teacher-assistant-evidence">
@@ -69,7 +74,8 @@ export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assi
             </div>) : <p>当前暂无可定位的学习记录，建议先积累课堂提交后再用于备课。</p>}
           </section>
           <div className="teacher-assistant-toolbar">
-            <button type="button" className="primary-button" disabled={!canAdoptPlan || !selectedTeacherClassId || evidence.length === 0} onClick={() => onAdoptPlan?.({
+            <button type="button" className="primary-button" disabled={!canAdoptPlan || !selectedTeacherClassId || evidence.length === 0 || !assistant.reportId} onClick={() => onAdoptPlan?.({
+              reportId: assistant.reportId, sourceReport: assistant,
               focus: String(report.lessonFocus ?? "").slice(0, 500),
               steps: nextClassPlan.length ? nextClassPlan.slice(0, 8).map((step) => String(step).slice(0, 300)) : [String(report.lessonFocus ?? "").slice(0, 300)],
               teacherScript: String(report.teacherScript ?? "").slice(0, 1000),

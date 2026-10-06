@@ -9,6 +9,7 @@ import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js"
 import { ensureDemoAccounts, isDemoLoginEnabled } from './demoAccounts.js';
 import { validateAccountSettings } from './accountSettings.js';
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
+import { saveAssistantReport, readAssistantReport } from './teacherAssistantHistory.js';
 import { generateLabAssistantHint } from "./labAssistant.js";
 import { normalizeStudentAttemptPayload } from "./submissionValidation.js";
 import { normalizeDemoAttemptPayload, demoTitleOf } from "./demoValidation.js";
@@ -475,6 +476,11 @@ export function createApp(options = {}) {
     } catch (error) { next(error); }
   });
 
+  app.get('/api/teacher/assistant-reports/:id', requireRole('teacher'), (req,res,next) => {
+    try {res.setHeader('Cache-Control','no-store');res.json(readAssistantReport(db,req.user.id,Number(req.params.id)));}
+    catch(error) {if(error.statusCode)return res.status(error.statusCode).json({error:error.message});next(error);}
+  });
+
   app.get("/api/teacher/classes/:id/overview", requireRole("teacher"), (req, res) => {
     const classId = Number(req.params.id);
     if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
@@ -494,7 +500,8 @@ export function createApp(options = {}) {
         assistantOptions,
       );
       audit(req, "ai_report", { targetType: "class", targetId: classId, metadata: { source: report?.source ?? "unknown" } });
-      res.json(report);
+      res.setHeader('Cache-Control','no-store');
+      res.json(saveAssistantReport(db, req.user.id, classId, report));
     } catch (error) {
       if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
       next(error);

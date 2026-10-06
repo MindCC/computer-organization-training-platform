@@ -8,6 +8,8 @@ import { ASSEMBLY_PARTS, assemblyCheck, assemblySignature, installPart, reconcil
 import './hardwareAssembly.css';
 import { loadAssemblyDraft, saveAssemblyDraft } from '../assemblyDraft.js';
 import { practiceNextStep, practiceBootFeedback } from '../assemblyPractice.js';
+import { assemblyHelp } from '../assemblyHelp.js';
+import { useCurrentStudyContext } from './ai/currentStudyContext.js';
 
 const BOOT_STEPS = ['供电正常 · 主板已通电', 'CPU / 内存自检通过', '存储设备已识别', '显示输出就绪 · 系统启动成功'];
 
@@ -44,6 +46,8 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   const practiceDone=Boolean(practiceMode&&powered);
   const nextStep=practiceMode?practiceNextStep(validInstalled,validStructure,parts):null;
   const hintsVisible=!expert || hintSignature===signature;
+  const help = assemblyHelp({selection:parts,installed:validInstalled,structure:validStructure,powered,booting});
+  useCurrentStudyContext({kind:'assembly',title:'装机实验室',assembly:{selection:parts,installed:validInstalled,structure:validStructure,powered,booting},expert:expert&&!hintsVisible});
   const active = ASSEMBLY_PARTS.find(part => part.id === activeCategory) ?? ASSEMBLY_PARTS[0];
   const priorCategory = useRef(active.id);
   useEffect(() => {
@@ -76,7 +80,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   function startBoot(){
     if(booting)return;
     if(powered){invalidate();setMessage('已关机，可以继续调整配置。');return;}
-    if(!ready){if(practiceMode)feedback({ok:false,message:practiceBootFeedback(validInstalled,validStructure,parts)});return;}
+    if(!ready){feedback({ok:false,message:practiceMode?practiceBootFeedback(validInstalled,validStructure,parts):help.summary+' 下一步：'+help.steps[0]});return;}
     setCableMode(false);setSelectedConnector(null);
     actionFeedback.current?.({type:'power'});
     setBoot({signature,step:0});setMessage('主机正在立起并移到桌旁，稍候查看显示器上的开机结果。');
@@ -136,7 +140,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
     <div className="assembly-viewport">
       <NativeComputerScene assembly viewState={sceneState} onInstall={install} onConnector={pickConnector} onPartSelect={sceneId => { const part = ASSEMBLY_PARTS.find(part => part.sceneId === sceneId); if (part) selectPart(part); }} fallback={<div className="assembly-fallback"><Cube size={40} /><strong>当前设备无法启动 3D 场景</strong><p>可以用下方的部件选择与安装操作完成教学练习。</p></div>} />
       <div className="assembly-scene-heading"><span className="assembly-live-dot" />{powered ? 'SYSTEM ONLINE' : booting ? 'SYSTEM STARTING' : 'ASSEMBLY MODE'}<small>{bootCurrent ? '主机立放 · 查看显示器上的启动结果' : <>{validStructure.open ? '侧板已打开' : '先打开侧板'} · {validStructure.motherboard ? '主板已固定' : '主板待固定'} · {validStructure.psu ? '电源已固定' : '电源待固定'}</>}</small></div>
-      <div className="assembly-counter"><strong>{status.installed}<span> / {status.total}</span></strong><small>部件已安装</small></div>
+      <div className="assembly-counter"><strong>{status.installed}<span> / {status.total}</span></strong><small>部件已安装 · 接线 {help.cables}/{CABLES.length}</small></div>
       {showGuide && hintsVisible && !bootCurrent && !cableMode && <div className="assembly-guide"><Hand size={20} /><span><strong>{active.label+' · '+active.socket}</strong><small>{active.hint+' 拖动或点击安装，空白处左键拖动旋转，中键拖动平移，滚轮缩放。'}</small></span></div>}
       {bootCurrent && <div className={'assembly-boot' + (powered ? ' online' : '')} role="status"><Power size={25} /><strong>{powered ? '开机成功' : '正在开机自检…'}</strong><div>{BOOT_STEPS.slice(0, boot.step).map(line => <p key={line}>✓ {line}</p>)}</div>{powered && <small>{practiceMode?'练习已完成，请查看下方复盘或开始新一轮。':score.passed ? '装配与订单要求均已满足，可以交付。' : '装配正常，客户配置要求仍需调整。'}</small>}</div>}
       <div className="assembly-scene-footer"><span>WORKBENCH A · 防静电工作台</span><span>{practiceMode?practicePersistence:saved ? '本机进度已保存 · 开机状态不保留' : '进度仅在本次操作中保留'}</span></div>
@@ -169,9 +173,9 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
           </>:<button className="assembly-secondary" type="button" disabled={booting||powered} onClick={()=>install(active.id,active.id)}>安装到{active.socket}</button>}
       </div>
     </div><div className="assembly-power-controls">
-      <button type="button" className={'assembly-power'+(powered?' online':'')} disabled={(!practiceMode&&!ready)||booting||practiceDone} onClick={startBoot}><Power size={21}/>{practiceDone?'自检通过':powered?'关闭电源':booting?'自检中…':'开机自检'}</button>
+      <button type="button" className={'assembly-power'+(powered?' online':'')} disabled={booting||practiceDone} onClick={startBoot}><Power size={21}/>{practiceDone?'自检通过':powered?'关闭电源':booting?'自检中…':'开机自检'}</button>
       {!practiceMode&&powered&&onDeliver&&<button type="button" className="assembly-deliver" disabled={deliveryPending} onClick={()=>{setFocused(false);onDeliver(selectionKey);}}>{deliveryPending?'正在交付…':'交付这台电脑'}<CheckCircle size={18}/></button>}
-      <small>{practiceDone?'本轮已完成，可查看复盘或重新练习。':expert&&!hintsVisible?'自行检查装配，再尝试开机自检。':ready?'装配与必要连接已完成，可以开机自检':'还需完成：'+[...status.missing.map(id=>ASSEMBLY_PARTS.find(part=>part.id===id).label),...structuralStatus.missing].join('、')}</small>
+      <small role="status">{practiceDone?'本轮已完成，可查看复盘或重新练习。':expert&&!hintsVisible?'自行检查装配，再尝试开机自检。':ready?help.summary:`接线 ${help.cables}/5 · 待完成 ${help.missing.length} 项。点击自检查看缺项。`}</small>
     </div></div>
   </section>;
 }

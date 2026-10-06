@@ -8,6 +8,7 @@ import Database from "better-sqlite3";
 import { hashPassword } from "./auth.js";
 import { createUser, getStudentProgress, migrate } from "./db.js";
 import { seedDemoClassroom } from "./seedDemoClassroom.js";
+import { removeLegacyDemoSeed } from "./removeLegacyDemoSeed.js";
 import { CHALLENGES } from "../src/platformLogic.js";
 
 function makeTempDb() {
@@ -144,4 +145,33 @@ test("demo classroom seed CLI runs from npm script entrypoint", async () => {
   } finally {
     rmSync(dir, { recursive: true, force: true, maxRetries: 3 });
   }
+});
+
+test('retired synthetic seed is removed without touching formal accounts', async () => {
+  const { databasePath, dir, db: initialDb } = makeTempDb();
+  initialDb.close();
+  try {
+    const db = new Database(databasePath);
+    const formal = createUser(db, { username: 'teacher', displayName: '正式教师', role: 'teacher', passwordHash: await hashPassword('Teacher123!') });
+    const other = createUser(db, { username: 'student-formal', displayName: '正式学生', role: 'student', passwordHash: await hashPassword('Student123!') });
+    db.close();
+    await seedDemoClassroom({ databasePath, teacherUsername: 'teacher' });
+    const seededDb = new Database(databasePath);
+    seededDb.pragma('foreign_keys = ON');
+    try {
+      const result = await removeLegacyDemoSeed(seededDb);
+      assert.equal(result.removedStudents, 40);
+      assert.equal(result.removedSeededClasses, 2);
+      assert.equal(seededDb.prepare("SELECT COUNT(*) AS count FROM users WHERE username LIKE 'demo2026%'").get().count, 0);
+      assert.ok(seededDb.prepare('SELECT 1 FROM users WHERE id = ?').get(formal.id));
+      assert.ok(seededDb.prepare('SELECT 1 FROM users WHERE id = ?').get(other.id));
+      assert.equal(seededDb.prepare('SELECT COUNT(*) AS count FROM class_members').get().count, 1);
+      assert.equal(seededDb.prepare('PRAGMA foreign_key_check').all().length, 0);
+      const demoClass = seededDb.prepare("SELECT id FROM classes WHERE name = '芯游记 · 演示教学班'").get();
+      seededDb.prepare("INSERT INTO assignments (class_id, teacher_id, title, description, status, total_score) VALUES (?, (SELECT id FROM users WHERE username = 'demo-teacher'), '保留新作业', '', 'published', 0)").run(demoClass.id);
+      const second = await removeLegacyDemoSeed(seededDb);
+      assert.equal(second.removedStudents, 0);
+      assert.equal(seededDb.prepare("SELECT COUNT(*) AS count FROM assignments WHERE title = '保留新作业'").get().count, 1);
+    } finally { seededDb.close(); }
+  } finally { rmSync(dir, { recursive: true, force: true, maxRetries: 3 }); }
 });

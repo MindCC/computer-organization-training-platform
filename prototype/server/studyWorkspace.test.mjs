@@ -13,6 +13,13 @@ function setup() {
   return { db, service, student, other, teacher, advance: ms => { now += ms; } };
 }
 const plan = { title: '检查全加器进位', date: '2026-10-05', minutes: 25, target: { kind: 'lab', id: 'full-adder' } };
+test('a study plan preserves the experiment bound to a teacher remediation task',()=>{
+  const s=setup();try{
+    const cls=createClass(s.db,s.teacher.id,'跨实验计划班');addStudentToClass(s.db,cls.id,s.student.id);
+    const task=Number(s.db.prepare('INSERT INTO learning_coach_tasks(teacher_id,class_id,student_id,title,challenge_id) VALUES(?,?,?,?,?)').run(s.teacher.id,cls.id,s.student.id,'存储访问补练','memory-address').lastInsertRowid);
+    assert.equal(s.service.createPlan(s.student,{...plan,target:{kind:'coach',id:task}}).target.challengeId,'memory-address');
+  }finally{s.db.close();}
+});
 
 test('plans use new server evidence, preserve historical grades, and isolate accounts', () => {
   const s = setup(); try {

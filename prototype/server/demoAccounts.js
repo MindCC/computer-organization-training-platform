@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { hashPassword } from './auth.js';
 import { addStudentToClass, createClass, createUser, getUserByUsername, sanitizeUser } from './db.js';
 
-/** Demonstration accounts own only their demonstration classroom. */
+/** The two one-click demonstration identities share one classroom. */
 export async function ensureDemoAccounts(db) {
   async function dedicated(username, role, displayName) {
     const existing = getUserByUsername(db, username);
@@ -23,12 +23,8 @@ export async function ensureDemoAccounts(db) {
   const student = isLegacyDemo ? legacy : await dedicated('demo-student', 'student', '演示学生');
   let classroom = db.prepare('SELECT * FROM classes WHERE teacher_id = ? AND name = ?').get(teacher.id, '芯游记 · 演示教学班');
   if (!classroom) classroom = createClass(db, teacher.id, '芯游记 · 演示教学班');
+  db.prepare('DELETE FROM class_members WHERE class_id = ? AND student_id <> ?').run(classroom.id, student.id);
   addStudentToClass(db, classroom.id, student.id);
-  // Existing seeded records are reused without changing a grade or moving a student.
-  for (let index = 2; index <= 40; index += 1) {
-    const demo = getUserByUsername(db, `demo2026${String(index).padStart(3, '0')}`);
-    if (demo?.role === 'student' && demo.status === 'active' && demo.display_name === `演示学生${index}` && sanitizeUser(demo).profile?.seeded === true) addStudentToClass(db, classroom.id, demo.id);
-  }
   return { teacher, student, classroom };
 }
 

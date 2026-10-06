@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const allowedVerifiers = new Set([
+  'scripts/verify-study-companion.mjs',
   'scripts/verify-feedback.mjs',
   'scripts/verify-teaching-loop.mjs',
   'scripts/verify-task-library.mjs',
@@ -17,6 +18,7 @@ const allowedVerifiers = new Set([
   'scripts/verify-task-chain.mjs',
   'scripts/verify-teacher-assistant-plan.mjs',
   'scripts/verify-learning-coach.mjs',
+  'scripts/verify-general-learning-coach.mjs',
   'scripts/verify-mind-map.mjs',
   "scripts/verify-interactive-demos.mjs",
   "scripts/verify-courseware-redesign.mjs",
@@ -54,7 +56,7 @@ const allowedVerifiers = new Set([
   "scripts/verify-xray.mjs",
   "scripts/verify-offline-env.mjs",
   "scripts/verify-empty-states.mjs",
-  // 这三个依赖 npm run seed:demo 生成的演示数据，需加 --seed-demo 播种
+  // 这三个依赖隔离 QA 库中的旧合成学情，需加 --seed-demo 播种
   "scripts/verify-completion.mjs",
   "scripts/verify-mistakes.mjs",
   "scripts/verify-overview-exploration.mjs",
@@ -175,7 +177,7 @@ try {
       MINDMAP_API_KEY: '',
       PUBLIC_BASE_URL: appUrl,
       NODE_ENV: production ? 'production' : 'development',
-      ENABLE_DEMO_LOGIN: process.argv.includes('--seed-demo') ? 'true' : 'false',
+      ENABLE_DEMO_LOGIN: process.argv.includes('--seed-demo') || verifier === 'scripts/verify-demo-teacher.mjs' ? 'true' : 'false',
       SESSION_SECRET: 'isolated-browser-qa-session-secret',
       COOKIE_SECURE: '0',
     },

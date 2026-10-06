@@ -28,13 +28,20 @@ export function migrateLearningCoach(db) {
       title TEXT NOT NULL, content TEXT NOT NULL, origin TEXT NOT NULL, concept_id TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(class_id, source_id));
   `);
+  for(const table of ['learning_coach_runs','learning_coach_tasks','learning_coach_sources']){
+    if(!db.prepare(`PRAGMA table_info(${table})`).all().some(c=>c.name==='challenge_id'))db.exec(`ALTER TABLE ${table} ADD COLUMN challenge_id TEXT NOT NULL DEFAULT 'full-adder'`);
+  }
+  db.exec(`DROP INDEX IF EXISTS idx_coach_active_task;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_coach_active_experiment_task ON learning_coach_tasks(class_id,student_id,challenge_id) WHERE completed_run_id IS NULL;
+    CREATE INDEX IF NOT EXISTS idx_coach_experiment_owner ON learning_coach_runs(owner_id,challenge_id,id DESC);`);
 }
 
 export function createLearningCoachRepository(db) {
   function event(runId, kind, payload = {}) { db.prepare('INSERT INTO learning_coach_events(run_id,kind,payload_json) VALUES(?,?,?)').run(runId, kind, JSON.stringify(payload)); }
-  function sources(classId) {
-    const published = classId ? db.prepare('SELECT * FROM learning_coach_sources WHERE class_id=?').all(classId).map(row => ({ id: row.source_id, title: row.title, content: row.content, origin: row.origin, conceptId: row.concept_id, review: 'teacher', reviewedAt: row.created_at, version: 1 })) : [];
-    return COACH_SOURCES.map(source => published.find(item => item.id === source.id) ?? source).concat(published.filter(item => !COACH_SOURCES.some(source => source.id === item.id)));
+  function sources(classId,challengeId='full-adder') {
+    const published = classId ? db.prepare('SELECT * FROM learning_coach_sources WHERE class_id=? AND challenge_id=?').all(classId,challengeId).map(row => ({ id: row.source_id, challengeId:row.challenge_id,title: row.title, content: row.content, origin: row.origin, conceptId: row.concept_id, review: 'teacher', reviewedAt: row.created_at, version: 1 })) : [];
+    const defaults=COACH_SOURCES.filter(s=>s.challengeId===challengeId);
+    return defaults.map(source => published.find(item => item.id === source.id) ?? source).concat(published.filter(item => !defaults.some(source => source.id === item.id)));
   }
   function ownedRun(ownerId, id) {
     const row = db.prepare('SELECT * FROM learning_coach_runs WHERE id=? AND owner_id=?').get(id, ownerId);
@@ -44,13 +51,14 @@ export function createLearningCoachRepository(db) {
   function view(row) {
     if (!row) return null;
     const diagnosis = JSON.parse(row.diagnosis_json), plan = JSON.parse(row.plan_json), retest = row.retest_json ? JSON.parse(row.retest_json) : null;
-    const refs = sources(row.class_id);
+    const refs = sources(row.class_id,row.challenge_id);
+    const publicRetest=retest?{...retest,questions:retest.questions.map(({expected,caseKey,...question})=>question)}:null;
     const events = db.prepare('SELECT kind,payload_json AS payload,created_at AS createdAt FROM learning_coach_events WHERE run_id=? ORDER BY id').all(row.id).map(e => ({ ...e, payload: JSON.parse(e.payload) }));
-    return { id: row.id, taskId: row.task_id, classId: row.class_id, createdAt: row.created_at, updatedAt: row.updated_at,
+    return { id: row.id, challengeId:row.challenge_id,challengeTitle:diagnosis.challengeTitle??'全加器',taskId: row.task_id, classId: row.class_id, createdAt: row.created_at, updatedAt: row.updated_at,
       initialPassed: Boolean(row.initial_passed), initialDiagnosis: JSON.parse(row.initial_json), diagnosis, plan: { ...plan, references: plan.references.map(ref => refs.find(source => source.id === ref.id) ?? ref) },
       hintLevel: row.hint_level, hints: events.filter(e => e.kind === 'hint').map(e => e.payload.hint ?? buildCoachHints(diagnosis)[e.payload.level - 1]), repaired: Boolean(row.repaired),
       status: row.status, revision: row.revision,
-      retest: retest ? { ...retest, canSubmit: !retest.result } : null,
+      retest: publicRetest ? { ...publicRetest, canSubmit: !retest.result } : null,
       events };
   }
   function update(row, values, kind, payload = {}) {
@@ -65,32 +73,32 @@ export function createLearningCoachRepository(db) {
     create({ ownerId, classId, taskId, diagnosis, plan }) {
       return db.transaction(() => {
         const json = JSON.stringify(diagnosis);
-        const result = db.prepare(`INSERT INTO learning_coach_runs(owner_id,class_id,task_id,initial_passed,diagnosis_json,initial_json,plan_json,repaired,status) VALUES(?,?,?,?,?,?,?,?,?)`).run(ownerId, classId, taskId, Number(diagnosis.passed), json, json, JSON.stringify(plan), Number(diagnosis.passed), diagnosis.passed ? 'repaired' : 'diagnosed');
+        const result = db.prepare(`INSERT INTO learning_coach_runs(owner_id,class_id,task_id,initial_passed,diagnosis_json,initial_json,plan_json,repaired,status,challenge_id) VALUES(?,?,?,?,?,?,?,?,?,?)`).run(ownerId, classId, taskId, Number(diagnosis.passed), json, json, JSON.stringify(plan), Number(diagnosis.passed), diagnosis.passed ? 'repaired' : 'diagnosed',diagnosis.challengeId??'full-adder');
         const id = Number(result.lastInsertRowid); event(id, 'diagnosed', { passed: diagnosis.passed, focus: diagnosis.focus, source: plan.source });
         return view(ownedRun(ownerId, id));
       })();
     },
-    latest(ownerId) { return view(db.prepare('SELECT * FROM learning_coach_runs WHERE owner_id=? ORDER BY id DESC LIMIT 1').get(ownerId)); },
-    tasks(ownerId) { return db.prepare(`SELECT t.id,t.class_id AS classId,t.title,t.created_at AS createdAt,t.completed_run_id AS completedRunId,c.name AS className FROM learning_coach_tasks t JOIN classes c ON c.id=t.class_id JOIN class_members m ON m.class_id=t.class_id AND m.student_id=t.student_id WHERE t.student_id=? AND c.status='active' ORDER BY t.id DESC LIMIT 30`).all(ownerId); },
+    latest(ownerId,challengeId=null) { return view(db.prepare(`SELECT * FROM learning_coach_runs WHERE owner_id=? ${challengeId?'AND challenge_id=?':''} ORDER BY id DESC LIMIT 1`).get(...(challengeId?[ownerId,challengeId]:[ownerId]))); },
+    tasks(ownerId) { return db.prepare(`SELECT t.id,t.challenge_id AS challengeId,t.class_id AS classId,t.title,t.created_at AS createdAt,t.completed_run_id AS completedRunId,c.name AS className FROM learning_coach_tasks t JOIN classes c ON c.id=t.class_id JOIN class_members m ON m.class_id=t.class_id AND m.student_id=t.student_id WHERE t.student_id=? AND c.status='active' ORDER BY t.id DESC LIMIT 100`).all(ownerId); },
     ownedTask(ownerId, id) { const task = this.tasks(ownerId).find(t => t.id === id && !t.completedRunId); if (!task) throw coachError('补练任务不存在或已结束', 404); return task; },
     completeTask(row) { if (row.task_id) db.prepare('UPDATE learning_coach_tasks SET completed_run_id=? WHERE id=? AND student_id=? AND class_id=? AND completed_run_id IS NULL').run(row.id, row.task_id, row.owner_id, row.class_id); },
-    publishTasks(teacherId, classId, studentIds, title) {
+    publishTasks(teacherId, classId, studentIds, title,challengeId='full-adder') {
       return db.transaction(() => {
-        const insert = db.prepare('INSERT OR IGNORE INTO learning_coach_tasks(teacher_id,class_id,student_id,title) VALUES(?,?,?,?)');
-        let created = 0; for (const id of studentIds) created += insert.run(teacherId, classId, id, title).changes;
+        const insert = db.prepare('INSERT OR IGNORE INTO learning_coach_tasks(teacher_id,class_id,student_id,title,challenge_id) VALUES(?,?,?,?,?)');
+        let created = 0; for (const id of studentIds) created += insert.run(teacherId, classId, id, title,challengeId).changes;
         return { created, existing: studentIds.length - created };
       })();
     },
     publishSource(teacherId, classId, source) {
-      db.prepare(`INSERT INTO learning_coach_sources(class_id,source_id,teacher_id,title,content,origin,concept_id) VALUES(?,?,?,?,?,?,?) ON CONFLICT(class_id,source_id) DO UPDATE SET title=excluded.title,content=excluded.content,origin=excluded.origin,concept_id=excluded.concept_id,teacher_id=excluded.teacher_id,created_at=CURRENT_TIMESTAMP`).run(classId, source.id, teacherId, source.title, source.content, source.origin, source.conceptId);
+      db.prepare(`INSERT INTO learning_coach_sources(class_id,source_id,teacher_id,title,content,origin,concept_id,challenge_id) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(class_id,source_id) DO UPDATE SET title=excluded.title,content=excluded.content,origin=excluded.origin,concept_id=excluded.concept_id,teacher_id=excluded.teacher_id,challenge_id=excluded.challenge_id,created_at=CURRENT_TIMESTAMP`).run(classId, source.id, teacherId, source.title, source.content, source.origin, source.conceptId,source.challengeId??'full-adder');
     },
-    summary(classId, studentId = null) {
+    summary(classId, studentId = null,challengeId='full-adder') {
       const members = db.prepare(`SELECT u.id,u.display_name AS displayName,u.username FROM users u JOIN class_members m ON m.student_id=u.id WHERE m.class_id=? AND u.role='student'${studentId ? ' AND u.id=?' : ''}`).all(...(studentId ? [classId, studentId] : [classId]));
-      const runs = db.prepare('SELECT * FROM learning_coach_runs WHERE class_id=? ORDER BY id DESC').all(classId);
-      const allEvents = db.prepare('SELECT e.run_id,e.kind,e.payload_json,e.created_at FROM learning_coach_events e JOIN learning_coach_runs r ON r.id=e.run_id WHERE r.class_id=? ORDER BY e.id').all(classId);
+      const runs = db.prepare('SELECT * FROM learning_coach_runs WHERE class_id=? AND challenge_id=? ORDER BY id DESC').all(classId,challengeId);
+      const allEvents = db.prepare('SELECT e.run_id,e.kind,e.payload_json,e.created_at FROM learning_coach_events e JOIN learning_coach_runs r ON r.id=e.run_id WHERE r.class_id=? AND r.challenge_id=? ORDER BY e.id').all(classId,challengeId);
       const byRun = new Map();
       for (const e of allEvents) { if (!byRun.has(e.run_id)) byRun.set(e.run_id, []); byRun.get(e.run_id).push(e); }
-      const tasks = db.prepare('SELECT student_id,completed_run_id FROM learning_coach_tasks WHERE class_id=?').all(classId);
+      const tasks = db.prepare('SELECT student_id,completed_run_id FROM learning_coach_tasks WHERE class_id=? AND challenge_id=?').all(classId,challengeId);
       const students = members.map(student => {
         const own = runs.filter(row => row.owner_id === student.id), latest = own[0];
         const retests = own.map(row => row.retest_json ? JSON.parse(row.retest_json) : null).filter(test => test?.result);

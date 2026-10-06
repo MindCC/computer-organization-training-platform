@@ -8,6 +8,7 @@ import { hostedDemoOf } from '../../../shared/demoNavigation.js';
 import { PracticeQuestion, TeacherAssignments } from '../../StudentAssignments.jsx';
 import { CoursewareView } from '../../CoursewareView.jsx';
 import { StudyMascot } from '../../ai/StudyMascot.jsx';
+import { useCurrentStudyContext } from '../../ai/currentStudyContext.js';
 import { MissionHud } from './MissionHud.jsx';
 import { TaskChainHome } from './TaskChainHome.jsx';
 import { KnowledgeGraph } from '../../KnowledgeGraph.jsx';
@@ -15,6 +16,7 @@ import '../taskChain.css';
 
 export function TaskChainPage({classroomSession,userId,onOpenStage,onHome,onOpenMistakes}) {
   const vm=classroomSession.viewModel,[finished,setFinished]=useState(null),[entryError,setEntryError]=useState('');
+  useCurrentStudyContext({kind:'classroom',title:vm.currentStage?.title??'课堂任务',publicContext:{chapterId:vm.currentStage?.chapterId},summary:vm.paused?'教师已暂停课堂，请等待恢复。':vm.ended?'课堂已结束，可以回顾本轮学习问题。':'跟随当前课堂环节完成任务；不理解的概念可以向小芯提问。'});
   async function enter(){if(classroomSession.loading)return;try{setEntryError('');const data=await classroomSession.enter(vm.sessionId);onOpenStage(data.mission.stages[data.studentState.current_stage_index??0]);}catch(cause){setEntryError(cause.message);}}
   if(!vm.active)return <section className="chain-empty"><h2>正在同步课堂任务…</h2><button type="button" className="ghost-button" onClick={classroomSession.refresh}>刷新课堂</button><button type="button" className="primary-button" onClick={onHome}>返回课程</button></section>;
   if(!vm.ended&&vm.studentStatus==='not_started')return <>{entryError&&<p role="alert" className="form-error">{entryError}</p>}<TaskChainHome viewModel={vm} onEnter={enter} busy={classroomSession.loading}/></>;

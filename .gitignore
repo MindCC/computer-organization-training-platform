@@ -33,3 +33,5 @@ prototype/scripts/.probe-*
 .env
 .env.*
 !.env.example
+# Presentation build intermediates and bundled runtime junctions stay local.
+deliverables/**/.build/

@@ -2,6 +2,7 @@ import { validateClassroomSessionConfig, missionForSession } from '../src/shared
 import { classroomError } from './classroomMissionGrading.js';
 import { teacherOwnsClass } from './db.js';
 import { taskKnowledgeLearning,compareKnowledge } from './taskKnowledgeLearning.js';
+import { initializeAssistantHistory, readAssistantReport } from './teacherAssistantHistory.js';
 
 const fail=(code,message,status=400)=>{throw classroomError(code,message,status,false);};
 const parseJson=value=>{try{return value?JSON.parse(value):null;}catch{return null;}};
@@ -16,6 +17,7 @@ function studentGradedAverage(result){
 }
 function meanOf(values){return values.length?Math.round(values.reduce((sum,score)=>sum+score,0)/values.length):null;}
 export function createTaskLibrary({db,sessionService}) {
+  initializeAssistantHistory(db);
   db.exec(`CREATE TABLE IF NOT EXISTS teacher_task_library (
     id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL, config_json TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
@@ -27,6 +29,13 @@ export function createTaskLibrary({db,sessionService}) {
     teacher_id INTEGER NOT NULL REFERENCES users(id), revision INTEGER NOT NULL, class_id INTEGER NOT NULL REFERENCES classes(id),
     session_id INTEGER NOT NULL UNIQUE REFERENCES classroom_sessions(id), client_submission_id TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(teacher_id,client_submission_id)
+  );
+  CREATE TABLE IF NOT EXISTS task_assistant_decisions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, task_id INTEGER NOT NULL REFERENCES teacher_task_library(id),
+    teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    report_id INTEGER NOT NULL REFERENCES teacher_assistant_reports(id), revision INTEGER NOT NULL,
+    config_json TEXT NOT NULL, note TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(task_id,revision)
   );`);
   function normalize(config){try{return validateClassroomSessionConfig({...config,targetStudentIds:undefined,templateKey:'task-chain'});}catch(error){fail('INVALID_TASK',error.message);}}
   function sourceFor(teacherId,config,checkRecipients=false){
@@ -41,7 +50,31 @@ export function createTaskLibrary({db,sessionService}) {
     const row=db.prepare('SELECT * FROM teacher_task_library WHERE id=? AND teacher_id=? AND deleted_at IS NULL').get(id,teacherId);
     if(!row)fail('TASK_NOT_FOUND','任务不存在',404);return row;
   }
-  function dto(row,learning=null){return {id:row.id,title:row.title,revision:row.revision,config:JSON.parse(row.config_json),createdAt:row.created_at,updatedAt:row.updated_at,imported:row.imported_session_id!==null,
+  function decisionSource(teacherId,input,taskId=null){
+    const saved=taskId?db.prepare('SELECT report_id FROM task_assistant_decisions WHERE task_id=? ORDER BY id LIMIT 1').get(taskId)?.report_id:null;
+    const reportId=input.assistantReportId??saved;
+    if(saved&&reportId!==saved)fail('ASSISTANT_SOURCE_IMMUTABLE','已保存的建议来源不能替换');
+    if(reportId!=null)readAssistantReport(db,teacherId,reportId);
+    if(input.decisionNote!==undefined&&(typeof input.decisionNote!=='string'||input.decisionNote.length>500))fail('INVALID_DECISION_NOTE','调整说明须为500字以内的文字');
+    return reportId;
+  }
+  function recordDecision(teacherId,taskId,revision,reportId,config,note=''){
+    if(reportId!=null)db.prepare('INSERT INTO task_assistant_decisions(task_id,teacher_id,report_id,revision,config_json,note) VALUES(?,?,?,?,?,?)')
+      .run(taskId,teacherId,reportId,revision,JSON.stringify(config),note.trim());
+  }
+  function assistantReview(row){
+    const decisions=db.prepare('SELECT * FROM task_assistant_decisions WHERE task_id=? ORDER BY revision DESC LIMIT 20').all(row.id);
+    if(!decisions.length)return null;
+    const report=readAssistantReport(db,row.teacher_id,decisions[0].report_id);
+    const original={focus:report.report.lessonFocus,steps:report.report.nextClassPlan,teacherScript:report.report.teacherScript};
+    return {report,decisions:decisions.map(d=>{
+      const config=JSON.parse(d.config_json),plan=config.lessonPlan??null;
+      const changedFields=plan?['focus','steps','teacherScript'].filter(key=>JSON.stringify(plan[key])!==JSON.stringify(original[key])):['removed'];
+      return {revision:d.revision,savedAt:d.created_at,note:d.note,lessonPlan:plan,changedFields,taskTitle:config.taskChain.title,stageTitles:config.taskChain.stages.map(s=>s.title)};
+    }),publications:db.prepare('SELECT revision,session_id AS sessionId,class_id AS classId,created_at AS publishedAt FROM task_library_publications WHERE task_id=? ORDER BY id DESC').all(row.id)};
+  }
+  function dto(row,learning=null,includeReview=false){return {id:row.id,title:row.title,revision:row.revision,config:JSON.parse(row.config_json),createdAt:row.created_at,updatedAt:row.updated_at,imported:row.imported_session_id!==null,
+    ...(includeReview?{assistantReview:assistantReview(row)}:{}),
     publishedCount:db.prepare('SELECT count(*) n FROM task_library_publications WHERE task_id=?').get(row.id).n,learning};}
   // 一次查询汇总教师全部任务的课堂记录，供任务库卡片显示完成度与学情。
   function learningSummaries(teacherId){
@@ -184,13 +217,19 @@ export function createTaskLibrary({db,sessionService}) {
     learning,
     list(teacherId){importExisting(teacherId);const summaries=learningSummaries(teacherId);
       return db.prepare('SELECT * FROM teacher_task_library WHERE teacher_id=? AND deleted_at IS NULL ORDER BY id DESC').all(teacherId).map(row=>dto(row,summaries.get(row.id)??null));},
-    get(teacherId,id){return dto(own(teacherId,id));},
-    create(teacherId,input){const config=normalize(input);sourceFor(teacherId,config,true);const result=db.prepare('INSERT INTO teacher_task_library(teacher_id,title,config_json) VALUES(?,?,?)').run(teacherId,config.taskChain.title,JSON.stringify(config));return this.get(teacherId,Number(result.lastInsertRowid));},
+    get(teacherId,id){return dto(own(teacherId,id),null,true);},
+    create(teacherId,input){return db.transaction(()=>{const config=normalize(input);sourceFor(teacherId,config,true);const reportId=decisionSource(teacherId,input);
+      const result=db.prepare('INSERT INTO teacher_task_library(teacher_id,title,config_json) VALUES(?,?,?)').run(teacherId,config.taskChain.title,JSON.stringify(config)),id=Number(result.lastInsertRowid);
+      recordDecision(teacherId,id,1,reportId,config,input.decisionNote);return this.get(teacherId,id);})();},
     update(teacherId,id,input){
       const row=own(teacherId,id);if(input.revision!==row.revision)fail('TASK_VERSION_CONFLICT','任务已被修改，请重新打开最新版本',409);
       const config=normalize(input.config);
       sourceFor(teacherId,config,true);
-      db.prepare('UPDATE teacher_task_library SET title=?,config_json=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(config.taskChain.title,JSON.stringify(config),id);
+      const reportId=decisionSource(teacherId,input,id);
+      db.transaction(()=>{
+        db.prepare('UPDATE teacher_task_library SET title=?,config_json=?,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?').run(config.taskChain.title,JSON.stringify(config),id);
+        recordDecision(teacherId,id,row.revision+1,reportId,config,input.decisionNote);
+      })();
       return this.get(teacherId,id);
     },
     remove(teacherId,id,revision){const row=own(teacherId,id);if(revision!==row.revision)fail('TASK_VERSION_CONFLICT','任务已被修改，请重新打开最新版本',409);

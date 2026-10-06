@@ -91,6 +91,7 @@ const NotesPage = lazy(() => import("./components/NotesPage.jsx")
 const LoginPortal=lazy(()=>import('./components/auth/LoginPortal.jsx').then(module=>({default:module.LoginPortal})));
 const PlatformSupport = lazy(() => import('./components/PlatformSupport.jsx').then(module=>({default:module.PlatformSupport})));
 const FeedbackPanel = lazy(() => import('./components/FeedbackPanel.jsx').then(module => ({ default: module.FeedbackPanel })));
+const StudyCompanion = lazy(() => import('./components/ai/StudyCompanion.jsx').then(module=>({default:module.StudyCompanion})));
 const StudentHome = lazy(() => import("./components/StudentHome.jsx")
   .then((module) => ({ default: module.StudentHome })));
 const StudentRecords = lazy(() => import("./components/StudentRecords.jsx")
@@ -1171,6 +1172,7 @@ export function App() {
       <div className={'app-shell lab-mode-shell'+(lab.currentChallenge?.id==='computer-components'?' lab-overview-shell':'')}>
         {renderPlatformTopbar()}
         {renderPlatformState()}
+        {renderCompanion()}
         {auth.user?.role==='student'&&<TaskChainBar viewModel={classroomSession.viewModel} onContinue={continueClassroomTask}/>}
         <ErrorBoundary fallback={(
           <LabFeatureFallback
@@ -1201,6 +1203,7 @@ export function App() {
     <div className={activeView === "teacher" ? "app-shell teacher-reference-shell" : activeView === "home" ? "app-shell home-shell" : activeView === "demo" ? "app-shell demo-mode-shell" : "app-shell"}>
       {renderPlatformTopbar()}
       {renderPlatformState()}
+      {renderCompanion()}
       {auth.user?.role==='student'&&activeView!=='home'&&activeView!=='classroom'&&<TaskChainBar viewModel={classroomSession.viewModel} onContinue={continueClassroomTask}/>}
 
       <div className="workspace">
@@ -1283,6 +1286,13 @@ export function App() {
   async function retryRoleData() {
     if(roleDataLoading)return;setRoleDataLoading(true);
     try {await loadRoleData();} catch(error) {setRoleDataError(`学习数据同步失败：${error.message}`);} finally {setRoleDataLoading(false);}
+  }
+
+  function renderCompanion() {
+    const role=auth.user?.role;
+    if(role!=='student'&&(role!=='teacher'||['teacher','question-bank'].includes(activeView)||(['records','mistakes'].includes(activeView)&&teacherReviewStudent!=='mine')))return null;
+    const title=activeView==='lab'?lab.currentChallenge?.title:navGroups.flatMap(group=>group.items).find(item=>item.id===activeView)?.label;
+    return <ErrorBoundary><Suspense fallback={null}><StudyCompanion key={auth.user.id} userId={auth.user.id} page={`${activeView}:${activeView==='lab'?lab.currentChallenge?.id:demoId??''}`} pageTitle={title??'课程页面'} chapterId={activeView==='lab'?lab.currentChallenge?.chapterId:studyTarget?.chapterId}/></Suspense></ErrorBoundary>;
   }
 
   function renderPlatformState() {

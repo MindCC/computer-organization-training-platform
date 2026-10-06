@@ -28,7 +28,9 @@ export async function verifyHardwareAssembly(page, artifactDir) {
     await page.getByRole('button', { name: '固定电源', exact: true }).click();
   }
   await prepareCase();
-  await expect(page.getByRole('button', { name: '开机自检', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '开机自检', exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: '开机自检', exact: true }).click();
+  await expect(page.locator('.assembly-action-strip')).toContainText('还缺');
   await expect(page.getByRole('button', { name: '请先完成装配与开机自检' })).toBeDisabled();
   await page.setViewportSize({ width: 1366, height: 768 });
   await workshop.scrollIntoViewIfNeeded();
@@ -89,7 +91,7 @@ export async function verifyHardwareAssembly(page, artifactDir) {
   await page.locator('[data-rack="storage"]').click();
   await page.locator('[data-socket="storage"]').click();
   await expect(page.locator('.assembly-counter strong')).toHaveText('3 / 3');
-  await expect(page.getByRole('button', { name: '开机自检', exact: true })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '开机自检', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: '固定CPU 散热器', exact: true }).click();
   await page.getByRole('combobox', { name: '目标接口', exact: true }).selectOption('cpu-power');
   await page.getByRole('button', { name: '连接接口', exact: true }).click();

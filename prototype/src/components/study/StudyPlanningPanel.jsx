@@ -14,7 +14,7 @@ export function StudyPlanningPanel({ onOpenChallenge, onOpenStudyTarget }) {
   const newPlan = suggestion => setEditor({ title: suggestion?.title ?? '', date: today(), minutes: suggestion?.minutes ?? 25, target: suggestion?.target ?? { kind: 'custom' } });
   function openTarget(target) {
     if (target.kind === 'lab') onOpenChallenge(target.id);
-    else if (target.kind === 'coach') onOpenChallenge('full-adder');
+    else if (target.kind === 'coach') onOpenChallenge(target.challengeId??'full-adder');
     else if (target.kind === 'chapter') onOpenStudyTarget({ source: 'practice', chapterId: target.id });
     else if (target.kind === 'assignment') onOpenStudyTarget({ source: 'assignment', assignmentId: target.id });
   }

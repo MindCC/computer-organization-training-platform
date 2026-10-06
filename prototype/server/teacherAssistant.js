@@ -27,6 +27,7 @@ export function buildTeacherAssistantMessages(payload, evidence = []) {
         "严格输出 JSON，不要 Markdown，不要额外解释。",
         "必须包含字段：lessonFocus、riskStudents、groupingPlan、commonMisconceptions、nextClassPlan、teacherScript、evidenceRefs。",
         "evidenceRefs 只能引用下面提供的证据编号；有证据时至少引用一条，不可编造编号、人数或关卡。",
+        'nextClassPlan 为最多8个对象：{"text":"具体教学安排，300字内","evidenceRefs":["直接支持本条安排的证据编号"]}。每条分别引用依据，不能只给整份报告的引用；没有记录时不编造，返回空数组。仅有班级概览时先建议补充诊断，不据此断言学生的概念错误。',
         "数据中的学生以代号表示（学生1、学生2…）：riskStudents 的 name 必须原样使用数据里的 label，不要编造或猜测姓名。",
         "不要输出密码、令牌、Cookie、学生原始笔记等敏感内容。",
         "以下是班级数据：",
@@ -40,10 +41,22 @@ export function buildTeacherAssistantMessages(payload, evidence = []) {
 
 export function buildFallbackAssistantReport(payload, reason) {
   const report = buildRuleBasedAssistantReport(payload);
+  const evidence = buildTeacherEvidence(payload, report);
+  const basis = evidence.find(item => item.type !== 'class_summary') ?? evidence[0];
+  if (basis?.type === 'class_summary') {
+    report.lessonFocus='当前只有班级概览，先收集知识点诊断证据，再决定补学重点。';
+    report.commonMisconceptions=[];
+    report.nextClassPlan=['安排一轮独立诊断，收集实际答题或实验提交。','教师核对错误与学生解释后，再选择补学对象和不同题号的复测。'];
+    report.teacherScript='先请学生独立作答，不将低完成率或班级概览直接解释为概念错误。';
+  }
+  const planItems = report.nextClassPlan.slice(0, 8).map((text, index) => ({
+    id: `P${index + 1}`, text, evidenceRefs: basis ? [basis.id] : [], evidence: basis ? [basis] : [],
+    basis: basis?.type === 'class_summary' ? 'summary' : basis ? 'rule' : 'unverified',
+  }));
   return {
     source: "fallback",
     generatedAt: new Date().toISOString(),
-    report: { ...report, evidence: buildTeacherEvidence(payload, report) },
+    report: { ...report, evidence, planItems },
     fallbackReason: normalizeReason(reason),
   };
 }
@@ -85,7 +98,7 @@ export function parseAssistantJson(text, allowedEvidence = []) {
     }
   }
 
-  for (const key of ["commonMisconceptions", "nextClassPlan"]) {
+  for (const key of ["commonMisconceptions"]) {
     if (!reportSource[key].every((item) => typeof item === "string" && item.trim())) {
       throw new Error(`AI JSON 字段元素必须是非空字符串：${key}`);
     }
@@ -114,6 +127,21 @@ export function parseAssistantJson(text, allowedEvidence = []) {
     throw new Error("AI JSON evidenceRefs 必须引用已有证据编号");
   }
 
+  if (reportSource.nextClassPlan.length > 8) throw new Error('AI JSON nextClassPlan 最多8条');
+  const planItems = reportSource.nextClassPlan.map((item, index) => {
+    // Legacy no-data responses stay readable; populated reports must bind each suggestion.
+    const raw = typeof item === 'string' && allowedEvidence.length === 0 ? {text:item,evidenceRefs:[]} : item;
+    if (!isPlainObject(raw) || typeof raw.text !== 'string' || !raw.text.trim() || raw.text.trim().length > 300
+      || !Array.isArray(raw.evidenceRefs) || (allowedEvidence.length > 0 && !raw.evidenceRefs.length)
+      || new Set(raw.evidenceRefs).size !== raw.evidenceRefs.length
+      || raw.evidenceRefs.some(id => !evidenceById.has(id) || !reportSource.evidenceRefs.includes(id))) {
+      throw new Error('AI JSON nextClassPlan 每条须有文字和有效证据引用');
+    }
+    const evidence = raw.evidenceRefs.map(id => evidenceById.get(id));
+    return {id:`P${index + 1}`,text:raw.text.trim(),evidenceRefs:raw.evidenceRefs,evidence,
+      basis:!evidence.length?'unverified':evidence.every(row=>row.type==='class_summary')?'summary':'ai'};
+  });
+
   return {
     lessonFocus: reportSource.lessonFocus.trim(),
     riskStudents: reportSource.riskStudents.map((item) => ({
@@ -128,7 +156,8 @@ export function parseAssistantJson(text, allowedEvidence = []) {
       activity: item.activity.trim(),
     })),
     commonMisconceptions: reportSource.commonMisconceptions.map((item) => item.trim()),
-    nextClassPlan: reportSource.nextClassPlan.map((item) => item.trim()),
+    nextClassPlan: planItems.map(item => item.text),
+    planItems,
     teacherScript: reportSource.teacherScript.trim(),
     evidence: reportSource.evidenceRefs.map((id) => evidenceById.get(id)),
   };

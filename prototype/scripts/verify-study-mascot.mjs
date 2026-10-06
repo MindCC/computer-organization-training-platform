@@ -9,6 +9,7 @@ page.on('pageerror',error=>errors.push(error.message));
 const nav=label=>({click:()=>clickTopNavItem(page,label)});
 try {
   await gotoApp(page,app); await fillLoginForm(page,{username:'demo2026001',password:'Student123!'}); await submitLoginForm(page);
+  await expect(page.getByTestId('study-companion')).toBeVisible();
   await nav('课后作业').click();
   const row=page.locator('.practice-question').first(); await expect(row).toBeVisible();
   await row.locator('.study-mascot-trigger').click();
