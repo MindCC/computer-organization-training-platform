@@ -12,7 +12,7 @@
 #   PORT=8787              后端端口（Nginx 反代到这个端口）
 #   SERVER_NAME=_          Nginx server_name（有域名就填域名，否则保持 _）
 #   ENABLE_TLS=0           置 1 时给 cookie 加 Secure 标记（配合 HTTPS）
-#   SEED_DEMO=1            首次部署时播种演示班级（demo2026001 / Student123!）
+#   SEED_DEMO=1            首次部署时准备互相关联的演示教师和学生
 #   INSTALL_NODE=0         置 1 时用 NodeSource 自动安装 Node 22
 #   SKIP_NGINX=0           置 1 时不动 Nginx 配置
 #   SKIP_BUILD=0           置 1 时跳过 vite build（dist 已由本机打包上传时用）
@@ -128,7 +128,7 @@ if ! sudo -u "$APP_USER" -H env DATABASE_PATH="$DATABASE_PATH" node -e '
 fi
 
 if [ "$SEED_DEMO" = "1" ]; then
-  log "播种演示班级（40 名学生，演示账号 demo2026001 / Student123!）"
+  log "准备演示教师、演示学生和共享班级"
   sudo -u "$APP_USER" -H env DATABASE_PATH="$DATABASE_PATH" npm run seed:demo
 fi
 
@@ -180,7 +180,7 @@ cat <<EOF
 
   访问地址   http://<服务器公网 IP>/            （已配 Nginx 时）
              或 http://<服务器公网 IP>:$PORT/   （直连后端时）
-  演示账号   demo2026001 / Student123!          （学生，含演示班级学情）
+  演示入口   登录页「教师演示」/「学生演示」       （共享同一个演示班级）
   教师账号   teacher / ChangeMe123!             （务必尽快改密码）
   数据文件   $DATABASE_PATH
   环境变量   $ENV_FILE

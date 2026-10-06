@@ -1,0 +1,1 @@
+case_id,method,model_version,output_artifact,facts_correct,citation_support,actionable,answer_leak,tool_valid,fallback_triggered,latency_ms,review_notes

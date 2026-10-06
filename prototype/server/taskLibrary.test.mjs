@@ -4,6 +4,7 @@ import { openDatabase, migrate, createUser, createClass, addStudentToClass } fro
 import { createClassroomSessionService } from './classroomSessionService.js';
 import { createClassroomSessionRepository } from './classroomSessionRepository.js';
 import { createTaskLibrary } from './taskLibrary.js';
+import { saveAssistantReport, readAssistantReport } from './teacherAssistantHistory.js';
 
 function setup(){
   const db=openDatabase(':memory:');migrate(db);
@@ -27,6 +28,42 @@ test('task library CRUD isolates owners, retains positions and detects stale rev
     assert.throws(()=>c.library.update(c.teacher.id,task.id,{revision:1,config:c.config}),/已被修改/);
     assert.throws(()=>c.library.remove(c.other.id,task.id,2),/不存在/);
     c.library.remove(c.teacher.id,task.id,2);assert.equal(c.library.list(c.teacher.id).length,0);
+  }finally{c.db.close();}
+});
+
+test('task adoption rejects an assistant report that does not exist',()=>{
+  const c=setup();try {
+    assert.throws(()=>c.library.create(c.teacher.id,{...c.config,assistantReportId:999999}),/建议来源/);
+    assert.equal(c.library.list(c.teacher.id).length,0);
+  }finally{c.db.close();}
+});
+
+test('adoption preserves a server snapshot, revisions and publication without exposing it to students',()=>{
+  const c=setup();try {
+    const report={source:'fallback',generatedAt:'2026-10-06T00:00:00.000Z',report:{lessonFocus:'原始重点',nextClassPlan:['原始步骤'],teacherScript:'原始提示',evidence:[{id:'E1',label:'私人错误证据',studentIds:[c.student.id]}]}};
+    const saved=saveAssistantReport(c.db,c.teacher.id,c.cls.id,report);
+    assert.throws(()=>readAssistantReport(c.db,c.other.id,saved.reportId),/建议来源/);
+    assert.throws(()=>c.library.create(c.other.id,{...c.config,assistantReportId:saved.reportId}),/建议来源/);
+    report.report.lessonFocus='客户端伪造';
+    const config={...c.config,lessonPlan:{focus:'教师修订重点',steps:['独立复测'],teacherScript:'原始提示'}};
+    const task=c.library.create(c.teacher.id,{...config,assistantReportId:saved.reportId,decisionNote:'先补充独立诊断',sourceReport:report});
+    assert.equal(task.assistantReview.report.report.lessonFocus,'原始重点');
+    assert.equal(task.assistantReview.decisions[0].note,'先补充独立诊断');
+    assert.deepEqual(task.assistantReview.decisions[0].changedFields,['focus','steps']);
+    const updated=c.library.update(c.teacher.id,task.id,{revision:1,config:{...config,lessonPlan:{...config.lessonPlan,teacherScript:'观察反例再提示'}},decisionNote:'增加反例讨论'});
+    assert.equal(updated.assistantReview.decisions.length,2);
+    assert.equal(updated.assistantReview.decisions[1].lessonPlan.teacherScript,'原始提示');
+    assert.throws(()=>c.library.update(c.teacher.id,task.id,{revision:1,config}),/已被修改/);
+    assert.equal(c.library.get(c.teacher.id,task.id).assistantReview.decisions.length,2);
+    const second=saveAssistantReport(c.db,c.teacher.id,c.cls.id,report);
+    assert.throws(()=>c.library.update(c.teacher.id,task.id,{revision:2,config,assistantReportId:second.reportId}),/不能替换/);
+    assert.throws(()=>c.library.update(c.teacher.id,task.id,{revision:2,config,decisionNote:{text:'伪造'}}),/调整说明/);
+    const publication=c.library.publish(c.teacher.id,task.id,{classId:c.cls.id,revision:2,clientSubmissionId:'publish-assistant-audit'});
+    assert.equal(c.library.get(c.teacher.id,task.id).assistantReview.publications[0].revision,2);
+    assert.equal(c.library.get(c.teacher.id,task.id).assistantReview.publications[0].sessionId,publication.session.id);
+    c.service.enterStudent({studentId:c.student.id,sessionId:publication.session.id});
+    assert.doesNotMatch(JSON.stringify(c.service.getStudentCurrent({studentId:c.student.id})),/私人错误证据|sourceReport|assistantReview|reportId/);
+    assert.equal(c.library.list(c.teacher.id)[0].assistantReview,undefined,'list must not return private report snapshots');
   }finally{c.db.close();}
 });
 test('publication is atomic and idempotent; library changes cannot alter classroom evidence',()=>{

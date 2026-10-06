@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { createApp } from './app.js';
 import { hashPassword, verifyPassword } from './auth.js';
-import { createClass, createUser, getUserById, getUserByUsername, migrate, openDatabase, recordStudentAttempt } from './db.js';
+import { addStudentToClass, createClass, createUser, getUserById, getUserByUsername, migrate, openDatabase, recordStudentAttempt } from './db.js';
 import { isDemoLoginEnabled } from './demoAccounts.js';
 
 async function fixture(options = {}) {
@@ -34,6 +34,15 @@ test('selected login identity is enforced without creating a wrong-role session'
     }
     const teacherJar = await f.login('teacher-formal', 'teacher');
     assert.equal((await f.request('/api/auth/me', undefined, teacherJar, 'GET')).body.user.role, 'teacher');
+    const adminStudent = await f.request('/api/auth/login', { username: 'admin', password: 'admin123', role: 'student' });
+    assert.equal(adminStudent.status, 403);
+    assert.equal(adminStudent.cookie, null);
+    assert.match(adminStudent.body.error, /教师入口/);
+    const adminJar = {};
+    const adminTeacher = await f.request('/api/auth/login', { username: 'admin', password: 'admin123', role: 'teacher' }, adminJar);
+    assert.equal(adminTeacher.status, 200);
+    assert.equal(adminTeacher.body.user.role, 'admin');
+    assert.equal((await f.request('/api/auth/me', undefined, adminJar, 'GET')).body.user.role, 'admin');
   } finally { await f.close(); }
 });
 
@@ -52,6 +61,51 @@ test('two demo identities use isolated demo ownership and never expose a managem
     const overview = await f.request(`/api/teacher/classes/${classes.body.classes[0].id}/overview`, undefined, teacherJar, 'GET');
     assert.equal(overview.status, 200); assert.equal(overview.body.students[0].id, s.body.user.id);
     assert.equal((await f.request(`/api/teacher/classes/${f.formalClass.id}/overview`, undefined, teacherJar, 'GET')).status, 404);
+  } finally { await f.close(); }
+});
+
+test('demo teacher publishes to the shared class and the demo student can see the homework', async () => {
+  const f = await fixture();
+  try {
+    const teacherJar = {}, studentJar = {};
+    const teacherLogin = await f.request('/api/auth/demo-login', { role: 'teacher' }, teacherJar);
+    const studentLogin = await f.request('/api/auth/demo-login', { role: 'student' }, studentJar);
+    assert.equal(teacherLogin.status, 200);
+    assert.equal(studentLogin.status, 200);
+    const classes = await f.request('/api/teacher/classes', undefined, teacherJar, 'GET');
+    assert.equal(classes.body.classes.length, 1);
+    const classId = classes.body.classes[0].id;
+    const overview = await f.request(`/api/teacher/classes/${classId}/overview`, undefined, teacherJar, 'GET');
+    assert.deepEqual(overview.body.students.map((student) => student.id), [studentLogin.body.user.id]);
+    const draft = await f.request(`/api/teacher/classes/${classId}/assignments`, { title: '演示作业', description: '班级关联检查' }, teacherJar);
+    assert.equal(draft.status, 201);
+    const assignmentId = draft.body.assignment.id;
+    await f.request(`/api/teacher/assignments/${assignmentId}/questions`, {
+      type: 'choice', stem: 'CPU 是什么？', options: ['处理器', '硬盘'], answer: '处理器', score: 10,
+    }, teacherJar);
+    assert.deepEqual((await f.request('/api/student/assignments', undefined, studentJar, 'GET')).body.assignments, []);
+    assert.equal((await f.request(`/api/teacher/assignments/${assignmentId}/publish`, {}, teacherJar)).status, 200);
+    const visible = await f.request('/api/student/assignments', undefined, studentJar, 'GET');
+    assert.deepEqual(visible.body.assignments.map((assignment) => assignment.id), [assignmentId]);
+    assert.equal((await f.request(`/api/student/assignments/${assignmentId}`, undefined, studentJar, 'GET')).status, 200);
+    const formalStudent = await f.login('student-formal', 'student');
+    assert.deepEqual((await f.request('/api/student/assignments', undefined, formalStudent, 'GET')).body.assignments, []);
+  } finally { await f.close(); }
+});
+
+test('legacy seeded classmates are removed from the one-click demo class roster', async () => {
+  const f = await fixture();
+  try {
+    const teacherJar = {};
+    await f.request('/api/auth/demo-login', { role: 'teacher' }, teacherJar);
+    const classId = (await f.request('/api/teacher/classes', undefined, teacherJar, 'GET')).body.classes[0].id;
+    const oldStudent = createUser(f.db, { username: 'demo2026002', displayName: '演示学生2', role: 'student', passwordHash: f.passwordHash, profile: { seeded: true } });
+    addStudentToClass(f.db, classId, oldStudent.id);
+    await f.request('/api/auth/demo-login', { role: 'student' });
+    const overview = await f.request(`/api/teacher/classes/${classId}/overview`, undefined, teacherJar, 'GET');
+    assert.equal(overview.body.students.length, 1);
+    assert.notEqual(overview.body.students[0].id, oldStudent.id);
+    assert.ok(getUserById(f.db, oldStudent.id));
   } finally { await f.close(); }
 });
 

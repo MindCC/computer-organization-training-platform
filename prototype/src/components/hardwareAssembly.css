@@ -10,9 +10,9 @@
 .assembly-workshop.focused .assembly-viewport { height: 100%; }
 .assembly-workshop.focused .assembly-console { padding: 8px 16px; }
 .assembly-workshop.focused .assembly-structure-controls { padding: 7px 16px; gap: 6px; }
-.assembly-workshop.focused .assembly-cable-controls { display: none; }
+.assembly-workshop.focused .assembly-cable-controls { display: flex; gap: 6px; }
 .assembly-workshop.focused .assembly-part-tabs button { padding: 5px 6px; }
-.assembly-workshop.focused .assembly-power-controls small { display: none; }
+.assembly-workshop.focused .assembly-power-controls small { display: block; font-size: 10px; }
 .assembly-workshop.focused .assembly-guide { max-width: 240px; padding: 8px; }
 .assembly-connector-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .assembly-connector-layer[hidden] { display: none; }

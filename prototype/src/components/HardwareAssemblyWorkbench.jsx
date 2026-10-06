@@ -8,6 +8,8 @@ import { ASSEMBLY_PARTS, assemblyCheck, assemblySignature, installPart, reconcil
 import './hardwareAssembly.css';
 import { loadAssemblyDraft, saveAssemblyDraft } from '../assemblyDraft.js';
 import { practiceNextStep, practiceBootFeedback } from '../assemblyPractice.js';
+import { assemblyHelp } from '../assemblyHelp.js';
+import { useCurrentStudyContext } from './ai/currentStudyContext.js';
 
 const BOOT_STEPS = ['供电正常 · 主板已通电', 'CPU / 内存自检通过', '存储设备已识别', '显示输出就绪 · 系统启动成功'];
 
@@ -22,6 +24,8 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   const [selectedConnector,setSelectedConnector]=useState(null);
   const [saved, setSaved] = useState(false);
   const [boot, setBoot] = useState(null);
+  const [lastAction,setLastAction]=useState(null);
+  const actionSequence=useRef(0);
   const [cameraPreset, setCameraPreset] = useState('perspective');
   const [resetKey, setResetKey] = useState(0);
   const [showGuide, setShowGuide] = useState(true);
@@ -44,6 +48,10 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   const practiceDone=Boolean(practiceMode&&powered);
   const nextStep=practiceMode?practiceNextStep(validInstalled,validStructure,parts):null;
   const hintsVisible=!expert || hintSignature===signature;
+  const currentAction=lastAction?.selectionKey===selectionKey&&lastAction?.draftKey===draftKey?lastAction.evidence:null;
+  const assembly={selection:parts,installed:validInstalled,structure:validStructure,powered,booting,lastAction:currentAction};
+  const help = assemblyHelp(assembly);
+  useCurrentStudyContext({kind:'assembly',title:'装机实验室',assembly,expert:expert&&!hintsVisible});
   const active = ASSEMBLY_PARTS.find(part => part.id === activeCategory) ?? ASSEMBLY_PARTS[0];
   const priorCategory = useRef(active.id);
   useEffect(() => {
@@ -71,56 +79,62 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
   useEffect(()=>{if(powered){setMessage('主机已立放在桌旁，显示器显示开机成功。');actionFeedback.current?.({type:'ready'});}},[powered]);
   useEffect(()=>{if(powered && practiceMode && !completionLogged.current){completionLogged.current=true;onPracticeEvent?.({type:'complete'});}},[powered,practiceMode,onPracticeEvent]);
   function invalidate() { setBoot(null); completionLogged.current=false;onAssemblyReady?.(null); }
-  function feedback(result) {setMessage(result.message);onPracticeEvent?.({type:'action',ok:result.ok,message:result.message});actionFeedback.current?.(result);}
+  function rememberAction(result,action){if(action)setLastAction({selectionKey,draftKey,evidence:{...action,ok:result.ok,code:result.ok?'ok':result.code,sequence:++actionSequence.current}});}
+  function feedback(result,action) {rememberAction(result,action);setMessage(result.message);onPracticeEvent?.({type:'action',ok:result.ok,message:result.message});actionFeedback.current?.(result);}
   function selectPart(part){onCategoryChange(part.id);setMessage(expert?'已选择'+part.label+'，请判断安装位置。':part.hint);}
   function startBoot(){
     if(booting)return;
-    if(powered){invalidate();setMessage('已关机，可以继续调整配置。');return;}
-    if(!ready){if(practiceMode)feedback({ok:false,message:practiceBootFeedback(validInstalled,validStructure,parts)});return;}
+    if(powered){invalidate();setLastAction(null);setMessage('已关机，可以继续调整配置。');return;}
+    if(!ready){feedback({ok:false,code:'boot-blocked',message:practiceMode?practiceBootFeedback(validInstalled,validStructure,parts):help.summary+' 下一步：'+help.steps[0]},{kind:'boot'});return;}
     setCableMode(false);setSelectedConnector(null);
     actionFeedback.current?.({type:'power'});
+    rememberAction({ok:true},{kind:'boot'});
     setBoot({signature,step:0});setMessage('主机正在立起并移到桌旁，稍候查看显示器上的开机结果。');
   }
   function install(category, socket) {
     if (booting || powered) return;
-    if (!validStructure.open || !validStructure.motherboard) { feedback({ok:false,message:'请先打开侧板并固定主板。'}); return; }
+    const action={kind:'install',source:category,target:socket};
+    if (!validStructure.open || !validStructure.motherboard) { feedback({ok:false,code:!validStructure.open?'cover-closed':'motherboard-missing',message:'请先打开侧板并固定主板。'},action); return; }
     const result = installPart(validInstalled, parts, category, socket);
-    feedback(expert&&!result.ok?{...result,message:'安装未完成，请检查部件、插槽和方向。'}:result);
+    feedback(expert&&!result.ok?{...result,message:'安装未完成，请检查部件、插槽和方向。'}:result,action);
     if (result.ok) { setInstalled(result.installed); invalidate(); }
   }
   function remove(category) {
     if(booting||practiceDone)return;
-    if (!validStructure.open) { feedback({ok:false,message:'请先打开侧板。'}); return; }
-    if (category === 'cpu' && validStructure.cooler) { feedback({ok:false,message:'请先拆下 CPU 散热器。'}); return; }
+    const action={kind:'remove',source:category};
+    if (!validStructure.open) { feedback({ok:false,code:'cover-closed',message:'请先打开侧板。'},action); return; }
+    if (category === 'cpu' && validStructure.cooler) { feedback({ok:false,code:'remove-cooler-first',message:'请先拆下 CPU 散热器。'},action); return; }
+    rememberAction({ok:true},action);
     const next = { ...validInstalled }; delete next[category];
     setInstalled(next); invalidate(); setMessage('部件已放回工作台。更换或重新安装后，请再次开机自检。');
   }
   function changeStructure(id, value) {
     if (booting || powered) return;
     const result = structureAction(validStructure, id, value, validInstalled, parts);
-    feedback(result);
+    feedback(result,{kind:'structure',target:id,value:Boolean(value)});
     if (result.ok) { setStructure(result.state); invalidate(); }
   }
   function connect() {
     if (booting || powered) return;
     const result = connectCable(validStructure, cableFrom, cableTo, validInstalled, parts);
-    feedback(result);
+    feedback(result,{kind:'connect',source:cableFrom,target:cableTo});
     if (result.ok) { setStructure(result.state); invalidate(); }
   }
   function pickConnector(id) {
     if(booting || powered || !validStructure.open)return;
     const cable=CABLES.find(c=>c.from===id);
     if(cable){setSelectedConnector(id);setCableFrom(id);setMessage('已拿起'+cable.fromLabel+'，请点击主机上的目标接口。');return;}
-    if(!selectedConnector){setMessage('请先点击线缆插头。');return;}
+    if(!selectedConnector){feedback({ok:false,code:'select-source-first',message:'请先点击线缆插头。'},{kind:'connect',target:id});return;}
     const result=connectCable(validStructure,selectedConnector,id,validInstalled,parts);
-    setCableTo(id);feedback(result);
+    setCableTo(id);feedback(result,{kind:'connect',source:selectedConnector,target:id});
     if(result.ok){setStructure(result.state);setSelectedConnector(null);invalidate();}
   }
   function changeVariant(value) {
-    if(requireRemoval&&validInstalled[active.id]){setMessage('请先拆下原有部件，再选择新型号。');return;}
+    if(requireRemoval&&validInstalled[active.id]){feedback({ok:false,code:'removal-required',message:'请先拆下原有部件，再选择新型号。'},{kind:'replace',source:active.id});return;}
     if(booting||practiceDone)return;
     invalidate();
     const next = { ...validInstalled }; delete next[active.id]; setInstalled(next);
+    setLastAction({selectionKey:JSON.stringify({...parts,[active.id]:value}),draftKey,evidence:{kind:'replace',source:active.id,ok:true,code:'ok',sequence:++actionSequence.current}});
     onPartChange(current => ({ ...current, [active.id]: value })); setMessage('型号已更换。请将新的部件装入机箱。');
   }
   const sceneState = useMemo(() => ({ visiblePartIds: COMPUTER_PARTS.map(part => part.id), selectedPartId: active.sceneId,
@@ -136,7 +150,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
     <div className="assembly-viewport">
       <NativeComputerScene assembly viewState={sceneState} onInstall={install} onConnector={pickConnector} onPartSelect={sceneId => { const part = ASSEMBLY_PARTS.find(part => part.sceneId === sceneId); if (part) selectPart(part); }} fallback={<div className="assembly-fallback"><Cube size={40} /><strong>当前设备无法启动 3D 场景</strong><p>可以用下方的部件选择与安装操作完成教学练习。</p></div>} />
       <div className="assembly-scene-heading"><span className="assembly-live-dot" />{powered ? 'SYSTEM ONLINE' : booting ? 'SYSTEM STARTING' : 'ASSEMBLY MODE'}<small>{bootCurrent ? '主机立放 · 查看显示器上的启动结果' : <>{validStructure.open ? '侧板已打开' : '先打开侧板'} · {validStructure.motherboard ? '主板已固定' : '主板待固定'} · {validStructure.psu ? '电源已固定' : '电源待固定'}</>}</small></div>
-      <div className="assembly-counter"><strong>{status.installed}<span> / {status.total}</span></strong><small>部件已安装</small></div>
+      <div className="assembly-counter"><strong>{status.installed}<span> / {status.total}</span></strong><small>部件已安装 · 接线 {help.cables}/{CABLES.length}</small></div>
       {showGuide && hintsVisible && !bootCurrent && !cableMode && <div className="assembly-guide"><Hand size={20} /><span><strong>{active.label+' · '+active.socket}</strong><small>{active.hint+' 拖动或点击安装，空白处左键拖动旋转，中键拖动平移，滚轮缩放。'}</small></span></div>}
       {bootCurrent && <div className={'assembly-boot' + (powered ? ' online' : '')} role="status"><Power size={25} /><strong>{powered ? '开机成功' : '正在开机自检…'}</strong><div>{BOOT_STEPS.slice(0, boot.step).map(line => <p key={line}>✓ {line}</p>)}</div>{powered && <small>{practiceMode?'练习已完成，请查看下方复盘或开始新一轮。':score.passed ? '装配与订单要求均已满足，可以交付。' : '装配正常，客户配置要求仍需调整。'}</small>}</div>}
       <div className="assembly-scene-footer"><span>WORKBENCH A · 防静电工作台</span><span>{practiceMode?practicePersistence:saved ? '本机进度已保存 · 开机状态不保留' : '进度仅在本次操作中保留'}</span></div>
@@ -156,7 +170,7 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
         <label>目标接口<select aria-label="目标接口" disabled={booting || powered} value={cableTo} onChange={e => setCableTo(e.target.value)}>{expert&&<option value="">选择目标接口</option>}{CABLES.map(c => <option key={c.id} value={c.to}>{c.toLabel}</option>)}</select></label>
         <button type="button" disabled={booting || powered} onClick={connect}>连接接口</button>
       </div>
-      <div className="assembly-cable-list">{CABLES.map(c => <button type="button" key={c.id} disabled={!validStructure.cables[c.id] || booting || powered || !validStructure.open} onClick={() => { const cables = { ...validStructure.cables }; delete cables[c.id]; setStructure({ ...validStructure, cables }); invalidate(); setMessage(c.label + '已断开。'); }}>{validStructure.cables[c.id] ? '✓ ' : '○ '}{c.label}{validStructure.cables[c.id] ? ' · 断开' : ''}</button>)}</div>
+      <div className="assembly-cable-list">{CABLES.map(c => <button type="button" key={c.id} disabled={!validStructure.cables[c.id] || booting || powered || !validStructure.open} onClick={() => { const cables = { ...validStructure.cables }; delete cables[c.id]; setStructure({ ...validStructure, cables }); invalidate(); feedback({ok:true,message:c.label + '已断开。'},{kind:'disconnect',source:c.from,target:c.to}); }}>{validStructure.cables[c.id] ? '✓ ' : '○ '}{c.label}{validStructure.cables[c.id] ? ' · 断开' : ''}</button>)}</div>
     </div>
     <div className="assembly-console"><div className="assembly-parts-controls">
       <div className="assembly-part-tabs" aria-label="选择装配部件">{ASSEMBLY_PARTS.map((part, index) => <button type="button" key={part.id} aria-pressed={active.id === part.id} onClick={() => selectPart(part)}><span>{validInstalled[part.id] || part.id === 'gpu' && integrated ? <CheckCircle size={17} weight="fill" /> : '0' + (index + 1)}</span>{part.label}<small>{part.id === 'gpu' && integrated ? 'CPU 集显' : validInstalled[part.id] ? '已安装' : '待安装'}</small></button>)}</div>
@@ -169,9 +183,9 @@ export function HardwareAssemblyWorkbench({ parts, onPartChange, score, activeCa
           </>:<button className="assembly-secondary" type="button" disabled={booting||powered} onClick={()=>install(active.id,active.id)}>安装到{active.socket}</button>}
       </div>
     </div><div className="assembly-power-controls">
-      <button type="button" className={'assembly-power'+(powered?' online':'')} disabled={(!practiceMode&&!ready)||booting||practiceDone} onClick={startBoot}><Power size={21}/>{practiceDone?'自检通过':powered?'关闭电源':booting?'自检中…':'开机自检'}</button>
+      <button type="button" className={'assembly-power'+(powered?' online':'')} disabled={booting||practiceDone} onClick={startBoot}><Power size={21}/>{practiceDone?'自检通过':powered?'关闭电源':booting?'自检中…':'开机自检'}</button>
       {!practiceMode&&powered&&onDeliver&&<button type="button" className="assembly-deliver" disabled={deliveryPending} onClick={()=>{setFocused(false);onDeliver(selectionKey);}}>{deliveryPending?'正在交付…':'交付这台电脑'}<CheckCircle size={18}/></button>}
-      <small>{practiceDone?'本轮已完成，可查看复盘或重新练习。':expert&&!hintsVisible?'自行检查装配，再尝试开机自检。':ready?'装配与必要连接已完成，可以开机自检':'还需完成：'+[...status.missing.map(id=>ASSEMBLY_PARTS.find(part=>part.id===id).label),...structuralStatus.missing].join('、')}</small>
+      <small role="status">{practiceDone?'本轮已完成，可查看复盘或重新练习。':expert&&!hintsVisible?'自行检查装配，再尝试开机自检。':ready?help.summary:`接线 ${help.cables}/5 · 待完成 ${help.missing.length} 项。点击自检查看缺项。`}</small>
     </div></div>
   </section>;
 }

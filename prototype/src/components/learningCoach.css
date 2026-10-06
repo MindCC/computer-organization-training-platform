@@ -13,3 +13,6 @@
 .coach-follow-up-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 12px; }
 .coach-follow-up-grid>div { display: grid; align-content: start; gap: 7px; }
 .coach-follow-up-grid button { justify-self: start; }
+.coach-answer-fields input { box-sizing:border-box; min-width:0; max-width:100%; min-height:38px; border:1px solid #cadbe1; border-radius:7px; padding:7px 10px; font:inherit; }
+.coach-answer-fields label { max-width:100%; overflow-wrap:anywhere; }
+.coach-retest legend { overflow-wrap:anywhere; }

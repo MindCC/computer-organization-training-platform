@@ -4,12 +4,14 @@ import { hostedDemoOf } from "../shared/demoNavigation.js";
 import { COURSE_CHAPTERS } from "../courseChapters.js";
 import { parameterExperimentForChapter } from "../parameterExperiments.js";
 import { ParameterPlayground } from "./ParameterPlayground.jsx";
+import { useCurrentStudyContext } from './ai/currentStudyContext.js';
 import "./demoPage.css";
 
 export function DemoPage({ demoId, changeView, openStudyTarget, role }) {
   const demo = hostedDemoOf(demoId);
   const [loaded,setLoaded] = useState(false);
   const [activeMode, setActiveMode] = useState("principles");
+  useCurrentStudyContext({kind:'demo',title:demo?.title??'课程互动演示',publicContext:{chapterId:demo?.chapterId},summary:`当前是${activeMode==='parameters'?'性能参数实验':'原理演示'}，可围绕本章概念和观察到的现象提问。`});
   useEffect(() => { setLoaded(false); setActiveMode("principles"); }, [demoId]);
   const parentView = demoId === "courseware" ? "courseware" : "demos";
   const backLabel = parentView === "demos" ? "返回互动演示" : "返回AI讲演";

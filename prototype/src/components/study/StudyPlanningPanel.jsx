@@ -16,7 +16,7 @@ export function StudyPlanningPanel({ onOpenChallenge, onOpenStudyTarget, allowNa
     // 学习记录页只做展示：不允许从这里跳到实验/任务/作业（用户决定 2026-10-05）
     if (allowNavigation === false) return;
     if (target.kind === 'lab') onOpenChallenge(target.id);
-    else if (target.kind === 'coach') onOpenChallenge('full-adder');
+    else if (target.kind === 'coach') onOpenChallenge(target.challengeId??'full-adder');
     else if (target.kind === 'chapter') onOpenStudyTarget({ source: 'practice', chapterId: target.id });
     else if (target.kind === 'assignment') onOpenStudyTarget({ source: 'assignment', assignmentId: target.id });
   }

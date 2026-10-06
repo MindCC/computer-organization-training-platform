@@ -54,9 +54,9 @@ export function TaskLibrary({classes,classId,onPublished,onOpenClassroom,onOpenL
   useEffect(()=>{load();},[]);
   useEffect(()=>{if(initialPlan)setEditor({task:null});},[initialPlan]);
   async function open(task,edit){if(pending.current)return;pending.current=true;setBusy(true);setError('');try{const data=await api.taskLibraryDetail(task.id);if(edit)setEditor({task:data.task});else setDetail(data.task);}catch(cause){setError(cause.message);}finally{setBusy(false);pending.current=false;}}
-  async function save(config){
+  async function save(config,decision={}){
     const task=editor?.task;
-    const data=task?await api.updateLibraryTask(task.id,{revision:task.revision,config}):await api.createLibraryTask(config);
+    const data=task?await api.updateLibraryTask(task.id,{revision:task.revision,config,...decision}):await api.createLibraryTask({...config,...decision});
     setEditor(null);setMessage(`已保存「${data.task.title}」，可以从任务库发布。`);onPlanCreated?.();await load();
   }
   async function remove(){if(pending.current)return;pending.current=true;setBusy(true);setError('');try{await api.deleteLibraryTask(removing.id,removing.revision);setMessage(`已删除「${removing.title}」。`);setRemoving(null);await load();}catch(cause){setError(cause.message);}finally{setBusy(false);pending.current=false;}}
@@ -64,7 +64,7 @@ export function TaskLibrary({classes,classId,onPublished,onOpenClassroom,onOpenL
     const data=await api.publishLibraryTask(publishing.task.id,{classId:publishing.classId,revision:publishing.task.revision,clientSubmissionId:publishing.key,...(publishing.targetStudentIds?{targetStudentIds:publishing.targetStudentIds}:{})});
     setPublishing(null);await load();onPublished(data.session);
   }catch(cause){setError(`发布失败：${cause.message}`);}finally{setBusy(false);pending.current=false;}}
-  if(editor)return <TaskChainBuilder key={editor.task?.id??'new'} initialConfig={editor.task?.config??editor.config} editing={Boolean(editor.task)} libraryMode initialPlan={initialPlan} classId={editor.classId??classId} onCancel={()=>{setEditor(null);onPlanCreated?.();}} onOpenLab={onOpenLab} onCreateSession={save}/>;
+  if(editor)return <TaskChainBuilder key={editor.task?.id??'new'} initialConfig={editor.task?.config??editor.config} assistantReview={editor.task?.assistantReview} editing={Boolean(editor.task)} libraryMode initialPlan={initialPlan} classId={editor.classId??classId} onCancel={()=>{setEditor(null);onPlanCreated?.();}} onOpenLab={onOpenLab} onCreateSession={save}/>;
   const visible=tasks.filter(task=>task.title.toLowerCase().includes(query.trim().toLowerCase())&&(filter==='all'||(filter==='published'?task.publishedCount>0:task.publishedCount===0)));
   return <section className="task-library" aria-label="教师任务库">
     <header className="task-library-heading"><div><span className="chain-kicker"><Books size={18}/>任务库</span><h2>我的教学任务</h2><p>创建与管理任务，准备好后发布到班级。完成度每 15 秒同步。</p></div>{activeSession?.active&&!activeSession.ended&&<button type="button" className="secondary-button" onClick={onOpenClassroom}>查看当前课堂</button>}</header>

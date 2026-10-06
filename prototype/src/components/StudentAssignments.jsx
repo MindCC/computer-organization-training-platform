@@ -21,6 +21,7 @@ import {
 import { CHAPTER_CORE_POINTS, KNOWLEDGE_POINTS, knowledgePointOf } from "../knowledgePoints.js";
 import { KnowledgeGraph } from "./KnowledgeGraph.jsx";
 import { StudyMascot } from './ai/StudyMascot.jsx';
+import { useCurrentStudyContext } from './ai/currentStudyContext.js';
 import "./assignmentsPractice.css";
 import "./mistakeBook.css";
 
@@ -102,6 +103,7 @@ function ChapterPractice({ progress, userId, destination, navigateToChallenge, o
 
   const questions = useMemo(() => questionsForChapter(chapterId), [chapterId]);
   const visibleQuestions = focusedQuestion ? questions.filter(question => question.id === focusedQuestion) : questions;
+  useCurrentStudyContext({kind:'practice',title:'按章练习',publicContext:{chapterId,questionId:focusedQuestion??undefined},summary:'正在进行本章练习。点击题目旁的小芯可针对本题提问；先理清条件，再用自己的话作答。'});
 
   useEffect(() => {
     let cancelled = false;

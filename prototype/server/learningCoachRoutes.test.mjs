@@ -3,7 +3,37 @@ import assert from 'node:assert/strict';
 import { createApp } from './app.js';
 import { openDatabase, migrate, createUser, createClass, addStudentToClass } from './db.js';
 import { hashPassword } from './auth.js';
-import { FULL_ADDER_CIRCUIT } from '../src/circuit/challengeCircuitModel.js';
+import { FULL_ADDER_CIRCUIT, getCircuitChallenge } from '../src/circuit/challengeCircuitModel.js';
+
+test('cross-experiment tasks, filtered histories, hidden retest answers and teacher sources',async()=>{
+  const s=await setup();try{
+    const base='/api/student/learning-coach',teacherBase=`/api/teacher/classes/${s.classId}/learning-coach`;
+    const post=(path,body,cookie=s.cookies.alice)=>s.request(path,{cookie,method:'POST',body:JSON.stringify(body)});
+    for(const challengeId of ['or-gate','not-gate'])assert.equal((await post(teacherBase+'/tasks',{challengeId,studentIds:[s.users.alice.id],title:challengeId+'补练'},s.cookies.teacher)).body.created,1);
+    const tasks=(await s.request(base,{cookie:s.cookies.alice})).body.tasks;assert.equal(tasks.length,2);
+    const task=tasks.find(t=>t.challengeId==='not-gate');assert.ok(task);
+    assert.equal((await post(base+'/diagnose',{challengeId:'or-gate',taskId:task.id,evidence:{circuitEdges:[]}})).status,400);
+    let run=(await post(base+'/diagnose',{challengeId:'not-gate',taskId:task.id,evidence:{circuitEdges:getCircuitChallenge('not-gate').requiredEdges}})).body.run;
+    assert.equal(run.challengeId,'not-gate');assert.equal(run.repaired,true);
+    const path=base+'/runs/'+run.id;
+    assert.equal((await post(path+'/verify',{revision:run.revision,challengeId:'or-gate',evidence:{circuitEdges:[]}})).status,400);
+    run=(await post(path+'/retest',{revision:run.revision})).body.run;
+    assert.equal(run.retest.questions.length,2);assert.equal(run.retest.coverage.limited,true);
+    assert.ok(!JSON.stringify(run.retest).includes('expected'));
+    const answers=Object.fromEntries(run.retest.questions.map(q=>[q.id,[Object.values(q.inputs)[0]^1]]));
+    run=(await post(path+'/retest/submit',{revision:run.revision,answers})).body.run;
+    assert.equal(run.status,'retest_passed');
+    assert.equal((await s.request(base+'?challengeId=not-gate',{cookie:s.cookies.alice})).body.latest.id,run.id);
+    assert.equal((await s.request(base+'?challengeId=or-gate',{cookie:s.cookies.alice})).body.latest,null);
+    const updated=(await s.request(base,{cookie:s.cookies.alice})).body.tasks;
+    assert.ok(updated.find(t=>t.challengeId==='not-gate').completedRunId);assert.equal(updated.find(t=>t.challengeId==='or-gate').completedRunId,null);
+    const summary=(await s.request(teacherBase+'?challengeId=or-gate',{cookie:s.cookies.teacher})).body;
+    assert.equal(summary.diagnosedStudents,0);assert.equal(summary.pendingTasks,1);
+    assert.ok(summary.sources.every(source=>source.challengeId==='or-gate'));
+    assert.equal((await post(teacherBase+'/sources',{challengeId:'or-gate',sourceId:'adder-meaning-v1',confirmed:true},s.cookies.teacher)).status,400);
+    assert.equal((await s.request(base+'?challengeId=bogus',{cookie:s.cookies.alice})).status,400);
+  }finally{await s.close();}
+});
 
 async function setup() {
   const db = openDatabase(':memory:'); migrate(db);

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   addEdge,
   Background,
@@ -80,8 +80,10 @@ function signalTone(value) {
  * 通过 footer render prop 让父级在画布下方放自己的操作区（如提交按钮）。
  */
 function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, footer }) {
+  const [lastAction,setLastAction]=useState(null);
+  const actionSequence=useRef(0);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, applyEdgesChange] = useEdgesState([]);
   const [inputValues, setInputValues] = useState({});
   const [status, setStatus] = useState(statusText);
   const { screenToFlowPosition, fitView } = useReactFlow();
@@ -99,6 +101,11 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
     requiredEdges: [],
     testCases: [],
   }), [nodes]);
+  const onEdgesChange=useCallback(changes=>{
+    const removal=changes.find(change=>change.type==='remove'),edge=removal&&edges.find(item=>item.id===removal.id);
+    if(edge)setLastAction({kind:'remove',...flowConnectionToCircuitEdge(edge,model),ok:true,code:'ok',sequence:++actionSequence.current});
+    applyEdgesChange(changes);
+  },[edges,model,applyEdgesChange]);
 
   const circuitEdges = useMemo(() => flowEdgesToCircuitEdges(edges), [edges]);
 
@@ -114,6 +121,7 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
   );
 
   const toggleInput = useCallback((nodeId) => {
+    setLastAction({kind:'input',from:{nodeId,portId:'out'},ok:true,code:'ok',sequence:++actionSequence.current});
     setInputValues((current) => ({ ...current, [nodeId]: (current[nodeId] ?? 0) ? 0 : 1 }));
   }, []);
 
@@ -144,6 +152,7 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
   const onConnect = useCallback((connection) => {
     const circuitEdge = flowConnectionToCircuitEdge(connection, model);
     const validation = canConnectPorts(model, circuitEdge, flowEdgesToCircuitEdges(edges));
+    setLastAction({kind:'connect',...circuitEdge,ok:validation.ok,code:validation.ok?'ok':validation.type,sequence:++actionSequence.current});
     if (!validation.ok) {
       setStatus(validation.message);
       return;
@@ -159,6 +168,7 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
     if (!def) return;
     const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
     setNodes((current) => [...current, makeGateNode(def, position)]);
+    setLastAction(null);
     setStatus(`已放入「${def.label}」：从输出端口拖线到别的输入端口。`);
   }, [paletteDefs, screenToFlowPosition, setNodes]);
 
@@ -172,6 +182,7 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
   }, [toggleInput]);
 
   const clearAll = useCallback(() => {
+    setLastAction({kind:'reset',ok:true,code:'ok',sequence:++actionSequence.current});
     setNodes(initialNodes.map((node) => ({ ...node, data: { ...node.data, ports: node.data.ports.map((port) => ({ ...port })) } })));
     setEdges([]);
     setInputValues({});
@@ -181,8 +192,8 @@ function AssemblyInner({ paletteDefs, initialNodes, statusText, onCircuit, foote
   // 把当前电路状态透传给父级（用于判分/提交），渲染提交后再通知，避免渲染期 setState。
   // 依赖收敛到电路相关值，父级因判分重渲染不会反复触发。
   useEffect(() => {
-    if (onCircuit) onCircuit({ nodes, edges, model, circuitEdges, inputs, inputValues, simulation, toggleInput, clearAll, setStatus });
-  }, [nodes, edges, model, circuitEdges, inputs, inputValues, simulation, toggleInput, clearAll, onCircuit]);
+    if (onCircuit) onCircuit({ nodes, edges, model, circuitEdges, inputs, inputValues, simulation, toggleInput, clearAll, setStatus,lastAction });
+  }, [nodes, edges, model, circuitEdges, inputs, inputValues, simulation, toggleInput, clearAll, onCircuit,lastAction]);
 
   return (
     <div className="sandbox">

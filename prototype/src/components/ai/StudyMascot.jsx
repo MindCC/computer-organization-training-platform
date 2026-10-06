@@ -35,7 +35,7 @@ export function StudyMascot({ context = {}, suggestion = '哪里不懂？告诉�
     finally{if(sequence===generation.current)setBusy(false);}
   }
   return <div className={`study-mascot${compact?' is-compact':''}`}>
-    <button ref={button} className="study-mascot-trigger" type="button" aria-label={compact ? "小芯复习建议，点击提问" : "向小芯 AI 助教提问"} aria-expanded={open} aria-describedby={open ? undefined : `${id}-tip`} onClick={()=>setOpen(value=>!value)}>
+    <button ref={button} className="study-mascot-trigger" type="button" aria-label={compact ? "小芯复习建议，点击提问" : "向小芯 AI 助教提问"} aria-expanded={open} aria-describedby={open ? undefined : `${id}-tip`} onClick={()=>{if(document.querySelector('[data-testid="study-companion"]'))window.dispatchEvent(new CustomEvent('study-companion-request',{detail:{context,suggestion}}));else setOpen(value=>!value);}}>
       <img src="/ai/study-mascot.webp" alt="小芯，抱着课本的芯片机器人" width="88" height="88"/><span><strong>小芯助教</strong><small>{compact?'问一问':'有疑问，问小芯'}</small></span>
     </button>
     {!open&&<div className="study-mascot-tip" id={`${id}-tip`} role="tooltip"><strong>小芯的复习提示</strong><p>{suggestion}</p><small>点击小芯，输入问题获得讲解。</small></div>}
@@ -47,7 +47,7 @@ export function StudyMascot({ context = {}, suggestion = '哪里不懂？告诉�
         {error&&<p className="study-mascot-error" role="alert">{error}</p>}
         {answer&&<><span className="study-mascot-source">{answer.source==='ai'?'AI 讲解 · DeepSeek':answer.reason==='AI_DISABLED'?'AI 尚未配置 · 课程参考':'AI 暂时不可用 · 课程参考'}</span><p>{answer.explanation}</p>{answer.steps?.length>0&&<ol>{answer.steps.map((step,index)=><li key={index}>{step}</li>)}</ol>}{answer.check&&<div className="study-mascot-check"><strong>试着想一想</strong><p>{answer.check}</p></div>}</>}
       </div>
-      <form onSubmit={ask}><label htmlFor={`${id}-question`}>你的课程问题</label><textarea ref={field} id={`${id}-question`} value={question} onChange={event=>setQuestion(event.target.value)} maxLength={1600} rows={3} placeholder="我不理解……" disabled={busy}/><p className="study-mascot-consent">点击发送，将本次问题和公开课程材料发送至 DeepSeek。不会附带你的成绩、作答记录或教师评语。请勿输入个人隐私。</p><button className="primary-button" type="submit" disabled={busy||!question.trim()}>{busy?'正在思考…':'发送到 DeepSeek'}<PaperPlaneTilt size={17}/></button></form>
+      <form onSubmit={ask}><label htmlFor={`${id}-question`}>你的课程问题</label><textarea ref={field} id={`${id}-question`} value={question} onChange={event=>setQuestion(event.target.value)} maxLength={1600} rows={3} placeholder="我不理解……" disabled={busy}/><p className="study-mascot-consent">点击发送，将本次问题和公开课程材料发送至 DeepSeek。不会附带你的成绩、作答记录或教师评语。请勿输入个人隐私。</p><button className="primary-button" type="submit" disabled={busy||!question.trim()}>{busy?'正在思考…':'询问助教'}<PaperPlaneTilt size={17}/></button></form>
     </section>,document.body)}
   </div>;
 }

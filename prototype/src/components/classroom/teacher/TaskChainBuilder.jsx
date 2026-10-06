@@ -13,6 +13,7 @@ import { questionsForChapter } from '../../../assignmentQuestions.js';
 import { api } from '../../../apiClient.js';
 import { TaskChainPreview } from './TaskChainPresenter.jsx';
 import { TaskWorkflowCanvas } from './TaskWorkflowCanvas.jsx';
+import { AssistantDecisionPanel } from './AssistantDecisionPanel.jsx';
 import { arrangeStages, positionOf } from '../../../shared/taskWorkflow.js';
 import '../taskChain.css';
 
@@ -23,13 +24,15 @@ function generationNote(candidate){
   if(candidate.reason==='AI_INVALID_DRAFT')return 'AI 草稿未通过课程资源校验，已提供本地模板，供你手动编排。';
   return 'AI 生成暂未完成，已提供本地模板建议；你可以重试生成。';
 }
-export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSession=null, initialConfig=null, editing=false, libraryMode=false, classId, onCancel, onOpenLab }) {
+export function TaskChainBuilder({ onCreateSession, initialPlan=null, assistantReview=null, initialSession=null, initialConfig=null, editing=false, libraryMode=false, classId, onCancel, onOpenLab }) {
   const initial=initialConfig??startingConfig(initialSession),fallback=initialSession?taskChainTemplate('data-flow'):buildTeachingTemplate('diagnostic-lab',['ch1']);
   const [chain,setChain]=useState(initial.taskChain??fallback);
   const [selected,setSelected]=useState((initial.taskChain??fallback).stages[0]?.id??null);
   const [durationMinutes,setDurationMinutes]=useState(initial.durationMinutes??45);
   const [passScore,setPassScore]=useState(initial.passScore??80);
   const [plan,setPlan]=useState(initial.lessonPlan??initialPlan??null);
+  const [sourceReport,setSourceReport]=useState(assistantReview?.report??initialPlan?.sourceReport??null);
+  const [decisionNote,setDecisionNote]=useState('');
   const [submitting,setSubmitting]=useState(false),[error,setError]=useState('');
   const [preview,setPreview]=useState(null);
   const [goalChapter,setGoalChapter]=useState(knowledgePointOf(chain.knowledgePointIds?.[0])?.chapterId??'ch1');
@@ -51,7 +54,7 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSes
     catch(cause){setError(cause.message);}finally{setGenerating(false);}
   }
   const [assignments,setAssignments]=useState([]),[assignmentError,setAssignmentError]=useState(''),[resourceVersion,setResourceVersion]=useState(0);
-  useEffect(()=>{if(initialPlan)setPlan(initialPlan);},[initialPlan]);
+  useEffect(()=>{if(initialPlan){setPlan(initialPlan);setSourceReport(initialPlan.sourceReport??null);}},[initialPlan]);
   useEffect(()=>{
     let alive=true;const resourceClassId=sourceClassId??classId;if(!resourceClassId)return;setAssignmentError('');
     api.teacherAssignments(resourceClassId).then(data=>{if(alive)setAssignments((data.assignments??[]).filter(item=>item.status==='published'));})
@@ -69,16 +72,11 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSes
     if(submitting)return;setError('');setSubmitting(true);
     try{
       const config=validateClassroomSessionConfig({templateKey:'task-chain',taskChain:chain,durationMinutes,passScore,allowMakeup:initial.allowMakeup??false,...(plan?{lessonPlan:{...plan,steps:plan.steps.map(step=>step.trim()).filter(Boolean)}}:{})});
-      await onCreateSession(config);
+      await onCreateSession(config,sourceReport?{assistantReportId:sourceReport.reportId,decisionNote}:{});
     }catch(cause){setError(cause.message??'任务链保存失败，请重试');}finally{setSubmitting(false);}
   }
   return <section className="session-setup-panel task-chain-builder" aria-label="创建课堂任务链">
-    <header className="chain-builder-heading">{libraryMode&&<button type="button" className="ghost-button" onClick={onCancel}>返回任务库</button>}<span className="chain-kicker"><Link size={18}/>{initialConfig?'修改任务':'创建课堂任务'}</span><h2>任务工作流编排</h2><p>拖动节点、连接任务顺序，选择节点设置内容与完成条件。</p></header>
-    {/* 课堂设置提到顶部：老师设时间期限是发布前的关键参数，原来埋在 1671px 长页面的最底部找不到 */}
-    <div className="chain-publish-settings chain-quick-settings" aria-label="课堂设置">
-      <label>课堂限时（分钟）<input aria-label="课堂限时" type="number" min={10} max={180} value={durationMinutes} onChange={event=>setDurationMinutes(Number(event.target.value))}/><small>学生端会显示剩余倒计时，10–180 分钟</small></label>
-      <label>课堂及格分<input aria-label="课堂及格分" type="number" min={60} max={100} value={passScore} onChange={event=>setPassScore(Number(event.target.value))}/><small>用于星级与是否通过</small></label>
-    </div>
+    <header className="chain-builder-heading">{libraryMode&&<button type="button" className="ghost-button" onClick={onCancel}>返回任务库</button>}<span className="chain-kicker"><Link size={18}/>{editing||initialSession?'修改任务':'创建课堂任务'}</span><h2>任务工作流编排</h2><p>拖动节点、连接任务顺序，选择节点设置内容与完成条件。</p></header>
     <div className="chain-creation-tabs" role="tablist" aria-label="任务链创建方式"><button type="button" role="tab" aria-selected={creationMode==='ai'} onClick={()=>setCreationMode('ai')}>AI 创建</button><button type="button" role="tab" aria-selected={creationMode==='manual'} onClick={()=>setCreationMode('manual')}>手动编排</button></div>
     {creationMode==='ai'&&<section className="chain-ai-create" aria-label="AI创建任务链"><h3>描述你希望开展的课堂</h3><p>写明教学主题、课时、学生基础，以及需要串联的功能。生成后可继续手动修改。</p><label>教学要求<textarea aria-label="AI教学要求" rows={4} maxLength={2000} value={aiPrompt} onChange={event=>setAiPrompt(event.target.value)} placeholder="例如：一节45分钟的补码运算课，安排课前诊断、互动演示、编码实验、AI答疑、随堂检验与反思。"/></label><small>点击生成时，将本次教学要求与公开课程资源目录发送至 DeepSeek。</small><button type="button" className="primary-button" disabled={generating||!classId} onClick={generate}>{generating?'正在生成…':'生成任务链草稿'}</button>{candidate&&<div className="chain-generated-draft" aria-live="polite"><span className="chain-kicker">{candidate.source==='deepseek'?'DeepSeek 生成草稿':'本地模板建议 · 非模型生成'}</span>{generationNote(candidate)&&<p role="status">{generationNote(candidate)}</p>}<h3>{candidate.taskChain.title}</h3><ol>{candidate.taskChain.stages.map(stage=><li key={stage.id}>{stage.title} · {stage.minutes}分钟</li>)}</ol><button type="button" className="primary-button" onClick={()=>{adopt(candidate.taskChain);setDurationMinutes(Math.min(180,Math.max(10,candidate.taskChain.stages.reduce((sum,stage)=>sum+stage.minutes,0))));setSelected(candidate.taskChain.stages[0]?.id??null);setCreationMode('manual');setCandidate(null);}}>采用草稿并继续编排</button></div>}</section>}
     <div hidden={creationMode!=='manual'}>
@@ -123,7 +121,8 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSes
       <label>教师讲解提示<textarea rows={2} maxLength={1000} value={plan?.teacherScript??''} onChange={event=>setPlan({...plan,focus:plan?.focus??'',steps:plan?.steps??[],teacherScript:event.target.value})}/></label>
       <button type="button" className="ghost-button" onClick={()=>setPlan(null)}>移除教学安排</button>
     </div></details>
-    <footer className="chain-publish-settings">
+    {libraryMode&&sourceReport&&<><AssistantDecisionPanel report={sourceReport} review={assistantReview} plan={plan} open={Boolean(initialPlan)}/><label className="assistant-decision-note">教师调整说明（可选）<textarea rows={2} maxLength={500} value={decisionNote} onChange={event=>setDecisionNote(event.target.value)} placeholder="例如：先补充独立诊断，将操作时间增加到15分钟。保存时保留本次说明。"/></label></>}
+    <footer className="chain-publish-settings"><label>课堂限时（分钟）<input aria-label="课堂限时" type="number" min={10} max={180} value={durationMinutes} onChange={event=>setDurationMinutes(Number(event.target.value))}/></label><label>课堂及格分<input aria-label="课堂及格分" type="number" min={60} max={100} value={passScore} onChange={event=>setPassScore(Number(event.target.value))}/></label>
       <div className="chain-save-note">{libraryMode?'保存到任务库后，可查看、修改或发布到班级。':'保存为草稿后可继续修改，开始课堂后学生收到任务。'}</div>
       {onCancel&&<button type="button" className="ghost-button" onClick={onCancel}>取消编辑</button>}
       <button type="button" className="primary-button" disabled={submitting||(!libraryMode&&!classId)||!chain.stages.length} onClick={create}><Play size={16}/>{submitting?'正在保存…':libraryMode?'保存任务':initialSession?'保存任务链':'创建草稿'}</button>

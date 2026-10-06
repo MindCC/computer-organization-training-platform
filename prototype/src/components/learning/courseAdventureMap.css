@@ -101,7 +101,7 @@
 .adventure-map-progress-track { height: 5px; margin: 8px 0 12px; border-radius: 3px; background: #e9eadf; overflow: hidden; }
 .adventure-map-progress-track > span { display: block; height: 100%; background: #68a98a; border-radius: 3px; }
 .adventure-map-preview-note { padding: 9px 10px; margin: 0 0 13px; border-left: 2px solid #d3c393; background: #f5f2e5; color: #777863; font-size: 11px; line-height: 1.65; }
-.adventure-map-challenge-list { display: grid; flex: 1 1 auto; min-height: 0; gap: 10px; margin: 0; padding: 0; list-style: none; max-height: 430px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #c7ccb9 transparent; }
+.adventure-map-challenge-list { display: grid; flex: 1 1 auto; min-height: 180px; gap: 10px; margin: 0; padding: 0; list-style: none; max-height: 430px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #c7ccb9 transparent; }
 .adventure-map-challenge { padding: 11px 0; border-bottom: 1px solid #e6e5d7; }
 .adventure-map-challenge:first-child { padding-top: 2px; }
 .adventure-map-challenge:last-child { border-bottom: 0; }

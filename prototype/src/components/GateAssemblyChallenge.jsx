@@ -40,10 +40,10 @@ export function GateAssemblyChallenge({ challenge, circuitModel, onResult, onDra
   const latestRef = useRef({ model: null, circuitEdges: [] });
   const initialNodes = useMemo(() => buildStarterNodes(spec), [spec]);
 
-  const handleCircuit = useCallback(({ model, circuitEdges, inputs }) => {
+  const handleCircuit = useCallback(({ model, circuitEdges, inputs, lastAction }) => {
     latestRef.current = { model, circuitEdges };
     setGrading(gradeFreeform(model, circuitEdges, spec));
-    onDraft?.({model,edges:circuitEdges,inputs});
+    onDraft?.({model,edges:circuitEdges,inputs,lastAction});
   }, [spec,onDraft]);
 
   const submit = useCallback(() => {

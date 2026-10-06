@@ -104,3 +104,13 @@
 .teaching-recommendation,.teaching-loop-panel section[aria-label="关联后续课堂"] article{padding:15px;border:1px solid #d9e6ed;border-radius:8px;margin:10px 0;background:white}.teaching-recommendation header{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;font-size:13px}.teaching-recommendation header span{color:#507985}.teaching-recommendation .primary-button{margin-top:6px}
 .teaching-comparison{padding:14px;background:#f3faf7;border-radius:9px;margin:20px 0;min-width:0}.teaching-comparison h4{font-size:13px}
 @media(max-width:600px){.teaching-template-scope{grid-template-columns:1fr}.teaching-template-picker,.teaching-goals,.teaching-followup-context{padding:12px}.teaching-knowledge-point>summary{display:grid}.teaching-evidence-table table{min-width:440px}.teaching-recipients{max-height:280px;overflow:auto}}
+/* Teacher-only evidence and decision history. */
+.teacher-plan-suggestion,.assistant-decision-panel article { padding:10px 12px; margin:8px 0; border:1px solid #dce7e3; border-radius:8px; background:#f6faf8; overflow-wrap:anywhere; }
+.teacher-plan-suggestion small,.assistant-decision-panel small { display:block; color:#445c54; }
+.teacher-plan-basis { font-size:12px; }
+.assistant-decision-panel { padding:12px; border:1px solid #cddfd7; border-radius:10px; min-width:0; overflow-wrap:anywhere; }
+.assistant-decision-panel summary { cursor:pointer; font-weight:600; }
+.assistant-decision-panel p,.assistant-decision-panel li { font-size:13px; line-height:1.6; }
+.assistant-decision-panel details { margin:10px 0; }
+.assistant-decision-note { display:grid; gap:6px; font-size:13px; }
+.assistant-decision-note textarea { width:100%; box-sizing:border-box; min-width:0; }

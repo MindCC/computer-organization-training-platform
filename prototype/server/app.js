@@ -9,6 +9,7 @@ import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js"
 import { ensureDemoAccounts, isDemoLoginEnabled } from './demoAccounts.js';
 import { validateAccountSettings } from './accountSettings.js';
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
+import { saveAssistantReport, readAssistantReport } from './teacherAssistantHistory.js';
 import { generateLabAssistantHint } from "./labAssistant.js";
 import { normalizeStudentAttemptPayload } from "./submissionValidation.js";
 import { normalizeDemoAttemptPayload, demoTitleOf } from "./demoValidation.js";
@@ -293,9 +294,9 @@ export function createApp(options = {}) {
         });
       }
 
-      if (role !== undefined && user.role !== role) {
+      if (role !== undefined && user.role !== role && !(role === 'teacher' && user.role === 'admin')) {
         audit(req, 'login_failure', { targetType: 'user', targetId: key, metadata: { reason: 'role_mismatch' } });
-        return res.status(403).json({ error: `此账号属于${{ teacher: '教师', student: '学生', admin: '管理员' }[user.role]}，请切换到对应登录入口` });
+        return res.status(403).json({ error: user.role === 'admin' ? '管理员账号请从教师入口登录' : `此账号属于${{ teacher: '教师', student: '学生' }[user.role]}，请切换到对应登录入口` });
       }
 
       // Success: clear failures
@@ -475,6 +476,11 @@ export function createApp(options = {}) {
     } catch (error) { next(error); }
   });
 
+  app.get('/api/teacher/assistant-reports/:id', requireRole('teacher'), (req,res,next) => {
+    try {res.setHeader('Cache-Control','no-store');res.json(readAssistantReport(db,req.user.id,Number(req.params.id)));}
+    catch(error) {if(error.statusCode)return res.status(error.statusCode).json({error:error.message});next(error);}
+  });
+
   app.get("/api/teacher/classes/:id/overview", requireRole("teacher"), (req, res) => {
     const classId = Number(req.params.id);
     if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
@@ -494,7 +500,8 @@ export function createApp(options = {}) {
         assistantOptions,
       );
       audit(req, "ai_report", { targetType: "class", targetId: classId, metadata: { source: report?.source ?? "unknown" } });
-      res.json(report);
+      res.setHeader('Cache-Control','no-store');
+      res.json(saveAssistantReport(db, req.user.id, classId, report));
     } catch (error) {
       if (error.statusCode) return res.status(error.statusCode).json({ error: error.message });
       next(error);

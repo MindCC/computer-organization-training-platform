@@ -30,7 +30,7 @@ test('feedback submissions persist and only the authenticated administrator can 
       assert.equal((await request('/api/feedback', { content: `${role}的建议`, role: 'admin' }, login.cookie)).status, 201);
     }
     assert.equal((await request('/api/auth/login', { username: 'admin', password: 'wrong', role: 'admin' })).status, 401);
-    const login = await request('/api/auth/login', { username: 'admin', password: 'admin123', role: 'admin' });
+    const login = await request('/api/auth/login', { username: 'admin', password: 'admin123', role: 'teacher' });
     assert.equal(login.status, 200);
     assert.equal(login.body.user.role, 'admin');
     assert.equal('password_hash' in login.body.user, false);

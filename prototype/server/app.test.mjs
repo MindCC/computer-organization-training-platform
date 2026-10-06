@@ -128,6 +128,20 @@ test("assistant route uses injected generator instead of host AI configuration",
 
     assert.equal(result.response.status, 200);
     assert.equal(result.body.fallbackReason, "测试注入");
+    assert.ok(Number.isInteger(result.body.reportId));
+    const snapshot=await request(baseUrl,`/api/teacher/assistant-reports/${result.body.reportId}`,{},jar);
+    assert.equal(snapshot.response.status,200);
+    assert.equal(snapshot.response.headers.get('cache-control'),'no-store');
+    assert.equal(snapshot.body.report.lessonFocus,'测试重点');
+    assert.equal((await request(baseUrl,`/api/teacher/assistant-reports/${result.body.reportId}`)).response.status,401);
+    assert.equal((await request(baseUrl,'/api/teacher/assistant-reports/999999',{},jar)).response.status,404);
+    for(const role of ['student','teacher']) {
+      const username=`report-reader-${role}`,readerJar={};
+      createUser(db,{username,displayName:'权限检查账号',role,passwordHash:await hashPassword('Reader123!')});
+      await request(baseUrl,'/api/auth/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username,password:'Reader123!'})},readerJar);
+      const denied=await request(baseUrl,`/api/teacher/assistant-reports/${result.body.reportId}`,{},readerJar);
+      assert.equal(denied.response.status,role==='student'?403:404);
+    }
     assert.equal(calls.length, 1);
     assert.deepEqual(calls[0].options.env, { DEEPSEEK_API_KEY: "must-not-be-read" });
     const forbidden = await request(

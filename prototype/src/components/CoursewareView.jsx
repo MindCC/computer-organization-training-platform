@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowsOut, MonitorPlay } from "@phosphor-icons/react";
 import { COURSEWARE } from "../courseware.js";
 import { ExperimentThumbnail } from "./ExperimentThumbnail.jsx";
+import { useCurrentStudyContext } from './ai/currentStudyContext.js';
 import "./coursewareView.css";
 
 const lectureChapters = COURSEWARE.chapters.filter((chapter) => chapter.embeds?.length);
@@ -16,6 +17,7 @@ export function CoursewareView({ initialChapterId } = {}) {
 
   const chapter = lectureChapters.find((item) => item.id === selected?.chapterId);
   const lecture = chapter?.embeds?.[selected?.index];
+  useCurrentStudyContext({kind:'courseware',title:lecture?.title??'AI讲演',publicContext:{chapterId:chapter?.id},summary:lecture?`正在学习：${lecture.title}。可围绕本章概念向小芯提问。`:'选择章节进入AI讲演，小芯会跟随当前章节。'});
   const playerRef = useRef(null);
 
   useLayoutEffect(() => {

@@ -424,13 +424,33 @@ test("parseAssistantJson accepts markdown-wrapped JSON", () => {
 test("AI report requires verifiable evidence references", () => {
   const base = {
     lessonFocus: "复盘进位", riskStudents: [], groupingPlan: [],
-    commonMisconceptions: [], nextClassPlan: ["重练全加器"], teacherScript: "观察 Cout",
+    commonMisconceptions: [], nextClassPlan: [{text:"重练全加器",evidenceRefs:["E1"]}], teacherScript: "观察 Cout",
   };
   const evidence = [{ id: "E1", type: "carry_path", label: "加法器进位路径", count: 2, studentIds: [7], challengeIds: ["full-adder"] }];
   assert.throws(() => parseAssistantJson(JSON.stringify(base), evidence), /evidenceRefs/);
   assert.throws(() => parseAssistantJson(JSON.stringify({ ...base, evidenceRefs: ["E9"] }), evidence), /evidenceRefs/);
   assert.deepEqual(parseAssistantJson(JSON.stringify({ ...base, evidenceRefs: ["E1"] }), evidence).evidence, evidence);
   assert.equal(parseAssistantJson(JSON.stringify({ ...base, evidenceRefs: ["E1"], riskStudents: [{ name: "学生1", studentId: 999, reason: "r", suggestion: "s" }] }), evidence).riskStudents[0].studentId, null);
+});
+
+test('next-class suggestions require their own evidence and reject unbound or forged citations', () => {
+  const evidence = [{id:'E1',type:'carry_path',label:'进位错误',count:2,studentIds:[7],challengeIds:['full-adder']}];
+  const base = {lessonFocus:'观察进位',riskStudents:[],groupingPlan:[],commonMisconceptions:[],teacherScript:'先做独立诊断',evidenceRefs:['E1']};
+  const parsed = parseAssistantJson(JSON.stringify({...base,nextClassPlan:[{text:'检查 Cout 并独立复测',evidenceRefs:['E1']}]}),evidence);
+  assert.equal(parsed.nextClassPlan[0], '检查 Cout 并独立复测');
+  assert.deepEqual(parsed.planItems[0].evidenceRefs,['E1']);
+  assert.deepEqual(parsed.planItems[0].evidence,evidence);
+  for (const item of ['只有文字',{text:'检查进位',evidenceRefs:[]},{text:'检查进位',evidenceRefs:['E9']}]) {
+    assert.throws(()=>parseAssistantJson(JSON.stringify({...base,nextClassPlan:[item]}),evidence),/nextClassPlan/);
+  }
+});
+
+test('summary-only fallback asks for diagnosis and labels limited evidence',()=>{
+  const response=buildFallbackAssistantReport({summary:{studentCount:1},students:[{id:1,displayName:'学生',summary:{completionRate:0,averageScore:0},progress:[]}]},'无模型');
+  assert.deepEqual(response.report.commonMisconceptions,[]);
+  assert.match(response.report.lessonFocus,/先收集/);
+  assert.equal(response.report.planItems[0].basis,'summary');
+  assert.equal(response.report.planItems[0].evidence[0].type,'class_summary');
 });
 
 test("buildTeacherAssistantMessages uses only backend-owned user messages", async () => {

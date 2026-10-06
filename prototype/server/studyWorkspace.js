@@ -53,9 +53,9 @@ export function createStudyWorkspace(db, { now = Date.now } = {}) {
     }
     if (!Number.isSafeInteger(target.id) || target.id < 1 || user.role !== 'student') throw fail('教师任务不存在或无权访问', 404);
     if (target.kind === 'coach') {
-      const task = db.prepare(`SELECT t.id,t.title,t.completed_run_id FROM learning_coach_tasks t JOIN classes c ON c.id=t.class_id JOIN class_members m ON m.class_id=t.class_id AND m.student_id=t.student_id WHERE t.id=? AND t.student_id=? AND c.status='active'`).get(target.id, user.id);
+      const task = db.prepare(`SELECT t.id,t.title,t.challenge_id,t.completed_run_id FROM learning_coach_tasks t JOIN classes c ON c.id=t.class_id JOIN class_members m ON m.class_id=t.class_id AND m.student_id=t.student_id WHERE t.id=? AND t.student_id=? AND c.status='active'`).get(target.id, user.id);
       if (!task) throw fail('教师补练不存在或已不在该班级', 404);
-      return { kind: 'coach', id: task.id, label: task.title, challengeId: 'full-adder' };
+      return { kind: 'coach', id: task.id, label: task.title, challengeId: task.challenge_id };
     }
     if (target.kind === 'assignment') {
       const task = db.prepare(`SELECT a.id,a.title FROM assignments a JOIN classes c ON c.id=a.class_id JOIN class_members m ON m.class_id=a.class_id WHERE a.id=? AND m.student_id=? AND a.status IN ('published','closed') AND c.status='active'`).get(target.id, user.id);

@@ -87,9 +87,18 @@ function valuesMatch(actual, expected) {
 }
 
 export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = false, submitBlockedReason = "" }) {
+  const [lastAction,setLastAction]=useState(null);
+  const actionSequence=useRef(0);
+  const recordAction=(kind,result={},edge={})=>setLastAction({kind,ok:result.ok!==false,code:result.ok===false?result.type:'ok',...edge,sequence:++actionSequence.current});
   const initialFlow = useMemo(() => circuitModelToFlow(model), [model]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialFlow.nodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialFlow.edges);
+  const [edges, setEdges, applyEdgesChange] = useEdgesState(initialFlow.edges);
+  const onEdgesChange=useCallback(changes=>{
+    const removal=changes.find(change=>change.type==='remove');
+    const edge=removal&&edges.find(item=>item.id===removal.id);
+    if(edge)recordAction('remove',{},flowConnectionToCircuitEdge(edge,model));
+    applyEdgesChange(changes);
+  },[edges,model,applyEdgesChange]);
   const [selectedEdgeId, setSelectedEdgeId] = useState(null);
   const [selectedCaseIndex, setSelectedCaseIndex] = useState(0);
   const [manualInputs, setManualInputs] = useState({});   // 手动探测：点输入节点切换 0/1
@@ -144,6 +153,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
 
   function undo() {
     if (historyPosRef.current <= 0) return;
+    recordAction('undo');
     historyPosRef.current -= 1;
     skipHistoryRef.current = true;
     setEdges(historyRef.current[historyPosRef.current]);
@@ -152,6 +162,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
 
   function redo() {
     if (historyPosRef.current >= historyRef.current.length - 1) return;
+    recordAction('redo');
     historyPosRef.current += 1;
     skipHistoryRef.current = true;
     setEdges(historyRef.current[historyPosRef.current]);
@@ -186,16 +197,18 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
     () => simulateCircuit(model, studentEdges, effectiveInputs),
     [model, effectiveInputs, studentEdges],
   );
-  useEffect(()=>{onDraft?.({model,edges:studentEdges,inputs:effectiveInputs});},[model,studentEdges,effectiveInputs,onDraft]);
+  useEffect(()=>{onDraft?.({model,edges:studentEdges,inputs:effectiveInputs,lastAction});},[model,studentEdges,effectiveInputs,lastAction,onDraft]);
   useEffect(()=>{setTraceIndex(null);setReport(null);},[effectiveInputs,studentEdges]);
   const liveSimulation=traceIndex===null?fullSimulation:{...fullSimulation,values:fullSimulation.steps[traceIndex]?.values??effectiveInputs};
   const setInputValue=useCallback((nodeId,value)=>{
+    recordAction('input',{}, {from:{nodeId,portId:'out'}});
     setManualMode(true);
     setManualInputs(Object.fromEntries(model.nodes.filter(n=>n.type==='input').map(n=>[n.id,n.id===nodeId?value:effectiveInputs[`${n.id}.out`]??0])));
     setStatus('手动探测：改变输入并观察真实输出；公开用例可恢复预设输入。');
   },[effectiveInputs,model.nodes]);
 
   const toggleInput=useCallback(nodeId=>{
+    recordAction('input',{}, {from:{nodeId,portId:'out'}});
     const currentValue=effectiveInputs[`${nodeId}.out`]??0;
     setManualMode(true);
     setManualInputs(Object.fromEntries(model.nodes.filter(node=>node.type==='input').map(node=>[node.id,node.id===nodeId?(currentValue?0:1):effectiveInputs[`${node.id}.out`]??0])));
@@ -254,6 +267,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
     setManualInputs({});
     setManualMode(false);
     setReport(null);
+    setLastAction(null);
     setStatus(`\u62d6\u52a8\u4e24\u4e2a\u7aef\u53e3\u5373\u53ef\u8fde\u63a5\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u8bc6\u522b\u8f93\u51fa\u7aef\u548c\u8f93\u5165\u7aef\uff0c\u5b8c\u6210${model.title}\u7ed3\u6784\u3002`);
   }, [model, setEdges, setNodes]);
 
@@ -261,6 +275,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
     const circuitEdge = flowConnectionToCircuitEdge(connection, model);
     const existingEdges = flowEdgesToCircuitEdges(edges);
     const validation = canConnectPorts(model, circuitEdge, existingEdges);
+    recordAction('connect',validation,circuitEdge);
 
     if (!validation.ok) {
       setStatus(validation.message);
@@ -278,6 +293,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
   }, [edges, model, setEdges]);
 
   const fillReference = useCallback(() => {
+    recordAction('reference');
     const next = model.requiredEdges.map((edge) => circuitEdgeToFlowEdge(edge));
     setEdges(next);
     pushHistory(next);
@@ -286,6 +302,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
   }, [model, setEdges]);
 
   const reset = useCallback(() => {
+    recordAction('reset');
     setEdges([]);
     pushHistory([]);
     setSelectedEdgeId(null);
@@ -295,6 +312,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
 
   const removeSelectedEdge = useCallback(() => {
     if (!selectedEdgeId) return;
+    recordAction('remove',{},flowConnectionToCircuitEdge(edges.find(edge=>edge.id===selectedEdgeId),model));
     setEdges((currentEdges) => {
       const next = currentEdges.filter((edge) => edge.id !== selectedEdgeId);
       pushHistory(next);
@@ -303,7 +321,7 @@ export function CircuitFlowCanvas({ model, onResult, onDraft, submitBlocked = fa
     setSelectedEdgeId(null);
     setReport(null);
     setStatus(copy.edgeDeleted);
-  }, [selectedEdgeId, setEdges]);
+  }, [selectedEdgeId, setEdges, edges, model]);
 
   const submit = useCallback(() => {
     if (submitBlocked) { setStatus(submitBlockedReason || "本关尚未解锁，暂时不能提交检测。"); return; }

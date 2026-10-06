@@ -20,7 +20,7 @@ export async function openChallengeFromHome(page, title) {
     const region = page.locator(`.adventure-map-region[data-region-id="${challenge.chapterId}"]`);
     await region.focus();
     await region.press('Enter');
-    await page.locator(`[data-map-challenge-id="${challenge.id}"]`).getByRole('button').click();
+    await clickCentered(page.locator(`[data-map-challenge-id="${challenge.id}"]`).getByRole('button'));
     return;
   }
   const target = page.locator(CHALLENGE_ENTRY_SELECTOR).filter({ hasText: title }).first();

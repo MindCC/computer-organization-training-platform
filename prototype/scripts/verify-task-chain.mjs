@@ -89,7 +89,7 @@ try {
   await student.locator('.quest-settlement').getByRole('button',{name:/下一/}).click();await student.getByLabel('我的学习说明').fill('我观察到符号位参与加法，进位不能直接作为有符号溢出的证据。');
   await student.reload();await student.getByLabel('我的学习说明').waitFor();assert.match(await student.getByLabel('我的学习说明').inputValue(),/符号位/);
   await student.getByRole('button',{name:'向小芯 AI 助教提问',exact:true}).click();await student.getByLabel('你的课程问题').fill('补码加法的进位和溢出有什么区别？');
-  const ai=await posted(student,'/api/student/study-assistant',()=>student.getByRole('button',{name:'发送到 DeepSeek'}).click());assert.equal(ai.source,'local');await student.getByRole('button',{name:'关闭小芯助教'}).click();
+  const ai=await posted(student,'/api/student/study-assistant',()=>student.getByRole('button',{name:'询问助教'}).click());assert.equal(ai.source,'local');await student.getByRole('button',{name:'关闭小芯助教'}).click();
   await posted(student,`/api/student/classroom/${sessionId}/complete-stage`,()=>student.getByRole('button',{name:'提交学习说明并继续'}).click());await student.getByRole('button',{name:'继续下一环节'}).click();
   await answer(student,'ch2-q08','00000011');await answer(student,'ch2-q09','正确答案就是 −56');await answer(student,'ch2-q10','正确');
   step=await posted(student,`/api/student/classroom/${sessionId}/complete-stage`,()=>student.getByRole('button',{name:'提交本环节并判分'}).click());assert.equal(step.studentState.current_stage_index,4);assert.equal(step.result.score,0);
