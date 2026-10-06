@@ -160,6 +160,11 @@ const CHAPTER_CONTENT = {
         note: "课程讲演",
       },
       {
+        title: "第3章补充内容 数字逻辑基础（计2）",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-QLEWzO6Z?code=ET4W4G3TK",
+        note: "课程讲演",
+      },
+      {
         title: "第三章第三节 浮点数运算",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-bVemjD6Z?code=LDTRKWGEZ",
         note: "课程讲演",
