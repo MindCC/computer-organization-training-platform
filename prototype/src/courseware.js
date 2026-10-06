@@ -188,6 +188,7 @@ const CHAPTER_CONTENT = {
       "4.3.1 Cache基本原理 —— 局部性原理",
       "4.3.2 地址映像：直接映像、全相联映像、组相联映像",
       "4.4 虚拟存储器 —— 页式/段式/段页式",
+      "4.5 辅助存储器 —— 磁盘、光盘与固态存储",
     ],
     keyPoints: [
       "存储器层次：速度↓容量↑，CPU↔Cache↔主存↔磁盘",
@@ -251,6 +252,7 @@ const CHAPTER_CONTENT = {
       "5.3 寻址方式",
       "5.3.1 指令寻址 —— 顺序执行/跳转",
       "5.3.2 数据寻址 —— 立即/直接/间接/寄存器/变址/基址/相对寻址",
+      "5.4 RISC技术 —— 精简指令集的特点与设计思想",
     ],
     keyPoints: [
       "指令格式：操作码(做什么)+地址码(操作数在哪)",
@@ -262,6 +264,28 @@ const CHAPTER_CONTENT = {
       "试比较基址寻址和变址寻址的异同点。",
       "什么是RISC？请简述它的主要特点。",
       "什么是指令周期？什么是机器周期？什么是时钟周期？",
+    ],
+    embeds: [
+      {
+        title: "第五章第一节 机器指令",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-DYEqydE5?code=G93QG5Q3V",
+        note: "课程讲演",
+      },
+      {
+        title: "第五章第二节 指令类型与数据类型",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-5bk8WREX?code=G93QG5Q3V",
+        note: "课程讲演",
+      },
+      {
+        title: "第五章第三节 寻址方式",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-vq63ZLeg?code=G93QG5Q3V",
+        note: "课程讲演",
+      },
+      {
+        title: "第五章第四节 RISC技术",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-wMEY3XeZ?code=R9WETMSQQ",
+        note: "课程讲演",
+      },
     ],
     demos: [
       {
@@ -286,6 +310,8 @@ const CHAPTER_CONTENT = {
       "6.2.1 时序控制方式 —— 同步/异步/联合控制",
       "6.2.2 指令周期与多级时序 —— 指令周期>机器周期>时钟周期",
       "6.3 组合逻辑控制器设计 —— 模型机基本设计",
+      "6.4 微程序控制器设计",
+      "6.5 指令流水 —— 流水线冒险与冲突处理",
     ],
     keyPoints: [
       "CPU五阶段：取指→译码→执行→访存→写回",
@@ -296,6 +322,23 @@ const CHAPTER_CONTENT = {
       "CPU通常有哪几部分构成的？",
       "指令和数据都是二进制，CPU如何区分它们？",
       "什么是指令周期？什么是机器周期？什么是时钟周期？三者有什么关系？",
+    ],
+    embeds: [
+      {
+        title: "第六章第三节 组合逻辑控制器设计",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-Jj69raEv?code=ADT244SZ7",
+        note: "课程讲演",
+      },
+      {
+        title: "第六章第四节 微程序控制器设计",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-jYeZ8xEW?code=R9WETMSQQ",
+        note: "课程讲演",
+      },
+      {
+        title: "第六章第五节 指令流水",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-856NODEo?code=3PQAFZFBQ",
+        note: "课程讲演",
+      },
     ],
     demos: [
       {
