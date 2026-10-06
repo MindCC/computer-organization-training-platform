@@ -13,13 +13,13 @@
 .concept-chapter-number { align-self: flex-start; margin-top: 2px; color: #78917d; font: 10px/1.5 ui-monospace, monospace; }
 .concept-chapters button small { margin-left: auto; font-size: 10px; color: #839781; }
 .concept-explorer-note { border-top: 1px solid #e0e7df; margin: 24px 7px 0; padding-top: 15px; color: #859181; font-size: 11px; line-height: 1.8; }
-.concept-main { min-width: 0; background: #fbfdfb; }
+.concept-main { min-width: 0; position: relative; background: #fbfdfb; }
 .concept-main-head { display: flex; justify-content: space-between; align-items: center; padding: 22px 24px 16px; gap: 12px; }
 .concept-main-head small { font: 9px/1.5 ui-monospace, monospace; letter-spacing: .12em; color: #8a9a8b; }
 .concept-main-head h3 { font-size: 18px; margin: 6px 0 0; color: #304e3d; }
 .concept-main-head > span { color: #829582; font-size: 11px; white-space: nowrap; }
 .concept-graph-caption { display: flex; gap: 7px; align-items: center; color: #738a77; font-size: 11px; padding: 0 24px 18px; }
-.concept-canvas { margin: 0 16px 16px; border: 1px solid #dbe6dd; border-radius: 12px; overflow: hidden; background: #f4f8f3; }
+.concept-canvas { margin: 0 16px 16px; border: 1px solid #dbe6dd; border-radius: 12px; overflow: hidden; background: #f6faf5; }
 .concept-canvas-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #dbe6dd; background: #fff; }
 .course-knowledge .concept-canvas-toolbar button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 7px 10px; border: 1px solid #dbe6dd; border-radius: 7px; background: #fff; color: #355e47; font-size: 11px; cursor: pointer; }
 .course-knowledge .concept-canvas-toolbar button:hover { background: #edf5ec; border-color: #86ab91; }
@@ -27,27 +27,32 @@
 .concept-canvas-zoom { display: flex; align-items: center; border: 1px solid #dbe6dd; border-radius: 7px; background: #f7faf5; }
 .course-knowledge .concept-canvas-zoom button { width: 36px; border: 0; background: transparent; }
 .concept-canvas-zoom output { min-width: 45px; text-align: center; font: 11px ui-monospace, monospace; color: #46614b; }
-.concept-graph-desktop { background-image: radial-gradient(#cbdccd .8px, transparent .8px); background-size: 20px 20px; height: clamp(420px, 61vh, 620px); overflow: hidden; position: relative; cursor: grab; touch-action: none; user-select: none; }
+.concept-graph-desktop { background-image: radial-gradient(#d3e1d5 1px, transparent 1px); background-size: 22px 22px; height: clamp(420px, 61vh, 620px); overflow: hidden; position: relative; cursor: grab; touch-action: none; user-select: none; }
 .concept-graph-desktop.is-dragging { cursor: grabbing; }
 .concept-graph-desktop:focus-visible { outline: 2px solid #548d70; outline-offset: -3px; }
 .course-knowledge .kg-svg { display: block; width: 100%; min-width: 0; height: 100%; overflow: hidden; }
 .concept-canvas-instructions { margin: 0; padding: 10px 12px; border-top: 1px solid #dbe6dd; background: #f9fcf7; color: #5f7865; font-size: 10px; line-height: 1.8; }
 .concept-canvas-instructions span { display: block; color: #7c8e7c; font-size: 9px; }
-.course-knowledge .kg-edge { fill: none; stroke: #b4c9b9; color: #9bb6a2; stroke-width: 1.8; opacity: .7; }
-.course-knowledge .kg-edge.hot { stroke: #448769; color: #448769; stroke-width: 2.8; opacity: 1; }
-.course-knowledge .kg-node { cursor: pointer; opacity: 1; outline: 0; }
-.course-knowledge .kg-node rect { fill: #fff; stroke: #c5d4c8; stroke-width: 1.6; }
-.course-knowledge .kg-node.related rect { fill: #f0f6ee; stroke: #83ad90; }
-.course-knowledge .kg-node.highlighted rect { fill: #285d48; stroke: #285d48; }
-.course-knowledge .kg-node text { fill: #3c5945; font: 20px 'Manrope', sans-serif; font-weight: 550; pointer-events: none; }
+.course-knowledge .kg-edge { fill: none; stroke: #b9cdbe; color: #b9cdbe; stroke-width: 1.6; opacity: .85; }
+.course-knowledge .kg-edge.hot { stroke: #4c9177; color: #4c9177; stroke-width: 2; opacity: 1; }
+.course-knowledge .kg-node { cursor: pointer; outline: 0; }
+.course-knowledge .kg-node-card { fill: #fff; stroke: #ccdccf; stroke-width: 1.4; transition: fill .16s ease, stroke .16s ease; }
+.course-knowledge .kg-node:hover .kg-node-card, .course-knowledge .kg-node:focus-visible .kg-node-card { fill: #fff; stroke: #c19a35; stroke-width: 2; }
+.course-knowledge .kg-node.related .kg-node-card { fill: #f2f8f1; stroke: #9cc0a6; }
+.course-knowledge .kg-node.highlighted .kg-node-card { fill: #2b6049; stroke: #1f4c39; stroke-width: 1.6; }
+.course-knowledge .kg-node text { fill: #35513f; font-family: 'Manrope', sans-serif; font-weight: 550; letter-spacing: .01em; pointer-events: none; }
 .course-knowledge .kg-node.highlighted text { fill: #fff; }
-.course-knowledge .kg-node:hover rect, .course-knowledge .kg-node:focus-visible rect { stroke: #bc913d; stroke-width: 3; }
+/* 左侧状态条与图例同色：绿=有完成实验记录，琥珀=有尝试记录，灰=暂无记录 */
+.course-knowledge .kg-node-accent { fill: #ccd5cc; }
+.course-knowledge .kg-node[data-status='evidence'] .kg-node-accent { fill: #4c9a75; }
+.course-knowledge .kg-node[data-status='practicing'] .kg-node-accent { fill: #c79e4b; }
+.course-knowledge .kg-node.highlighted .kg-node-accent { fill: #8fd3b0; }
 .concept-evidence-dot { background: #ccd5cc; fill: #ccd5cc; }
 .concept-evidence-dot.evidence { background: #4c9a75; fill: #4c9a75; }
 .concept-evidence-dot.practicing { background: #c79e4b; fill: #c79e4b; }
-.concept-graph-legend { display: flex; flex-wrap: wrap; gap: 15px; border-top: 1px solid #e7eee7; padding: 14px 22px; color: #7a8c7c; font-size: 10px; }
-.concept-graph-legend span { display: flex; align-items: center; gap: 6px; }
-.concept-graph-legend i { width: 6px; height: 6px; border-radius: 50%; }
+.concept-graph-legend { position: absolute; left: 16px; bottom: 16px; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; max-width: calc(100% - 32px); margin: 0; padding: 8px 13px; border: 1px solid #dfe9dd; border-radius: 999px; background: rgba(255, 255, 255, .92); box-shadow: 0 3px 10px rgba(40, 80, 60, .07); color: #708a74; font-size: 10px; pointer-events: none; }
+.concept-graph-legend span { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.concept-graph-legend i { width: 7px; height: 7px; border-radius: 50%; }
 .concept-inspector { min-width: 0; background: #fff; border-left: 1px solid #e5ebe6; }
 .course-knowledge .kp-detail { margin: 0; padding: 24px 20px; border: 0; border-radius: 0; background: #fff; color: #304e3d; }
 .concept-detail-eyebrow { font-size: 10px; color: #89978a; }

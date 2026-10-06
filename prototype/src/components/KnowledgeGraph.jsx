@@ -6,15 +6,25 @@ import { COURSE_CHAPTERS, getChapterById } from '../courseChapters.js';
 import { KnowledgeCanvas } from './KnowledgeCanvas.jsx';
 import './knowledgeGraph.css';
 
-function labelLines(title) {
-  const lines = []; let line = '', width = 0;
-  for (const token of title.match(/[A-Za-z0-9/·-]+|./gu) ?? []) {
-    const size = /^[A-Za-z0-9/·-]+$/.test(token) ? token.length * .58 : 1;
-    if (width + size > 8 && line) { lines.push(line); line = ''; width = 0; }
-    line += token; width += size;
+/**
+ * 连线只负责表达“理解顺序”，箭头与强调色留给当前选中的概念，
+ * 这样满图不会出现一堆互相打架的箭头。端点已由布局模型给出，组件不再自己算偏移。
+ */
+function connectionPath(edge) {
+  const vertical = Math.abs(edge.y2 - edge.y1) >= Math.abs(edge.x2 - edge.x1);
+  const gap = 10;
+  if (vertical) {
+    const down = edge.y2 >= edge.y1;
+    const y1 = edge.y1 + (down ? gap : -gap), y2 = edge.y2 - (down ? gap : -gap);
+    // 控制点只吃掉约 40% 的纵向距离：曲线在卡片出口保持接近垂直，中段再横向过渡，
+    // 这样跨层连线不会大角度斜穿，也不会贴着卡片边缘走。
+    const bend = (y2 - y1) * 0.42;
+    return `M${edge.x1},${y1} C${edge.x1},${y1 + bend} ${edge.x2},${y2 - bend} ${edge.x2},${y2}`;
   }
-  if (line) lines.push(line);
-  return lines;
+  const right = edge.x2 >= edge.x1;
+  const x1 = edge.x1 + (right ? gap : -gap), x2 = edge.x2 - (right ? gap : -gap);
+  const bend = (x2 - x1) * 0.42;
+  return `M${x1},${edge.y1} C${x1 + bend},${edge.y1} ${x2 - bend},${edge.y2} ${x2},${edge.y2}`;
 }
 
 export function KnowledgeGraph({ progress = {}, focusId = null, initialChapterId = 'ch1', onSelectKp, onEnterChallenge, onPickQuestion }) {
@@ -26,9 +36,14 @@ export function KnowledgeGraph({ progress = {}, focusId = null, initialChapterId
   const focused = knowledgePointOf(selectedId) ?? initial;
   const chapter = getChapterById(chapterId);
   const points = useMemo(() => knowledgePointsByChapter(chapterId), [chapterId]);
-  const model = useMemo(() => layoutKnowledgeGraph({ chapterId, width: 920, height: 620 }), [chapterId]);
+  const model = useMemo(() => layoutKnowledgeGraph({ chapterId, width: 960, height: 600 }), [chapterId]);
   const matches = useMemo(() => query.trim() ? searchKnowledgePoints(query) : [], [query]);
   const relations = new Set([...prerequisitesOf(focused.id), ...dependentsOf(focused.id)].map(point => point.id));
+  const evidenceCount = points.filter(point => knowledgeEvidenceOf(point, progress).status === 'evidence').length;
+  const presentStatuses = useMemo(() => {
+    const seen = new Set(points.map(point => knowledgeEvidenceOf(point, progress).status));
+    return ['evidence', 'practicing', 'unseen'].filter(status => seen.has(status));
+  }, [points, progress]);
   useEffect(() => {
     const external = knowledgePointOf(focusId);
     if (external && external.id !== selectedId) {
@@ -42,6 +57,7 @@ export function KnowledgeGraph({ progress = {}, focusId = null, initialChapterId
   }
   function selectChapter(id) { setQuery(''); selectPoint(knowledgePointsByChapter(id)[0]?.id); }
   const detail = <ConceptDetail kp={focused} progress={progress} onSelect={id => { setQuery(''); selectPoint(id); }} onEnterChallenge={onEnterChallenge} onPickQuestion={onPickQuestion} />;
+  const connected = edge => edge.from === focused.id || edge.to === focused.id;
   return (
     <div className="course-knowledge" data-testid="course-knowledge-graph">
       <aside className="concept-explorer" aria-label="课程知识章节">
@@ -54,39 +70,44 @@ export function KnowledgeGraph({ progress = {}, focusId = null, initialChapterId
         <p className="concept-explorer-note">知识联系帮助理解课程；实验完成记录展示在对应知识点下。</p>
       </aside>
       <div className="concept-main">
-        <header className="concept-main-head"><div><small>CONCEPT CONNECTIONS</small><h3>{query.trim() ? '全课程搜索' : chapter?.title}</h3></div><span>{query.trim() ? matches.length + ' 个结果' : points.length + ' 个知识点'}</span></header>
+        <header className="concept-main-head"><div><small>{query.trim() ? '全课程搜索' : 'CONCEPT CONNECTIONS'}</small><h3>{query.trim() ? '全课程搜索' : chapter?.title}</h3></div><span>{query.trim() ? matches.length + ' 个结果' : points.length + ' 个知识点 · 已记录 ' + evidenceCount}</span></header>
         {query.trim() ? <div className="concept-search-results" aria-label="知识点搜索结果">
           {matches.length ? matches.map(point => <div key={point.id}><button type="button" className={point.id === focused.id ? 'is-selected' : ''} data-search-concept={point.id} onClick={() => selectPoint(point.id)}><small>{getChapterById(point.chapterId)?.title}</small><strong>{point.title}<ArrowRight size={16} /></strong><span>{point.summary}</span></button>{point.id === focused.id ? <div className="concept-search-mobile-detail">{detail}</div> : null}</div>) : <p className="concept-empty">未找到相关知识点，试试“存储器”“浮点”或“中断”。</p>}
         </div> : <>
           <div className="concept-graph-caption"><Path size={16} /><span>箭头表示理解顺序 · 点击知识点查看联系和学习入口</span></div>
-          <KnowledgeCanvas model={model} selectedId={selectedId} title={chapter?.title}>
-              <defs><marker id={markerId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M1,1 L9,5 L1,9" fill="none" stroke="currentColor" strokeWidth="1.5" /></marker></defs>
+          <KnowledgeCanvas model={model} selectedId={selectedId} title={chapter?.title}
+            legend={presentStatuses.length ? <div className="concept-graph-legend">{presentStatuses.map(status => <span key={status}><i className={'concept-evidence-dot ' + status} />{EVIDENCE_LEGEND[status]}</span>)}</div> : null}>
+              <defs><marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M1.5,1.5 L8.5,5 L1.5,8.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></marker></defs>
               {model.edges.map(edge => {
-                const vertical = Math.abs(edge.y2 - edge.y1) > Math.abs(edge.x2 - edge.x1);
-                const direction = vertical ? Math.sign(edge.y2 - edge.y1) : Math.sign(edge.x2 - edge.x1);
-                const x1 = edge.x1 + (vertical ? 0 : direction * 88), y1 = edge.y1 + (vertical ? direction * 38 : 0);
-                const x2 = edge.x2 - (vertical ? 0 : direction * 92), y2 = edge.y2 - (vertical ? direction * 42 : 0);
-                const curve = vertical ? 'M'+x1+','+y1+' C'+x1+','+(y1+y2)/2+' '+x2+','+(y1+y2)/2+' '+x2+','+y2 : 'M'+x1+','+y1+' C'+(x1+x2)/2+','+y1+' '+(x1+x2)/2+','+y2+' '+x2+','+y2;
-                return <path key={edge.from + ':' + edge.to} d={curve} markerEnd={'url(#' + markerId + ')'} className={'kg-edge' + (edge.from === focused.id || edge.to === focused.id ? ' hot' : '')} />;
+                const hot = connected(edge);
+                return <path key={edge.from + ':' + edge.to} d={connectionPath(edge)} className={'kg-edge' + (hot ? ' hot' : '')} markerEnd={hot ? 'url(#' + markerId + ')' : undefined} />;
               })}
               {model.nodes.map(node => {
                 const point = knowledgePointOf(node.id);
                 const evidence = knowledgeEvidenceOf(point, progress);
-                return <g key={point.id} className={'kg-node' + (point.id === focused.id ? ' highlighted' : relations.has(point.id) ? ' related' : '')} data-kp-id={point.id} data-status={evidence.status} transform={'translate(' + node.x + ' ' + node.y + ')'} role="button" tabIndex={0} aria-pressed={point.id === focused.id} aria-label={'知识点：' + point.title} onClick={() => selectPoint(point.id)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectPoint(point.id); } }}>
-                  <rect x="-88" y="-38" width="176" height="76" rx="12" /><circle cx="-70" cy="-26" r="3" className={'concept-evidence-dot ' + evidence.status} /><text textAnchor="middle">{labelLines(point.shortTitle).map((line, index, lines) => <tspan x="0" y={6 + (index - (lines.length - 1) / 2) * 23} key={index}>{line}</tspan>)}</text>
+                const lines = model.linesById.get(point.id) ?? [point.shortTitle];
+                return <g key={point.id} className={'kg-node' + (point.id === focused.id ? ' highlighted' : relations.has(point.id) ? ' related' : '')} data-kp-id={point.id} data-status={evidence.status} transform={'translate(' + node.x + ' ' + node.y + ')'} role="button" tabIndex={0} aria-pressed={point.id === focused.id} aria-label={'知识点：' + point.title + '，' + evidence.label} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectPoint(point.id); } }} onClick={() => selectPoint(point.id)} onDoubleClick={() => selectPoint(point.id)}>
+                  <rect className="kg-node-card" x={-model.boxWidth / 2} y={-model.boxHeight / 2} width={model.boxWidth} height={model.boxHeight} rx={model.boxRadius} />
+                  <rect className="kg-node-accent" x={-model.boxWidth / 2} y={-10} width={3.5} height={20} rx={1.75} />
+                  <text textAnchor="middle" fontSize={model.fontSize}>{lines.map((line, index, all) => <tspan x="0" y={(index - (all.length - 1) / 2) * model.lineHeight + model.fontSize * 0.36} key={index}>{line}</tspan>)}</text>
                 </g>;
               })}
           </KnowledgeCanvas>
           <div className="concept-mobile-list">
             {points.map(point => <div key={point.id}><button type="button" className={point.id === focused.id ? 'is-selected' : ''} data-mobile-concept={point.id} aria-expanded={point.id === focused.id} onClick={() => selectPoint(point.id)}>{point.title}<ArrowRight size={16} /></button>{point.id === focused.id ? detail : null}</div>)}
           </div>
-          <footer className="concept-graph-legend"><span><i className="concept-evidence-dot evidence" />有完成实验记录</span><span><i className="concept-evidence-dot practicing" />有尝试记录</span><span><i className="concept-evidence-dot unseen" />暂无实验记录</span></footer>
         </>}
       </div>
       <aside className={'concept-inspector' + (query.trim() ? ' with-search' : '')} aria-label="知识点详情">{detail}</aside>
     </div>
   );
 }
+
+const EVIDENCE_LEGEND = {
+  evidence: '有完成实验记录',
+  practicing: '有尝试记录',
+  unseen: '暂无实验记录',
+};
 
 function ConceptDetail({ kp, progress, onSelect, onEnterChallenge, onPickQuestion }) {
   const evidence = knowledgeEvidenceOf(kp, progress);

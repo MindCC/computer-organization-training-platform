@@ -149,14 +149,126 @@ export function kpStatusOf(kp, progress = {}) {
 }
 
 /**
- * Pure concept layout. Actual occupied depth layers run from foundation to advanced.
- * The UI uses centered 176×76 cards; 210×110 center spacing leaves room for edges.
- * Requested dimensions are minimum viewport sizes: crowded graphs expand the canvas.
+ * 概念卡片尺寸与文字排版。
+ *
+ * 卡片是固定宽高的居中矩形；文字按“每行最多 8 个汉字宽”折行，最多 2 行。
+ * 20px 字号下一个汉字实际约 18px 宽，所以 8 字（144px）刚好落在 28px 内边距里，
+ * 不会再出现文字压到卡片边框或挤出卡片的情况。
+ */
+export const NODE_FONT_SIZE = 20;
+export const NODE_LINE_HEIGHT = 27;
+export const NODE_LABEL_MAX_LINES = 2;
+export const NODE_BOX = Object.freeze({ width: 220, height: 80, radius: 14, paddingX: 24 });
+export const NODE_LABEL_MAX_PIXELS = NODE_BOX.width - NODE_BOX.paddingX * 2;
+
+/**
+ * 单字素估算宽度（px），用于折行。
+ * 实测：font-size 20px 时一个汉字正好 20px 宽，半角字母/数字约 11.5px，间隔号约 8px。
+ * 一律取上界（汉字按整个字号、半角按 0.58 字号），所以折行结果只会比实际更保守。
+ */
+function glyphWidth(character) {
+  if (/[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6]/u.test(character)) return NODE_FONT_SIZE;
+  if (character === "·") return NODE_FONT_SIZE * 0.42;
+  return NODE_FONT_SIZE * 0.58;
+}
+
+/** 可以断行的地方：空白与中英文标点之后（间隔号不断行，避免首行只剩“冯·”）。 */
+const BREAK_AFTER = /[\s、，。；;:：/／-]/u;
+
+/**
+ * 折行：按字素切分（不会拆开 emoji 或组合字符），逐字素累计估算宽度。
+ *
+ * 先用整行宽度贪心填行（放不下时退到最后一个可断点），
+ * 如果最后一行只剩一两个字，就把最后两行合并后重新均分，
+ * 仍然放不下时才丢掉结尾并加省略号。任何一行都不会超过 maxPixels。
+ */
+export function wrapKnowledgeLabel(title, { maxLines = NODE_LABEL_MAX_LINES, maxPixels = NODE_LABEL_MAX_PIXELS, graphemes = null } = {}) {
+  const text = String(title ?? "").trim();
+  if (!text) return [""];
+  const split = graphemes ?? segmentGraphemes;
+  const chars = split(text);
+  const widths = chars.map(glyphWidth);
+  const lines = [];
+  let start = 0;
+  while (start < chars.length && lines.length < maxLines) {
+    const last = lines.length === maxLines - 1;
+    const line = packLabelLine(chars, widths, start, maxPixels, last);
+    if (line.end <= start) break; // 单个字素就超宽时的兜底
+    lines.push({ start, end: line.end, width: line.width, text: line.text });
+    start = line.end;
+    if (line.text.endsWith("…")) return lines.map(entry => entry.text);
+    if (lines.length >= 2 && line.width < maxPixels * 0.75 && start < chars.length) {
+      // 提前换行会让下一行更空，重新按“尽量均分”切一次最后两行。
+      const rebalanced = rebalanceLines(lines, chars, widths, maxPixels, split);
+      if (rebalanced) return rebalanced.map(entry => entry.text);
+    }
+  }
+  return lines.map(entry => entry.text);
+}
+
+/** 填一行：先按宽度贪心，放不下时退到最后一个可断点；最后一行放不下则省略号截断。 */
+function packLabelLine(chars, widths, start, maxPixels, last) {
+  let width = 0, end = start;
+  while (end < chars.length && width + widths[end] <= maxPixels + 1e-9) { width += widths[end]; end += 1; }
+  if (end >= chars.length) return { end, width, text: chars.slice(start, end).join("") };
+  let cut = end;
+  for (let index = start + 1; index <= end; index += 1) if (BREAK_AFTER.test(chars[index - 1])) cut = index;
+  end = cut; width = 0;
+  for (let index = start; index < end; index += 1) width += widths[index];
+  if (last) {
+    while (end > start && width + glyphWidth("…") > maxPixels + 1e-9) { end -= 1; width -= widths[end]; }
+    return { end, width: width + glyphWidth("…"), text: chars.slice(start, end).join("") + "…" };
+  }
+  return { end, width, text: chars.slice(start, end).join("") };
+}
+
+/** 最后两行按“尽量均分且不超宽”重切；无法改善时返回 null。 */
+function rebalanceLines(lines, chars, widths, maxPixels, split) {
+  const tail = lines[lines.length - 1], head = lines[lines.length - 2];
+  const merged = split(head.text + tail.text);
+  let total = 0;
+  for (const character of merged) total += glyphWidth(character);
+  if (total > maxPixels * 2) return null;
+  const target = Math.min(maxPixels, total / 2);
+  let width = 0, cut = 1;
+  for (let index = 1; index <= merged.length; index += 1) {
+    const next = width + glyphWidth(merged[index - 1]);
+    if (next > maxPixels + 1e-9) break;
+    width = next;
+    if (next <= target + 1e-9) cut = index;
+  }
+  const firstText = merged.slice(0, cut).join(""), secondText = merged.slice(cut).join("");
+  if (!firstText || !secondText) return null;
+  const firstWidth = [...firstText].reduce((sum, character) => sum + glyphWidth(character), 0);
+  const secondWidth = total - firstWidth;
+  if (secondWidth >= Math.min(tail.width + head.width, maxPixels)) return null;
+  return [
+    { ...head, text: firstText, width: firstWidth },
+    { ...tail, text: secondText, width: secondWidth },
+  ];
+}
+
+let graphemeSegmenter = null;
+function segmentGraphemes(text) {
+  if (typeof Intl !== "undefined" && typeof Intl.Segmenter === "function") {
+    graphemeSegmenter ??= new Intl.Segmenter("zh-Hans", { granularity: "grapheme" });
+    return [...graphemeSegmenter.segment(text)].map((entry) => entry.segment);
+  }
+  return [...text];
+}
+
+/**
+ * 纯概念布局。实际占用的层从基础概念排到进阶概念，层内按声明顺序居中排列。
+ *
+ * 返回值同时给出卡片尺寸与连线锚点，画布与卡片渲染都只读这一个模型，
+ * 避免几何常量散落在组件、相机与测试里各写一份。
+ * 请求的 width/height 是画布最小值：概念多或层数多时画布自动扩大。
  */
 export function layoutKnowledgeGraph({ width = 1040, height = 720, chapterId, query = "" } = {}) {
   width = Number.isFinite(width) && width > 0 ? width : 1040;
   height = Number.isFinite(height) && height > 0 ? height : 720;
   const points = searchKnowledgePoints(query, { chapterId });
+  const linesById = new Map(points.map((point) => [point.id, wrapKnowledgeLabel(point.shortTitle)]));
   const layersByDepth = new Map();
   for (const point of points) {
     if (!layersByDepth.has(point.depth)) layersByDepth.set(point.depth, []);
@@ -164,8 +276,8 @@ export function layoutKnowledgeGraph({ width = 1040, height = 720, chapterId, qu
   }
   const layers = [...layersByDepth].sort(([left], [right]) => left - right);
   const maxDepth = Math.max(1, ...points.map((point) => point.depth));
-  const columnSpacing = 210, rowSpacing = 110;
-  const horizontalInset = 176 / 2 + 44, verticalInset = 76 / 2 + 32;
+  const columnSpacing = NODE_BOX.width + 24, rowSpacing = NODE_BOX.height + 48;
+  const horizontalInset = NODE_BOX.width / 2 + 40, verticalInset = NODE_BOX.height / 2 + 36;
   if (layers.length > 0) {
     const widestLayer = Math.max(...layers.map(([, members]) => members.length));
     width = Math.max(width, horizontalInset * 2 + (widestLayer - 1) * columnSpacing);
@@ -181,12 +293,21 @@ export function layoutKnowledgeGraph({ width = 1040, height = 720, chapterId, qu
     }));
   });
   const positions = new Map(nodes.map((node) => [node.id, node]));
-  const edges = points.flatMap((point) => point.deps.filter((dep) => positions.has(dep)).map((dep) => ({
-    from: dep, to: point.id, kind: "prerequisite",
-    x1: positions.get(dep).x, y1: positions.get(dep).y,
-    x2: positions.get(point.id).x, y2: positions.get(point.id).y,
-  })));
-  return { width, height, maxDepth, nodes, edges };
+  const edges = points.flatMap((point) => point.deps.filter((dep) => positions.has(dep)).map((dep) => {
+    const from = positions.get(dep), to = positions.get(point.id);
+    const down = to.y >= from.y;
+    return {
+      from: dep, to: point.id, kind: "prerequisite",
+      // 锚点位于卡片边框中点，箭头不会被卡片蒙住；前端只负责画曲线。
+      x1: from.x, y1: from.y + (down ? NODE_BOX.height / 2 : -NODE_BOX.height / 2),
+      x2: to.x, y2: to.y - (down ? NODE_BOX.height / 2 : -NODE_BOX.height / 2),
+    };
+  }));
+  return {
+    width, height, maxDepth, nodes, edges, linesById,
+    boxWidth: NODE_BOX.width, boxHeight: NODE_BOX.height, boxRadius: NODE_BOX.radius,
+    fontSize: NODE_FONT_SIZE, lineHeight: NODE_LINE_HEIGHT,
+  };
 }
 
 /** Validates authored concepts, teaching dependencies, experiment mappings and historical aliases. */

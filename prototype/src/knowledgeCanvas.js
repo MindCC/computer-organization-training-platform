@@ -9,12 +9,14 @@ export function zoomConceptCamera(camera, requestedZoom, anchor) {
   return { zoom, x: anchor.x - (anchor.x - camera.x) * ratio, y: anchor.y - (anchor.y - camera.y) * ratio };
 }
 
-export function fitConceptCamera(nodes, viewport, padding = 32) {
+/** 卡片尺寸由布局模型给出（默认沿用 176×76 的历史尺寸），相机只负责取景。 */
+export function fitConceptCamera(nodes, viewport, padding = 32, box = { width: 176, height: 76 }) {
   if (!nodes.length) return { x: viewport.width / 2, y: viewport.height / 2, zoom: 1 };
-  const left = Math.min(...nodes.map(node => node.x - 88));
-  const right = Math.max(...nodes.map(node => node.x + 88));
-  const top = Math.min(...nodes.map(node => node.y - 38));
-  const bottom = Math.max(...nodes.map(node => node.y + 38));
+  const halfWidth = (box.width ?? 176) / 2, halfHeight = (box.height ?? 76) / 2;
+  const left = Math.min(...nodes.map(node => node.x - halfWidth));
+  const right = Math.max(...nodes.map(node => node.x + halfWidth));
+  const top = Math.min(...nodes.map(node => node.y - halfHeight));
+  const bottom = Math.max(...nodes.map(node => node.y + halfHeight));
   const zoom = clampZoom(Math.min(1, Math.max(1, viewport.width - padding * 2) / (right - left), Math.max(1, viewport.height - padding * 2) / (bottom - top)));
   return { zoom, x: viewport.width / 2 - (left + right) / 2 * zoom, y: viewport.height / 2 - (top + bottom) / 2 * zoom };
 }
