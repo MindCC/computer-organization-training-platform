@@ -25,6 +25,12 @@ MINDMAP_VISION_TIMEOUT_MS=60000
 
 ## 生产
 
-拟存储于 `/etc/zcyl/vision.env`（640 root:zcyl），systemd 单独 EnvironmentFile；部署保留原助教环境，先备份程序、数据库和已有配置。自动审批要求明确授权该 Key 向生产服务器的接收目标，已向用户发起确认；当前文档记录本地完成状态，生产完成以服务环境及真实画板验收为准。
+用户已明确确认生产接收目标，并追加要求小芯吉祥物也使用同一 Token Dance Key。已通过 SSH stdin 配置 `/etc/zcyl/vision.env`（640 root:zcyl），systemd 单独 EnvironmentFile，未向命令参数、Git、前端或日志输出密钥。部署保留其他助教环境，先备份程序、数据库和已有配置；生产完成以服务环境及真实页面验收为准。
+
+## 小芯吉祥物
+
+独立 `STUDY_ASSISTANT_API_KEY` / `STUDY_ASSISTANT_BASE_URL` / `STUDY_ASSISTANT_MODEL` / `STUDY_ASSISTANT_TIMEOUT_MS`，Token Dance 模型 `deepseek-v4-flash`，15s 单调用预算和原有22s总预算。问题审核、回答生成、完整回答审核都使用同一专属配置。旧文字模型仍为 DeepSeek，因此现有“AI 讲解 · DeepSeek”标签对应实际模型；接入网关改为 Token Dance。保留旧客户端 consent 标识以兼容版本，用户错误信息使用“课程助教服务”。
+
+新增专属配置测试先失败，接入后画板及小芯服务/路由 **33 项测试通过**。真实 Token Dance 小芯调用成功，课程问题的三阶段审核/生成都在新接口；无关、关键词伪装、混合要求、指令覆盖四类请求仍拒答，合计约13.5s。独立配置缺地址或模型时不会发送凭据，也不会把专属 Key 发给默认官方接口。
 
 接口参考：[Token Dance](https://tokendance.space/)，[Qwen 结构化输出](https://help.aliyun.com/zh/model-studio/qwen-structured-output)。
