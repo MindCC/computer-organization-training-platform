@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, CheckCircle, Link, Play, Plus, Trash } from '@phosphor-icons/react';
-import { TASK_TYPES, NODE_PURPOSES, newTaskStage, taskChainTemplate, validateTaskChain } from '../../../shared/classroomTaskChain.js';
+import { TASK_TYPES, NODE_PURPOSES, newTaskStage, taskChainTemplate, adoptTaskChainTemplate, validateTaskChain } from '../../../shared/classroomTaskChain.js';
 import { KNOWLEDGE_POINTS,knowledgePointOf } from '../../../knowledgePoints.js';
 import { COURSE_CHAPTERS } from '../../../courseChapters.js';
 import { buildTeachingTemplate,publicFollowUpPrompt } from '../../../shared/teachingLoop.js';
@@ -63,7 +63,7 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, assistantR
   },[classId,sourceClassId,resourceVersion]);
   const active=chain.stages.find(stage=>stage.id===selected),index=chain.stages.indexOf(active);
   const patch=updates=>setChain(current=>({...current,stages:current.stages.map(stage=>stage.id===selected?{...stage,...updates}:stage)}));
-  function adopt(next){setChain({...next,...(chain.followUp?{followUp:chain.followUp}:{}),...(chain.followUp?{knowledgePointIds:chain.knowledgePointIds}:{})});setSelected(next.stages[0]?.id??null);setError('');}
+  function adopt(next){const adopted=adoptTaskChainTemplate(chain,next);setChain(adopted);setGoalChapter(knowledgePointOf(adopted.knowledgePointIds?.[0])?.chapterId??'ch1');setSelected(adopted.stages[0]?.id??null);setError('');}
   function useTemplate(key){adopt(taskChainTemplate(key));}
   function add(type){if(chain.stages.length>=16)return;const stage={...newTaskStage(type),position:{x:chain.stages.length?Math.max(...chain.stages.map((item,i)=>positionOf(item,i).x))+280:40,y:90}};setChain(current=>({...current,stages:[...current.stages,stage]}));setSelected(stage.id);}
   function move(offset){setChain(current=>{const stages=[...current.stages];[stages[index],stages[index+offset]]=[stages[index+offset],stages[index]];return {...current,stages:arrangeStages(stages)};});}

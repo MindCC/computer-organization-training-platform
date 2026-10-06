@@ -2,7 +2,7 @@ import { CHALLENGES } from '../platformLogic.js';
 import { COURSEWARE } from '../courseware.js';
 import { questionsForChapter } from '../assignmentQuestions.js';
 import { HOSTED_DEMOS } from './demoNavigation.js';
-import { knowledgePointOf } from '../knowledgePoints.js';
+import { knowledgePointOf, knowledgePointsForChallenge } from '../knowledgePoints.js';
 
 export const NODE_PURPOSES = Object.freeze({diagnosis:'诊断',learning:'学习',practice:'练习',retest:'复测',reflection:'反思'});
 export function normalizeKnowledgeIds(ids=[]) {
@@ -31,21 +31,37 @@ export function newTaskStage(type, suffix = `${Date.now()}-${Math.random().toStr
 }
 
 export function taskChainTemplate(key) {
-  if(key==='empty')return {title:'我的课堂任务链',stages:[]};
-  if(key==='data-flow')return {title:'计算机五大部件与数据流',stages:[
+  if(key==='empty')return {title:'我的课堂任务链',knowledgePointIds:[],stages:[]};
+  if(key==='data-flow'){
+    const stages=[
     {...newTaskStage('lab','components'),title:'认识五大部件',challengeId:'computer-components'},
     {...newTaskStage('lab','program'),title:'观察程序执行',challengeId:'program-flow'},
     {...newTaskStage('lab','instruction'),title:'区分指令与数据',challengeId:'instruction-data'},
     {...newTaskStage('lab','flow'),title:'完成综合数据流实训',challengeId:'data-flow'},
-  ]};
-  return {title:'补码运算：让减法变成加法',stages:[
+    ].map(stage=>({...stage,knowledgePointIds:knowledgePointsForChallenge(stage.challengeId).map(point=>point.id)}));
+    return {title:'计算机五大部件与数据流',knowledgePointIds:normalizeKnowledgeIds(stages.flatMap(stage=>stage.knowledgePointIds)),stages};
+  }
+  const knowledgePointIds=['concept-signed-representations','concept-twos-complement','concept-signed-range-overflow'];
+  const stages=[
     {...newTaskStage('practice','predict'),title:'课前诊断：我会表示负数吗？',minutes:5,instructions:'独立作答，检查补码范围与负数编码。此环节提交即可继续。'},
     {...newTaskStage('demo','observe'),title:'观察：5 − 3 为什么可以相加？',minutes:12,instructions:'切到“减法 A − B”，观察 5 − 3 的逐位运算；再观察 100 + 100，区分进位与溢出。'},
     {...newTaskStage('lab','encode'),title:'动手：验证负数的机器编码',minutes:8,instructions:'改变整数输入，对比原码、反码与补码，然后完成编码路径的实验检测。'},
     {...newTaskStage('ai','explain'),title:'问小芯：解释我的疑惑',minutes:5,instructions:'把不理解的问题主动告诉小芯，例如“为什么丢弃第九位进位不等于溢出？”阅读提示后，用自己的话写下理解。'},
     {...newTaskStage('practice','check'),title:'检验：补码加减与溢出',minutes:10,questionIds:['ch2-q08','ch2-q09','ch2-q10'],completion:'passed',instructions:'完成三道补码运算题，达到课堂及格分后继续；未通过可以订正再提交。'},
     {...newTaskStage('reflection','review'),title:'总结：我用什么证据判断溢出？',minutes:5,instructions:'用一个例子说明补码减法的步骤，以及为什么最高位进位不能直接当成溢出。'},
-  ]};
+  ].map(stage=>{
+    const related=stage.type==='practice'?questionsForChapter(stage.chapterId).filter(question=>stage.questionIds.includes(question.id)).map(question=>knowledgePointOf(question.kpId)?.id)
+      :stage.type==='lab'?knowledgePointsForChallenge(stage.challengeId).map(point=>point.id):knowledgePointIds;
+    return {...stage,knowledgePointIds:knowledgePointIds.filter(id=>related.includes(id))};
+  });
+  return {title:'补码运算：让减法变成加法',knowledgePointIds,stages};
+}
+
+export function adoptTaskChainTemplate(current,next) {
+  if(!current.followUp)return {...next};
+  // A linked remedial task keeps the teacher's selected targets and recipients.
+  const goals=current.knowledgePointIds??[];
+  return {...next,followUp:current.followUp,knowledgePointIds:[...goals],stages:next.stages.map(stage=>({...stage,knowledgePointIds:(stage.knowledgePointIds??goals).filter(id=>goals.includes(id))}))};
 }
 
 const boundedText=(value,max,label,required=false)=>{
