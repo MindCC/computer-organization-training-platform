@@ -18,6 +18,14 @@ test('local outline preserves numeric knowledge and caps excessive indentation',
   assert.ok(result.graph.nodes.some(n=>n.label==='32位地址'));
   assert.ok(result.graph.nodes.some(n=>n.label==='3.14'));
 });
+
+test('local outline retains Chinese numbered hierarchy and cleans display markup',async()=>{
+  const result=await generateMindMap({text:'**存储系统**\n一、映射方式\n（一）直接映射\n二、写策略',consent:true},{env:{}});
+  assert.equal(result.graph.title,'存储系统');
+  const mapping=result.graph.nodes.find(n=>n.label==='映射方式');
+  assert.equal(result.graph.nodes.find(n=>n.label==='直接映射').parentId,mapping.id);
+  assert.equal(result.graph.nodes.find(n=>n.label==='写策略').parentId,'root');
+});
 test('images require a configured vision model; invalid image is rejected before fetch', async () => {
   await assert.rejects(generateMindMap({ image:'data:image/png;base64,iVBORw0KGgo=', consent:true }, { env:{} }), e => e.status === 503);
   await assert.rejects(generateMindMap({ image:'data:image/svg+xml;base64,eA==', consent:true }, { env:{} }), e => e.status === 400);

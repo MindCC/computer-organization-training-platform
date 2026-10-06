@@ -94,12 +94,12 @@ function localOutline(text) {
     .replace(/[…⋯]+$/, '')
     .replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
     .replace(/^第[一二三四五六七八九十]+[章节部分]\s*/, '')
-    .replace(/^(?:[一二三四五六七八九十]+\s*[、.．)）]|[（(][一二三四五六七八九十\d]+[)）]|\d+(?:\.\d+)*\s*[、.．)）])\s*/, '')
+    .replace(/^(?:[一二三四五六七八九十]+\s*[、.．)）]|[（(][一二三四五六七八九十\d]+[)）]|\d+(?:\.\d+)*(?:\s*[、．)）]|\.(?!\d)))\s*/, '')
     .replace(/^\d+\s+/, '')
     .replace(/^\*\*|\*\*$/g, '')
     .replace(/^["“”'‘’「」『』]+|["“”'‘’「」『』]+$/g, '')
     .trim().slice(0, 160);
-  const split = value => value.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const split = value => value.split(/\r?\n/).filter(l => l.trim());
   let lines = split(text);
   if (lines.length <= 1) lines = text.split(/[。；;！？]/).map(l => l.trim()).filter(Boolean);
   const rootLabel = clean(lines[0]) || '思维导图';
