@@ -325,6 +325,16 @@ const CHAPTER_CONTENT = {
     ],
     embeds: [
       {
+        title: "第六章第一节 CPU的功能与组成（1）",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-mdElp0EG?code=ET4W4G3TK",
+        note: "课程讲演",
+      },
+      {
+        title: "第六章第二节 多级时序与时序系统",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-41eKJwkP?code=VZNWMD8HM",
+        note: "课程讲演",
+      },
+      {
         title: "第六章第三节 组合逻辑控制器设计",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-Jj69raEv?code=ADT244SZ7",
         note: "课程讲演",
@@ -345,13 +355,6 @@ const CHAPTER_CONTENT = {
         title: "CPU 的结构与设计",
         href: "/demos/cpu.html",
         note: "数据通路五阶段动画、多级时序嵌套、节拍控制信号矩阵、中断流程",
-      },
-    ],
-    embeds: [
-      {
-        title: "第六章第二节 多级时序与时序系统",
-        src: "https://ppt.gkk.cn/#/ai/gkk-share-41eKJwkP?code=VZNWMD8HM",
-        note: "课程讲演",
       },
     ],
   },
