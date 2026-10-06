@@ -25,7 +25,7 @@
     "qa:study-companion": "node scripts/run-browser-qa.mjs scripts/verify-study-companion.mjs --production",
     "test": "node --test src/*.test.mjs src/shared/*.test.mjs src/circuit/*.test.mjs src/components/*.test.mjs src/motion/*.test.mjs scripts/*.test.mjs server/*.test.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "server": "node --import ./server/developmentConfig.js server/server.js",
+    "server": "node --env-file-if-exists=.env --import ./server/developmentConfig.js server/server.js",
     "dev:server": "node --import ./server/developmentConfig.js server/server.js",
     "migrate": "node server/migrate.js",
     "seed:teacher": "node server/seedTeacher.js",
