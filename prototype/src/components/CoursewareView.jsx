@@ -1,15 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowsOut, MonitorPlay } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowsOut, CaretRight, MonitorPlay } from "@phosphor-icons/react";
 import { COURSEWARE } from "../courseware.js";
-import { ExperimentThumbnail } from "./ExperimentThumbnail.jsx";
 import { useCurrentStudyContext } from './ai/currentStudyContext.js';
 import "./coursewareView.css";
+import "./aiLectureOutline.css";
 
 const lectureChapters = COURSEWARE.chapters.filter((chapter) => chapter.embeds?.length);
 
 export function CoursewareView({ initialChapterId } = {}) {
   // Task-chain stages can enter the assigned chapter directly; the hub itself opens with no player.
   const [selected, setSelected] = useState(() => initialChapterId ? { chapterId: initialChapterId, index: 0 } : null);
+  // 章节大纲：默认全部收起，点章节行展开（用户决定 2026-10-06，A 方案）
+  const [openChapter, setOpenChapter] = useState(null);
 
   useEffect(() => {
     if (initialChapterId) setSelected({ chapterId: initialChapterId, index: 0 });
@@ -30,9 +32,9 @@ export function CoursewareView({ initialChapterId } = {}) {
       if (document.fullscreenElement === player) return;
       const bounds = page.getBoundingClientRect();
       const scale = bounds.width / page.clientWidth || 1;
-      const available = window.innerHeight - (bounds.top + window.scrollY)
-        - back.getBoundingClientRect().height - head.getBoundingClientRect().height - 38 * scale;
-      const width = Math.min(page.clientWidth, 1200, Math.max(1, available / scale) * 16 / 9);
+      // 2026-10-06 用户反馈：就要这个宽度 —— 播放器铺满内容区整宽（不再设上限）
+      void scale;
+      const width = page.clientWidth;
       player.style.setProperty("--ai-lecture-width", `${Math.floor(width)}px`);
     }
     const observer = new ResizeObserver(fitPlayer);
@@ -79,17 +81,33 @@ export function CoursewareView({ initialChapterId } = {}) {
         <h1 id="ai-lectures-heading">AI讲演</h1>
         <p>选择章节与讲演主题，进入播放页面学习。</p>
       </header>
-      <div className="ai-lecture-grid">
-        {lectureChapters.map((item) => <article key={item.id} className="ai-lecture-card">
-          <h2>{item.title}</h2>
-          <ExperimentThumbnail demo={item.demos?.[0]} />
-          <div className="ai-lecture-card-links">
-            {item.embeds.map((embed, index) => <button type="button" key={embed.src} onClick={() => openLecture(item.id, index)}>
-              <MonitorPlay size={16} /><span>{embed.title}</span><small>开始讲演 →</small>
-            </button>)}
-          </div>
-          <p>{item.embeds.length} 个 AI讲演</p>
-        </article>)}
+      <div className="ai-lecture-outline">
+        {COURSEWARE.chapters.map((item) => {
+          const embeds = item.embeds ?? [];
+          const open = openChapter === item.id;
+          return <section key={item.id} className={"ai-lecture-row" + (open ? " is-open" : "")}>
+            <button type="button" className="ai-lecture-row-head" aria-expanded={open}
+              onClick={() => setOpenChapter(open ? null : item.id)}>
+              <CaretRight size={16} className="ai-lecture-row-caret" />
+              <strong>{item.title}</strong>
+              <span className="ai-lecture-row-meta">
+                {item.slides ? item.slides + " 页PPT" : null}
+                {item.sections?.length ? " · " + item.sections.length + " 小节" : null}
+                {embeds.length ? " · 含 " + (embeds.length > 1 ? embeds.length + " 个 " : "") + "AI 互动讲演" : null}
+              </span>
+            </button>
+            {open ? <div className="ai-lecture-row-body">
+              {item.sections?.length ? <ul className="ai-lecture-sections">
+                {item.sections.map((section) => <li key={section}>{section}</li>)}
+              </ul> : null}
+              {embeds.length ? <div className="ai-lecture-card-links">
+                {embeds.map((embed, index) => <button type="button" key={embed.src} onClick={() => openLecture(item.id, index)}>
+                  <MonitorPlay size={16} /><span>{embed.title}</span><small>开始讲演 →</small>
+                </button>)}
+              </div> : <p className="ai-lecture-row-empty">本章暂无 AI 互动讲演。</p>}
+            </div> : null}
+          </section>;
+        })}
       </div>
     </section>}
   </div>;

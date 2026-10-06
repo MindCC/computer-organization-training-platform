@@ -96,17 +96,17 @@ const CHAPTER_CONTENT = {
     ],
     embeds: [
       {
-        title: "第二章 数值信息的表示",
+        title: "第二章第一节 数值信息的表示",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-GVknaKE7?code=LDTRKWGEZ",
         note: "课程讲演",
       },
       {
-        title: "第二章 非数值数据的表示",
+        title: "第二章第二节 非数值数据的表示",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-mv6yVYEZ?code=R9WETMSQQ",
         note: "课程讲演",
       },
       {
-        title: "第二章 数据信息的校验",
+        title: "第二章第三节 数据信息的校验",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-Z86o2qeR?code=R9WETMSQQ",
         note: "课程讲演",
       },
@@ -155,12 +155,12 @@ const CHAPTER_CONTENT = {
         note: "课程讲演",
       },
       {
-        title: "第三章 浮点数运算",
+        title: "第三章第三节 浮点数运算",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-bVemjD6Z?code=LDTRKWGEZ",
         note: "课程讲演",
       },
       {
-        title: "第三章 算术逻辑单元",
+        title: "第三章第四节 算术逻辑单元",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-WbEJm16v?code=LDTRKWGEZ",
         note: "课程讲演",
       },
@@ -197,12 +197,12 @@ const CHAPTER_CONTENT = {
     ],
     embeds: [
       {
-        title: "第四章 存储器系统概述",
+        title: "第四章第一节 存储器系统概述",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-9q6gAqkJ?code=R9WETMSQQ",
         note: "课程讲演",
       },
       {
-        title: "第四章 高速缓冲存储器",
+        title: "第四章第三节 高速缓冲存储器",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-QRkXYpew?code=R9WETMSQQ",
         note: "课程讲演",
       },
