@@ -12,11 +12,13 @@ const errors=[];page.on('pageerror',error=>errors.push(error.message));
 const artifactDir = process.env.QA_ARTIFACT_DIR ?? 'qa-artifacts';
 await mkdir(artifactDir, { recursive: true });
 try {
-  await gotoApp(page, process.env.PROTOTYPE_APP_URL);
+  await gotoApp(page, process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173');
   await fillLoginForm(page, { username: 'demo2026001', password: 'Student123!' });
   await submitLoginForm(page);
   await expect(page.locator('.topbar-nav')).toBeVisible();
-  await page.getByTestId('course-adventure-map').getByRole('button', { name: /认识数据流/ }).click();
+  // 「认识数据流」在第 3 章，地图默认停在第 1 章：必须走 openChallengeFromHome
+  // 先选中该章区域再进关卡，不能直接按标题点地图按钮。
+  await openChallengeFromHome(page, '认识数据流');
   const canvas = page.getByTestId('react-flow-circuit-canvas');
   await expect(canvas).toBeVisible();
   const bounds = await canvas.boundingBox();
@@ -117,8 +119,12 @@ try {
   await page.screenshot({ path: path.join(artifactDir, 'immersive-workbench-narrow.png'), fullPage: true });
   await page.getByRole('button', { name: '提交检测', exact: true }).click();
   await expect(page.locator('.circuit-flow-report')).toHaveClass(/passed/);
-  const recap=page.getByRole('button',{name:'复盘本关',exact:true});
-  if(await recap.isVisible())await recap.click();
+  // 提交通过会弹出评测结算浮层，它覆盖全屏、会拦掉后续点击：
+  // 等浮层真的挂载出来，再点「复盘本关」，并轮询确认它已消失，才继续导航。
+  // （不要先取 locator 再判断可见性：浮层是动画/延迟挂载的，那样会点到失效节点。）
+  await expect(page.locator('.quest-settlement')).toHaveCount(1);
+  await page.locator('.quest-settlement').getByRole('button',{name:'复盘本关',exact:true}).click();
+  await expect.poll(() => page.locator('.quest-settlement').count(), { timeout: 5000 }).toBe(0);
   await page.setViewportSize({width:1366,height:768});
   await clickTopNavItem(page,'课程首页');
   await openChallengeFromHome(page,'机器数编码');
