@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '../../../apiClient.js';
 import { TASK_TYPES } from '../../../shared/classroomTaskChain.js';
 import { useVisibilityInterval } from '../../../hooks/useVisibilityInterval.js';
+import { TeachingLoopPanel } from './TeachingLoopPanel.jsx';
 
 const statuses={live:'进行中',paused:'已暂停',ended:'已结束',draft:'草稿'};
 const progress={completed:'已完成',in_progress:'正在做',not_started:'尚未开始'};
@@ -18,9 +19,12 @@ function StageFeedback({stage}){
 }
 
 /** 库中查看与统计页共用同一课堂、节点筛选和服务端记录。 */
-export function TaskLearningPanel({task,initialSessionId=null,initialStageId=null,onOpenStatistics}){
+export function TaskLearningPanel({task,initialSessionId=null,initialStageId=null,onOpenStatistics,onCreateFollowUp}){
   const [data,setData]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(true);
   const [sessionId,setSessionId]=useState(initialSessionId),[stageId,setStageId]=useState(initialStageId);
+  const [followUpScope,setFollowUpScope]=useState(null);
+  const [ending,setEnding]=useState(false);
+  async function endSource(){if(ending)return;setEnding(true);try{await api.endClassroomSession(sessionId);await load();}catch(cause){setError(cause.message);}finally{setEnding(false);}}
   const sequence=useRef(0);
   async function load(silent=false){
     const request=++sequence.current;
@@ -30,14 +34,16 @@ export function TaskLearningPanel({task,initialSessionId=null,initialStageId=nul
     finally{if(request===sequence.current)setLoading(false);}
   }
   useEffect(()=>{setData(null);load();return()=>{sequence.current+=1;};},[task.id,sessionId]);
-  useVisibilityInterval(()=>load(true),15000);
+  useVisibilityInterval(()=>load(true),15000,!followUpScope);
   const publication=data?.publications.find(item=>item.sessionId===sessionId);
+  if(followUpScope)return <section><button type="button" className="ghost-button" onClick={()=>setFollowUpScope(null)}>返回来源任务学情</button><TaskLearningPanel key={`${followUpScope.taskId}:${followUpScope.sessionId}`} task={{id:followUpScope.taskId,title:followUpScope.title}} initialSessionId={followUpScope.sessionId} onOpenStatistics={onOpenStatistics} onCreateFollowUp={onCreateFollowUp}/></section>;
   return <section className="task-learning-panel" aria-label="任务链学情详情">
     <div className="task-learning-controls"><strong>{task.title}</strong><small>每 15 秒同步</small><button type="button" className="ghost-button" disabled={loading} onClick={()=>load()}>刷新学情</button>{sessionId!==null&&initialSessionId===null?<button type="button" className="ghost-button" onClick={()=>{setSessionId(null);setStageId(null);}}>全部发布</button>:null}</div>
     {loading?<p role="status">正在读取学情…</p>:null}
     {error?<p className="form-error" role="alert">{error}<button type="button" onClick={()=>load()}>重试</button></p>:null}
     {data?<>
       {publication?<p className="task-learning-scope">{publication.className} · 课堂 #{publication.sessionId} · {statuses[publication.status]} · {publication.publishedAt}</p>:null}
+      {publication&&['live','paused'].includes(publication.status)?<button type="button" className="secondary-button" disabled={ending} onClick={endSource}>{ending?'正在结束…':'结束本次课堂，准备后续任务'}</button>:null}
       {data.publications.length?<div className="task-learning-summary">
         <span><strong>{data.summary.publishedCount}</strong> 次课堂</span><span><strong>{data.summary.classCount}</strong> 个班级</span>
         <span><strong>{data.summary.completed} / {data.summary.totalStudents}</strong> {sessionId===null?'人次':'人'}完成 · {data.summary.completionRate}%</span>
@@ -60,6 +66,7 @@ export function TaskLearningPanel({task,initialSessionId=null,initialStageId=nul
           {onOpenStatistics?<button type="button" className="ghost-button" onClick={()=>onOpenStatistics({...item,taskId:task.id,title:task.title})}>查看学情统计</button>:null}
         </article>)}
       </section>:null}
+      <TeachingLoopPanel knowledge={data.knowledge} publication={publication} followUps={data.followUps} onCreateFollowUp={onCreateFollowUp?payload=>onCreateFollowUp({...payload,sourceTaskId:task.id}):undefined} onOpenFollowUp={setFollowUpScope}/>
       <p className="task-learning-note">来自真实课堂记录；参与型环节不计知识成绩。汇总按课堂人次统计，同一学生参加多次课堂分别计入；修改过的节点内容分别统计。</p>
     </>:null}
   </section>;

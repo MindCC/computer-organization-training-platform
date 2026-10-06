@@ -3,7 +3,8 @@ import { askStudyAssistant } from './studyAssistant.js';
 
 export function createStudyAssistantRouter({ requireRole, options = {} }) {
   const router = Router(), requests = new Map(), pending = new Set();
-  router.post('/student/study-assistant', requireRole('student'), async (req, res) => {
+  for(const role of ['student','teacher']) {
+  router.post(`/${role}/study-assistant`, requireRole(role), async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const now = Date.now(), id = req.user.id;
     for (const [key, times] of requests) if (times.every(time => now - time >= 60000)) requests.delete(key);
@@ -17,5 +18,6 @@ export function createStudyAssistantRouter({ requireRole, options = {} }) {
     catch (error) { res.status(error.status ?? 500).json({ error: { code: 'STUDY_QUESTION_INVALID', message: error.status ? error.message : '提问暂时失败，请重试。' } }); }
     finally { pending.delete(id); }
   });
+  }
   return router;
 }

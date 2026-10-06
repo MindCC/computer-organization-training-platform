@@ -1,4 +1,5 @@
 import { clickCentered } from "./qaInteraction.mjs";
+import { CHALLENGES } from '../../src/platformLogic.js';
 
 /**
  * 从课程首页打开指定关卡。
@@ -12,6 +13,16 @@ import { clickCentered } from "./qaInteraction.mjs";
 const CHALLENGE_ENTRY_SELECTOR = ".project-experiment-row, .route-card";
 
 export async function openChallengeFromHome(page, title) {
+  await page.locator('.quest-student-home, .project-chapter-board, .mission-route-board').first().waitFor({ state: 'visible', timeout: 20000 });
+  if (await page.getByTestId('course-adventure-map').isVisible().catch(() => false)) {
+    const challenge = CHALLENGES.find(item => item.title === title);
+    if (!challenge) throw new Error(`Unknown course challenge: ${title}`);
+    const region = page.locator(`.adventure-map-region[data-region-id="${challenge.chapterId}"]`);
+    await region.focus();
+    await region.press('Enter');
+    await page.locator(`[data-map-challenge-id="${challenge.id}"]`).getByRole('button').click();
+    return;
+  }
   const target = page.locator(CHALLENGE_ENTRY_SELECTOR).filter({ hasText: title }).first();
   if (!(await target.isVisible().catch(() => false))) {
     const toggles = page.locator(".project-chapter-toggle");

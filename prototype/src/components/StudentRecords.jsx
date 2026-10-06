@@ -24,6 +24,7 @@ import { ShopServiceRecords } from './records/ShopServiceRecords.jsx';
 import { RecentActivityChart } from "./records/RecentActivityChart.jsx";
 import { buildRecentActivityModel } from "../recordsOverviewModel.js";
 import { StudyMascot } from "./ai/StudyMascot.jsx";
+import { personalLearningPath } from '../personalLearningApi.js';
 import "./records/recordsTech.css";
 const StudyPlanningPanel = lazy(() => import('./study/StudyPlanningPanel.jsx').then(m => ({ default: m.StudyPlanningPanel })));
 
@@ -96,7 +97,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
           <p className="records-subtitle">整理知识联系，查看自己的学习进度；课程地图已移至课程首页。</p>
         </div>
         <div className="records-screen-actions">
-          <a className="ghost-button" href="/api/student/report.md">导出实验报告</a>
+          {personalTools && <a className="ghost-button" href={personalLearningPath('/api/student/report.md')}>导出实验报告</a>}
           <button className="ghost-button" onClick={() => changeView("home")} type="button">回到课程首页继续实验</button>
         </div>
       </header>
@@ -133,7 +134,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
 
       {/* 专注区：树钟在左（木板上印任务经验值），右栏是教师任务卡 + 我的学习计划 */}
       <div className="records-focus-row">
-        <PomodoroPanel task={classroomTask} />
+        {personalTools && <PomodoroPanel task={classroomTask} />}
         <div className="records-focus-side">
           <ClassroomTaskCard task={classroomTask} />
           {userId && personalTools && (
@@ -147,10 +148,10 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       {/* 次级信息行：学习日历 + 学习热力图并排 */}
       <div className="records-secondary-row">
         {/* 学习日历：按天回看实验与课堂演示记录 */}
-        <RecordsCalendar onOpenChallenge={selectChallenge} />
+        {personalTools && <RecordsCalendar onOpenChallenge={selectChallenge} />}
 
         {/* 学习热力图：近 7 天 × 每 2 小时，全部来自真实提交时间戳 */}
-        <RecordsHeatmap />
+        {personalTools && <RecordsHeatmap />}
       </div>
 
       <section className="records-statistics" aria-labelledby="records-statistics-title">

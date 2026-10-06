@@ -38,6 +38,8 @@ export function createClassroomSessionRepository(db) {
         SELECT ?, student_id, 'not_started'
         FROM class_members WHERE class_id = ?
       `).run(sessionId, input.classId);
+      const targets=JSON.parse(input.configJson??'{}').targetStudentIds;
+      if(targets)db.prepare(`DELETE FROM student_session_states WHERE session_id=? AND student_id NOT IN (${targets.map(()=>'?').join(',')})`).run(sessionId,...targets);
       return getById(sessionId);
     })();
   }
@@ -52,6 +54,7 @@ export function createClassroomSessionRepository(db) {
       FROM classroom_sessions cs
       JOIN class_members cm ON cm.class_id = cs.class_id
       WHERE cm.student_id = ? AND cs.status IN ('live', 'paused', 'ended')
+        AND (json_type(cs.config_json,'$.targetStudentIds') IS NULL OR EXISTS(SELECT 1 FROM student_session_states s WHERE s.session_id=cs.id AND s.student_id=cm.student_id))
       ORDER BY CASE WHEN cs.status IN ('live', 'paused') THEN 0 ELSE 1 END, cs.id DESC
       LIMIT 1
     `).get(studentId) ?? null;
@@ -76,8 +79,10 @@ export function createClassroomSessionRepository(db) {
         ON cs.class_id = other.class_id AND cs.status IN ('live', 'paused')
       JOIN users u ON u.id = target.student_id
       WHERE target.class_id = ? AND (? IS NULL OR cs.id <> ?)
+        AND (json_type(cs.config_json,'$.targetStudentIds') IS NULL OR EXISTS(SELECT 1 FROM student_session_states active WHERE active.session_id=cs.id AND active.student_id=target.student_id))
+        AND (? IS NULL OR json_type((SELECT config_json FROM classroom_sessions WHERE id=?),'$.targetStudentIds') IS NULL OR EXISTS(SELECT 1 FROM student_session_states selected WHERE selected.session_id=? AND selected.student_id=target.student_id))
       ORDER BY u.display_name, u.id
-    `).all(classId, excludeSessionId, excludeSessionId);
+    `).all(classId, excludeSessionId, excludeSessionId,excludeSessionId,excludeSessionId,excludeSessionId);
   }
 
   function getStudentState(sessionId, studentId) {

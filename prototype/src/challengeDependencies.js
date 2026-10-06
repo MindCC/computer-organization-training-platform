@@ -18,7 +18,7 @@ export const CHALLENGE_DEPS = Object.freeze({
   "or-gate": ["data-flow"],
   "not-gate": ["data-flow"],
   "xor-gate": ["data-flow"],
-  "memory-address": ["machine-number"],
+  "memory-address": ["alu"],
   "half-adder": ["xor-gate", "and-gate"],
   "mux": ["and-gate", "or-gate", "not-gate"],
   "instruction-data": ["memory-address"],

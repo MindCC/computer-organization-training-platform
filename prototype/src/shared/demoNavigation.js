@@ -12,7 +12,7 @@ export const HOSTED_DEMOS = Object.freeze([
   {id:"io",title:"输入输出系统",chapterId:"ch8",file:"io.html"},
 ]);
 export function hostedDemoOf(id) {
-  if (id === "courseware") return {id,title:"课程课件 · 演讲视图",path:"/courseware.html"};
+  if (id === "courseware") return {id,title:"AI讲演 · 播放视图",path:"/courseware.html"};
   const demo = HOSTED_DEMOS.find(item => item.id === id);
   return demo ? {...demo,path:`/demos/${demo.file}`} : null;
 }

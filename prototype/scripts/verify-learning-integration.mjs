@@ -178,8 +178,8 @@ try {
   await expect(guest.locator(".topbar")).toBeVisible();
   await expect(guest.locator(".hosted-demo-frame")).toHaveAttribute("src","/courseware.html?embedded=1");
   await expect(guest.frameLocator(".hosted-demo-frame").locator("body")).toBeVisible();
-  await guest.getByRole("button",{name:"返回课程课件",exact:true}).click();
-  await expect(guest.locator(".courseware-lecture-player iframe")).toBeVisible();
+  await guest.getByRole("button",{name:"返回AI讲演",exact:true}).click();
+  await expect(guest.locator(".ai-lecture-hub")).toBeVisible();
   pass("演讲课件完整保留，统一返回入口正常");
   const teacherPage = await teacherContext.newPage();
   await teacherPage.goto(`${app}/demos/alu.html`,{waitUntil:"domcontentloaded"});

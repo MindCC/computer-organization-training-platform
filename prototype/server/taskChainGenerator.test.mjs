@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { generateTaskChain, taskChainMessages } from './taskChainGenerator.js';
 import { taskChainTemplate } from '../src/shared/classroomTaskChain.js';
 import { requestChatCompletion } from './aiClient.js';
+import { buildTeachingTemplate } from '../src/shared/teachingLoop.js';
+
+test('scoped follow-up generation preserves public knowledge targets and never forwards injected learning records',async()=>{
+  let sent;
+  const input={prompt:'为Cache映射安排基础补学与复测',consent:'deepseek-task-chain',knowledgePointIds:['concept-cache-mapping'],teachingTemplate:'remediation',studentIds:['PRIVATE_STUDENT'],grades:'PRIVATE_GRADE',answers:'PRIVATE_ANSWERS'};
+  const result=await generateTaskChain(input,{env:{DEEPSEEK_API_KEY:'test'},requester:async(_config,messages)=>{sent=JSON.stringify(messages);return JSON.stringify(buildTeachingTemplate('remediation',['ch4'],input.knowledgePointIds));}});
+  assert.equal(result.source,'deepseek');assert.ok(!sent.includes('PRIVATE_'));assert.ok(sent.includes('concept-cache-mapping'));
+  const local=await generateTaskChain(input,{env:{}});
+  assert.equal(local.source,'local');assert.ok(local.taskChain.stages.filter(s=>s.type==='practice').every(s=>s.chapterId==='ch4'));
+});
 
 test('task-chain generation requires explicit action and bounded teaching requirements',async()=>{
   await assert.rejects(generateTaskChain({prompt:'讲解补码'}),/确认/);

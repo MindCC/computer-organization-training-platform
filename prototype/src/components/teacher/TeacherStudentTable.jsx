@@ -37,7 +37,7 @@ export function TeacherStudentTable({ students = [], selectedClass, selectedTeac
         {students.length === 0 ? (
           <div className="empty-state">
             <strong>{emptyState?.title ?? "暂无学生数据"}</strong>
-            <p>{emptyState?.description ?? "请先在左侧边栏「创建班级」后导入学生 CSV。"}</p>
+            <p>{emptyState?.description ?? "请打开左侧「班级管理」，创建或选择班级并导入学生名单。"}</p>
             {emptyState ? (
               <a className="ghost-button settings-template-link" download="student-import-template.csv" href={emptyState.actionHref}>
                 {emptyState.actionLabel}

@@ -33,7 +33,7 @@ try {
   check("六大模式齐全", modes.length === 6, modes.join("/"));
   await demoPage.close();
 
-  // 2. 课程课件 ch2 的「课堂演示」入口
+  // 2. AI讲演的第二章卡片进入单个播放框。
   const page = await context.newPage();
   await page.goto(`${BASE_URL}/`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "登录", exact: true }).click();
@@ -41,11 +41,11 @@ try {
   await page.locator("#login-password").fill("Student123!");
   await page.locator(".login-submit").click();
   await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
-  await clickTopNavItem(page, "课程课件");
-  await page.locator(".chapter-header", { hasText: "第二章" }).click();
-  const demoLink = page.locator(".chapter-body .linked-challenges a[href='/demos/twos-complement.html']");
-  check("ch2 课件含「课堂演示」入口", await demoLink.count() === 1);
-  check("入口新窗口打开且带说明", (await demoLink.getAttribute("target")) === "_blank" && ((await demoLink.getAttribute("title")) ?? "").includes("移码"));
+  await clickTopNavItem(page, "AI讲演");
+  const chapterCard = page.locator(".ai-lecture-card", { hasText: "第二章" });
+  check("第二章列出三节 AI讲演", await chapterCard.locator("button").count() === 3);
+  await chapterCard.locator("button").first().click();
+  check("进入后只有一个讲演播放器", await page.locator(".ai-lecture-player iframe").count() === 1);
 
   // 3. 机器数编码实验面板入口（demo2026010 的 machine-number 已解锁）
   await page.goto(`${BASE_URL}/`, { waitUntil: "domcontentloaded" });

@@ -106,7 +106,7 @@ try {
   await page.locator(".teacher-studio").waitFor({ state: "visible", timeout: 60_000 });
 
   // 教师侧边栏必须能进入课程课件（本次修复的可发现性问题）
-  const coursewareNav = page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "课程课件" });
+  const coursewareNav = page.locator(".topbar-nav .topbar-nav-item").filter({ hasText: "AI讲演" });
   assert.equal(await coursewareNav.count(), 1, "teacher sidebar exposes the courseware entry");
 
   // 拆分后的各功能版块（教师看板为「教学活动 / 学情统计 → 子标签」结构）

@@ -1,11 +1,13 @@
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm,cp } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const allowedVerifiers = new Set([
+  'scripts/verify-feedback.mjs',
+  'scripts/verify-teaching-loop.mjs',
   'scripts/verify-task-library.mjs',
   'scripts/verify-task-library-learning.mjs',
   'scripts/verify-class-management.mjs',
@@ -72,6 +74,7 @@ const scriptsDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptsDir, "..");
 const tempDir = await mkdtemp(path.join(tmpdir(), "zcyl-browser-qa-"));
 const databasePath = path.join(tempDir, "classroom.sqlite");
+const snapshotDist=path.join(tempDir,'dist');
 const apiPort = await findOpenPort();
 const appPort = await findOpenPort(new Set([apiPort]));
 const apiUrl = "http://127.0.0.1:" + apiPort;
@@ -140,6 +143,8 @@ async function waitFor(url, children = [], timeoutMs = 30_000) {
 }
 
 try {
+  // 生产验收使用固定构建快照，避免共享工作区的另一轮构建在刷新时移除静态文件。
+  if(production)await cp(path.join(root,'dist'),snapshotDist,{recursive:true});
   const seed = run(process.execPath, ["server/seedTeacher.js"], {
     env: {
       DATABASE_PATH: databasePath,
@@ -160,10 +165,12 @@ try {
     if (await waitForExit(demoSeed) !== 0) throw new Error("Demo classroom seed failed");
   }
 
-  const apiProcess = run(process.execPath, ["server/server.js"], {
+  const productionBootstrap="import {createApp} from './server/app.js';import {openDatabase} from './server/db.js';const app=createApp({db:openDatabase(process.env.DATABASE_PATH),sessionSecret:process.env.SESSION_SECRET,distDir:process.env.QA_DIST_DIR});app.listen(Number(process.env.PORT),'127.0.0.1',()=>console.log('Isolated production QA server ready'));";
+  const apiProcess = run(process.execPath, production?["--input-type=module","-e",productionBootstrap]:["server/server.js"], {
     env: {
       DATABASE_PATH: databasePath,
       PORT: String(apiPort),
+      QA_DIST_DIR: snapshotDist,
       DEEPSEEK_API_KEY: liveAi ? (process.env.DEEPSEEK_API_KEY??'') : "",
       MINDMAP_API_KEY: '',
       PUBLIC_BASE_URL: appUrl,

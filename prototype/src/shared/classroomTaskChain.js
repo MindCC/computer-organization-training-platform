@@ -2,6 +2,13 @@ import { CHALLENGES } from '../platformLogic.js';
 import { COURSEWARE } from '../courseware.js';
 import { questionsForChapter } from '../assignmentQuestions.js';
 import { HOSTED_DEMOS } from './demoNavigation.js';
+import { knowledgePointOf } from '../knowledgePoints.js';
+
+export const NODE_PURPOSES = Object.freeze({diagnosis:'诊断',learning:'学习',practice:'练习',retest:'复测',reflection:'反思'});
+export function normalizeKnowledgeIds(ids=[]) {
+  if(!Array.isArray(ids)||ids.length>128||ids.some(id=>typeof id!=='string'||!knowledgePointOf(id)))throw new Error('请选择有效的课程知识点');
+  return [...new Set(ids.map(id=>knowledgePointOf(id).id))];
+}
 
 export const TASK_TYPES = Object.freeze({
   demo: {label:'互动演示',hint:'切换参数、观察运算过程',completion:'本人确认完成'},
@@ -10,7 +17,7 @@ export const TASK_TYPES = Object.freeze({
   assignment: {label:'教师作业',hint:'关联当前班级已发布的作业',completion:'作业已提交'},
   ai: {label:'AI 答疑',hint:'向小芯主动提问，再解释自己的理解',completion:'提交学习说明'},
   reflection: {label:'学习反思',hint:'记录发现、证据与仍有的疑问',completion:'提交学习反思'},
-  courseware: {label:'课程课件',hint:'学习已配置的 AI 互动课件',completion:'本人确认完成'},
+  courseware: {label:'AI讲演',hint:'观看本章 AI 讲演',completion:'本人确认完成'},
   custom: {label:'自定义任务',hint:'设置课堂讨论、观察或其他学习任务',completion:'确认完成或提交说明'},
 });
 
@@ -57,6 +64,8 @@ export function validateTaskChain(raw) {
     const minutes=Number(stage.minutes??5);
     if(!Number.isInteger(minutes)||minutes<1||minutes>90)throw new Error('环节预计时间须为1到90分钟');
     const next={id:stage.id,type:stage.type,title:boundedText(stage.title,100,'环节名称',true),instructions:boundedText(stage.instructions??'',1000,'环节目标'),minutes};
+    if(stage.purpose!==undefined){if(!NODE_PURPOSES[stage.purpose])throw new Error('节点作用无效');next.purpose=stage.purpose;}
+    if(stage.knowledgePointIds!==undefined)next.knowledgePointIds=normalizeKnowledgeIds(stage.knowledgePointIds);
     if(stage.position!==undefined){
       if(!stage.position||!Number.isFinite(stage.position.x)||!Number.isFinite(stage.position.y)||Math.abs(stage.position.x)>100000||Math.abs(stage.position.y)>100000)throw new Error('节点位置无效');
       next.position={x:stage.position.x,y:stage.position.y};
@@ -94,7 +103,16 @@ export function validateTaskChain(raw) {
     }
     return next;
   });
-  return {title,stages};
+  const next={title,stages};
+  if(raw.knowledgePointIds!==undefined)next.knowledgePointIds=normalizeKnowledgeIds(raw.knowledgePointIds);
+  if(raw.teachingTemplate!==undefined){if(!['diagnostic-lab','remediation','transfer'].includes(raw.teachingTemplate))throw new Error('教学模板无效');next.teachingTemplate=raw.teachingTemplate;}
+  if(raw.followUp!==undefined){
+    const source=raw.followUp;
+    if(!source||!Number.isInteger(source.sourceTaskId)||source.sourceTaskId<1||!Number.isInteger(source.sourceSessionId)||source.sourceSessionId<1)throw new Error('后续任务来源无效');
+    next.followUp={sourceTaskId:source.sourceTaskId,sourceSessionId:source.sourceSessionId};
+    if(source.studentIds!==undefined){if(!Array.isArray(source.studentIds)||!source.studentIds.length||source.studentIds.length>500||source.studentIds.some(id=>!Number.isInteger(id)||id<1)||new Set(source.studentIds).size!==source.studentIds.length)throw new Error('请选择后续任务的目标学生');next.followUp.studentIds=[...source.studentIds].sort((a,b)=>a-b);}
+  }
+  return next;
 }
 
 export function chainOfSession(session) {

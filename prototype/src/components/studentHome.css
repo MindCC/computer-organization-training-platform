@@ -161,3 +161,5 @@
   .home-shell .project-experiment-row.has-thumbnail .experiment-thumbnail-caption { font-size:9px; }
   .home-shell .project-experiment-row.has-thumbnail .project-experiment-state { grid-column:2; }
 }
+.teacher-home-entry { display:flex; gap:20px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:18px 22px; border:1px solid #dce7ec; border-radius:12px; background:#fff; margin-bottom:18px; }
+.teacher-home-entry>div { flex:1 1 280px; min-width:0; }.teacher-home-entry strong { display:block; margin:6px 0; color:#173f48; }.teacher-home-entry p { font-size:13px; color:#58717a; margin:6px 0; line-height:1.7; }.teacher-home-entry button { flex-shrink:0; }

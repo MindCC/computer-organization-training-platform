@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, CheckCircle, Link, Play, Plus, Trash } from '@phosphor-icons/react';
-import { TASK_TYPES, newTaskStage, taskChainTemplate, validateTaskChain } from '../../../shared/classroomTaskChain.js';
+import { TASK_TYPES, NODE_PURPOSES, newTaskStage, taskChainTemplate, validateTaskChain } from '../../../shared/classroomTaskChain.js';
+import { KNOWLEDGE_POINTS,knowledgePointOf } from '../../../knowledgePoints.js';
+import { COURSE_CHAPTERS } from '../../../courseChapters.js';
+import { buildTeachingTemplate,publicFollowUpPrompt } from '../../../shared/teachingLoop.js';
+import { TeachingTemplatePicker,RecipientPicker } from './TeachingTemplatePicker.jsx';
 import { validateClassroomSessionConfig } from '../../../shared/classroomMissionDefinitions.js';
 import { HOSTED_DEMOS } from '../../../shared/demoNavigation.js';
 import { CHALLENGES } from '../../../platformLogic.js';
@@ -19,8 +23,8 @@ function generationNote(candidate){
   if(candidate.reason==='AI_INVALID_DRAFT')return 'AI 草稿未通过课程资源校验，已提供本地模板，供你手动编排。';
   return 'AI 生成暂未完成，已提供本地模板建议；你可以重试生成。';
 }
-export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSession=null, initialConfig=null, libraryMode=false, classId, onCancel, onOpenLab }) {
-  const initial=initialConfig??startingConfig(initialSession),fallback=taskChainTemplate(initialSession?'data-flow':'twos');
+export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSession=null, initialConfig=null, editing=false, libraryMode=false, classId, onCancel, onOpenLab }) {
+  const initial=initialConfig??startingConfig(initialSession),fallback=initialSession?taskChainTemplate('data-flow'):buildTeachingTemplate('diagnostic-lab',['ch1']);
   const [chain,setChain]=useState(initial.taskChain??fallback);
   const [selected,setSelected]=useState((initial.taskChain??fallback).stages[0]?.id??null);
   const [durationMinutes,setDurationMinutes]=useState(initial.durationMinutes??45);
@@ -28,6 +32,13 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSes
   const [plan,setPlan]=useState(initial.lessonPlan??initialPlan??null);
   const [submitting,setSubmitting]=useState(false),[error,setError]=useState('');
   const [preview,setPreview]=useState(null);
+  const [goalChapter,setGoalChapter]=useState(knowledgePointOf(chain.knowledgePointIds?.[0])?.chapterId??'ch1');
+  const [roster,setRoster]=useState([]),[rosterError,setRosterError]=useState(''),[sourceClassId,setSourceClassId]=useState(null),[rosterVersion,setRosterVersion]=useState(0);
+  useEffect(()=>{
+    let alive=true;const source=chain.followUp;if(!source)return;
+    api.taskLibraryLearning(source.sourceTaskId,source.sourceSessionId).then(({learning})=>{if(alive){setRoster(learning.knowledge?.roster??[]);setSourceClassId(learning.publications[0]?.classId);setRosterError('');}}).catch(cause=>{if(alive)setRosterError(cause.message);});
+    return()=>{alive=false;};
+  },[chain.followUp?.sourceTaskId,chain.followUp?.sourceSessionId,rosterVersion]);
   function present(index=0){
     try { setPreview({mission:validateTaskChain(chain),index});setError(''); }
     catch(cause){setError(`请先完善任务内容：${cause.message}`);}
@@ -36,20 +47,21 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSes
   async function generate(){
     if(generating)return;setError('');if(!aiPrompt.trim()){setError('请先描述这节课的主题、目标和希望安排的环节。');return;}
     setGenerating(true);setCandidate(null);
-    try {setCandidate(await api.generateTaskChain(classId,{prompt:aiPrompt.trim(),consent:'deepseek-task-chain'}));}
+    try {setCandidate(await api.generateTaskChain(sourceClassId??classId,{prompt:aiPrompt.trim(),consent:'deepseek-task-chain',...(chain.followUp?{knowledgePointIds:chain.knowledgePointIds,teachingTemplate:chain.teachingTemplate??'remediation'}:{})}));}
     catch(cause){setError(cause.message);}finally{setGenerating(false);}
   }
   const [assignments,setAssignments]=useState([]),[assignmentError,setAssignmentError]=useState(''),[resourceVersion,setResourceVersion]=useState(0);
   useEffect(()=>{if(initialPlan)setPlan(initialPlan);},[initialPlan]);
   useEffect(()=>{
-    let alive=true;if(!classId)return;setAssignmentError('');
-    api.teacherAssignments(classId).then(data=>{if(alive)setAssignments((data.assignments??[]).filter(item=>item.status==='published'));})
+    let alive=true;const resourceClassId=sourceClassId??classId;if(!resourceClassId)return;setAssignmentError('');
+    api.teacherAssignments(resourceClassId).then(data=>{if(alive)setAssignments((data.assignments??[]).filter(item=>item.status==='published'));})
       .catch(cause=>{if(alive)setAssignmentError(`班级作业读取失败：${cause.message}`);});
     return()=>{alive=false;};
-  },[classId,resourceVersion]);
+  },[classId,sourceClassId,resourceVersion]);
   const active=chain.stages.find(stage=>stage.id===selected),index=chain.stages.indexOf(active);
   const patch=updates=>setChain(current=>({...current,stages:current.stages.map(stage=>stage.id===selected?{...stage,...updates}:stage)}));
-  function useTemplate(key){const next=taskChainTemplate(key);setChain(next);setSelected(next.stages[0]?.id??null);setError('');}
+  function adopt(next){setChain({...next,...(chain.followUp?{followUp:chain.followUp}:{}),...(chain.followUp?{knowledgePointIds:chain.knowledgePointIds}:{})});setSelected(next.stages[0]?.id??null);setError('');}
+  function useTemplate(key){adopt(taskChainTemplate(key));}
   function add(type){if(chain.stages.length>=16)return;const stage={...newTaskStage(type),position:{x:chain.stages.length?Math.max(...chain.stages.map((item,i)=>positionOf(item,i).x))+280:40,y:90}};setChain(current=>({...current,stages:[...current.stages,stage]}));setSelected(stage.id);}
   function move(offset){setChain(current=>{const stages=[...current.stages];[stages[index],stages[index+offset]]=[stages[index+offset],stages[index]];return {...current,stages:arrangeStages(stages)};});}
   function remove(){const stages=chain.stages.filter(stage=>stage.id!==selected);setChain({...chain,stages});setSelected(stages[Math.min(index,stages.length-1)]?.id??null);}
@@ -68,13 +80,16 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSes
       <label>课堂及格分<input aria-label="课堂及格分" type="number" min={60} max={100} value={passScore} onChange={event=>setPassScore(Number(event.target.value))}/><small>用于星级与是否通过</small></label>
     </div>
     <div className="chain-creation-tabs" role="tablist" aria-label="任务链创建方式"><button type="button" role="tab" aria-selected={creationMode==='ai'} onClick={()=>setCreationMode('ai')}>AI 创建</button><button type="button" role="tab" aria-selected={creationMode==='manual'} onClick={()=>setCreationMode('manual')}>手动编排</button></div>
-    {creationMode==='ai'&&<section className="chain-ai-create" aria-label="AI创建任务链"><h3>描述你希望开展的课堂</h3><p>写明教学主题、课时、学生基础，以及需要串联的功能。生成后可继续手动修改。</p><label>教学要求<textarea aria-label="AI教学要求" rows={4} maxLength={2000} value={aiPrompt} onChange={event=>setAiPrompt(event.target.value)} placeholder="例如：一节45分钟的补码运算课，安排课前诊断、互动演示、编码实验、AI答疑、随堂检验与反思。"/></label><small>点击生成时，将本次教学要求与公开课程资源目录发送至 DeepSeek。</small><button type="button" className="primary-button" disabled={generating||!classId} onClick={generate}>{generating?'正在生成…':'生成任务链草稿'}</button>{candidate&&<div className="chain-generated-draft" aria-live="polite"><span className="chain-kicker">{candidate.source==='deepseek'?'DeepSeek 生成草稿':'本地模板建议 · 非模型生成'}</span>{generationNote(candidate)&&<p role="status">{generationNote(candidate)}</p>}<h3>{candidate.taskChain.title}</h3><ol>{candidate.taskChain.stages.map(stage=><li key={stage.id}>{stage.title} · {stage.minutes}分钟</li>)}</ol><button type="button" className="primary-button" onClick={()=>{setChain(candidate.taskChain);setDurationMinutes(Math.min(180,Math.max(10,candidate.taskChain.stages.reduce((sum,stage)=>sum+stage.minutes,0))));setSelected(candidate.taskChain.stages[0]?.id??null);setCreationMode('manual');setCandidate(null);}}>采用草稿并继续编排</button></div>}</section>}
+    {creationMode==='ai'&&<section className="chain-ai-create" aria-label="AI创建任务链"><h3>描述你希望开展的课堂</h3><p>写明教学主题、课时、学生基础，以及需要串联的功能。生成后可继续手动修改。</p><label>教学要求<textarea aria-label="AI教学要求" rows={4} maxLength={2000} value={aiPrompt} onChange={event=>setAiPrompt(event.target.value)} placeholder="例如：一节45分钟的补码运算课，安排课前诊断、互动演示、编码实验、AI答疑、随堂检验与反思。"/></label><small>点击生成时，将本次教学要求与公开课程资源目录发送至 DeepSeek。</small><button type="button" className="primary-button" disabled={generating||!classId} onClick={generate}>{generating?'正在生成…':'生成任务链草稿'}</button>{candidate&&<div className="chain-generated-draft" aria-live="polite"><span className="chain-kicker">{candidate.source==='deepseek'?'DeepSeek 生成草稿':'本地模板建议 · 非模型生成'}</span>{generationNote(candidate)&&<p role="status">{generationNote(candidate)}</p>}<h3>{candidate.taskChain.title}</h3><ol>{candidate.taskChain.stages.map(stage=><li key={stage.id}>{stage.title} · {stage.minutes}分钟</li>)}</ol><button type="button" className="primary-button" onClick={()=>{adopt(candidate.taskChain);setDurationMinutes(Math.min(180,Math.max(10,candidate.taskChain.stages.reduce((sum,stage)=>sum+stage.minutes,0))));setSelected(candidate.taskChain.stages[0]?.id??null);setCreationMode('manual');setCandidate(null);}}>采用草稿并继续编排</button></div>}</section>}
     <div hidden={creationMode!=='manual'}>
+    <details className="teaching-template-disclosure"><summary>选择通用教学模板（适用于八章）</summary><TeachingTemplatePicker onUse={adopt} initialChapterId={goalChapter}/></details>
     <div className="chain-template-picker" aria-label="任务链模板">
       <button type="button" onClick={()=>useTemplate('twos')}><strong>补码运算课</strong><small>诊断 → 演示 → 实验 → AI 答疑 → 检验 → 反思</small></button>
       <button type="button" onClick={()=>useTemplate('data-flow')}><strong>五大部件与数据流</strong><small>复用原有四阶段实验路线</small></button>
       <button type="button" onClick={()=>useTemplate('empty')}><strong>自定义任务链</strong><small>从空白开始组合你的课堂</small></button>
     </div>
+    <section className="teaching-goals" aria-label="任务知识目标"><h3>知识目标 · 已选 {chain.knowledgePointIds?.length??0} 个</h3><p>可跨章节选择。题目诊断按题目自身的知识点归属；未覆盖的目标会显示待验证。</p><div className="teaching-selected-goals">{(chain.knowledgePointIds??[]).map(id=><span key={id}>{knowledgePointOf(id)?.title}<button type="button" aria-label={`移除目标 ${knowledgePointOf(id)?.title}`} onClick={()=>setChain({...chain,knowledgePointIds:chain.knowledgePointIds.filter(k=>k!==id)})}>×</button></span>)}</div><details><summary>选择或调整知识目标</summary><label>目标所在章节<select aria-label="目标所在章节" value={goalChapter} onChange={e=>setGoalChapter(e.target.value)}>{COURSE_CHAPTERS.map(c=><option key={c.id} value={c.id}>{c.title}</option>)}</select></label><div className="teaching-goal-options">{KNOWLEDGE_POINTS.filter(p=>p.chapterId===goalChapter).map(p=><label key={p.id}><input type="checkbox" checked={chain.knowledgePointIds?.includes(p.id)??false} onChange={e=>setChain({...chain,knowledgePointIds:e.target.checked?[...(chain.knowledgePointIds??[]),p.id]:(chain.knowledgePointIds??[]).filter(id=>id!==p.id)})}/>{p.title}</label>)}</div></details></section>
+    {chain.followUp&&<section className="teaching-followup-context" aria-label="后续任务发布对象"><h3>关联来源课堂 #{chain.followUp.sourceSessionId}</h3><p>先审核节点与名单，保存到任务库后确认发布。复测会与来源课堂按同一知识点、同一学生对比。</p>{rosterError?<p role="alert">名单读取失败：{rosterError}<button type="button" onClick={()=>setRosterVersion(v=>v+1)}>重试</button></p>:!roster.length?<p>正在读取来源班级名单…</p>:<RecipientPicker roster={roster} ids={chain.followUp.studentIds??[]} onChange={studentIds=>setChain({...chain,followUp:{...chain.followUp,studentIds}})}/>}<button type="button" className="secondary-button" onClick={()=>{setAiPrompt(publicFollowUpPrompt(chain.knowledgePointIds??[],chain.teachingTemplate));setCreationMode('ai');}}>用知识目标准备 AI 编排要求</button><small>仅准备公开知识目标与教学要求；点击生成后才请求模型，不附带学生名单、成绩或答案。</small></section>}
     <label className="chain-title-field">任务链名称<input aria-label="任务链名称" maxLength={100} value={chain.title} onChange={event=>setChain({...chain,title:event.target.value})}/></label>
     <div className="chain-builder-layout">
       <div className="chain-sequence-pane"><header><strong>课堂流程</strong><small>{chain.stages.length} 个环节 · 预计 {chain.stages.reduce((sum,stage)=>sum+Number(stage.minutes||0),0)} 分钟</small></header>
@@ -92,6 +107,8 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, initialSes
         <button type="button" className="secondary-button" onClick={()=>present(index)}><Play size={16}/>演示本环节</button>
         <label>环节名称<input aria-label="环节名称" maxLength={100} value={active.title} onChange={event=>patch({title:event.target.value})}/></label>
         <label>学习目标与操作要求<textarea aria-label="学习目标与操作要求" maxLength={1000} rows={3} value={active.instructions} onChange={event=>patch({instructions:event.target.value})} placeholder="告诉学生进入这个环节后具体做什么"/></label>
+        <label>节点作用<select aria-label="节点作用" value={active.purpose??''} onChange={e=>patch({purpose:e.target.value||undefined})}><option value="">未标记</option>{Object.entries(NODE_PURPOSES).map(([id,title])=><option key={id} value={id}>{title}</option>)}</select></label>
+        <fieldset className="teaching-node-goals"><legend>本节点涉及的知识目标</legend>{(chain.knowledgePointIds??[]).map(id=><label key={id}><input type="checkbox" checked={active.knowledgePointIds?.includes(id)??false} onChange={e=>patch({knowledgePointIds:e.target.checked?[...(active.knowledgePointIds??[]),id]:(active.knowledgePointIds??[]).filter(k=>k!==id)})}/>{knowledgePointOf(id)?.title}</label>)}</fieldset>
         <StageResource stage={active} patch={patch} assignments={assignments}/>
         {active.type==='assignment'&&assignmentError&&<p role="alert">{assignmentError}<button type="button" onClick={()=>setResourceVersion(value=>value+1)}>重试</button></p>}
         <div className="chain-stage-options"><label>预计用时（分钟）<input aria-label="环节预计用时" type="number" min={1} max={90} value={active.minutes} onChange={event=>patch({minutes:Number(event.target.value)})}/></label>

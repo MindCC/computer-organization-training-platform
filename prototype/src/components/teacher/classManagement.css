@@ -1,4 +1,4 @@
-.class-management { min-width:0; color:#24364b; }
+.class-management { min-width:0; color:#24364b; padding:24px 28px; }
 .class-management-heading,.class-management-actions,.class-roster>header,.class-import-tools { display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
 .class-management-actions,.class-import-tools { justify-content:flex-start; }
 .class-management h2 { margin:6px 0; font-size:24px; }.class-management h3,.class-import-panel h3 { margin:6px 0; font-size:17px; }
@@ -15,4 +15,4 @@
 .class-import-panel .teacher-credential-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:8px; padding:8px 0; }.class-import-panel .teacher-credential-row code { grid-column:1/-1; overflow-wrap:anywhere; white-space:normal; }
 .teacher-class-selector .teacher-studio-sidebar { align-items:center; }.teacher-class-select { min-width:0; }.teacher-class-select select { width:100%; }
 @media(max-width:1000px) { .class-management-grid { grid-template-columns:1fr; } }
-@media(max-width:600px) { .class-create-form,.class-import-panel,.class-roster { padding:14px; }.class-management-actions button,.class-import-tools a { white-space:normal; }.class-management-heading { align-items:flex-start; } }
+@media(max-width:600px) { .class-management { padding:18px 14px; }.class-create-form,.class-import-panel,.class-roster { padding:14px; }.class-management-actions button,.class-import-tools a { white-space:normal; }.class-management-heading { align-items:flex-start; } }

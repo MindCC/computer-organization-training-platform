@@ -15,7 +15,7 @@ export function createClassroomSessionRouter({ service, requireRole, generatorOp
       const times=(requests.get(teacherId)??[]).filter(time=>now-time<60000);
       if(pending.has(teacherId)||times.length>=5)return res.status(429).json({error:{code:'AI_BUSY',message:'任务链正在生成，请稍后重试；每分钟最多生成五次。'}});
       // Allowlist only the explicitly entered teaching request. Ignore all injected records.
-      const body=req.body??{},payload={prompt:body.prompt,consent:body.consent};
+      const body=req.body??{},payload={prompt:body.prompt,consent:body.consent,knowledgePointIds:body.knowledgePointIds,teachingTemplate:body.teachingTemplate};
       pending.add(teacherId);requests.set(teacherId,[...times,now]);
       try {res.json(await generateTaskChain(payload,generatorOptions));}finally{pending.delete(teacherId);}
     }catch(error){next(error);}

@@ -32,7 +32,7 @@
 .login-form-intro { margin-bottom:8px; }
 .login-form-intro h2 { margin:0 0 10px; font-family:inherit; font-size:clamp(26px,2.3vw,32px); font-weight:700; line-height:1.35; letter-spacing:-.025em; color:var(--login-ink); }
 .login-form-intro > span { color:var(--login-muted); font-size:14px; line-height:1.6; }
-.login-role-tabs { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; padding:4px; background:#edf2f3; border:1px solid #e6ecee; border-radius:10px; }
+.login-role-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:4px; padding:4px; background:#edf2f3; border:1px solid #e6ecee; border-radius:10px; }
 .login-role-tabs button { display:flex; align-items:center; justify-content:center; gap:8px; min-height:40px; border:1px solid transparent; border-radius:7px; background:transparent; color:#647984; font-size:13px; font-weight:600; cursor:pointer; transition:background-color 160ms,color 160ms; }
 .login-role-tabs button:hover { color:var(--login-accent); }
 .login-role-tabs button.active { background:#fff; color:var(--login-accent); border-color:#dde7e8; box-shadow:0 1px 3px #16323d0b; }

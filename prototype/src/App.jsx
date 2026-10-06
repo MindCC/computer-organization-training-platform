@@ -6,6 +6,7 @@ import {
   CaretDown,
   ChartPieSlice,
   CheckCircle,
+  ChatCircleText,
   Exam,
   ClockCountdown,
   Cpu,
@@ -69,6 +70,7 @@ import { buildCourseRouteGroups, findNextRecommendedChallenge } from "./courseRo
 import { buildRealtimeDiagnostics } from "./realtimeDiagnostics.js";
 import { buildMemoryAccessState } from "./memorySystem.js";
 import { api } from "./apiClient.js";
+import './components/feedback.css';
 import { setPersonalLearningRole } from './personalLearningApi.js';
 import { statusText, statusTone, formatMinutes, formatEndpointLabel } from "./components/labUtils.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
@@ -88,6 +90,7 @@ const NotesPage = lazy(() => import("./components/NotesPage.jsx")
   .then((module) => ({ default: module.NotesPage })));
 const LoginPortal=lazy(()=>import('./components/auth/LoginPortal.jsx').then(module=>({default:module.LoginPortal})));
 const PlatformSupport = lazy(() => import('./components/PlatformSupport.jsx').then(module=>({default:module.PlatformSupport})));
+const FeedbackPanel = lazy(() => import('./components/FeedbackPanel.jsx').then(module => ({ default: module.FeedbackPanel })));
 const StudentHome = lazy(() => import("./components/StudentHome.jsx")
   .then((module) => ({ default: module.StudentHome })));
 const StudentRecords = lazy(() => import("./components/StudentRecords.jsx")
@@ -131,7 +134,7 @@ const navGroups = [
     id: "learn",
     label: "课程学习",
     items: [
-      { id: "courseware", label: "课程课件", icon: BookOpen },
+      { id: "courseware", label: "AI讲演", icon: BookOpen },
       { id: "demos", label: "互动演示", icon: MonitorPlay },
       { id: "hardware-game", label: "硬件配置挑战", icon: Cpu },
     ],
@@ -540,6 +543,7 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsSection, setSettingsSection] = useState('account');
   const [supportPanel,setSupportPanel]=useState(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   // 顶栏分组下拉：悬停展开、点击锁定（触屏友好），Esc/点外部/跳转后关闭。
   const [openNavGroup, setOpenNavGroup] = useState(null);
   const navPinnedRef = useRef(false);
@@ -832,6 +836,7 @@ export function App() {
     setAuth({ status: "authenticated", user });
     try { await loadRoleData(user); } catch(error) {setRoleDataError(`学习数据同步失败：${error.message}`);}
     setShowLogin(false);
+    if (user.role === 'admin') { setActiveView('home'); setFeedbackOpen(true); return; }
     if (user.role === "teacher") {
       setActiveView("teacher");
     } else if (destination?.view === "demo" && demoId) {
@@ -872,6 +877,7 @@ export function App() {
   async function handleLogout() {
     try { await api.logout(); } catch(error) {if(error.status!==401){setRoleDataError(`退出失败：${error.message}。请重试退出。`);setShowUserPanel(false);return;}}
     setShowUserPanel(false);
+    setFeedbackOpen(false);
     activeUserRef.current=null;
     setPersonalLearningRole(null); setTeacherReviewStudent('all');
     setAuth({ status: "anonymous", user: null });
@@ -890,6 +896,7 @@ export function App() {
   }
 
   function changeView(view) {
+    if (auth.user?.role === 'admin' && !['home', 'courseware', 'demos'].includes(view)) return;
     if (!auth.user && !["home", "courseware", "demos"].includes(view)) {
       requestLogin({ type: "view", view });
       return;
@@ -1126,7 +1133,8 @@ export function App() {
         </nav>
 
         <div className="topbar-actions">
-          <button
+          <button className="ghost-button feedback-entry" type="button" aria-haspopup="dialog" onClick={() => { setSupportPanel(null); setShowUserPanel(false); setFeedbackOpen(true); }}><ChatCircleText size={20}/><span>反馈</span></button>
+          {role !== 'admin' && <button
             aria-label="通知"
             className="icon-button"
             aria-haspopup="dialog"
@@ -1135,13 +1143,13 @@ export function App() {
           >
             <Bell size={22} />
             {(auth.user?.role==='student'?classroomSession.viewModel.active&&!classroomSession.viewModel.ended:teacherSession.viewModel.active&&!teacherSession.viewModel.ended)&&<span className="notification-dot">1</span>}
-          </button>
+          </button>}
           {auth.user ? <div className="profile-wrap">
             <button className="profile-button" aria-expanded={showUserPanel} aria-controls="profile-options" onClick={() => setShowUserPanel((value) => !value)} type="button">
               <img alt="学生头像" src={avatarImage} />
               <span>
                 <strong>{auth.user?.displayName ?? "学习档案"}</strong>
-                <small>{auth.user?.role === "teacher" ? "教师" : student.mode}</small>
+                <small>{auth.user?.role === 'admin' ? '管理员' : auth.user?.role === "teacher" ? "教师" : student.mode}</small>
               </span>
               <CaretDown size={18} />
             </button>
@@ -1206,7 +1214,7 @@ export function App() {
             </div>
           ) : null}
 
-          {activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} classroomViewModel={classroomSession.viewModel} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} /> : null}
+          {activeView === 'home' && auth.user?.role === 'admin' ? <section className="surface-card"><h1>管理员工作台</h1><p>查看试用过程中收到的问题与建议。</p><button className="primary-button" type="button" onClick={() => setFeedbackOpen(true)}>查看反馈</button></section> : activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} classroomViewModel={auth.user?.role==='student'?classroomSession.viewModel:null} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} isTeacher={auth.user?.role==='teacher'} onOpenTeaching={()=>changeView('teacher')} /> : null}
           {activeView==='classroom'&&auth.user?.role==='student'?<TaskChainPage key={`${auth.user.id}:${classroomSession.viewModel.sessionId}`} classroomSession={classroomSession} userId={auth.user.id} onOpenStage={openClassroomStage} onHome={()=>changeView('home')} onOpenMistakes={()=>changeView('mistakes')}/>:null}
           {['records','mistakes'].includes(activeView) && auth.user?.role === 'teacher' ? <TeacherLearningReview key={auth.user.id} mode={activeView} classes={teacherClasses} classId={selectedTeacherClassId} onClassChange={id=>{selectedTeacherClassIdRef.current=id;setSelectedTeacherClassId(id);refreshClassOverview(id);}} selectedStudent={teacherReviewStudent} onStudentChange={setTeacherReviewStudent} changeView={changeView} navigateToChallenge={navigateToChallenge} openStudyTarget={openStudyTarget}/> : null}
           {activeView === "records" && auth.user?.role !== 'teacher' ? <StudentRecords key={auth.user?.id} userId={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
@@ -1216,7 +1224,7 @@ export function App() {
           {activeView === "hardware-game" ? (
             <ErrorBoundary>
               <Suspense fallback={<FeatureLoading label="正在加载硬件配置挑战..." />}>
-                <HardwareGamePage key={auth.user?.id} userId={auth.user?.id} allowCustom={auth.user?.role !== 'teacher'} hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} serviceTarget={['service','assembly'].includes(studyTarget?.source)?studyTarget:null} onServiceExit={()=>setStudyTarget(null)}/>
+                <HardwareGamePage key={auth.user?.id} userId={auth.user?.id} allowCustom hardwareSelection={hardwareSelection} setHardwareSelection={setHardwareSelection} hardwareFeedback={hardwareFeedback} setHardwareFeedback={setHardwareFeedback} selectedHardwareCaseId={selectedHardwareCaseId} setSelectedHardwareCaseId={setSelectedHardwareCaseId} progress={progress} submitHardwareBuild={submitHardwareBuild} serviceTarget={['service','assembly'].includes(studyTarget?.source)?studyTarget:null} onServiceExit={()=>setStudyTarget(null)}/>
               </Suspense>
             </ErrorBoundary>
           ) : null}
@@ -1278,7 +1286,8 @@ export function App() {
   }
 
   function renderPlatformState() {
-    return <>{(!online||roleDataError)&&<div className="platform-sync-banner" role="alert"><WarningCircle size={20}/><span>{!online?'网络连接已断开，请恢复网络后同步或提交。':roleDataError}</span>{online&&<button className="ghost-button" type="button" disabled={roleDataLoading} onClick={retryRoleData}>{roleDataLoading?'正在同步…':'重试同步'}</button>}</div>}{supportPanel&&<Suspense fallback={<FeatureLoading label="正在加载帮助与提醒…"/>}><PlatformSupport mode={supportPanel} user={auth.user} classroom={auth.user?.role==='teacher'?teacherSession.viewModel:classroomSession.viewModel} nextChallenge={nextRecommendedChallenge} onClose={()=>setSupportPanel(null)} onOpenSettings={section=>{setSettingsSection(section==='classroom'?'classroom':'account');setShowSettings(true);}} changeView={changeView} onMission={auth.user?.role==='student'?enterClassroomMission:()=>changeView('teacher')} navigateToChallenge={navigateToChallenge}/></Suspense>}</>;
+    const feedbackPage = activeView === 'lab' ? `实验：${lab.currentChallenge?.title ?? ''}` : navGroups.flatMap(group => group.items).find(item => item.id === activeView)?.label ?? '课程页面';
+    return <>{feedbackOpen && <Suspense fallback={<FeatureLoading label="正在加载反馈…"/>}><FeedbackPanel key={auth.user?.id ?? 'guest'} user={auth.user} page={feedbackPage} onClose={() => setFeedbackOpen(false)}/></Suspense>}{(!online||roleDataError)&&<div className="platform-sync-banner" role="alert"><WarningCircle size={20}/><span>{!online?'网络连接已断开，请恢复网络后同步或提交。':roleDataError}</span>{online&&<button className="ghost-button" type="button" disabled={roleDataLoading} onClick={retryRoleData}>{roleDataLoading?'正在同步…':'重试同步'}</button>}</div>}{supportPanel&&<Suspense fallback={<FeatureLoading label="正在加载帮助与提醒…"/>}><PlatformSupport mode={supportPanel} user={auth.user} classroom={auth.user?.role==='teacher'?teacherSession.viewModel:classroomSession.viewModel} nextChallenge={nextRecommendedChallenge} onClose={()=>setSupportPanel(null)} onOpenSettings={section=>{setSettingsSection(section==='classroom'?'classroom':'account');setShowSettings(true);}} changeView={changeView} onMission={auth.user?.role==='student'?enterClassroomMission:()=>changeView('teacher')} navigateToChallenge={navigateToChallenge}/></Suspense>}</>;
   }
 
   function renderSettingsModal() {
@@ -1466,6 +1475,3 @@ function outputLabel(key) {
   };
   return labels[key] ?? key;
 }
-
-
-

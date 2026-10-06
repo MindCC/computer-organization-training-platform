@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { ReactFlow, Background, Controls, Handle, Position, MarkerType, applyNodeChanges } from '@xyflow/react';
-import { TASK_TYPES } from '../../../shared/classroomTaskChain.js';
+import { TASK_TYPES,NODE_PURPOSES } from '../../../shared/classroomTaskChain.js';
 import { positionOf, dragTaskStage, connectTaskStages, arrangeStages } from '../../../shared/taskWorkflow.js';
 import '@xyflow/react/dist/style.css';
 function TaskNode({data,selected}){
   return <div className={`task-workflow-node${selected?' selected':''}`} data-stage-id={data.stage.id}>
     <Handle type="target" position={Position.Left} id="in"/>
     <header><span className={`chain-step-number type-${data.stage.type}`}>{data.index+1}</span><small>{TASK_TYPES[data.stage.type]?.label} · {data.stage.minutes} 分钟</small></header>
-    <strong>{data.stage.title||'未命名任务'}</strong><p>{data.stage.instructions||'点击节点设置内容'}</p>
+    <strong>{data.stage.title||'未命名任务'}</strong>{data.stage.purpose&&<small>{NODE_PURPOSES[data.stage.purpose]}</small>}<p>{data.stage.instructions||'点击节点设置内容'}</p>
     <Handle type="source" position={Position.Right} id="out"/>
   </div>;
 }

@@ -118,6 +118,8 @@ export const api = {
   demoLogin: (payload) => apiRequest('/api/auth/demo-login', { method: 'POST', body: JSON.stringify(payload) }),
   logout: () => apiRequest("/api/auth/logout", { method: "POST" }),
   me: () => apiRequest("/api/auth/me"),
+  submitFeedback: payload => apiRequest('/api/feedback', { method: 'POST', body: JSON.stringify(payload) }),
+  feedbackInbox: (offset = 0) => apiRequest(`/api/admin/feedback?limit=20&offset=${offset}`),
   changePassword: (payload) => apiRequest("/api/auth/change-password", { method: "POST", body: JSON.stringify(payload) }),
   updateAccountSettings: (payload) => apiRequest('/api/auth/settings', { method: 'PUT', body: JSON.stringify(payload) }),
   studentProgress: () => apiRequest("/api/student/progress"),

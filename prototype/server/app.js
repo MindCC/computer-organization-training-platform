@@ -76,6 +76,7 @@ import { createAssemblyPracticeRepository } from './assemblyPracticeRepository.j
 import { createAssemblyPracticeRouter } from './assemblyPracticeRoutes.js';
 import { createTeacherAssemblyPracticeRouter } from './teacherAssemblyPractice.js';
 import { createTeacherLearningReviewRouter } from './teacherLearningReview.js';
+import { learningActivity } from './learningActivity.js';
 import { createCoursewareUploadRouter } from "./coursewareUploadRoutes.js";
 import { createKnowledgeRouter } from "./knowledgeRoutes.js";
 import { createMindMapRouter } from './mindMapRoutes.js';
@@ -89,6 +90,7 @@ import { createTaskLibraryRouter } from './taskLibraryRoutes.js';
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 import { buildUnifiedMistakeBook, createLearningPracticeRouter } from "./learningPractice.js";
 import { hostedDemoMiddleware } from "../src/shared/demoNavigation.js";
+import { createFeedbackRouter, ensureFeedbackAdmin } from './feedbackRoutes.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COOKIE_NAME = "zcyl_session";
@@ -101,6 +103,7 @@ export function createApp(options = {}) {
   const assistantOptions = options.assistantOptions ?? {};
   const sessionSecret = options.sessionSecret || process.env.SESSION_SECRET || "development-session-secret";
   migrate(db);
+  ensureFeedbackAdmin(db);
   const app = express();
   // 仅在反向代理后面才启用：默认不信任 X-Forwarded-For，否则客户端可以伪造成源 IP，
   // 从而绕过按 IP 的登录限流并污染审计记录。
@@ -185,6 +188,7 @@ export function createApp(options = {}) {
   });
 
   // Feature routers must run after global logging and CSRF middleware.
+  app.use('/api', createFeedbackRouter({ db, requireRole }));
   app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole, generatorOptions:options.taskChainGeneratorOptions }));
   app.use('/api',createTaskLibraryRouter({db,sessionService,requireRole}));
   app.use("/api", createAssignmentRouter({ service: assignmentService, requireRole }));
@@ -264,7 +268,7 @@ export function createApp(options = {}) {
   app.post("/api/auth/login", async (req, res, next) => {
     try {
       const { username, password, role } = req.body ?? {};
-      if (role !== undefined && !['student', 'teacher'].includes(role)) return res.status(400).json({ error: '请选择有效的登录入口' });
+      if (role !== undefined && !['student', 'teacher', 'admin'].includes(role)) return res.status(400).json({ error: '请选择有效的登录入口' });
       const key = String(username ?? "").trim().toLowerCase();
       const ipKey = req.ip ?? "unknown";
       // Check rate limit
@@ -291,7 +295,7 @@ export function createApp(options = {}) {
 
       if (role !== undefined && user.role !== role) {
         audit(req, 'login_failure', { targetType: 'user', targetId: key, metadata: { reason: 'role_mismatch' } });
-        return res.status(403).json({ error: `此账号属于${user.role === 'teacher' ? '教师' : '学生'}，请切换到对应登录入口` });
+        return res.status(403).json({ error: `此账号属于${{ teacher: '教师', student: '学生', admin: '管理员' }[user.role]}，请切换到对应登录入口` });
       }
 
       // Success: clear failures
@@ -646,7 +650,8 @@ export function createApp(options = {}) {
     res.json({ progress, summary: summarizeLearning(LEARNING_ITEMS, progress), user: sanitizeUser(req.user), allowSkipLocked: allowSkip });
   });
 
-  app.post("/api/student/lab-assistant", requireRole("student"), async (req, res, next) => {
+  for(const role of ['student','teacher']) {
+  app.post(`/api/${role}/lab-assistant`, requireRole(role), async (req, res, next) => {
     try {
       const { challengeId, connections, inputState, feedback, realtimeDiagnostics } = req.body ?? {};
       if (typeof challengeId !== "string" || !challengeId.trim()) {
@@ -665,6 +670,7 @@ export function createApp(options = {}) {
       next(error);
     }
   });
+  }
 
   app.post("/api/student/attempts", requireRole("student"), (req, res, next) => {
     try {
@@ -713,48 +719,7 @@ export function createApp(options = {}) {
   // 学习日历：按天聚合关卡尝试与课堂演示练习（学习记录页日历视图用）
   // created_at 以 UTC 存储，按 'localtime' 归日，避免早上 8 点前的活动被算到前一天。
   app.get("/api/student/activity", requireRole("student"), (req, res) => {
-    const challenges = db.prepare(`
-      SELECT date(created_at, 'localtime') AS day,
-             challenge_id AS challengeId,
-             COUNT(*) AS attempts,
-             MAX(passed) AS passed,
-             SUM(elapsed_minutes) AS minutes
-      FROM challenge_attempts
-      WHERE student_id = ?
-      GROUP BY day, challenge_id
-      ORDER BY day ASC
-    `).all(req.user.id);
-    const demos = db.prepare(`
-      SELECT date(created_at, 'localtime') AS day,
-             COUNT(*) AS attempts,
-             SUM(correct) AS correct,
-             SUM(elapsed_minutes) AS minutes
-      FROM demo_attempts
-      WHERE student_id = ?
-      GROUP BY day
-      ORDER BY day ASC
-    `).all(req.user.id);
-    // 学习热力图：按「本地日期 + 小时」聚合两张表的真实时间戳（0-23 整点）
-    const hourly = db.prepare(`
-      SELECT day, hour, SUM(attempts) AS attempts, SUM(minutes) AS minutes FROM (
-        SELECT date(created_at, 'localtime') AS day,
-               CAST(strftime('%H', created_at, 'localtime') AS INTEGER) AS hour,
-               COUNT(*) AS attempts,
-               SUM(elapsed_minutes) AS minutes
-        FROM challenge_attempts WHERE student_id = ?
-        GROUP BY day, hour
-        UNION ALL
-        SELECT date(created_at, 'localtime') AS day,
-               CAST(strftime('%H', created_at, 'localtime') AS INTEGER) AS hour,
-               COUNT(*) AS attempts,
-               SUM(elapsed_minutes) AS minutes
-        FROM demo_attempts WHERE student_id = ?
-        GROUP BY day, hour
-      )
-      GROUP BY day, hour
-      ORDER BY day ASC, hour ASC
-    `).all(req.user.id, req.user.id);
-    res.json({ challenges, demos, hourly });
+    res.set('Cache-Control','no-store');res.json(learningActivity(db,req.user.id));
   });
 
   // 课堂演示页练习成绩（独立静态页，成绩独立存储，不与关卡提交互冒充）

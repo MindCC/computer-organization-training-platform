@@ -183,16 +183,16 @@ try {
     ['错题本', '.mistakes-layout', 'student-mistakes'],
     ['课后作业', '.student-assignments', 'student-assignments'],
     ['互动演示', '.courseware-demo-grid', 'student-demos'],
-    ['课程课件', '.courseware-lecture', 'student-courseware'],
+    ['AI讲演', '.ai-lecture-hub', 'student-courseware'],
     ['知识库', '.kb-layout', 'student-knowledge'],
     ['硬件配置挑战', '.hardware-game-page', 'student-hardware'],
   ]) await check(name, async () => {
     await nav(student, label, selector); await sizes(student, name);
-    if (label === '课程课件') {
-      await student.getByRole('button', { name: '全屏', exact: true }).click();
-      await expect(student.getByRole('button', { name: '退出全屏', exact: true })).toBeVisible();
-      await layout(student, 'student-courseware-fullscreen');
-      await student.getByRole('button', { name: '退出全屏', exact: true }).click();
+    if (label === 'AI讲演') {
+      await student.locator('.ai-lecture-card-links button').first().click();
+      await expect(student.locator('.ai-lecture-player iframe')).toHaveCount(1);
+      await layout(student, 'student-courseware-player');
+      await student.getByRole('button', { name: '返回 AI讲演' }).click();
     }
     if (label === '知识库') {
       await student.getByRole('button', { name: '思维画板', exact: true }).click();

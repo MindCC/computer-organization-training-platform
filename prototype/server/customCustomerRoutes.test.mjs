@@ -14,7 +14,7 @@ async function setup(customCustomerOptions){
   const base=`http://127.0.0.1:${server.address().port}`;
   async function request(route,{cookie='',body,method=body?'POST':'GET',headers={}}={}){
     const response=await fetch(base+route,{method,headers:{'content-type':'application/json',...(cookie?{cookie}:{}),...headers},...(body?{body:JSON.stringify(body)}:{})});
-    return {status:response.status,data:await response.json(),cookie:response.headers.get('set-cookie')?.split(';')[0]};
+    return {status:response.status,data:response.headers.get('content-type')?.includes('application/json')?await response.json():await response.text(),cookie:response.headers.get('set-cookie')?.split(';')[0]};
   }
   const login=async username=>(await request('/api/auth/login',{body:{username,password:'Student123!'}})).cookie;
   return {db,server,request,login,close:async()=>{await new Promise(r=>server.close(r));db.close();}};

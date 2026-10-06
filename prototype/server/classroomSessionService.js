@@ -42,6 +42,12 @@ export function calculateBadges(passedStageIds) {
 }
 
 export function createClassroomSessionService({ db, now = () => Date.now(), repository }) {
+  function studentSession(session){
+    const config=safeJson(session.config_json)??{};
+    delete config.targetStudentIds;
+    if(config.taskChain?.followUp)delete config.taskChain.followUp.studentIds;
+    return {...session,config_json:JSON.stringify(config)};
+  }
   function assertTeacherOwns(parentSession, teacherId) {
     if (!teacherOwnsClass(db, teacherId, parentSession.class_id)) {
       throw classroomError("SESSION_NOT_FOUND", "课堂场次不存在", 404, false);
@@ -113,6 +119,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
         throw classroomError("SESSION_NOT_FOUND", "课堂场次不存在", 404, false);
       }
       const validated = validateClassroomSessionConfig(config);
+      if(validated.targetStudentIds?.some(id=>!db.prepare('SELECT 1 FROM class_members WHERE class_id=? AND student_id=?').get(classId,id)))throw classroomError('INVALID_TARGET_STUDENTS','目标学生须属于当前班级',400,false);
       validateChainAssignments(db,validated,classId);
       const mission = validated.taskChain ?? missionForSession({template_key:validated.templateKey,template_version:validated.templateVersion});
       return repository.createDraft({
@@ -213,7 +220,8 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       const remainingSeconds = fresh.status === "live"
         ? Math.max(0, fresh.duration_minutes * 60 - computeActiveSeconds(fresh, now()))
         : fresh.duration_minutes * 60 - (fresh.accumulated_active_seconds ?? 0);
-      return { session: fresh, studentState, mission, remainingSeconds };
+      const visible=studentSession(fresh);
+      return { session: visible, studentState, mission:missionForSession(visible), remainingSeconds };
     },
 
     getCurrentForClass({ teacherId, classId }) {
@@ -237,9 +245,12 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
         "SELECT 1 FROM class_members WHERE class_id = ? AND student_id = ?"
       ).get(fresh.class_id, studentId);
       if (!isMember) throw classroomError("NOT_CLASS_MEMBER", "你不在该班级中", 403, false);
+      const targets=safeJson(fresh.config_json)?.targetStudentIds;
+      if(targets&&!targets.includes(studentId))throw classroomError('NOT_TASK_RECIPIENT','你不是本任务的发布对象',403,false);
       const studentState = repository.enterStudent(fresh.id, studentId);
       const mission = missionForSession(fresh);
-      return { session: fresh, studentState: {...studentState,result:safeJson(studentState.result_json)}, mission, remainingSeconds: Math.max(0,fresh.duration_minutes*60-computeActiveSeconds(fresh,now())) };
+      const visible=studentSession(fresh);
+      return { session: visible, studentState: {...studentState,result:safeJson(studentState.result_json)}, mission:missionForSession(visible), remainingSeconds: Math.max(0,fresh.duration_minutes*60-computeActiveSeconds(fresh,now())) };
     },
 
     submitAttempt({ studentId, payload }) {
@@ -262,7 +273,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
       if (duplicate) {
         const studentState = repository.getStudentState(fresh.id, studentId);
         return {
-          session: fresh,
+          session: studentSession(fresh),
           studentState,
           duplicateResult: { ...safeJson(duplicate.result_json), passed: Boolean(duplicate.passed) },
         };
@@ -291,7 +302,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
             result:{score:participation?null:graded.result.score,passed:graded.result.passed,errors:graded.result.errors},
             evidence:{challengeId:stage.challengeId},now});
         })();
-        return {session:fresh,studentState:updated,progress,summary:{xp:updated.xp,stars:updated.stars}};
+        return {session:studentSession(fresh),studentState:updated,progress,summary:{xp:updated.xp,stars:updated.stars}};
       }
       // Calculate updated rewards — track per-stage attempts
       const prevResult = safeJson(studentState.result_json) ?? {};
@@ -348,7 +359,7 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
         });
       })();
       return {
-        session: repository.getById(fresh.id),
+        session: studentSession(repository.getById(fresh.id)),
         studentState: updated,
         progress,
         summary: { ...rewards, badges },

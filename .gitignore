@@ -28,6 +28,7 @@ prototype/vite-dev.log
 prototype/vite-dev-error.log
 .workbuddy/
 prototype/.codex-run/
+prototype/scripts/.probe-*
 # 本地环境变量（密钥）——永远不要提交
 .env
 .env.*

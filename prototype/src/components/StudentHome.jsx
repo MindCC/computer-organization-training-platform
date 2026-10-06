@@ -12,7 +12,7 @@ import { CourseAdventureMap } from './learning/CourseAdventureMap.jsx';
 import './studentHome.css';
 import { TaskChainHome } from './classroom/student/TaskChainHome.jsx';
 
-export function StudentHome({ progress, routeGroups, navigateToChallenge, summary, notes, onOpenKnowledge, classroomViewModel, onClassroomEnter, projects = [], onOpenProjects, userId = "anonymous" }) {
+export function StudentHome({ progress, routeGroups, navigateToChallenge, summary, notes, onOpenKnowledge, classroomViewModel, onClassroomEnter, projects = [], onOpenProjects, userId = "anonymous", isTeacher = false, onOpenTeaching }) {
   const firstUseSteps = buildFirstUseSteps(progress);
   const homeEmptyState = buildStudentHomeEmptyState(summary, routeGroups);
   const completion = buildCompletionOverview(summary);
@@ -100,6 +100,7 @@ export function StudentHome({ progress, routeGroups, navigateToChallenge, summar
 
   return (
     <main className="quest-student-home">
+      {isTeacher && <section className="teacher-home-entry"><div><span className="eyebrow">教师课程首页</span><strong>备课与个人试练</strong><p>沿课程地图体验实验和练习；个人试练单独保存。进入教师工作台管理班级、任务与学情。</p></div><button className="primary-button" type="button" onClick={onOpenTeaching}>进入教师工作台</button></section>}
       {classroomViewModel?.active&&classroomViewModel.mission?.key==='task-chain'&&<details className="statistics-details"><summary>查看本节课堂任务链与学习记录</summary><TaskChainHome viewModel={classroomViewModel} onEnter={()=>onClassroomEnter?.(classroomViewModel.sessionId)}/></details>}
       <header className="home-intro">
         <div><span className="eyebrow">计算机组成原理 · 实践课程</span><h1>把原理，接成电路。</h1><p>从认识部件到搭建系统，沿着课程路线完成每一次探索。</p></div>

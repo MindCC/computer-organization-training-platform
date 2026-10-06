@@ -12,11 +12,12 @@ import {
   Circuitry,
   Storefront,
   SpinnerGap,
+  ShieldCheck,
 } from "@phosphor-icons/react";
 import { buildRoleEntryCopy } from "../../questExperience.js";
 import "./LoginPortal.css";
 
-const roleOrder = ["student", "teacher"];
+const roleOrder = ["student", "teacher", "admin"];
 
 const routeSteps = [
   { id: "circuit", icon: Circuitry, label: "探索电路" },
@@ -35,7 +36,7 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
   const [busy, setBusy] = useState(null);
   const pendingRef = useRef(false);
   const rootRef = useRef(null);
-  const copy = buildRoleEntryCopy(role);
+  const copy = role === 'admin' ? { usernameLabel: '管理员账号', usernamePlaceholder: '请输入管理员账号', submitLabel: '登录并查看反馈', help: '管理员可查看试用反馈' } : buildRoleEntryCopy(role);
 
   // 使用纯 CSS keyframes 揭示动画,不依赖 GSAP / requestAnimationFrame。
   // 选择 CSS 动画的原因:Playwright headless Chromium 在自动化环境下 rAF 节流严苛,
@@ -133,7 +134,7 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
         <div className="login-form-console">
           <div className="login-form-intro">
             <h2 id="login-form-heading">欢迎来到芯游记</h2>
-            <span>{role === "teacher" ? "进入课堂，开启今天的教学。" : "登录账号，继续你的探索之旅。"}</span>
+            <span>{role === 'admin' ? '查看试用者的意见与建议。' : role === "teacher" ? "进入课堂，开启今天的教学。" : "登录账号，继续你的探索之旅。"}</span>
           </div>
 
           <div className="login-role-tabs" role="tablist" aria-label="登录身份" onKeyDown={handleRoleKeyDown}>
@@ -167,6 +168,7 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
               <PresentationChart aria-hidden="true" size={20} />
               教师入口
             </button>
+            <button aria-controls="login-role-panel" aria-selected={role === 'admin'} className={role === 'admin' ? 'active' : ''} data-login-role="admin" id="login-role-admin" onClick={() => selectRole('admin')} role="tab" tabIndex={role === 'admin' ? 0 : -1} type="button" disabled={Boolean(busy)}><ShieldCheck aria-hidden="true" size={20}/>管理员</button>
           </div>
 
           <div
@@ -218,7 +220,7 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
             <span>{busy === "account" ? "正在登录…" : copy.submitLabel}</span>
             {busy === "account" ? <SpinnerGap className="login-spinner" aria-hidden="true" size={20}/> : <ArrowRight aria-hidden="true" size={20} />}
           </button>
-          {onDemoLogin ? (
+          {onDemoLogin && role !== 'admin' ? (
             <>
             <div className="login-divider"><span>也可以先体验一下</span></div>
             <div className="login-demo-entries" aria-label="选择演示身份">
@@ -230,7 +232,7 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
             </div>
             </>
           ) : null}
-          <small id="login-account-help">{copy.help}。{role === "student" ? "登录遇到问题请联系任课教师。" : "请使用学校分配的教师账号登录。"}</small>
+          <small id="login-account-help">{copy.help}。{role === 'admin' ? '请使用管理员账号登录。' : role === "student" ? "登录遇到问题请联系任课教师。" : "请使用学校分配的教师账号登录。"}</small>
         </div>
       </form>
       </div>

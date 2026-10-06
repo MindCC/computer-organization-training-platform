@@ -9,6 +9,8 @@
   "scripts": {
     "preqa:task-library": "npm run build -- --manifest",
     "qa:task-library": "node scripts/run-browser-qa.mjs scripts/verify-task-library.mjs --production",
+    "preqa:class-management": "npm run build -- --manifest",
+    "qa:class-management": "node scripts/run-browser-qa.mjs scripts/verify-class-management.mjs --production",
     "preqa:mobile": "npm run build -- --manifest",
     "qa:mobile": "node scripts/run-browser-qa.mjs scripts/verify-mobile.mjs --production --seed-demo",
     "preqa:study-planning": "npm run build -- --manifest",
