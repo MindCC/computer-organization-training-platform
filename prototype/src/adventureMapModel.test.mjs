@@ -27,7 +27,7 @@ test("missing records use the existing initial progress without inventing an unl
   for (const item of map.regions.flatMap((entry) => entry.items)) assert.deepEqual(item.record, initial[item.id]);
   assert.equal(map.currentRegionId, "ch1");
   assert.equal(region(map, "ch1").state, "available");
-  assert.equal(region(map, "ch4").state, "available", "the original storage orders are already open in platform defaults");
+  assert.equal(region(map, "ch4").state, "locked", "存储器电路关依赖 ch3（ALU），ch3 未完成时第 4 章遮罩；装机关开放不顶亮整章");
   for (const id of ["ch2", "ch3", "ch5", "ch6", "ch7", "ch8"]) assert.equal(region(map, id).state, "locked");
   assert.equal(map.completed, 0);
   assert.equal(map.completedRegions, 0);

@@ -72,9 +72,13 @@ export function buildAdventureMap(progress = {}) {
     });
     const completed = items.filter((item) => item.status === "completed").length;
     const attempted = items.some((item) => Number(item.record.attempts) > 0);
+    // 「可进入」以电路关为准：硬件装机关默认全程开放，不应因此把整章顶亮；
+    // 本章电路关全部未解锁时整章遮罩（硬件关仍可在区域内进入）。
+    const circuitItems = items.filter((item) => item.kind === "circuit");
+    const gatingItems = circuitItems.length > 0 ? circuitItems : items;
     const state = items.length > 0 && completed === items.length ? "completed"
       : completed > 0 || attempted ? "exploring"
-        : items.some((item) => item.status !== "locked") ? "available" : "locked";
+        : gatingItems.some((item) => item.status !== "locked") ? "available" : "locked";
 
     return {
       ...theme,
