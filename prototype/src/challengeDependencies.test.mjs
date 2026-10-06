@@ -22,14 +22,15 @@ test("拓扑深度符合图灵完备式结构（根→门→加法器→ALU→CP
   assert.equal(dependencyDepth("machine-number"), 2);
   assert.equal(dependencyDepth("data-flow"), 3);
   assert.equal(dependencyDepth("and-gate"), 4);
-  assert.equal(dependencyDepth("memory-address"), 3);
+  assert.equal(dependencyDepth("memory-address"), 8);
   assert.equal(dependencyDepth("half-adder"), 5);
   assert.equal(dependencyDepth("mux"), 5);
   assert.equal(dependencyDepth("full-adder"), 6);
   assert.equal(dependencyDepth("alu"), 7);
-  assert.equal(dependencyDepth("cpu-datapath"), 8);
-  assert.equal(dependencyDepth("system-bus"), 9);
-  assert.equal(dependencyDepth("io-transfer"), 10);
+  assert.equal(dependencyDepth("instruction-data"), 9);
+  assert.equal(dependencyDepth("cpu-datapath"), 10);
+  assert.equal(dependencyDepth("system-bus"), 11);
+  assert.equal(dependencyDepth("io-transfer"), 12);
 });
 
 test("解锁条件按依赖判定", () => {
@@ -49,7 +50,7 @@ test("依赖驱动解锁：完成数据流后四个逻辑门并行解锁（不�
     assert.equal(progress[gate].status, "in-progress", `${gate} 应在数据流完成后并行解锁`);
   }
   assert.equal(progress["half-adder"].status, "locked", "半加器还需 xor+and");
-  assert.equal(progress["memory-address"].status, "in-progress", "存储器依赖机器数，应已解锁");
+  assert.equal(progress["memory-address"].status, "locked", "存储器依赖 ALU，ALU 没完成不解锁");
 });
 
 test("半加器在 xor 与 and 都完成后才解锁，而不是按顺序", () => {
