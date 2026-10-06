@@ -4,7 +4,10 @@ import { mkdir } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import { HOSTED_DEMOS } from '../src/shared/demoNavigation.js';
+import { COURSEWARE } from '../src/courseware.js';
 import { clickTopNavItem } from './nav-helpers.mjs';
+
+const lectureChapters = COURSEWARE.chapters.filter((chapter) => chapter.embeds?.length);
 
 const base = process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173';
 await mkdir('qa-artifacts', { recursive:true });
@@ -19,6 +22,11 @@ try {
   await clickTopNavItem(page, '互动演示');
   await expect(page.locator('.courseware-chapter-card')).toHaveCount(8);
   await expect(nav('互动演示')).toHaveClass(/active/);
+  // 2026-10-06：演示 hub 曾与 AI讲演页同屏叠加（demos 视图同时渲染 CoursewareView），
+  // 用户需要多滚一屏才撞进另一种内容。演示页只允许出现演示 hub。
+  await expect(page.locator('.interactive-demos-view')).toHaveCount(1);
+  await expect(page.locator('.ai-lectures-view')).toHaveCount(0);
+  assert.deepEqual(await page.getByRole('heading', { level: 1 }).allInnerTexts(), ['课堂互动演示']);
   assert.equal(await page.locator('.courseware-demo-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),4);
   await page.screenshot({path:'qa-artifacts/interactive-demos-hub-desktop.png'});
   await page.reload({waitUntil:'domcontentloaded'});
@@ -33,9 +41,16 @@ try {
   await page.goForward();
   await expect(page.locator('.courseware-demo-grid')).toBeVisible();
   await clickTopNavItem(page, 'AI讲演');
-  await expect(page.locator('.ai-lecture-card')).toHaveCount(4);
+  // 2026-10-06 起 AI讲演大纲默认全部收起（点章节行展开），卡片类名是 .ai-lecture-card-links。
+  // 这里按数据源核对章节行与展开后的讲演条目，避免再写死某个过期的数字。
+  await expect(page.locator('.ai-lecture-row')).toHaveCount(lectureChapters.length);
+  await expect(page.locator('.ai-lecture-card-links')).toHaveCount(0);
   await expect(page.locator('.ai-lecture-player iframe')).toHaveCount(0);
-  await page.locator('.ai-lecture-card').filter({ hasText: '第三章' }).first().locator('button').first().click();
+  const ch3 = lectureChapters.find(c => c.title.includes('第三章'));
+  assert.ok(ch3?.embeds?.length, '第三章应有 AI 互动讲演');
+  await page.locator('.ai-lecture-row').filter({ hasText: '第三章' }).first().locator('.ai-lecture-row-head').click();
+  await expect(page.locator('.ai-lecture-row').filter({ hasText: '第三章' }).first().locator('.ai-lecture-card-links button')).toHaveCount(ch3.embeds.length);
+  await page.locator('.ai-lecture-card-links button').first().click();
   await expect(page.locator('.ai-lecture-player iframe')).toHaveCount(1);
 
   for (const demo of HOSTED_DEMOS) {

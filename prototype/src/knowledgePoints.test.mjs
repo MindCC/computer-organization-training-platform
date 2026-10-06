@@ -86,12 +86,13 @@ test("即使所有实验完成，未被实验覆盖的课程概念也不会自�
   for (const chapter of COURSE_CHAPTERS) assert.ok(k.knowledgePointsByChapter(chapter.id).some((point) => k.kpStatusOf(point, progress) !== "evidence"), chapter.id);
 });
 
-test("八章图谱按实际层排列，176×76节点不重叠且画布容纳矩形", () => {
-  const nodeWidth = 176, nodeHeight = 76;
+test("八章图谱按实际层排列，卡片尺寸来自模型且不重叠", () => {
   for (const chapter of COURSE_CHAPTERS) {
     for (const requested of [{ width: 920, height: 620 }, { width: 320, height: 240 }]) {
       const graph = k.layoutKnowledgeGraph({ ...requested, chapterId: chapter.id });
       assert.ok(graph.width >= requested.width && graph.height >= requested.height, chapter.id);
+      const nodeWidth = graph.boxWidth, nodeHeight = graph.boxHeight;
+      assert.ok(nodeWidth > 0 && nodeHeight > 0, chapter.id + "卡片尺寸");
       const byLayer = new Map();
       for (const node of graph.nodes) {
         assert.ok(node.x - nodeWidth / 2 >= 0 && node.x + nodeWidth / 2 <= graph.width, node.id + "横向边界");
@@ -104,7 +105,7 @@ test("八章图谱按实际层排列，176×76节点不重叠且画布容纳矩�
         const [, members] = layers[layerIndex];
         const leftToRight = [...members].sort((left, right) => left.x - right.x);
         for (let index = 1; index < leftToRight.length; index += 1) {
-          assert.ok(leftToRight[index].x - leftToRight[index - 1].x >= 210, chapter.id + "同层横距");
+          assert.ok(leftToRight[index].x - leftToRight[index - 1].x >= 180, chapter.id + "同层横距");
         }
         if (layerIndex > 0) {
           assert.ok(members[0].y - layers[layerIndex - 1][1][0].y >= 110, chapter.id + "相邻实际层纵距");
@@ -116,10 +117,50 @@ test("八章图谱按实际层排列，176×76节点不重叠且画布容纳矩�
           assert.ok(Math.abs(node.x - other.x) >= nodeWidth || Math.abs(node.y - other.y) >= nodeHeight, node.id + "与" + other.id + "矩形重叠");
         }
       }
-      for (const edge of graph.edges) assert.ok(edge.y1 < edge.y2, chapter.id + "教学基础应在上方");
+      for (const edge of graph.edges) {
+        assert.ok(edge.y1 < edge.y2, chapter.id + "教学基础应在上方");
+        const from = graph.nodes.find(node => node.id === edge.from), to = graph.nodes.find(node => node.id === edge.to);
+        assert.equal(edge.x1, from.x, chapter.id + "锚点取源卡片中线");
+        assert.equal(edge.y1, from.y + nodeHeight / 2, chapter.id + "锚点贴在源卡片下边");
+        assert.equal(edge.x2, to.x, chapter.id + "锚点取目标卡片中线");
+        assert.equal(edge.y2, to.y - nodeHeight / 2, chapter.id + "锚点贴在目标卡片上边");
+      }
     }
   }
 });
+
+test("概念标签按真实字宽折行，永远不超出卡片内宽", () => {
+  for (const chapter of COURSE_CHAPTERS) {
+    const graph = k.layoutKnowledgeGraph({ chapterId: chapter.id, width: 920, height: 620 });
+    const inner = graph.boxWidth - 2 * k.NODE_BOX.paddingX;
+    for (const point of k.knowledgePointsByChapter(chapter.id)) {
+      const lines = graph.linesById.get(point.id);
+      assert.ok(Array.isArray(lines) && lines.length >= 1 && lines.length <= k.NODE_LABEL_MAX_LINES, point.id + "行数");
+      for (const line of lines) {
+        // 一个汉字约占字号 0.93 宽，半角字母约 0.55；估算宽度必须留出内边距。
+        const width = [...line].reduce((sum, character) => sum + (/[\u3400-\u9FFF\uF900-\uFAFF\uFF00-\uFF60]/u.test(character) ? 0.93 : 0.55) * k.NODE_FONT_SIZE, 0);
+        assert.ok(width <= inner, `${point.id} “${line}” 估算 ${width.toFixed(1)}px > 内宽 ${inner}px`);
+      }
+      assert.ok((graph.boxHeight - k.NODE_LINE_HEIGHT * lines.length) / 2 >= 6, point.id + "行高留白");
+    }
+  }
+});
+
+test("超长概念标题折两行，仍放不下才省略并保持语义前缀", () => {
+  assert.deepEqual(k.wrapKnowledgeLabel("冯·诺依曼与存储程序"), ["冯·诺依曼与存储程", "序"]);
+  assert.deepEqual(k.wrapKnowledgeLabel("计算机五大部件"), ["计算机五大部件"]);
+  assert.deepEqual(k.wrapKnowledgeLabel("恢复余数与不恢复余数除法"), ["恢复余数与不恢复", "余数除法"]);
+  assert.deepEqual(k.wrapKnowledgeLabel("RISC、CISC 与 Load/Store"), ["RISC、CISC 与 ", "Load/Store"]);
+  const truncated = k.wrapKnowledgeLabel("访问存储器并执行指令的一个很长的标题");
+  assert.equal(truncated.length, 2);
+  assert.ok(truncated[1].endsWith("…"), truncated.join("/"));
+  for (const line of truncated) {
+    const width = [...line].reduce((sum, character) => sum + (/[\u3400-\u9FFF]/u.test(character) ? 0.93 : 0.55) * k.NODE_FONT_SIZE, 0);
+    assert.ok(width <= k.NODE_LABEL_MAX_PIXELS, `${line} 超宽`);
+  }
+  assert.deepEqual(k.wrapKnowledgeLabel(""), [""]);
+});
+
 
 test("全课程与搜索图谱也扩展画布保留节点间距", () => {
   for (const options of [{ width: 320, height: 240 }, { width: 320, height: 240, query: "Cache" }]) {

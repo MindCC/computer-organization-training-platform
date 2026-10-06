@@ -15,12 +15,13 @@ test('zoom preserves the graph coordinate underneath the cursor, including limit
 test('fit shows every complete concept card in all eight chapters on desktop and phone', () => {
   for (const width of [358, 640, 1100]) for (let chapter = 1; chapter <= 8; chapter++) {
     const model = layoutKnowledgeGraph({ chapterId: 'ch' + chapter, width: 920, height: 620 });
-    const camera = fitConceptCamera(model.nodes, { width, height: 460 });
+    const box = { width: model.boxWidth, height: model.boxHeight };
+    const camera = fitConceptCamera(model.nodes, { width, height: 460 }, 32, box);
     for (const node of model.nodes) {
-      assert.ok(camera.x + (node.x - 88) * camera.zoom >= 31.9);
-      assert.ok(camera.x + (node.x + 88) * camera.zoom <= width - 31.9);
-      assert.ok(camera.y + (node.y - 38) * camera.zoom >= 31.9);
-      assert.ok(camera.y + (node.y + 38) * camera.zoom <= 428.1);
+      assert.ok(camera.x + (node.x - box.width / 2) * camera.zoom >= 31.9);
+      assert.ok(camera.x + (node.x + box.width / 2) * camera.zoom <= width - 31.9);
+      assert.ok(camera.y + (node.y - box.height / 2) * camera.zoom >= 31.9);
+      assert.ok(camera.y + (node.y + box.height / 2) * camera.zoom <= 428.1);
     }
   }
 });

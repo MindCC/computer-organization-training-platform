@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowsOut, Crosshair, Minus, Plus } from '@phosphor-icons/react';
 import { centerConceptCamera, fitConceptCamera, MAX_CONCEPT_ZOOM, MIN_CONCEPT_ZOOM, zoomConceptCamera } from '../knowledgeCanvas.js';
 
-export function KnowledgeCanvas({ model, selectedId, title, children }) {
+export function KnowledgeCanvas({ model, selectedId, title, legend = null, children }) {
   const viewportRef = useRef(null);
   const instructionsId = useId();
   const cameraRef = useRef({ x: 0, y: 0, zoom: 1 });
@@ -11,8 +11,9 @@ export function KnowledgeCanvas({ model, selectedId, title, children }) {
   const [camera, setCamera] = useState(cameraRef.current);
   const [size, setSize] = useState(sizeRef.current);
   const [dragging, setDragging] = useState(false);
+  const box = { width: model.boxWidth ?? 176, height: model.boxHeight ?? 76 };
   function update(next) { cameraRef.current = next; setCamera(next); }
-  function fit() { update(fitConceptCamera(model.nodes, sizeRef.current)); }
+  function fit() { update(fitConceptCamera(model.nodes, sizeRef.current, 32, box)); }
   function zoomBy(factor, anchor = { x: sizeRef.current.width / 2, y: sizeRef.current.height / 2 }) {
     update(zoomConceptCamera(cameraRef.current, cameraRef.current.zoom * factor, anchor));
   }
@@ -28,19 +29,17 @@ export function KnowledgeCanvas({ model, selectedId, title, children }) {
       if (!next.width || !next.height) return;
       const old = sizeRef.current;
       sizeRef.current = next; setSize(next);
-      if (first) { first = false; update(fitConceptCamera(model.nodes, next)); }
+      if (first) { first = false; update(fitConceptCamera(model.nodes, next, 32, { width: model.boxWidth ?? 176, height: model.boxHeight ?? 76 })); }
       else update({ ...cameraRef.current, x: cameraRef.current.x + (next.width - old.width) / 2, y: cameraRef.current.y + (next.height - old.height) / 2 });
     });
     observer.observe(viewport);
     return () => observer.disconnect();
   }, [model]);
   useEffect(() => {
-    const node = model.nodes.find(entry => entry.id === selectedId);
-    if (!node) return;
-    const current = cameraRef.current, viewport = sizeRef.current;
-    const x = current.x + node.x * current.zoom, y = current.y + node.y * current.zoom;
-    if (x < 24 || x > viewport.width - 24 || y < 24 || y > viewport.height - 24) update(centerConceptCamera(current, node, viewport));
-  }, [selectedId, model]);
+    // 模型变化（切换章节、搜索结果）代表换了一张图：重新取景，并把相机跟到新图上。
+    if (!sizeRef.current.width || !sizeRef.current.height) return;
+    update(fitConceptCamera(model.nodes, sizeRef.current, 32, box));
+  }, [model]);
   useEffect(() => {
     const viewport = viewportRef.current;
     function wheel(event) {
@@ -97,6 +96,11 @@ export function KnowledgeCanvas({ model, selectedId, title, children }) {
     if (viewportRef.current.hasPointerCapture(event.pointerId)) viewportRef.current.releasePointerCapture(event.pointerId);
     if (!gesture.pointers.size) setDragging(false);
   }
+  function centerOn(event) {
+    const node = event.target.closest?.('.kg-node');
+    const entry = node && model.nodes.find(candidate => candidate.id === node.dataset.kpId);
+    if (entry) update(centerConceptCamera(cameraRef.current, entry, sizeRef.current, true));
+  }
   function keyboard(event) {
     if (event.target !== event.currentTarget) return;
     if (event.key === '+' || event.key === '=') zoomBy(1.2);
@@ -121,12 +125,13 @@ export function KnowledgeCanvas({ model, selectedId, title, children }) {
       <button type="button" onClick={locate} aria-label="定位当前知识点"><Crosshair size={16} /><span>定位知识点</span></button>
     </div>
     <div className={'concept-graph-desktop' + (dragging ? ' is-dragging' : '')} ref={viewportRef} tabIndex={0} role="group" aria-label="可拖动缩放的知识图谱画布" aria-describedby={instructionsId}
-      onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd} onLostPointerCapture={pointerEnd} onKeyDown={keyboard}
+      onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerEnd} onPointerCancel={pointerEnd} onLostPointerCapture={pointerEnd} onKeyDown={keyboard} onDoubleClick={centerOn}
       onClickCapture={event => { if (gestures.current.moved) { event.preventDefault(); event.stopPropagation(); gestures.current.moved = false; } }}>
       <svg className="kg-svg" viewBox={`0 0 ${size.width} ${size.height}`} role="group" aria-label={title + '知识点关系图'}>
         <g data-testid="concept-camera" transform={`translate(${camera.x} ${camera.y}) scale(${camera.zoom})`}>{children}</g>
       </svg>
+      {legend ?? null}
     </div>
-    <p className="concept-canvas-instructions" id={instructionsId}>拖动空白处移动 · 滚轮或双指缩放 · 点击知识点查看详情<span>键盘：方向键移动，+/− 缩放，0 全图，F 定位</span></p>
+    <p className="concept-canvas-instructions" id={instructionsId}>拖动空白处移动 · 滚轮或双指缩放 · 点击知识点查看详情 · 双击卡片居中<span>键盘：方向键移动，+/− 缩放，0 全图，F 定位</span></p>
   </section>;
 }
