@@ -34,6 +34,15 @@ test('selected login identity is enforced without creating a wrong-role session'
     }
     const teacherJar = await f.login('teacher-formal', 'teacher');
     assert.equal((await f.request('/api/auth/me', undefined, teacherJar, 'GET')).body.user.role, 'teacher');
+    const adminStudent = await f.request('/api/auth/login', { username: 'admin', password: 'admin123', role: 'student' });
+    assert.equal(adminStudent.status, 403);
+    assert.equal(adminStudent.cookie, null);
+    assert.match(adminStudent.body.error, /教师入口/);
+    const adminJar = {};
+    const adminTeacher = await f.request('/api/auth/login', { username: 'admin', password: 'admin123', role: 'teacher' }, adminJar);
+    assert.equal(adminTeacher.status, 200);
+    assert.equal(adminTeacher.body.user.role, 'admin');
+    assert.equal((await f.request('/api/auth/me', undefined, adminJar, 'GET')).body.user.role, 'admin');
   } finally { await f.close(); }
 });
 

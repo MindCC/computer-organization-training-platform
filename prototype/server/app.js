@@ -294,9 +294,9 @@ export function createApp(options = {}) {
         });
       }
 
-      if (role !== undefined && user.role !== role) {
+      if (role !== undefined && user.role !== role && !(role === 'teacher' && user.role === 'admin')) {
         audit(req, 'login_failure', { targetType: 'user', targetId: key, metadata: { reason: 'role_mismatch' } });
-        return res.status(403).json({ error: `此账号属于${{ teacher: '教师', student: '学生', admin: '管理员' }[user.role]}，请切换到对应登录入口` });
+        return res.status(403).json({ error: user.role === 'admin' ? '管理员账号请从教师入口登录' : `此账号属于${{ teacher: '教师', student: '学生' }[user.role]}，请切换到对应登录入口` });
       }
 
       // Success: clear failures

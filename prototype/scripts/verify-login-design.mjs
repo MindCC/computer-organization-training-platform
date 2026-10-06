@@ -38,6 +38,8 @@ try {
   }
   await page.setViewportSize({width:1366,height:768});
   const student=page.getByRole('tab',{name:'学生入口'}),teacher=page.getByRole('tab',{name:'教师入口'});
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await expect(page.getByRole('tab',{name:'管理员'})).toHaveCount(0);
   await student.focus();await student.press('ArrowRight');
   await expect(teacher).toBeFocused();await expect(teacher).toHaveAttribute('aria-selected','true');
   await expect(page.locator('#login-username')).toHaveAttribute('placeholder','请输入教师账号');

@@ -24,7 +24,8 @@ try {
   await expect(dialog.getByRole('status')).toContainText('反馈已提交');
   await dialog.getByRole('button', { name: '完成', exact: true }).click();
   await fillLoginForm(page, { username: 'admin', password: 'admin123' });
-  await page.getByRole('tab', { name: '管理员', exact: true }).click();
+  await expect(page.getByRole('tab')).toHaveCount(2);
+  await page.getByRole('tab', { name: '教师入口' }).click();
   await submitLoginForm(page);
   await expect(page.locator('.profile-button')).toContainText('管理员');
   await expect(dialog.getByText('共 1 条反馈')).toBeVisible();
