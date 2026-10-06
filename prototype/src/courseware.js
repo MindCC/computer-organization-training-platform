@@ -304,6 +304,13 @@ const CHAPTER_CONTENT = {
         note: "数据通路五阶段动画、多级时序嵌套、节拍控制信号矩阵、中断流程",
       },
     ],
+    embeds: [
+      {
+        title: "第六章第二节 多级时序与时序系统",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-41eKJwkP?code=VZNWMD8HM",
+        note: "课程讲演",
+      },
+    ],
   },
   ch7: {
     slides: 67,
