@@ -440,6 +440,13 @@ const CHAPTER_CONTENT = {
         note: "程序查询空转统计、中断时间线对比、DMA 三阶段与周期挪用",
       },
     ],
+    embeds: [
+      {
+        title: "第八章 I/O",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-Xqe08YeW?code=VZNWMD8HM",
+        note: "课程讲演",
+      },
+    ],
   },
 };
 

@@ -130,3 +130,20 @@ test('recent failed operations are opt-in, explainable and exclude free-form pri
  let messages;await askStudyAssistant({...payload,context:{circuit},stateConsent:'current-task-state'},{env:{DEEPSEEK_API_KEY:'test'},scopeRequester:allowCourse,requester:async(_config,input)=>{messages=input;return '{}';}});
  assert.ok(!JSON.stringify(messages).includes('PRIVATE_NAME'));assert.match(JSON.stringify(messages),/输入端重复驱动/);
 });
+test('dedicated companion provider handles both scope reviews and answer generation',async()=>{
+ const calls=[];
+ const env={DEEPSEEK_API_KEY:'teacher-only-key',STUDY_ASSISTANT_API_KEY:'companion-only-key',STUDY_ASSISTANT_BASE_URL:'https://companion.invalid/v1',STUDY_ASSISTANT_MODEL:'deepseek-v4-flash'};
+ const scopeRequester=async config=>{calls.push(config);return '{"decision":"course"}';};
+ const result=await askStudyAssistant({question:'全加器是什么？',consent:'deepseek-public-question'},{env,scopeRequester,requester:async config=>{calls.push(config);return JSON.stringify({explanation:'全加器有两个加数输入和一个进位输入。',steps:['列出八组输入。'],check:'三个输入均为1时输出是什么？'});}});
+ assert.equal(result.source,'ai');assert.equal(calls.length,3);
+ assert.ok(calls.every(config=>config.apiKey==='companion-only-key'&&config.baseUrl==='https://companion.invalid/v1'&&config.model==='deepseek-v4-flash'));
+ assert.equal(env.DEEPSEEK_API_KEY,'teacher-only-key');
+});
+
+test('incomplete dedicated companion config never sends either key to a default endpoint',async()=>{
+ for(const changes of [{STUDY_ASSISTANT_BASE_URL:''},{STUDY_ASSISTANT_MODEL:''}]){
+  const env={DEEPSEEK_API_KEY:'teacher-only-key',STUDY_ASSISTANT_API_KEY:'companion-only-key',STUDY_ASSISTANT_BASE_URL:'https://companion.invalid/v1',STUDY_ASSISTANT_MODEL:'deepseek-v4-flash',...changes};
+  const result=await askStudyAssistant({question:'全加器是什么？',consent:'deepseek-public-question'},{env,scopeRequester:async()=>assert.fail('incomplete config must not send a credential'),requester:async()=>assert.fail('incomplete config must not generate')});
+  assert.equal(result.source,'local');assert.equal(result.reason,'AI_DISABLED');
+ }
+});

@@ -7,6 +7,13 @@ import { getCircuitChallenge } from '../src/circuit/challengeCircuitModel.js';
 import { safeCircuitAction, circuitActionEvidence } from '../src/circuit/circuitActionEvidence.js';
 import { localCourseScope, courseScopeReply, checkCourseScope } from './studyCourseScope.js';
 
+export function readStudyAssistantConfig(env=process.env) {
+  const fallback=readDeepSeekConfig(env),apiKey=env.STUDY_ASSISTANT_API_KEY?.trim();
+  if(!apiKey)return fallback;
+  const baseUrl=(env.STUDY_ASSISTANT_BASE_URL??'').trim(),model=(env.STUDY_ASSISTANT_MODEL??'').trim();
+  return {enabled:Boolean(baseUrl&&model),apiKey,baseUrl,model,timeoutMs:Math.min(30000,Math.max(1000,Number(env.STUDY_ASSISTANT_TIMEOUT_MS)||fallback.timeoutMs))};
+}
+
 // Only questions, public material and explicitly selected current task state.
 // Never forward identity, answers, grades, history or teacher feedback.
 export function safeCircuitSnapshot(raw) {
@@ -52,7 +59,7 @@ export function localStudyReference(context = {}, reason = 'AI_DISABLED') {
 }
 
 export async function askStudyAssistant({ question, context = {}, consent, stateConsent }, options = {}) {
-  if (consent !== 'deepseek-public-question') throw Object.assign(new Error('请确认将本次问题发送至 DeepSeek。'), { status: 400 });
+  if (consent !== 'deepseek-public-question') throw Object.assign(new Error('请确认将本次问题发送至课程助教服务。'), { status: 400 });
   if (typeof question !== 'string' || !question.trim() || question.length > 1600) throw Object.assign(new Error('请输入 1–1600 字的课程问题。'), { status: 400 });
   question=question.trim();
   context={questionId:questionOf(context?.questionId)?.id,conceptId:knowledgePointOf(context?.conceptId)?.id,chapterId:context?.chapterId,
@@ -61,7 +68,7 @@ export async function askStudyAssistant({ question, context = {}, consent, state
   const scope=localCourseScope(question,context);
   if(scope==='out_of_scope')return courseScopeReply();
   if(scope==='clarify')return courseScopeReply('COURSE_SCOPE_UNVERIFIED');
-  const config = readDeepSeekConfig(options.env ?? process.env);
+  const config = readStudyAssistantConfig(options.env ?? process.env);
   if (!config.enabled) return scope==='review'?courseScopeReply('COURSE_SCOPE_UNVERIFIED'):localStudyReference(context);
   const deadline=Date.now()+Math.min(config.timeoutMs+8000,22000);
   const scopeRequester=options.scopeRequester??options.requester??requestChatCompletion;
