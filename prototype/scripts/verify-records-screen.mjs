@@ -75,7 +75,9 @@ try {
   const mascotHover = await page.locator('.records-kpi-review [role="tooltip"]').evaluate(node => ({visible:getComputedStyle(node).visibility,opacity:getComputedStyle(node).opacity,hover:node.parentElement.matches(':hover')}));
   check('悬停小芯显示复习建议', mascotHover.visible === 'visible' && Number(mascotHover.opacity) > .9, JSON.stringify(mascotHover));
   await mascot.click();
-  check('点击小芯也能读到复习建议', await page.locator('.records-kpi-review [role="dialog"] .study-mascot-review').isVisible());
+  // 2026-10-05：小芯对话框改为 createPortal 渲染到 document 根节点（upstream 决定），
+  // 因此不能再限定在 .records-kpi-review 内查找；用只属于小芯的 .study-mascot-review 定位。
+  check('点击小芯也能读到复习建议', await page.locator('[role="dialog"] .study-mascot-review').first().isVisible());
   await page.getByRole('button', {name:'关闭小芯助教'}).click();
   check('树与明细默认折叠，缩短页面', await page.locator('[data-testid="records-tree-section"]').evaluate(node=>!node.open) && await page.locator('[data-testid="records-details-section"]').evaluate(node=>!node.open));
   await page.locator('[data-testid="records-statistics-grid"]').screenshot({path:`${ARTIFACT_DIR}/records-statistics-equal.png`,style:'.topbar {visibility:hidden;}'});
