@@ -36,6 +36,39 @@
   text-shadow: 0 1px 0 rgba(255, 255, 255, .45);
 }
 
+/* 木板上印任务经验值：位置按视频帧像素测量（left 42.66% / top 74.31% / 16.17% × 16.79%） */
+.pomo-board {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: .35cqw;
+  height: 16.79%;
+  justify-content: center;
+  left: 42.66%;
+  pointer-events: none;
+  position: absolute;
+  top: 74.31%;
+  width: 16.17%;
+}
+.pomo-board-xp { color: #6b4420; font-size: clamp(7px, 1.15cqw, 15px); font-weight: 700; letter-spacing: .02em; }
+.pomo-board-xp b { font-size: clamp(9px, 1.5cqw, 20px); font-variant-numeric: tabular-nums; }
+.pomo-board-track {
+  background: rgba(120, 90, 55, .28);
+  border-radius: 999px;
+  display: block;
+  height: clamp(3px, .55cqw, 8px);
+  overflow: hidden;
+  width: 100%;
+}
+.pomo-board-track i {
+  background: linear-gradient(90deg, #d9a441, #2f9e8f);
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+  transition: width 400ms ease;
+}
+.pomo-board-stages { color: #7a5a34; font-size: clamp(6px, .95cqw, 13px); font-variant-numeric: tabular-nums; }
+
 .pomo-bar {
   align-items: center; display: flex; flex-wrap: wrap; gap: 12px 20px;
   margin: 14px 0 0 0; max-width: var(--pomo-stage-w); width: calc(100% - 36px);

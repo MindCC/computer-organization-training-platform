@@ -131,6 +131,63 @@ export function buildScreenKpis(summary = {}, progress = {}, items = LEARNING_IT
 }
 
 /**
+ * 学习热力图模型：把 /api/student/activity 的 hourly 数据整理成「近 N 天 × 每 2 小时」的网格。
+ * 全部来自真实 attempt 时间戳，不做任何推断或补造。
+ */
+function localDayKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export function buildHeatmapModel(activity = {}, { days = 7, bucketHours = 2, now = new Date() } = {}) {
+  const raw = Array.isArray(activity.hourly) ? activity.hourly : [];
+  const bucketCount = Math.ceil(24 / bucketHours);
+  const columns = [];
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+    columns.push({ day: localDayKey(d), weekday: "日一二三四五六"[d.getDay()], label: `${d.getMonth() + 1}/${d.getDate()}`, isToday: offset === 0 });
+  }
+  const colOf = new Map(columns.map((c, i) => [c.day, i]));
+  const grid = Array.from({ length: bucketCount }, () => Array.from({ length: days }, () => ({ attempts: 0, minutes: 0 })));
+  for (const row of raw) {
+    const col = colOf.get(String(row.day));
+    if (col === undefined) continue;
+    const hour = Number(row.hour);
+    if (!Number.isFinite(hour) || hour < 0 || hour > 23) continue;
+    const cell = grid[Math.floor(hour / bucketHours)][col];
+    cell.attempts += Number(row.attempts ?? 0);
+    cell.minutes += Number(row.minutes ?? 0);
+  }
+
+  let max = 0;
+  let total = 0;
+  let minutes = 0;
+  let peak = null;
+  const activeDaySet = new Set();
+  const rows = grid.map((cells, r) => {
+    const startHour = r * bucketHours;
+    const built = cells.map((cell, c) => {
+      if (cell.attempts > 0) activeDaySet.add(columns[c].day);
+      if (cell.attempts > max) max = cell.attempts;
+      total += cell.attempts;
+      minutes += cell.minutes;
+      if (cell.attempts > 0 && (!peak || cell.attempts > peak.attempts)) {
+        peak = { day: columns[c].day, weekday: columns[c].weekday, label: columns[c].label, startHour, endHour: startHour + bucketHours, attempts: cell.attempts };
+      }
+      return { ...cell, day: columns[c].day, weekday: columns[c].weekday, level: 0 };
+    });
+    return { startHour, endHour: startHour + bucketHours, label: String(startHour).padStart(2, "0"), cells: built };
+  });
+  if (max > 0) {
+    for (const row of rows) {
+      for (const cell of row.cells) {
+        cell.level = cell.attempts === 0 ? 0 : Math.max(1, Math.min(4, Math.ceil((cell.attempts / max) * 4)));
+      }
+    }
+  }
+  return { columns, rows, max, total, minutes, activeDays: activeDaySet.size, peak, bucketHours, days, hasData: total > 0 };
+}
+
+/**
  * 学习日历模型：把 /api/student/activity 的按天聚合数据整理成月历可直接渲染的结构。
  * 每天一枚「贴纸」：milestone（当天点亮整章）> complete（通过实验）> practice（尝试未通过）> demo（课堂演示）。
  */
