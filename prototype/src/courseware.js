@@ -155,6 +155,11 @@ const CHAPTER_CONTENT = {
         note: "课程讲演",
       },
       {
+        title: "第3章补充内容 数字逻辑基础（计1）",
+        src: "https://ppt.gkk.cn/#/ai/gkk-share-5ZkGya69?code=VZNWMD8HM",
+        note: "课程讲演",
+      },
+      {
         title: "第三章第三节 浮点数运算",
         src: "https://ppt.gkk.cn/#/ai/gkk-share-bVemjD6Z?code=LDTRKWGEZ",
         note: "课程讲演",

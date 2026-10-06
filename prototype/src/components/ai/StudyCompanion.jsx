@@ -73,7 +73,7 @@ export function StudyCompanion({userId,page,pageTitle,chapterId}) {
    <form onSubmit={ask}><label htmlFor="companion-question">你的课程问题</label><textarea ref={field} id="companion-question" rows={2} maxLength={1600} placeholder={help?'例如：为什么部件装齐了还不能开机？':'我不理解……'} value={question} onChange={event=>setQuestion(event.target.value)} disabled={busy}/>
     {(current||snapshot?.circuit)&&!snapshot?.expert&&<label className="companion-state-consent"><input type="checkbox" checked={includeState} onChange={event=>setIncludeState(event.target.checked)} disabled={busy}/>本次提问附带当前{current?'装配与接线快照':'电路输入与检查计数'}（含最近操作）</label>}
     {includeState&&!snapshot?.expert&&(current||snapshot?.circuit)&&<details className="companion-payload"><summary>查看本次将附带的状态</summary><pre>{JSON.stringify(current??snapshot?.circuit,null,2)}</pre></details>}
-    <p className="study-mascot-consent">点击发送，将本次问题、公开课程材料{includeState?'及上方选定的当前状态':''}发送至 DeepSeek。成绩、学习历史、身份和教师评语不随附。</p><button className="primary-button" type="submit" disabled={busy||!question.trim()}>{busy?'正在思考…':'询问助教'}</button>
+    <button className="primary-button" type="submit" disabled={busy||!question.trim()}>{busy?'正在思考…':'询问助教'}</button>
    </form>
   </section>}
  </>,document.body);

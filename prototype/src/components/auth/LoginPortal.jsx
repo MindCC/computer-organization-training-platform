@@ -92,8 +92,8 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
     <main className={`login-portal login-portal-${role}`} ref={rootRef}>
       <header className="login-portal-header">
         <div className="brand login-brand">
-          <img className="brand-wordmark" src="/home/wordmark.png" alt="芯游记" />
-          <img className="brand-logo" src="/home/logo.png" alt="" />
+          <img className="brand-wordmark" src="/home/wordmark-small.webp" alt="芯游记" />
+          <img className="brand-logo" src="/home/logo-small.webp" alt="" />
         </div>
         <span className="login-platform-name">计算机组成原理实训平台</span>
         {onBack ? <button className="login-back" onClick={onBack} disabled={Boolean(busy)} type="button"><ArrowLeft size={16} aria-hidden="true"/>先浏览课程</button> : null}
