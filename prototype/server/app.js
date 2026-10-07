@@ -743,7 +743,9 @@ export function createApp(options = {}) {
     try {
       const normalized = normalizeDemoAttemptPayload(req.body ?? {});
       if (!normalized.ok) return res.status(normalized.status).json({ error: normalized.error });
-      recordDemoAttempt(db, req.user.id, normalized.demoId, normalized.result);
+      if (req.body.accountId !== undefined && req.body.accountId !== req.user.id) return res.status(403).json({error:'登录账号已变化，请重新打开演示'});
+      const created = recordDemoAttempt(db, req.user.id, normalized.demoId, normalized.result, normalized.clientSubmissionId);
+      if (!created) return res.json({ demos: summarizeDemoAttempts(db, req.user.id) });
       writeAuditLog(db, {
         actorUserId: req.user.id,
         actorRole: "student",
@@ -762,7 +764,7 @@ export function createApp(options = {}) {
       ...item,
       title: demoTitleOf(item.demoId),
     }));
-    res.json({ demos });
+    res.set('Cache-Control','no-store');res.json({ demos, events:listDemoAttempts(db,req.user.id) });
   });
 
   app.get("/api/student/report.md", requireRole("student"), (req, res) => {

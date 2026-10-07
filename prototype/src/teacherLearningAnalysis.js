@@ -30,19 +30,19 @@ export function analyzeTeachingRecords(students = []) {
   const errors = new Map();
   for (const student of students) for (const item of student.mistakes?.items ?? []) {
     if (item.resolved) continue;
-    const key = [item.source, item.questionId ?? item.challengeId ?? item.title, item.errorType].join(':');
+    const key = [item.source, item.questionId ?? item.challengeId ?? item.id ?? item.title, item.errorType].join(':');
     if (!errors.has(key)) errors.set(key, { title: item.stem ?? item.title ?? item.challengeTitle, source: item.source, count: 0, studentIds: new Set(), navigation: item.navigation });
     const error = errors.get(key); error.count += item.count ?? 1; error.studentIds.add(student.id);
   }
   const commonErrors = [...errors.values()].map(({ studentIds, ...item }) => ({ ...item, students: studentIds.size })).sort((a,b) => b.students - a.students || b.count - a.count).slice(0, 6);
-  const submitted = students.filter(student => Object.values(student.progress ?? {}).some(record => record.attempts > 0) || student.practice?.answered > 0 || student.homework?.submitted > 0);
+  const submitted = students.filter(student => Object.values(student.progress ?? {}).some(record => record.attempts > 0) || student.practice?.answered > 0 || student.homework?.submitted > 0 || student.demos?.some(demo=>demo.totalQuestions > 0));
   const pendingMistakes = students.reduce((sum, student) => sum + (student.mistakes?.overview?.pendingCount ?? 0), 0);
   const support = students.map(student => {
     const attempts = Object.values(student.progress ?? {}).reduce((sum, record) => sum + (record.attempts ?? 0), 0);
     const pending = student.mistakes?.overview?.pendingCount ?? 0;
     const homework = student.homework ?? {};
     const reasons = [];
-    if (!attempts && !student.practice?.answered && !homework.submitted) reasons.push('尚无提交记录，先确认是否已进入课程');
+    if (!attempts && !student.practice?.answered && !homework.submitted && !student.demos?.some(demo=>demo.totalQuestions > 0 || demo.elapsedMinutes > 0)) reasons.push('尚无提交记录，先确认是否已进入课程');
     if (pending) reasons.push(`${pending} 项错题待巩固`);
     if ((homework.assigned ?? 0) > (homework.submitted ?? 0)) reasons.push(`${homework.assigned - homework.submitted} 份作业未提交（不等同于逾期）`);
     return { id: student.id, displayName: student.displayName, reasons };

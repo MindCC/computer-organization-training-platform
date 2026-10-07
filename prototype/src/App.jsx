@@ -932,6 +932,7 @@ export function App() {
   }
 
   function openStudyTarget(target) {
+    if (target?.source === 'demo') { openDemo(target.demoId); return; }
     if (auth.user?.role === 'teacher' && target?.source === 'assignment') { changeView('teacher-assignments'); return; }
     changeView(target?.source==='service'?"hardware-game":"assignments");
     setStudyTarget(target);

@@ -6,7 +6,7 @@ import './teacherLearningReview.css';
 const Records = lazy(() => import('../StudentRecords.jsx').then(module => ({ default: module.StudentRecords })));
 const Mistakes = lazy(() => import('../MistakeBookPage.jsx').then(module => ({ default: module.MistakeBookPage })));
 const CoachReview = lazy(() => import('../TeacherCoachReview.jsx').then(module => ({default: module.TeacherCoachReview})));
-const SOURCE = { lab: '实验室', practice: '题库练习', assignment: '课后作业', service: '维修诊断' };
+const SOURCE = { lab: '实验室', practice: '题库练习', demo:'互动演示', assignment: '课后作业', service: '维修诊断' };
 
 export function TeacherLearningReview({ mode, classes, classId, onClassChange, selectedStudent, onStudentChange, changeView, navigateToChallenge, openStudyTarget }) {
   const [classData, setClassData] = useState(null), [detail, setDetail] = useState(null);

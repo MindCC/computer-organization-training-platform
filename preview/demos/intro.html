@@ -513,7 +513,7 @@ function submitQuizAnswer(){
     (isCorrect ? "✅ 回答正确！" : `❌ 回答错误，正确答案是 ${LABELS[quizState.current.answer]}。`)
     + " " + quizState.current.explain;
   renderStats();
-  window.__platformLink?.recordQuizAnswer(isCorrect);
+  window.__platformLink?.recordQuizAnswer(isCorrect, quizState.current, chosenIdx);
 }
 quizSubmitBtn.addEventListener("click", submitQuizAnswer);
 quizNextBtn.addEventListener("click", nextQuizQuestion);
@@ -522,6 +522,6 @@ quizNextBtn.addEventListener("click", nextQuizQuestion);
 drawWires();
 renderStats();
 </script>
-<script src="./platform-link.js"></script>
+<script src="./platform-link.js?v=20261007-demo-records"></script>
 </body>
 </html>

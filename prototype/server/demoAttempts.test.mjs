@@ -6,6 +6,46 @@ import { createApp } from "./app.js";
 import { createUser, migrate, openDatabase, recordDemoAttempt, summarizeDemoAttempts } from "./db.js";
 import { demoTitleOf, isValidDemoId, normalizeDemoAttemptPayload } from "./demoValidation.js";
 import { buildStudentMarkdownReport } from "./studentReport.js";
+import { buildUnifiedMistakeBook } from './learningPractice.js';
+import { learningActivity } from './learningActivity.js';
+
+test('演示逐题错题、无答题计时及重试去重', async () => {
+  const {db, server, baseUrl} = await makeServer(), jar = {};
+  try {
+    await request(baseUrl, '/api/auth/login', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({username:'stu01',password:'Student123!'})}, jar);
+    const send = payload => request(baseUrl, '/api/student/demo-attempts', {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}, jar);
+    const question = {stem:'5 - 3 的补码运算结果？',studentAnswer:'00000011',referenceAnswer:'00000010',explanation:'减法转化为加上负数的补码。',correct:false};
+    const payload = {demoId:'twos-complement',clientSubmissionId:'demo-regression-001',result:{score:0,total:1,correct:0,elapsedMinutes:0.25,questions:[question]}};
+    assert.equal((await send(payload)).response.status,201);
+    assert.equal((await send({...payload,accountId:999})).response.status,403);
+    assert.equal((await send({...payload,clientSubmissionId:'demo-regression-invalid',result:{...payload.result,questions:[{...question,correct:true}]}})).response.status,400);
+    assert.equal((await send(payload)).response.status,200);
+    assert.equal((await send({...payload,result:{...payload.result,elapsedMinutes:2}})).response.status,409);
+    const timed = {demoId:'twos-complement',clientSubmissionId:'demo-regression-002',result:{score:0,total:0,correct:0,elapsedMinutes:0.5,questions:[]}};
+    assert.equal((await send(timed)).response.status,201);
+    const studentId = db.prepare("SELECT id FROM users WHERE username='stu01'").get().id;
+    const book = buildUnifiedMistakeBook(db,studentId);
+    assert.equal(book.overview.sourceCounts.demo,1);
+    assert.equal(book.items[0].studentAnswer,question.studentAnswer);
+    assert.equal(book.items[0].referenceAnswer,question.referenceAnswer);
+    assert.equal(book.items[0].explanation,question.explanation);
+    assert.equal(book.items[0].chapterId,'ch2');
+    assert.equal(book.items[0].resolved,false);
+    assert.equal(summarizeDemoAttempts(db,studentId)[0].elapsedMinutes,0.75);
+    assert.equal(learningActivity(db,studentId).demos[0].minutes,0.75);
+    assert.equal(learningActivity(db,studentId).demos[0].attempts,1,'计时心跳不是答题批次');
+    assert.equal(db.prepare('SELECT COUNT(*) AS n FROM challenge_attempts').get().n,0);
+    await send({...payload,clientSubmissionId:'demo-regression-003',result:{...payload.result,score:100,correct:1,questions:[{...question,studentAnswer:question.referenceAnswer,correct:true}]}});
+    const resolved = buildUnifiedMistakeBook(db,studentId).items[0];
+    assert.equal(resolved.resolved,true);
+    assert.equal(resolved.count,1);
+    await send({...payload,clientSubmissionId:'demo-regression-004'});
+    assert.equal(buildUnifiedMistakeBook(db,studentId).items[0].resolved,false);
+    assert.equal(buildUnifiedMistakeBook(db,studentId).items[0].count,2);
+    const teacherId = db.prepare("SELECT id FROM users WHERE username='teacher'").get().id;
+    assert.equal(buildUnifiedMistakeBook(db,teacherId).items.length,0);
+  } finally { await new Promise(resolve=>server.close(resolve)); db.close(); }
+});
 
 async function makeServer() {
   const db = openDatabase(":memory:");

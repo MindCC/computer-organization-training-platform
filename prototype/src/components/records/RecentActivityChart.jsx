@@ -6,7 +6,7 @@ export function RecentActivityChart({ model }) {
     <div className="tech-chart recent-activity-chart" data-testid="chart-recent-activity">
       <div className="tech-chart-head">
         <strong>最近学习活动</strong>
-        <small>{isSummary ? "实验记录汇总 · 每个实验一条" : `本次会话 · 最近 ${items.length} 条记录`}</small>
+        <small>{isSummary ? "实验记录汇总 · 每个实验一条" : `最近 ${items.length} 条学习记录`}</small>
       </div>
       {items.length ? (
         <ol className="recent-activity-timeline" aria-label="真实学习活动时间轴">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../apiClient.js";
+const duration = value => Number(value) > 0 && Number(value) < 1 ? `${Math.round(Number(value) * 60)} 秒` : `${Math.round(Number(value ?? 0) * 10) / 10} 分钟`;
 
 /**
  * Account-scoped chapter-demo practice; keeps loading, empty and retry states visible.
@@ -24,7 +25,7 @@ export function DemoPracticePanel({ userId, onOpenCourse, suppliedDemos }) {
     <div className="tech-chart demo-practice-chart" data-testid="demo-practice-panel">
       <div className="tech-chart-head">
         <strong>课堂演示练习</strong>
-        <small>来自章节演示页的随堂成绩</small>
+        <small>章节演示学习时长与随堂成绩</small>
       </div>
       {error ? <div className="chart-empty-state"><strong className="chart-empty-note" role="alert">{error}</strong><button className="records-inline-action" type="button" onClick={() => setVersion(value => value + 1)}>重试课堂练习记录</button></div>
         : demos === null ? <div className="chart-empty-state" role="status"><strong>正在加载课堂练习…</strong><p>同步章节演示页中的实际成绩。</p></div>
@@ -36,12 +37,12 @@ export function DemoPracticePanel({ userId, onOpenCourse, suppliedDemos }) {
             <span className="tech-bar-track">
               <span className={`tech-bar-fill ${demo.accuracy >= 80 ? "full" : demo.accuracy >= 60 ? "partial" : "empty"}`} style={{ width: `${demo.accuracy}%` }} />
             </span>
-            <span className="demo-practice-meta">{demo.accuracy}% · {demo.batches} 批</span>
+            <span className="demo-practice-meta">{demo.totalQuestions > 0 ? `${demo.accuracy}% · ${demo.totalQuestions} 题` : '尚未答题'} · {duration(demo.elapsedMinutes)}</span>
           </div>
         ))}
       </div>
       }
-      <p className="tech-chart-foot">{demos?.length ? `${demos.length} 个演示页 · ${demos.reduce((sum, demo) => sum + Number(demo.batches ?? 0), 0)} 批随堂练习` : "课堂演示成绩独立于关卡实验"}</p>
+      <p className="tech-chart-foot">{demos?.length ? `${demos.length} 个演示页 · ${demos.reduce((sum, demo) => sum + Number(demo.totalQuestions ?? 0), 0)} 题随堂练习` : "课堂演示成绩独立于关卡实验"} · 可见页面计时，切后台或闲置超过 5 分钟暂停</p>
     </div>
   );
 }

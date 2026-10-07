@@ -5,6 +5,8 @@ import { LEARNING_ITEMS } from "../src/platformLogic.js";
 import { buildMistakeBook } from "../src/mistakeBook.js";
 import { gradeObjectiveAnswer } from "./objectiveGrading.js";
 import { serviceMistakes } from './shopServiceRoutes.js';
+import { HOSTED_DEMOS } from '../src/shared/demoNavigation.js';
+import { createHash } from 'node:crypto';
 
 const parse = (value, fallback = {}) => { try { return JSON.parse(value); } catch { return fallback; } };
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), {status}); };
@@ -142,8 +144,28 @@ export function buildUnifiedMistakeBook(db, studentId) {
       navigation:{source:"assignment",assignmentId:q.assignment_id,questionId:q.id}});
   }
   items.push(...serviceMistakes(db,studentId));
+  const demoMistakes = new Map();
+  for (const row of db.prepare('SELECT * FROM demo_attempts WHERE student_id=? ORDER BY id ASC').all(studentId)) {
+    const demo = HOSTED_DEMOS.find(page=>page.id===row.demo_id);
+    if (!demo) continue;
+    for (const q of parse(row.questions_json,[])) {
+      const key = `${demo.id}:${createHash('sha256').update(JSON.stringify([q.stem,q.referenceAnswer])).digest('hex')}`;
+      let item = demoMistakes.get(key);
+      if (!item && !q.correct) {
+        item = {id:`demo:${key}`,source:'demo',title:demo.title,chapterId:demo.chapterId,stem:q.stem,referenceAnswer:q.referenceAnswer,explanation:q.explanation,type:'demo',errorType:'演示随堂练习',count:0,firstSeen:utcTime(row.created_at),snapshots:[],navigation:{source:'demo',demoId:demo.id}};
+        demoMistakes.set(key,item);
+      }
+      if (!item) continue;
+      item.resolved = q.correct; item.latestAnswer = q.studentAnswer; item.updatedAt = utcTime(row.created_at);
+      if (!q.correct) {
+        item.count++; item.studentAnswer=q.studentAnswer; item.lastSeen=utcTime(row.created_at);
+        item.snapshots.unshift({score:0,createdAt:item.lastSeen}); item.snapshots=item.snapshots.slice(0,3);
+      }
+    }
+  }
+  items.push(...demoMistakes.values());
   items.sort((a,b) => String(b.updatedAt ?? b.lastSeen).localeCompare(String(a.updatedAt ?? a.lastSeen)));
-  return {overview:{...lab.overview,totalMistakes:lab.overview.totalMistakes+[...practice.values()].reduce((sum,item)=>sum+item.count,0)+items.filter(item=>['assignment','service'].includes(item.source)).reduce((sum,item)=>sum+item.count,0),
+  return {overview:{...lab.overview,totalMistakes:lab.overview.totalMistakes+[...practice.values()].reduce((sum,item)=>sum+item.count,0)+items.filter(item=>['assignment','service','demo'].includes(item.source)).reduce((sum,item)=>sum+item.count,0),
     pendingCount:items.filter(item=>!item.resolved).length,resolvedCount:items.filter(item=>item.resolved).length,
-    sourceCounts:Object.fromEntries(["lab","practice","assignment","service"].map(source=>[source,items.filter(item=>item.source===source).length]))},items};
+    sourceCounts:Object.fromEntries(["lab","practice","assignment","service","demo"].map(source=>[source,items.filter(item=>item.source===source).length]))},items};
 }

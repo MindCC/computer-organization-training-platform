@@ -44,10 +44,10 @@ export function buildStudentMarkdownReport({ user, summary, progress, notes = []
     lines.push("", "## 课堂演示练习", "");
     lines.push("以下为课堂演示页（独立互动演示）中的随堂练习成绩，按演示页汇总。");
     lines.push("");
-    lines.push("| 演示页 | 练习批次 | 累计题数 | 答对 | 正确率 | 最近成绩 |");
-    lines.push("| --- | ---: | ---: | ---: | ---: | ---: |");
+    lines.push("| 演示页 | 练习批次 | 累计题数 | 答对 | 正确率 | 最近成绩 | 学习分钟 |");
+    lines.push("| --- | ---: | ---: | ---: | ---: | ---: | ---: |");
     for (const item of demoAttempts) {
-      lines.push(`| ${escapeTable(item.title ?? item.demoId)} | ${item.batches} | ${item.totalQuestions} | ${item.totalCorrect} | ${item.accuracy}% | ${item.latestScore} |`);
+      lines.push(`| ${escapeTable(item.title ?? item.demoId)} | ${item.batches} | ${item.totalQuestions} | ${item.totalCorrect} | ${item.totalQuestions ? `${item.accuracy}%` : '未作答'} | ${item.totalQuestions ? item.latestScore : '—'} | ${Math.round(Number(item.elapsedMinutes ?? 0) * 10) / 10} |`);
     }
   }
 

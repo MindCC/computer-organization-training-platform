@@ -25,6 +25,7 @@ import { RecentActivityChart } from "./records/RecentActivityChart.jsx";
 import { buildRecentActivityModel } from "../recordsOverviewModel.js";
 import { StudyMascot } from "./ai/StudyMascot.jsx";
 import { personalLearningPath } from '../personalLearningApi.js';
+import { HOSTED_DEMOS } from '../shared/demoNavigation.js';
 import "./records/recordsTech.css";
 const StudyPlanningPanel = lazy(() => import('./study/StudyPlanningPanel.jsx').then(m => ({ default: m.StudyPlanningPanel })));
 
@@ -38,9 +39,11 @@ function statusText(status) {
 }
 
 function formatMinutes(minutes) {
+  if (minutes > 0 && minutes < 1) return `${Math.round(minutes * 60)}秒`;
+  minutes = Math.round(minutes * 10) / 10;
   if (minutes < 60) return `${minutes}分钟`;
   const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
+  const rest = Math.round((minutes % 60) * 10) / 10;
   return hours > 0 ? `${hours}小时${rest}分` : `${rest}分钟`;
 }
 
@@ -54,11 +57,24 @@ function DisclosureToggle() {
 }
 
 export function StudentRecords({ summary = {}, progress = {}, activityLog = [], changeView, selectChallenge, openStudyTarget, userId, reviewData, assistantEnabled = true, personalTools = true }) {
+  const [demoData, setDemoData] = useState([]);
+  const [demoEvents, setDemoEvents] = useState([]);
+  const [demoError, setDemoError] = useState('');
+  const [demoVersion,setDemoVersion] = useState(0);
+  const demos = reviewData?.demos ?? demoData;
+  useEffect(() => {
+    if (reviewData?.demos !== undefined) return;
+    let cancelled=false; setDemoData([]); setDemoEvents([]); setDemoError('');
+    api.demoAttempts().then(body=>{if(!cancelled){setDemoData(body.demos ?? []);setDemoEvents(body.events ?? []);}}).catch(error=>{if(!cancelled)setDemoError(error.message);});
+    return ()=>{cancelled=true;};
+  },[userId,reviewData?.demos,demoVersion]);
+  const demoMinutes=demos.reduce((sum,demo)=>sum+Number(demo.elapsedMinutes ?? 0),0);
+  const studySeries=useMemo(()=>buildChapterScoreSeries(progress).map(chapter=>({...chapter,studyMinutes:chapter.studyMinutes+demos.filter(demo=>HOSTED_DEMOS.find(page=>page.id===demo.demoId)?.chapterId===chapter.chapterId).reduce((sum,demo)=>sum+Number(demo.elapsedMinutes ?? 0),0)})),[progress,demos]);
   const treeModel = useMemo(() => buildLearningTreeModel(progress), [progress]);
   const distribution = useMemo(() => buildStatusDistribution(progress), [progress]);
   const chapterSeries = useMemo(() => buildChapterScoreSeries(progress), [progress]);
   const kpis = useMemo(() => buildScreenKpis(summary, progress), [summary, progress]);
-  const activityModel = useMemo(() => buildRecentActivityModel(activityLog, progress, { limit: 5 }), [activityLog, progress]);
+  const activityModel = useMemo(() => buildRecentActivityModel([...activityLog,...(reviewData?.demoEvents ?? demoEvents).map(event=>({id:`demo:${event.id}`,title:`互动演示 · ${HOSTED_DEMOS.find(page=>page.id===event.demoId)?.title ?? event.demoId}`,detail:`${event.total > 0 ? `随堂练习 ${event.correct}/${event.total} 题 · ` : ''}学习 ${formatMinutes(event.elapsedMinutes)}`,createdAt:event.createdAt}))], progress, { limit: 5 }), [activityLog, progress, demoEvents, reviewData?.demoEvents]);
   const reviewChallenge=CHALLENGES.find(challenge=>progress[challenge.id]?.status==='in-progress')??CHALLENGES.find(challenge=>progress[challenge.id]?.status==='unlocked');
   const hasGradedScore = chapterSeries.some(chapter => chapter.scoredCount > 0);
   const hasWeakSpot = Boolean(summary.weakSpot && summary.weakSpot !== "暂无高频错误");
@@ -122,8 +138,8 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
         </div>
         <div className="records-kpi">
           <span>累计学习</span>
-          <strong>{formatMinutes(kpis.totalStudyMinutes)}</strong>
-          <small>{kpis.totalAttempts} 次尝试</small>
+          <strong>{formatMinutes(kpis.totalStudyMinutes + demoMinutes)}</strong>
+          <small>实验 {kpis.totalAttempts} 次 · 演示 {formatMinutes(demoMinutes)}</small>
         </div>
         <div className="records-kpi records-kpi-review">
           <div className="records-review-label"><span>建议复习</span>{assistantEnabled && <StudyMascot compact context={{ source: "records", chapterId: reviewChallenge?.chapterId }} suggestion={reviewSuggestion} />}</div>
@@ -131,6 +147,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
           <button className="records-review-action" type="button" onClick={() => reviewChallenge ? selectChallenge(reviewChallenge.id) : changeView("mistakes")}>{reviewChallenge ? `继续${reviewChallenge.shortTitle ?? reviewChallenge.title}` : "打开错题本"}<ArrowRight size={13} /></button>
         </div>
       </section>
+      {demoError && <p className="note-error" role="alert">演示学情同步失败：{demoError} <button className="ghost-button" type="button" onClick={()=>setDemoVersion(value=>value+1)}>重试</button></p>}
 
       {/* 专注区：树钟在左（木板上印任务经验值），右栏是教师任务卡 + 我的学习计划 */}
       <div className="records-focus-row">
@@ -148,10 +165,10 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       {/* 次级信息行：学习日历 + 学习热力图并排 */}
       <div className="records-secondary-row">
         {/* 学习日历：按天回看实验与课堂演示记录 */}
-        {personalTools && <RecordsCalendar onOpenChallenge={selectChallenge} />}
+        <RecordsCalendar onOpenChallenge={selectChallenge} suppliedActivity={reviewData?.activity} />
 
         {/* 学习热力图：近 7 天 × 每 2 小时，全部来自真实提交时间戳 */}
-        {personalTools && <RecordsHeatmap />}
+        <RecordsHeatmap suppliedActivity={reviewData?.activity} />
       </div>
 
       <section className="records-statistics" aria-labelledby="records-statistics-title">
@@ -163,7 +180,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
           <ZoomableChart title="树杈点亮分布"><StatusDonut distribution={distribution} /></ZoomableChart>
           <ZoomableChart title="各章得分与点亮率"><ChapterScoreLine series={chapterSeries} /></ZoomableChart>
           <ZoomableChart title="章节点亮进度"><ChapterLitBars series={chapterSeries} /></ZoomableChart>
-          <ZoomableChart title="各章累计学习时长"><ChapterStudyTimeChart series={chapterSeries} /></ZoomableChart>
+          <ZoomableChart title="各章累计学习时长"><ChapterStudyTimeChart series={studySeries} /></ZoomableChart>
           <ZoomableChart title="高频错误 Top"><TopErrorsChart errors={topErrors} /></ZoomableChart>
           <ZoomableChart title="最近学习活动"><RecentActivityChart model={activityModel} /></ZoomableChart>
         </div>
@@ -224,7 +241,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       <details className="records-disclosure" data-testid="records-practice-section">
         <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>课堂练习与维修记录</strong><small>章节演示随堂成绩，以及装机店的诊断、升级和复测结果</small></span><span className="records-disclosure-meta"><DisclosureToggle /></span></summary>
         <div className="records-secondary-grid">
-          <DemoPracticePanel userId={userId} suppliedDemos={reviewData?.demos} onOpenCourse={() => changeView("courseware")} />
+          <DemoPracticePanel userId={userId} suppliedDemos={demoError ? undefined : demos} onOpenCourse={() => changeView("home")} />
           <ShopServiceRecords suppliedRecords={reviewData?.serviceRecords} openStudyTarget={openStudyTarget}/>
         </div>
       </details>

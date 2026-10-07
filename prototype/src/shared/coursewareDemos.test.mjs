@@ -42,7 +42,7 @@ test('随机练习答案由输入与运算生成，并保留平台演示学情�
   assert.ok(isValidDemoId('adder-alu'));
   assert.ok(normalizeDemoAttemptPayload({demoId:'adder-alu',result:{score:100,total:5,correct:5,elapsedMinutes:1}}).ok);
   const html=readFileSync(new URL('adder-alu.html',hosted),'utf8');
-  assert.match(html,/recordQuizAnswer\(ok\)/);
+  assert.match(html,/recordQuizAnswer\(ok, /);
   for(const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g))assert.doesNotThrow(()=>new vm.Script(script[1]));
 });
 

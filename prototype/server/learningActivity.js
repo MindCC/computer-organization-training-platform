@@ -6,7 +6,7 @@ export function learningActivity(db, userId) {
     GROUP BY day, challenge_id ORDER BY day ASC
   `).all(userId);
   const demos = db.prepare(`
-    SELECT date(created_at, 'localtime') AS day, COUNT(*) AS attempts,
+    SELECT date(created_at, 'localtime') AS day, SUM(CASE WHEN total > 0 THEN 1 ELSE 0 END) AS attempts,
            SUM(correct) AS correct, SUM(elapsed_minutes) AS minutes
     FROM demo_attempts WHERE student_id = ? GROUP BY day ORDER BY day ASC
   `).all(userId);
@@ -20,7 +20,7 @@ export function learningActivity(db, userId) {
       UNION ALL
       SELECT date(created_at, 'localtime') AS day,
              CAST(strftime('%H', created_at, 'localtime') AS INTEGER) AS hour,
-             COUNT(*) AS attempts, SUM(elapsed_minutes) AS minutes
+             SUM(CASE WHEN total > 0 THEN 1 ELSE 0 END) AS attempts, SUM(elapsed_minutes) AS minutes
       FROM demo_attempts WHERE student_id = ? GROUP BY day, hour
     )
     GROUP BY day, hour ORDER BY day ASC, hour ASC

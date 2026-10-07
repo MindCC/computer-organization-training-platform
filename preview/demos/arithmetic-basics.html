@@ -1648,7 +1648,7 @@ function submitQuizAnswer() {
   }
 
   quizState.answered = true;
-  window.__platformLink?.recordQuizAnswer(isCorrect);
+  window.__platformLink?.recordQuizAnswer(isCorrect, q, q.mode === 'choice' ? quizState.selected : q.mode === 'bits' ? quizState.answerBits : document.getElementById('quizInput').value);
   quizState.total += 1;
   if (isCorrect) {
     quizState.correct += 1;
@@ -2709,6 +2709,6 @@ window.__workState = workState;
 window.__compareState = compareState;
 window.__multiState = multiState;
 </script>
-<script src="./platform-link.js"></script>
+<script src="./platform-link.js?v=20261007-demo-records"></script>
 </body>
 </html>

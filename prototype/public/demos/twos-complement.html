@@ -1423,7 +1423,7 @@ function submitQuizAnswer() {
   }
 
   quizState.answered = true;
-  window.__platformLink?.recordQuizAnswer(isCorrect);
+  window.__platformLink?.recordQuizAnswer(isCorrect, q, q.mode === 'choice' ? quizState.selected : q.mode === 'bits' ? quizState.answerBits : document.getElementById('quizInput').value);
   quizState.total += 1;
   if (isCorrect) {
     quizState.correct += 1;
@@ -1993,6 +1993,6 @@ refreshScenario(0);
 /* 供自动化验收读取（verify.mjs 使用），页面逻辑不依赖 */
 window.__quizState = quizState;
 </script>
-<script src="./platform-link.js"></script>
+<script src="./platform-link.js?v=20261007-demo-records"></script>
 </body>
 </html>

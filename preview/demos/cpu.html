@@ -878,7 +878,7 @@ function submitQuizAnswer() {
     else if (idx === quizState.selected) btn.classList.add("wrong");
   });
   quizState.answered = true;
-  window.__platformLink?.recordQuizAnswer(isCorrect);
+  window.__platformLink?.recordQuizAnswer(isCorrect, q, quizState.selected);
   quizState.total += 1;
   if (isCorrect) {
     quizState.correct += 1;
@@ -1050,6 +1050,6 @@ window.__timingState = timingState;
 window.__sigState = sigState;
 window.__irqState = irqState;
 </script>
-<script src="./platform-link.js"></script>
+<script src="./platform-link.js?v=20261007-demo-records"></script>
 </body>
 </html>

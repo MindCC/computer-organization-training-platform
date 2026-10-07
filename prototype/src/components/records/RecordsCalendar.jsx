@@ -43,7 +43,7 @@ function pad(value) {
   return String(value).padStart(2, "0");
 }
 
-export function RecordsCalendar({ onOpenChallenge }) {
+export function RecordsCalendar({ onOpenChallenge, suppliedActivity }) {
   const [activity, setActivity] = useState(null);
   const [error, setError] = useState("");
   const [cursor, setCursor] = useState(() => {
@@ -54,11 +54,12 @@ export function RecordsCalendar({ onOpenChallenge }) {
 
   useEffect(() => {
     let cancelled = false;
+    if (suppliedActivity !== undefined) { setActivity(suppliedActivity); setError(''); return; }
     api.learningActivity()
       .then((data) => { if (!cancelled) setActivity(data ?? { challenges: [], demos: [] }); })
       .catch((err) => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
-  }, []);
+  }, [suppliedActivity]);
 
   const model = useMemo(() => buildCalendarModel(activity ?? {}), [activity]);
 
@@ -112,7 +113,7 @@ export function RecordsCalendar({ onOpenChallenge }) {
     });
   };
 
-  const formatMinutes = (minutes) => (minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分` : `${minutes} 分钟`);
+  const formatMinutes = minutes => minutes > 0 && minutes < 1 ? `${Math.round(minutes * 60)} 秒` : minutes >= 60 ? `${Math.floor(minutes / 60)} 小时 ${Math.round(minutes % 60 * 10) / 10} 分` : `${Math.round(minutes * 10) / 10} 分钟`;
   const selectedEntry = selected ? model.days.get(selected) : null;
 
   return (
@@ -161,7 +162,7 @@ export function RecordsCalendar({ onOpenChallenge }) {
                         ? `${entry.attempts} 次尝试`
                         : entry.demoBatches > 0
                           ? `演示 ${entry.demoBatches} 批`
-                          : ""}
+                          : entry.minutes > 0 ? '演示学习' : ""}
                   </span>
                 ) : null}
               </button>
@@ -197,11 +198,11 @@ export function RecordsCalendar({ onOpenChallenge }) {
               </span>
             </div>
             <div className="cal-day-list">
-              {selectedEntry.entries.length === 0 && selectedEntry.demoBatches > 0 ? (
+              {selectedEntry.demoBatches > 0 || selectedEntry.demoMinutes > 0 ? (
                 <div className="cal-day-row demo">
                   <span className="cal-day-row-state demo">课堂演示</span>
-                  <strong>课堂演示练习</strong>
-                  <small>{selectedEntry.demoBatches} 批 · {formatMinutes(selectedEntry.minutes)}</small>
+                  <strong>课堂演示学习与练习</strong>
+                  <small>{selectedEntry.demoBatches} 次练习提交 · {formatMinutes(selectedEntry.demoMinutes)}</small>
                 </div>
               ) : null}
               {selectedEntry.entries

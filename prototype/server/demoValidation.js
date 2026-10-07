@@ -33,7 +33,11 @@ export function normalizeDemoAttemptPayload(payload = {}) {
     return { ok: false, status: 400, error: "score must be an integer from 0 to 100" };
   }
   const total = Number(result.total ?? 0);
-  if (!Number.isInteger(total) || total < 1 || total > MAX_TOTAL) {
+  const clientSubmissionId = payload.clientSubmissionId;
+  if (clientSubmissionId !== undefined && (typeof clientSubmissionId !== 'string' || !/^[\w-]{8,100}$/.test(clientSubmissionId))) {
+    return {ok:false,status:400,error:'演示提交标识无效'};
+  }
+  if (!Number.isInteger(total) || total < (clientSubmissionId ? 0 : 1) || total > MAX_TOTAL) {
     return { ok: false, status: 400, error: `total must be an integer from 1 to ${MAX_TOTAL}` };
   }
   const correct = Number(result.correct ?? 0);
@@ -51,10 +55,22 @@ export function normalizeDemoAttemptPayload(payload = {}) {
     }
     return String(error).slice(0, MAX_ERROR_TEXT);
   }) : [];
+  if (total === 0 && elapsedMinutes === 0) return {ok:false,status:400,error:'没有需要记录的演示活动'};
+  let questions;
+  if (result.questions !== undefined) {
+    if (!Array.isArray(result.questions) || result.questions.length !== total) return {ok:false,status:400,error:'演示题目数量不匹配'};
+    questions = [];
+    for (const q of result.questions) {
+      if (!q || typeof q.correct !== 'boolean' || ['stem','studentAnswer','referenceAnswer','explanation'].some(key => typeof q[key] !== 'string' || q[key].length > 2000) || !q.stem.trim() || !q.studentAnswer.trim() || !q.referenceAnswer.trim()) return {ok:false,status:400,error:'演示题目记录不完整'};
+      questions.push({stem:q.stem,studentAnswer:q.studentAnswer,referenceAnswer:q.referenceAnswer,explanation:q.explanation,correct:q.correct});
+    }
+    if (questions.filter(q=>q.correct).length !== correct) return {ok:false,status:400,error:'演示判分数量不匹配'};
+  }
 
   return {
     ok: true,
     demoId,
-    result: { score, total, correct, errors, elapsedMinutes },
+    result: { score: total ? Math.round(correct / total * 100) : 0, total, correct, errors, elapsedMinutes, ...(questions ? {questions} : {}) },
+    clientSubmissionId,
   };
 }
