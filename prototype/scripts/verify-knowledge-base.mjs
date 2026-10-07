@@ -59,7 +59,7 @@ try {
   await page.locator("#login-username").fill("demo2026001");
   await page.locator("#login-password").fill("Student123!");
   await page.locator(".login-submit").click();
-  await page.waitForSelector(".project-chapter-board", { timeout: 15000 });
+  await page.waitForSelector(".quest-student-home", { timeout: 15000 });
   check("登录演示学生", true);
 
   // 0b. rerun 安全：清空演示学生的知识库旧文档（含历史崩溃运行残留），保证检索命中唯一

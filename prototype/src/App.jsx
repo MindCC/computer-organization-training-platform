@@ -1242,8 +1242,8 @@ export function App() {
               </Suspense>
             </ErrorBoundary>
           ) : null}
-          {activeView === "notes" ? <NotesPage key={auth.user?.id} userId={auth.user?.id} /> : null}
-          {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} practiceOnly={auth.user?.role === 'teacher'} destination={studyTarget} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} onOpenLearning={() => changeView('records')} /> : null}
+          {activeView === "notes" ? <NotesPage key={auth.user?.id} userId={auth.user?.id} progress={progress} onOpenChallenge={navigateToChallenge} onOpenStudyTarget={openStudyTarget} /> : null}
+          {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} practiceOnly={auth.user?.role === 'teacher'} destination={studyTarget} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} onOpenLearning={() => changeView('notes')} /> : null}
           {/* 互动演示只渲染演示 hub：AI讲演有自己的入口与视图，不能同屏叠加。 */}
           {activeView === "courseware" ? <CoursewareView key={auth.user?.id??'guest'} navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
           {activeView === "teacher" ? (

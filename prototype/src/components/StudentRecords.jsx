@@ -19,7 +19,6 @@ import { RecordsHeatmap } from "./records/RecordsHeatmap.jsx";
 import "./records/recordsFocusRow.css";
 import "./records/recordsStatsGrid.css";
 import { PomodoroPanel } from "./records/PomodoroPanel.jsx";
-import { LearningWorkspace } from "./learning/LearningWorkspace.jsx";
 import { ShopServiceRecords } from './records/ShopServiceRecords.jsx';
 import { RecentActivityChart } from "./records/RecentActivityChart.jsx";
 import { buildRecentActivityModel } from "../recordsOverviewModel.js";
@@ -27,6 +26,7 @@ import { StudyMascot } from "./ai/StudyMascot.jsx";
 import { personalLearningPath } from '../personalLearningApi.js';
 import { HOSTED_DEMOS } from '../shared/demoNavigation.js';
 import "./records/recordsTech.css";
+import "./records/recordsOrganization.css";
 const StudyPlanningPanel = lazy(() => import('./study/StudyPlanningPanel.jsx').then(m => ({ default: m.StudyPlanningPanel })));
 
 const CHALLENGES_BY_CHAPTER = COURSE_CHAPTERS.map((chapter) => ({
@@ -57,6 +57,13 @@ function DisclosureToggle() {
 }
 
 export function StudentRecords({ summary = {}, progress = {}, activityLog = [], changeView, selectChallenge, openStudyTarget, userId, reviewData, assistantEnabled = true, personalTools = true }) {
+  const sections = [{ id: 'overview', label: '学习概览', note: '学习进度与统计' }, ...(personalTools ? [{ id: 'planning', label: '计划与专注', note: '学习安排与计时' }] : []), { id: 'details', label: '详细记录', note: '按来源回看学习证据' }];
+  const [section, setSection] = useState('overview');
+  const [planningVisited, setPlanningVisited] = useState(false);
+  function chooseSection(id) {
+    setSection(id);
+    if (id === 'planning') setPlanningVisited(true);
+  }
   const [demoData, setDemoData] = useState([]);
   const [demoEvents, setDemoEvents] = useState([]);
   const [demoError, setDemoError] = useState('');
@@ -110,7 +117,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       <header className="records-screen-header">
         <div>
           <h1>个人学情记录</h1>
-          <p className="records-subtitle">整理知识联系，查看自己的学习进度；课程地图已移至课程首页。</p>
+          <p className="records-subtitle">查看学习进度，安排下一步，回顾每次练习。</p>
         </div>
         <div className="records-screen-actions">
           {personalTools && <a className="ghost-button" href={personalLearningPath('/api/student/report.md')}>导出实验报告</a>}
@@ -118,11 +125,9 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
         </div>
       </header>
 
-      <LearningWorkspace userId={userId} progress={progress} onOpenChallenge={selectChallenge} onOpenStudyTarget={openStudyTarget} />
-
       <section aria-label="学习总览指标" className="records-kpi-strip">
         <div className="records-kpi accent">
-          <span>已点亮树杈</span>
+          <span>已完成实验</span>
           <strong>{kpis.lit}<small> / {kpis.total}</small></strong>
           <small>{kpis.inProgress} 个进行中</small>
         </div>
@@ -149,9 +154,22 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       </section>
       {demoError && <p className="note-error" role="alert">演示学情同步失败：{demoError} <button className="ghost-button" type="button" onClick={()=>setDemoVersion(value=>value+1)}>重试</button></p>}
 
+      <div className="records-section-nav">
+        <div role="tablist" aria-label="学习记录内容" className="records-tabs">
+          {sections.map((item, index) => <button key={item.id} type="button" role="tab" id={`records-tab-${item.id}`} aria-selected={section === item.id} aria-controls={`records-pane-${item.id}`} tabIndex={section === item.id ? 0 : -1} onClick={() => chooseSection(item.id)} onKeyDown={event => {
+            const next = event.key === 'ArrowRight' ? (index + 1) % sections.length : event.key === 'ArrowLeft' ? (index + sections.length - 1) % sections.length : event.key === 'Home' ? 0 : event.key === 'End' ? sections.length - 1 : null;
+            if (next === null) return;
+            event.preventDefault(); chooseSection(sections[next].id); document.getElementById(`records-tab-${sections[next].id}`)?.focus();
+          }}><strong>{item.label}</strong><small>{item.note}</small></button>)}
+        </div>
+        <button className="records-knowledge-link" type="button" onClick={() => changeView('notes')}>前往知识库<ArrowRight size={15} /></button>
+      </div>
+
       {/* 专注区：树钟在左（木板上印任务经验值），右栏是教师任务卡 + 我的学习计划 */}
+      {personalTools && <section id="records-pane-planning" role="tabpanel" aria-labelledby="records-tab-planning" hidden={section !== 'planning'} className="records-tab-panel">
+      {planningVisited && <>
       <div className="records-focus-row">
-        {personalTools && <PomodoroPanel task={classroomTask} />}
+        {personalTools && <PomodoroPanel task={classroomTask} visible={section === 'planning'} />}
         <div className="records-focus-side">
           <ClassroomTaskCard task={classroomTask} />
           {userId && personalTools && (
@@ -161,8 +179,13 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
           )}
         </div>
       </div>
+      </>}
+      </section>}
 
       {/* 次级信息行：学习日历 + 学习热力图并排 */}
+      <section id="records-pane-overview" role="tabpanel" aria-labelledby="records-tab-overview" hidden={section !== 'overview'} className="records-tab-panel">
+      <details className="records-disclosure records-activity-disclosure" data-testid="records-activity-section">
+        <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>学习日历与活跃时段</strong><small>按日期查看实验与演示学习活动</small></span><DisclosureToggle /></summary>
       <div className="records-secondary-row">
         {/* 学习日历：按天回看实验与课堂演示记录 */}
         <RecordsCalendar onOpenChallenge={selectChallenge} suppliedActivity={reviewData?.activity} />
@@ -170,6 +193,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
         {/* 学习热力图：近 7 天 × 每 2 小时，全部来自真实提交时间戳 */}
         <RecordsHeatmap suppliedActivity={reviewData?.activity} />
       </div>
+      </details>
 
       <section className="records-statistics" aria-labelledby="records-statistics-title">
         <div className="records-section-heading">
@@ -177,7 +201,7 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
           <small>六项概览 · 同步当前学习记录</small>
         </div>
         <div aria-label="学习情况统计" className="records-charts-column" data-testid="records-statistics-grid">
-          <ZoomableChart title="树杈点亮分布"><StatusDonut distribution={distribution} /></ZoomableChart>
+          <ZoomableChart title="实验完成分布"><StatusDonut distribution={distribution} /></ZoomableChart>
           <ZoomableChart title="各章得分与点亮率"><ChapterScoreLine series={chapterSeries} /></ZoomableChart>
           <ZoomableChart title="章节点亮进度"><ChapterLitBars series={chapterSeries} /></ZoomableChart>
           <ZoomableChart title="各章累计学习时长"><ChapterStudyTimeChart series={studySeries} /></ZoomableChart>
@@ -201,6 +225,9 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
 
       </details>
 
+      </section>
+
+      <section id="records-pane-details" role="tabpanel" aria-labelledby="records-tab-details" hidden={section !== 'details'} className="records-tab-panel">
       <details className="records-disclosure" data-testid="records-details-section">
         <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>关卡明细</strong><small>按教材章节查看尝试次数、成绩与检测反馈</small></span><span className="records-disclosure-meta">{CHALLENGES.length} 个电路实验<DisclosureToggle /></span></summary>
         <section className="section-panel records-detail-panel">
@@ -239,12 +266,18 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
       </details>
 
       <details className="records-disclosure" data-testid="records-practice-section">
-        <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>课堂练习与维修记录</strong><small>章节演示随堂成绩，以及装机店的诊断、升级和复测结果</small></span><span className="records-disclosure-meta"><DisclosureToggle /></span></summary>
-        <div className="records-secondary-grid">
+        <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>演示学习与随堂练习</strong><small>各章节演示的学习时长与真实随堂成绩</small></span><span className="records-disclosure-meta">{demos.length} 个演示<DisclosureToggle /></span></summary>
+        <div>
           <DemoPracticePanel userId={userId} suppliedDemos={demoError ? undefined : demos} onOpenCourse={() => changeView("home")} />
+        </div>
+      </details>
+      <details className="records-disclosure" data-testid="records-service-section">
+        <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>装机店维修记录</strong><small>诊断、硬件升级与复测结果</small></span><DisclosureToggle /></summary>
+        <div>
           <ShopServiceRecords suppliedRecords={reviewData?.serviceRecords} openStudyTarget={openStudyTarget}/>
         </div>
       </details>
+      </section>
     </div>
   );
 }

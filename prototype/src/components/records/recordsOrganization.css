@@ -1,0 +1,31 @@
+.records-tab-panel { display: grid; gap: 16px; min-width: 0; }
+.records-tab-panel[hidden] { display: none; }
+.records-section-nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #dbe3ed; }
+.records-tabs { display: flex; gap: 24px; }
+.records-tabs button { display: grid; gap: 4px; padding: 12px 2px; border: 0; border-bottom: 3px solid transparent; background: transparent; text-align: left; color: #64748b; cursor: pointer; }
+.records-tabs strong { font-size: 15px; }
+.records-tabs small { font-size: 12px; font-weight: 400; }
+.records-tabs button[aria-selected="true"] { border-bottom-color: #2563eb; color: #1d4ed8; }
+.records-tabs button:hover { color: #1d4ed8; }
+.records-tabs button:focus-visible, .records-knowledge-link:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+.records-knowledge-link { display: flex; align-items: center; gap: 8px; padding: 10px 0; border: 0; background: transparent; font-size: 13px; color: #475569; cursor: pointer; }
+.records-knowledge-link:hover { color: #1d4ed8; }
+.records-activity-disclosure { order: 2; }
+.records-activity-disclosure .records-secondary-row { padding: 0 14px 14px; }
+.records-screen .records-focus-row { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
+.records-screen .pomo-stage, .records-screen .pomo-bar { width: calc(100% - 32px); margin-left: 16px; margin-right: 16px; }
+.records-screen-header .records-screen-actions { flex-wrap: wrap; }
+.records-screen .records-kpi small { color: #64748b; }
+@media (max-width: 1000px) {
+  .records-screen .records-focus-row { grid-template-columns: minmax(0, 1fr); }
+  .records-section-nav { align-items: start; flex-direction: column; gap: 0; }
+  .records-tabs { width: 100%; gap: 16px; }
+}
+@media (max-width: 600px) {
+  .records-tabs { gap: 8px; }
+  .records-tabs button { flex: 1; padding: 10px 0; }
+  .records-tabs strong { font-size: 14px; }
+  .records-tabs small { font-size: 11px; }
+  .records-screen .records-screen-header { align-items: start; flex-direction: column; }
+  .records-screen .records-screen-actions { gap: 8px; }
+}
