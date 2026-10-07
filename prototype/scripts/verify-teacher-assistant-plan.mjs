@@ -5,9 +5,9 @@ import { openTeacherWorkspace, TEACHER_WORKSPACE } from './lib/qaTeacherWorkspac
 import { selectTeacherClass } from './helpers/select-teacher-class.mjs';
 import { mkdirSync } from 'node:fs';
 
-const baseUrl = process.env.PROTOTYPE_APP_URL;
-const apiUrl = process.env.PROTOTYPE_API_URL;
-const teacherUsername = process.env.TEACHER_USERNAME;
+const baseUrl = process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173';
+const apiUrl = process.env.PROTOTYPE_API_URL ?? baseUrl;
+const teacherUsername = process.env.TEACHER_USERNAME ?? 'teacher';
 const teacherPassword = process.env.TEACHER_PASSWORD;
 const className = `助教采纳校验班 ${Date.now()}`;
 const jar = {};

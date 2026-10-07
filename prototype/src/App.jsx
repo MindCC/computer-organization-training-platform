@@ -120,6 +120,10 @@ const TaskChainPage=lazy(()=>import('./components/classroom/student/TaskChainPag
 // 刷新恢复与课堂任务等场景仍可直接落在实验台视图。
 // 顶栏采用「一级分组 + 二级菜单」：课程首页单独直出，其余按功能相近分组；
 // 只有一个可见项的分组直接渲染成一级按钮（如学生的「课后作业」）。
+//
+// 2026-10-06 试点：用户反馈「入口多但不知道各自是干什么的」，先试试把分组里的
+// 二级项全部平铺成一级按钮，看信息是否更好扫读。改成 false 即回到分组下拉。
+const FLAT_PRIMARY_NAV = true;
 const navGroups = [
   {
     id: "home",
@@ -1082,7 +1086,17 @@ export function App() {
         </button>
 
         <nav className="topbar-nav" aria-label="主导航" ref={topbarNavRef}>
-          {visibleNavGroups.map((group) => {
+          {FLAT_PRIMARY_NAV ? visibleNavGroups.flatMap((group) => group.items.map(({ id, icon: Icon, label }) => (
+            <button
+              className={'topbar-nav-item topbar-nav-flat-item' + (isActiveNavItem(id) ? ' active' : '')}
+              key={`${group.id}:${id}`}
+              onClick={() => { closeNav(); changeView(id); }}
+              type="button"
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </button>
+          ))) : visibleNavGroups.map((group) => {
             if (group.items.length === 1) {
               const { id, icon: Icon, label } = group.items[0];
               return (

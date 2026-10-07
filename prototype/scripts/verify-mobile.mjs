@@ -8,7 +8,7 @@ import { selectTeacherClass } from './helpers/select-teacher-class.mjs';
 import { COURSEWARE } from '../src/courseware.js';
 import { clickTopNavItem } from './nav-helpers.mjs';
 
-const url = process.env.PROTOTYPE_APP_URL;
+const url = process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173';
 const dir = path.join(process.env.QA_ARTIFACT_DIR ?? 'qa-artifacts', 'mobile');
 await mkdir(dir, { recursive: true });
 const results = [], errors = [];
@@ -104,7 +104,7 @@ async function accountPanels(page, role) {
 
 try {
   const teacherCtx = await context(), teacher = await teacherCtx.newPage();
-  await login(teacher, 'teacher', process.env.TEACHER_USERNAME, process.env.TEACHER_PASSWORD);
+  await login(teacher, 'teacher', process.env.TEACHER_USERNAME ?? 'teacher', process.env.TEACHER_PASSWORD ?? 'ChangeMe123!');
   const { class: cls } = await post(teacher.request, '/api/classes', { name: '移动端验收：计算机组成原理教学协同与任务链展示班' });
   const username = `mobile-${Date.now()}`;
   await post(teacher.request, `/api/teacher/classes/${cls.id}/import-students`, { csv: `${username},移动端验收学生,Student123!\n${username}-long,用于验证长姓名换行的移动端学生,Student123!` });

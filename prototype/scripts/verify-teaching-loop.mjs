@@ -6,7 +6,7 @@ import { fillLoginForm } from './lib/qaLogin.mjs';
 import { questionsForChapter } from '../src/assignmentQuestions.js';
 import { clickTopNavItem } from './nav-helpers.mjs';
 
-const url=process.env.PROTOTYPE_APP_URL,apiUrl=process.env.PROTOTYPE_API_URL;
+const url=process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173',apiUrl=process.env.PROTOTYPE_API_URL??url;
 const dir=process.env.QA_ARTIFACT_DIR??path.resolve('qa-artifacts');mkdirSync(dir,{recursive:true});
 const browser=await chromium.launch({headless:true}),errors=[];
 const teacherContext=await browser.newContext({viewport:{width:1366,height:768}}),studentContext=await browser.newContext({viewport:{width:1366,height:768}});

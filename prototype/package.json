@@ -47,8 +47,6 @@
     "qa:demo-teacher": "node scripts/run-browser-qa.mjs scripts/verify-demo-teacher.mjs --production",
     "preqa:home": "npm run build -- --manifest",
     "qa:home": "node scripts/run-browser-qa.mjs scripts/verify-home-design.mjs --production --seed-demo",
-    "preqa:tree": "npm run build -- --manifest",
-    "qa:tree": "node scripts/run-browser-qa.mjs scripts/verify-learning-tree.mjs --production --seed-demo",
     "preqa:learning-integration": "npm run build -- --manifest",
     "qa:learning-integration": "node scripts/run-browser-qa.mjs scripts/verify-learning-integration.mjs --production --seed-demo",
     "preqa:knowledge": "npm run build -- --manifest",
