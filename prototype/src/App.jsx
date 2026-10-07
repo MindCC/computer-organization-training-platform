@@ -80,7 +80,6 @@ import { clearViewSession, readViewSession, resolveRestorableView, writeViewSess
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
 import { TaskChainBar } from './components/classroom/student/TaskChainBar.jsx';
-import { TaskStageKnowledge } from './components/classroom/TaskStageKnowledge.jsx';
 import { useViewHistory } from './hooks/useViewHistory.js';
 import { getActiveGuideForChallenge } from "./courseWorkbenchState.js";
 import avatarImage from "./assets/alex-chen-avatar.webp";
@@ -116,6 +115,7 @@ const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
 const LabPage = lazy(() => import("./components/LabPage.jsx")
   .then((module) => ({ default: module.LabPage })));
 const TaskChainPage=lazy(()=>import('./components/classroom/student/TaskChainPage.jsx').then(module=>({default:module.TaskChainPage})));
+const TaskStageKnowledge=lazy(()=>import('./components/classroom/TaskStageKnowledge.jsx').then(module=>({default:module.TaskStageKnowledge})));
 
 // 「关卡实验」不再出现在学生导航里：实验一律从课程首页的章节卡片进入，
 // 刷新恢复与课堂任务等场景仍可直接落在实验台视图。
@@ -1204,7 +1204,7 @@ export function App() {
         {renderPlatformState()}
         {renderCompanion()}
         {auth.user?.role==='student'&&<TaskChainBar viewModel={classroomSession.viewModel} onContinue={continueClassroomTask} challengeId={lab.currentChallenge?.id}/>}
-        {auth.user?.role==='teacher'&&teacherTaskContext?.stage.challengeId===lab.currentChallenge?.id&&<TaskStageKnowledge stage={teacherTaskContext.stage} mission={teacherTaskContext.mission}/>}
+        {auth.user?.role==='teacher'&&teacherTaskContext?.stage.challengeId===lab.currentChallenge?.id&&<Suspense fallback={null}><TaskStageKnowledge stage={teacherTaskContext.stage} mission={teacherTaskContext.mission}/></Suspense>}
         <ErrorBoundary fallback={(
           <LabFeatureFallback
             challenge={lab.currentChallenge}

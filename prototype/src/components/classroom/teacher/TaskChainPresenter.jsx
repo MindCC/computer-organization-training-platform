@@ -30,7 +30,7 @@ export function TaskChainPresenter({mission,initialIndex=0,onClose,onOpenLab}) {
     <header className="chain-demo-toolbar"><div><span className="chain-kicker">教师课堂演示 · {index+1} / {mission.stages.length}</span><strong>{mission.title}</strong></div><div className="chain-order-tools"><button type="button" className="ghost-button" onClick={()=>setFullscreen(!fullscreen)}>{fullscreen?'退出大屏':'大屏演示'}</button><button type="button" className="ghost-button" onClick={onClose}>关闭演示</button></div></header>
     <nav className="chain-presenter-nav" aria-label="选择演示环节">{mission.stages.map((item,i)=><button key={item.id} type="button" aria-pressed={i===index} onClick={()=>setIndex(i)}>{i+1}. {item.title}</button>)}</nav>
     <header className="chain-activity-heading"><span className="chain-kicker">{TASK_TYPES[stage.type??'lab']?.label}</span><h2>{stage.title}</h2><p>{stage.instructions}</p><small>教师演示独立于学生完成进度。</small></header>
-    <TaskStageKnowledge stage={stage} mission={mission}/>
+    <TaskStageKnowledge stage={stage} mission={mission} ids={stage.knowledgePointIds??(stage.type==='practice'?stage.questionIds.map(id=>questionOf(id)?.kpId):undefined)}/>
     <PresentationActivity key={stage.id} stage={stage} mission={mission} onOpenLab={onOpenLab}/>
     <footer className="chain-demo-toolbar"><button type="button" className="ghost-button" disabled={index===0} onClick={()=>setIndex(index-1)}>上一环节</button><span>{index+1} / {mission.stages.length}</span><button type="button" className="primary-button" disabled={index===mission.stages.length-1} onClick={()=>setIndex(index+1)}>下一环节</button></footer>
   </section>;

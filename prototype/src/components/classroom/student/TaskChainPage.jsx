@@ -28,7 +28,7 @@ export function TaskChainPage({classroomSession,userId,onOpenStage,onHome,onOpen
   const stage=vm.currentStage;
   return <section className="task-chain-page"><MissionHud viewModel={vm}/><header className="chain-activity-heading"><span className="chain-kicker">{TASK_TYPES[stage?.type??'lab']?.label}{stage?.purpose?` · ${NODE_PURPOSES[stage.purpose]}`:''}</span><h1>{stage?.title}</h1><p>{stage?.instructions}</p>{vm.mission?.followUp&&<p>老师安排的个性化后续任务 · 来源课堂 #{vm.mission.followUp.sourceSessionId}</p>}{vm.mission?.knowledgePointIds?.length?<p>本次知识目标：{vm.mission.knowledgePointIds.map(id=>knowledgePointOf(id)?.title).join('、')}</p>:null}<small>{stage?.type==='practice'?(stage.completion==='passed'?`达到 ${vm.passScore??80} 分后继续`:'提交全部题目即可继续'):TASK_TYPES[stage?.type??'lab']?.completion}</small></header>
     {vm.paused&&<p className="chain-paused" role="status">教师已暂停课堂，请等待恢复。当前输入已保留。</p>}
-    <TaskStageKnowledge stage={stage} mission={vm.mission}/>
+    <TaskStageKnowledge stage={stage} mission={vm.mission} ids={stage?.knowledgePointIds??(stage?.type==='practice'?stage.questionIds.map(id=>questionOf(id)?.kpId):undefined)}/>
     <StageActivity key={`${userId}:${vm.sessionId}:${stage?.id}`} stage={stage} vm={vm} userId={userId} submit={classroomSession.submit} onFinished={(result)=>setFinished({stage,result})} onOpenStage={onOpenStage} onOpenMistakes={onOpenMistakes}/>
   </section>;
 }
