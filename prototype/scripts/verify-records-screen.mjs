@@ -1,14 +1,12 @@
 /**
- * 学习记录页回归（2026-10 浅色化大改版后更新）：
- * 1. 页面渲染：标题、KPI、学习树画布、饼图/折线/柱状图齐全；
- * 2. 学习树按章节生长：1 树干 + 8 树枝 + 全部课程/硬件实验叶子，完成的实验点亮；
- * 3. 画布可缩放（控制器放大后视口 scale 变化）；
- * 4. 点击树杈进入对应实验；保留 .record-table/.record-row 明细契约；
- * 5. 浅色主题：浅底 #f6f8fb、白卡片、深色正文、深色树干 + 绿/琥珀/灰叶子；
- * 6. 关卡明细按章节可折叠（details/summary，默认第一章展开）；
- * 7. 图表点击弹出大图弹层，关闭后收回；
- * 8. 新增图表：各章累计学习时长柱状图、高频错误 Top；
- * 9. 冒险地图：八章区域按真实实验记录点亮，章节清单覆盖全部任务，可进入对应实验。
+ * 学习记录页回归（2026-10 浅色化大改版后更新）
+ * 1. 页面渲染：标题、KPI、六张统计图齐全；
+ * 2. 章节学习树已于 2026-10-06 按用户要求删除：断言它不再渲染（`章节学习树已移除`）；
+ * 3. 浅色主题：浅底 #f6f8fb、白卡片、深色正文；
+ * 4. 关卡明细保留 .record-table/.record-row 契约，按章节可折叠（默认第一章展开）；
+ * 5. 图表点击弹出大图弹层，关闭后收回；
+ * 6. 图表：各章累计学习时长柱状图、高频错误 Top；
+ * 7. 冒险地图：八章区域按真实实验记录点亮，章节清单覆盖全部任务，可进入对应实验。
  *
  * 运行：node scripts/verify-records-screen.mjs
  * 前置：API(8787) 与 Vite(5173) 已启动，且已 seed 演示班级（demo2026001 / Student123!）。
@@ -79,47 +77,12 @@ try {
   // 因此不能再限定在 .records-kpi-review 内查找；用只属于小芯的 .study-mascot-review 定位。
   check('点击小芯也能读到复习建议', await page.locator('[role="dialog"] .study-mascot-review').first().isVisible());
   await page.getByRole('button', {name:'关闭小芯助教'}).click();
-  check('树与明细默认折叠，缩短页面', await page.locator('[data-testid="records-tree-section"]').evaluate(node=>!node.open) && await page.locator('[data-testid="records-details-section"]').evaluate(node=>!node.open));
+  check('明细默认折叠，缩短页面', await page.locator('[data-testid="records-details-section"]').evaluate(node=>!node.open));
   await page.locator('[data-testid="records-statistics-grid"]').screenshot({path:`${ARTIFACT_DIR}/records-statistics-equal.png`,style:'.topbar {visibility:hidden;}'});
-  await page.locator('[data-testid="records-tree-section"] > summary').click();
-  const trunkStop = await page.locator("#treeTrunkGrad stop").first().getAttribute("stop-color");
-  check("树干深色渐变（#493a2c）", trunkStop?.toLowerCase() === "#493a2c", trunkStop ?? "未取到");
 
-  // 学习树画布结构（真正的树：树干 + 主枝 + 枝头叶子）
-  await page.waitForSelector(".learning-tree-canvas .organic-tree-svg", { timeout: 15000 });
-  await page.waitForSelector(".tree-leaf", { timeout: 15000 });
-  const trunkCount = await page.locator(".tree-trunk").count();
-  const branchCount = await page.locator(".tree-branch").count();
-  const chapterLabelCount = await page.locator(".tree-chapter-label").count();
-  const twigCount = await page.locator(".tree-twig").count();
-  const leafCount = await page.locator(".tree-leaf").count();
-  check("学习树：1 树干", trunkCount === 1);
-  check("学习树：8 章节主枝", branchCount === 8 && chapterLabelCount === 8, `主枝 ${branchCount} / 标签 ${chapterLabelCount}`);
-  check("学习树包含全部实验细枝", twigCount === LEARNING_ITEMS.length, `实际 ${twigCount}`);
-  check("学习树包含全部实验叶子", leafCount === LEARNING_ITEMS.length, `实际 ${leafCount}`);
-
-  // 点亮/进行中/未解锁的渲染与 API 学情一致（演示数据是活的，按实际状态断言，不写死）
-  const progress = await (await page.request.get(`${API_URL}/api/student/progress`)).json();
-  const prog = progress.progress ?? {};
-  const entries = Object.entries(prog);
-  const leafClass = async (id) => await page.locator(`.tree-leaf[data-leaf-id='${id}']`).first().getAttribute("class").catch(() => "");
-  const completedId = entries.find(([, r]) => r?.status === "completed")?.[0];
-  const activeId = entries.find(([, r]) => r?.status === "in-progress")?.[0];
-  const lockedId = entries.find(([, r]) => r?.status === "locked")?.[0];
-  if (completedId) check(`已完成实验点亮（${completedId}）`, (await leafClass(completedId)).includes("lit"));
-  if (activeId) check(`进行中实验高亮（${activeId}）`, (await leafClass(activeId)).includes("active"));
-  if (lockedId) check(`未解锁实验未点亮（${lockedId}）`, (await leafClass(lockedId)).includes("dim"));
-
-  // 浅色叶子配色：完成=绿、未开始=灰芽（按实际学情取代表节点断言 computed fill）
-  if (completedId) {
-    const litFill = await page.locator(`.tree-leaf[data-leaf-id='${completedId}'] .leaf-dot`).evaluate((el) => getComputedStyle(el).fill);
-    check("点亮叶子为绿色（#138777）", litFill === "rgb(19, 135, 119)", litFill);
-  }
-  const dimLeaf = page.locator(".tree-leaf.dim .leaf-dot").first();
-  if (await dimLeaf.count() > 0) {
-    const dimFill = await dimLeaf.evaluate((el) => getComputedStyle(el).fill);
-    check("未点亮叶子为灰绿（#c7d0c0）", dimFill === "rgb(199, 208, 192)", dimFill);
-  }
+  // 2026-10-06 用户要求删除「章节学习树」板块：这里断言它确实不再渲染，
+  // 防止后续改动把它带回来（原学习树断言见 git 历史）。
+  check("章节学习树已移除", await page.locator('[data-testid="records-tree-section"], .learning-tree-canvas, .tree-leaf').count() === 0);
 
   // 统计图
   check("饼图渲染", await page.locator("[data-testid='chart-donut'] svg").count() === 1);
@@ -169,36 +132,10 @@ try {
   await page.getByRole("button", { name: "课程首页", exact: true }).click();
   await page.waitForSelector(".quest-student-home", { timeout: 15000 });
   await clickTopNavItem(page, "学习记录");
-  await page.locator('[data-testid="records-tree-section"] > summary').click();
-  await page.waitForSelector(".records-screen .tree-leaf", { timeout: 15000 });
+  await page.waitForSelector(".records-screen", { timeout: 15000 });
 
-  // 复位视图后点击一个已完成叶子进入对应实验
-  await page.locator(".tree-zoom-fit").click();
-  await page.waitForTimeout(250);
-  await page.locator(`.tree-leaf[data-leaf-id='${completedId}'] .leaf-hit`).click();
-  await page.waitForSelector(".lab-studio", { timeout: 15000 });
-  check("点击叶子进入对应实验", true);
-  await page.getByRole("button", { name: "课程首页", exact: true }).click();
-  await page.waitForSelector(".quest-student-home", { timeout: 15000 });
-  await clickTopNavItem(page, "学习记录");
-  await page.locator('[data-testid="records-tree-section"] > summary').click();
-  await page.waitForSelector(".records-screen .tree-leaf", { timeout: 15000 });
-
-  // 画布缩放：点击控制器放大后容器 data-zoom 变大
-  const canvas = page.locator(".learning-tree-canvas");
-  const scaleOf = async () => Number(await canvas.getAttribute("data-zoom"));
-  const before = await scaleOf();
-  await page.locator(".tree-zoom-in").click();
-  await page.waitForTimeout(300);
-  const after = await scaleOf();
-  check("画布可放大（zoom-in 生效）", Number.isFinite(before) && Number.isFinite(after) && after > before, `${before} → ${after}`);
-
-  // 滚轮缩放（以光标为中心）
-  await canvas.hover({ position: { x: 300, y: 260 } });
-  await page.mouse.wheel(0, -480);
-  await page.waitForTimeout(300);
-  const afterWheel = await scaleOf();
-  check("滚轮可继续放大", afterWheel > after, `${after} → ${afterWheel}`);
+  // 学习树删除后，进入实验的入口由课程首页冒险地图承担（上面已断言地图覆盖全部任务），
+  // 这里不再有树上的叶子/缩放交互可测。
 
   await page.screenshot({ path: `${ARTIFACT_DIR}/records-tech-screen.png`, fullPage: false });
 

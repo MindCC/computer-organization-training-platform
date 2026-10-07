@@ -38,7 +38,6 @@ const allowedVerifiers = new Set([
   "scripts/verify-workbench-curriculum.mjs",
   "scripts/verify-login-design.mjs",
   "scripts/verify-home-design.mjs",
-  "scripts/verify-learning-tree.mjs",
   "scripts/verify-learning-integration.mjs",
   "scripts/verify-knowledge-base.mjs",
   "scripts/verify-demo-linkage.mjs",

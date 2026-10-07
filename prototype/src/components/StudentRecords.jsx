@@ -1,14 +1,12 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
-import { ArrowRight, ChartBar, TreeStructure } from "@phosphor-icons/react";
+import { ArrowRight, ChartBar } from "@phosphor-icons/react";
 import { CHALLENGES } from "../platformLogic.js";
 import { COURSE_CHAPTERS, PARTICIPATION_SCORE_NOTE, isParticipationChallenge, scoreLabelOf } from "../courseChapters.js";
 import {
   buildChapterScoreSeries,
-  buildLearningTreeModel,
   buildScreenKpis,
   buildStatusDistribution,
 } from "../recordsScreenModel.js";
-import { LearningTreeCanvas } from "./records/LearningTreeCanvas.jsx";
 import { ChapterLitBars, ChapterScoreLine, ChapterStudyTimeChart, StatusDonut, TopErrorsChart } from "./records/TechCharts.jsx";
 import { DemoPracticePanel } from "./records/DemoPracticePanel.jsx";
 import { ZoomableChart } from "./records/ChartZoomModal.jsx";
@@ -54,7 +52,6 @@ function DisclosureToggle() {
 }
 
 export function StudentRecords({ summary = {}, progress = {}, activityLog = [], changeView, selectChallenge, openStudyTarget, userId, reviewData, assistantEnabled = true, personalTools = true }) {
-  const treeModel = useMemo(() => buildLearningTreeModel(progress), [progress]);
   const distribution = useMemo(() => buildStatusDistribution(progress), [progress]);
   const chapterSeries = useMemo(() => buildChapterScoreSeries(progress), [progress]);
   const kpis = useMemo(() => buildScreenKpis(summary, progress), [summary, progress]);
@@ -168,21 +165,6 @@ export function StudentRecords({ summary = {}, progress = {}, activityLog = [], 
           <ZoomableChart title="最近学习活动"><RecentActivityChart model={activityModel} /></ZoomableChart>
         </div>
       </section>
-
-      <details className="records-disclosure" data-testid="records-tree-section">
-        <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>章节学习树</strong><small>查看八章分支与全部 {treeModel.totals.total} 个实验叶片</small></span><span className="records-disclosure-meta">{treeModel.totals.lit} 已点亮<DisclosureToggle /></span></summary>
-        <section aria-label="章节学习树" className="records-panel records-tree-panel">
-          <div className="records-panel-head">
-            <strong>
-              <TreeStructure size={16} style={{ marginRight: 6, verticalAlign: "-3px" }} />
-              章节学习树
-            </strong>
-            <small>{treeModel.chapters.length} 个章节 · {treeModel.totals.total} 个实验</small>
-          </div>
-          <LearningTreeCanvas model={treeModel} onOpenChallenge={selectChallenge} />
-        </section>
-
-      </details>
 
       <details className="records-disclosure" data-testid="records-details-section">
         <summary className="records-disclosure-summary"><span className="records-disclosure-copy"><strong>关卡明细</strong><small>按教材章节查看尝试次数、成绩与检测反馈</small></span><span className="records-disclosure-meta">{CHALLENGES.length} 个电路实验<DisclosureToggle /></span></summary>
