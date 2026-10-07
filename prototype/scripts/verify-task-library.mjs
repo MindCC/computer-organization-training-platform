@@ -5,20 +5,28 @@ import { chromium } from 'playwright';
 import { expect } from '@playwright/test';
 import { knowledgePointsByChapter } from '../src/knowledgePoints.js';
 import { fillLoginForm } from './lib/qaLogin.mjs';
-const url=process.env.PROTOTYPE_APP_URL,apiUrl=process.env.PROTOTYPE_API_URL;
+const url=process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173',apiUrl=process.env.PROTOTYPE_API_URL??url;
+const teacherUser=process.env.TEACHER_USERNAME??'teacher',teacherPass=process.env.TEACHER_PASSWORD??'ChangeMe123!';
+// 每次运行用独立学号：脚本会发布一个活动课堂且不结束它，固定学号会让第二次运行
+// 撞上 ACTIVE_SESSION_CONFLICT（"有学生在其他活动课堂中"）。
+const studentNo=`flow${Date.now().toString(36)}`;
 const dir=process.env.QA_ARTIFACT_DIR??path.resolve('qa-artifacts');mkdirSync(dir,{recursive:true});
 const browser=await chromium.launch({headless:true}),context=await browser.newContext({viewport:{width:1366,height:768}});
 const errors=[];
 async function api(jar,route,method='GET',body){const response=await fetch(apiUrl+route,{method,headers:{'content-type':'application/json',...(jar.cookie?{cookie:jar.cookie}:{})},...(body?{body:JSON.stringify(body)}:{})});if(response.headers.get('set-cookie'))jar.cookie=response.headers.get('set-cookie').split(';')[0];const data=await response.json();assert.ok(response.ok,`${route}: ${JSON.stringify(data)}`);return data;}
 async function posted(page,route,click){const waiting=page.waitForResponse(response=>response.url().endsWith(route)&&response.request().method()!=='GET');await click();const response=await waiting;const data=await response.json();assert.ok(response.ok(),JSON.stringify(data));return data;}
 try{
-  const jar={};await api(jar,'/api/auth/login','POST',{username:process.env.TEACHER_USERNAME,password:process.env.TEACHER_PASSWORD});
+  const jar={};await api(jar,'/api/auth/login','POST',{username:teacherUser,password:teacherPass});
   const {class:cls}=await api(jar,'/api/classes','POST',{name:'工作流课堂 QA'});
-  await api(jar,`/api/teacher/classes/${cls.id}/import-students`,'POST',{csv:'flow101,工作流学生,Student123!'});
+  await api(jar,`/api/teacher/classes/${cls.id}/import-students`,'POST',{csv:`${studentNo},工作流学生,Student123!`});
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(url);await fillLoginForm(page,{username:process.env.TEACHER_USERNAME,password:process.env.TEACHER_PASSWORD});await page.locator('[data-login-role="teacher"]').click();await page.locator('.login-submit').click();
-  await page.getByRole('heading',{name:'我的教学任务'}).waitFor();await page.getByText('暂无教学任务',{exact:true}).waitFor();
-  await page.screenshot({path:path.join(dir,'task-library-empty.png'),fullPage:true});
+  await page.goto(url);await fillLoginForm(page,{username:teacherUser,password:teacherPass});await page.locator('[data-login-role="teacher"]').click();await page.locator('.login-submit').click();
+  await page.getByRole('heading',{name:'我的教学任务'}).waitFor();
+  // 空态只在库真的为空时才可能出现：本脚本会真的创建任务，教师账号第二次跑就有数据了。
+  // 硬等「暂无教学任务」会让脚本只能跑一次，所以这里按实际情况记录，不作为失败条件。
+  const emptyLibrary=await page.getByText('暂无教学任务',{exact:true}).isVisible().catch(()=>false);
+  console.log(emptyLibrary?'PASS 任务库初始为空，截图空态':'SKIP 任务库已有历史任务（非首次运行），跳过空态截图');
+  if(emptyLibrary)await page.screenshot({path:path.join(dir,'task-library-empty.png'),fullPage:true});
   await page.getByRole('button',{name:'创建任务',exact:true}).click();await page.getByRole('tab',{name:'手动编排',exact:true}).click();
   const goals=page.getByRole('region',{name:'任务知识目标'});
   await goals.locator('summary').click();
@@ -93,7 +101,7 @@ try{
   await card.getByRole('button',{name:'查看',exact:true}).click();await page.getByRole('dialog',{name:'教师任务预览'}).waitFor();await page.getByRole('button',{name:'关闭演示',exact:true}).click();
   await page.screenshot({path:path.join(dir,'task-library-populated.png'),fullPage:true});
   await card.getByRole('button',{name:'发布',exact:true}).click();const published=await posted(page,`/api/teacher/task-library/${task.id}/publish`,()=>page.getByRole('button',{name:'确认发布',exact:true}).click());assert.equal(published.session.status,'live');
-  const student={};await api(student,'/api/auth/login','POST',{username:'flow101',password:'Student123!'});await api(student,`/api/student/classroom/${published.session.id}/enter`,'POST');
+  const student={};await api(student,'/api/auth/login','POST',{username:studentNo,password:'Student123!'});await api(student,`/api/student/classroom/${published.session.id}/enter`,'POST');
   for(const stage of updated.task.config.taskChain.stages){await api(student,`/api/student/classroom/${published.session.id}/complete-stage`,'POST',{stageId:stage.id,evidence:stage.submissionMode==='text'?{text:'负数用补码表示，符号位一起参加运算，进位不同于溢出。'}:{completed:true},clientSubmissionId:`flow-submit-${stage.id}`});}
   await page.getByRole('button',{name:'任务库',exact:true}).click();await card.getByRole('button',{name:'学情',exact:true}).click();const dialog=page.getByRole('dialog',{name:'补码讨论工作流（已核对） 学情'});await dialog.getByText('1 / 1 人次完成 · 100%',{exact:true}).waitFor();await dialog.getByRole('button',{name:'查看本次课堂',exact:true}).click();await dialog.locator('.task-learning-stages ol>li').first().getByRole('button',{name:'查看学生反馈',exact:true}).click();await dialog.getByRole('region',{name:'单个任务学生反馈'}).getByText(/负数用补码表示/).waitFor();await dialog.getByRole('button',{name:'关闭',exact:true}).click();
   await card.getByRole('button',{name:'删除',exact:true}).click();await posted(page,`/api/teacher/task-library/${task.id}`,()=>page.getByRole('button',{name:'确认删除',exact:true}).click());await card.waitFor({state:'detached'});

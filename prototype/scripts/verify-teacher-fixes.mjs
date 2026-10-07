@@ -3,8 +3,11 @@ import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, expect } from "@playwright/test";
+import { COURSEWARE } from "../src/courseware.js";
 import { selectTeacherClass } from "./helpers/select-teacher-class.mjs";
 import { clickTopNavItem } from "./nav-helpers.mjs";
+
+const lectureChapters = COURSEWARE.chapters.filter((chapter) => chapter.embeds?.length);
 
 /**
  * 针对性回归：验证本轮四项修复——
@@ -85,14 +88,16 @@ try {
   if (!(await page.locator("#login-username").isVisible().catch(() => false))) {
     await page.getByRole("button", { name: "登录" }).first().click();
   }
-  // 登录页可能停留在学生入口，教师账号必须走教师通道
-  const teacherTab = page.getByRole("button", { name: /教师入口/ });
-  if (await teacherTab.isVisible().catch(() => false)) await teacherTab.click();
+  // 登录页默认停在学生入口，教师账号必须切到教师通道；
+  // 用 data-login-role 定位（与 verify-task-library.mjs 一致），不要靠"教师入口"文案。
+  await page.locator('[data-login-role="teacher"]').click();
   await page.locator("#login-username").fill(teacherUsername);
   await page.locator("#login-password").fill(teacherPassword);
   await page.locator(".login-submit").click();
   await page.locator(".teacher-studio").waitFor({ state: "visible", timeout: 30_000 });
   await selectTeacherClass(page, className);
+  // 教师工作台默认停在「任务库」，课堂实时栏在「课堂执行」工作区里，必须先切过去。
+  await page.locator('.teacher-workspace-nav button').filter({ hasText: "课堂执行" }).first().click();
 
   // ── 修复 2：课堂实时栏按钮清晰可读 ──
   const liveBar = page.locator(".live-session-dashboard");
@@ -134,11 +139,17 @@ try {
   await page.waitForTimeout(500);
   console.log("monitor view rendered, report details count:", await page.locator("details").count());
 
-  // AI讲演为讲演目录与独立播放器，PPT 上传入口已移除。
+  // AI讲演为「八章大纲 + 独立播放器」，PPT 上传入口已移除，章节行默认收起。
   await clickTopNavItem(page, "AI讲演");
-  await expect(page.locator(".ai-lecture-card")).toHaveCount(4);
+  await expect(page.locator(".ai-lecture-row")).toHaveCount(lectureChapters.length);
+  await expect(page.locator(".ai-lecture-row.is-open")).toHaveCount(0);
   await expect(page.locator(".upload-courseware-panel")).toHaveCount(0);
-  await page.locator(".ai-lecture-card-links button").first().click();
+  const teacherChapter = lectureChapters.find(chapter => chapter.embeds?.length);
+  assert.ok(teacherChapter, "应有可播放的 AI 讲演章节");
+  const teacherRow = page.locator(".ai-lecture-row").filter({ hasText: teacherChapter.title }).first();
+  await teacherRow.locator(".ai-lecture-row-head").click();
+  await expect(teacherRow.locator(".ai-lecture-card-links button")).toHaveCount(teacherChapter.embeds.length);
+  await teacherRow.locator(".ai-lecture-card-links button").first().click();
   await expect(page.locator(".ai-lecture-player iframe")).toHaveCount(1);
   await page.screenshot({ path: path.join(artifactDir, "fix-ai-lecture-player.png"), fullPage: true });
 
