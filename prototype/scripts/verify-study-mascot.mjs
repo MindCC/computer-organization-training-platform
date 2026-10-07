@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
 import { gotoApp, fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
 import { clickTopNavItem } from './nav-helpers.mjs';
-const app=process.env.PROTOTYPE_APP_URL, live=process.env.QA_LIVE_AI==='1';
+const app=process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173', live=process.env.QA_LIVE_AI==='1';
 const browser=await chromium.launch({headless:true});
 const page=await browser.newPage({viewport:{width:1366,height:900}}), errors=[];
 page.on('pageerror',error=>errors.push(error.message));

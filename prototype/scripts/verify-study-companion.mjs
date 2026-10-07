@@ -8,7 +8,7 @@ import { acceptCustomerOrder, enterAssemblyPractice } from './lib/qaShop.mjs';
 import { openChallengeFromHome } from './lib/qaHome.mjs';
 import { CABLES } from '../src/completeAssembly.js';
 import { CHALLENGES } from '../src/platformLogic.js';
-const app=process.env.PROTOTYPE_APP_URL,dir=path.resolve('qa-artifacts/study-companion');mkdirSync(dir,{recursive:true});
+const app=process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173',dir=path.resolve('qa-artifacts/study-companion');mkdirSync(dir,{recursive:true});
 let browser;try{browser=await chromium.launch({channel:'msedge',headless:true});}catch{browser=await chromium.launch({headless:true});}
 const page=await browser.newPage({viewport:{width:1366,height:768}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
 const pet=page.getByTestId('study-companion'),trigger=pet.getByRole('button'),dialog=page.locator('.study-companion-dialog'),live=dialog.getByRole('region',{name:'当前现场状态'});

@@ -5,7 +5,7 @@ const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
 const errors = []; page.on('pageerror', error => errors.push(error.message));
 try {
-  await gotoApp(page, process.env.PROTOTYPE_APP_URL);
+  await gotoApp(page, process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173');
   await fillLoginForm(page, { username: 'demo2026001', password: 'Student123!' }); await submitLoginForm(page);
   const toggle = page.getByRole('button', { name: '课程学习', exact: true });
   await expect(toggle).toBeVisible(); await toggle.hover();

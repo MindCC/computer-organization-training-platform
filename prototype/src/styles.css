@@ -6413,6 +6413,36 @@ body {
   white-space: nowrap;
 }
 
+/* 平铺模式（试点）：二级项直接作为一级按钮，外观与分组标题按钮保持一致。 */
+.topbar-nav-flat-item {
+  gap: 7px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.topbar-nav-flat-item:hover {
+  color: var(--ink);
+  background: var(--soft);
+}
+
+.topbar-nav-flat-item.active {
+  color: var(--blue);
+  background: var(--soft);
+}
+
+/* 平铺后按钮更多，窄屏优先保留文字、收起图标，避免过早换行。 */
+@media (max-width: 1180px) {
+  .topbar-nav-flat-item > svg {
+    display: none;
+  }
+
+  .topbar-nav-flat-item {
+    padding: 8px 10px;
+  }
+}
+
 .topbar-nav-item:hover {
   color: var(--ink);
   background: var(--soft);

@@ -52,7 +52,7 @@ const text = {
   logout: "\u9000\u51fa\u767b\u5f55",
 };
 
-const baseUrl = process.env.PROTOTYPE_URL ?? "http://127.0.0.1:8787";
+const baseUrl = process.env.PROTOTYPE_APP_URL ?? process.env.PROTOTYPE_URL ?? "http://127.0.0.1:5173";
 const teacherUsername = process.env.TEACHER_USERNAME ?? "teacher";
 const teacherPassword = process.env.TEACHER_PASSWORD ?? "ChangeMe123!";
 const legacyOverviewChallenges = CHALLENGES.filter(
