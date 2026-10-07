@@ -1,5 +1,7 @@
 # Prototype Instructions
 
+- User feedback 2026-10-07 demo practice buttons: shared quiz submit/next actions must remain legible with dark blue backgrounds and white text in normal/hover states, plus visible keyboard focus. Chapter-local ghost backgrounds must not combine with inherited white text. Verify the eight affected demo quizzes, Enter navigation and narrow-screen layout with scripts/verify-demo-button-contrast.mjs.
+
 - User-authorized roster import 2026-10-07: the supplied spreadsheet's 40 real students were provisioned in the local database under demo-teacher, grouped by the source class, with student-number usernames/passwords and real display names. Preserve these accounts/class memberships across demonstration login; do not mark them as disposable synthetic seed data. This one-time administrative import does not relax the ordinary demo-account import API restriction. Keep roster extracts and database backups out of Git.
 
 - User feedback 2026-10-07 teacher navigation: replace the top-level 教学活动 dropdown with one direct 教师看板 entry. Keep 题库出卷 and 作业管理 inside its 教学工作台 sidebar, with the dashboard shell retained, workspace refresh/history restoration and legacy question-bank session migration. This supersedes earlier top-navigation homework and question-bank placement instructions; preserve teacher self-practice 题库试练.

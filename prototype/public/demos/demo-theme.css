@@ -55,6 +55,9 @@ body.demo-theme::before {
 .demo-theme .controls .play-btn, .demo-theme .primary, .demo-theme .btn:not(.secondary), .demo-theme .inline-steps .inline-play {
   background:#0369a1; color:#fff; border-color:#0369a1;
 }
+/* Quiz continuation remains a visible primary action after submitting an answer. */
+.demo-theme .quiz-actions button { background:#0369a1; color:#fff; border-color:#0369a1; }
+.demo-theme .quiz-actions button:hover:not(:disabled) { background:#075985; color:#fff; }
 .demo-theme :is(button,input,select):focus-visible { outline:3px solid #0284c7; outline-offset:3px; }
 .demo-theme input[type="range"] { accent-color:#0369a1; }
 .demo-theme > main { position:relative; max-width:1600px; margin:0 auto; padding:0 24px 26px; }
