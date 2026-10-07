@@ -1,12 +1,13 @@
 # 部署到云服务器
 
-目标服务器：`106.54.15.142`（已探明 22 / 80 / 443 开放，3000/5173/8787 无服务）。
+服务器公网 IP 可能变化，以下命令均在当前服务器上执行，不依赖旧 IP。
 
 平台是 **Express + better-sqlite3 + React** 的全栈应用，所以部署方式 = Node 进程 + SQLite 文件 + Nginx 反代。本目录里的脚本会自动完成这件事：
 
 | 文件 | 作用 |
 | --- | --- |
 | `deploy.sh` | 服务器上执行的一键部署（幂等，可重复跑） |
+| `update.sh` | 已部署服务器的日常更新：Gitee main → 备份 → 构建 → 迁移 → 重启和健康检查 |
 | `zcyl-platform.service` | systemd 服务单元（开机自启、崩溃自动拉起） |
 | `nginx-zcyl.conf` | Nginx 反代到后端端口，放通 80 |
 
@@ -90,20 +91,27 @@ journalctl -u zcyl-platform -f        # 实时日志
 systemctl restart zcyl-platform       # 重启
 ```
 
-更新版本：
+日常更新版本（首次获取新脚本见下一段）：
 
 ```bash
-cd /opt/zcyl && git pull && sudo bash deploy/deploy.sh
+cd /opt/zcyl
+sudo bash deploy/update.sh
 ```
 
-备份 / 回滚（数据只有一个 SQLite 文件）：
+如果服务器还没有 `deploy/update.sh`，先只获取脚本，再由脚本执行备份和更新：
 
 ```bash
-sudo cp /var/lib/zcyl/classroom.sqlite /var/lib/zcyl/backup-$(date +%F).sqlite
-sudo systemctl stop zcyl-platform
-sudo cp /var/lib/zcyl/backup-2026-09-28.sqlite /var/lib/zcyl/classroom.sqlite
-sudo systemctl start zcyl-platform
+cd /opt/zcyl
+repo_owner="$(stat -c '%U' .git)"
+sudo -u "$repo_owner" -H git fetch https://gitee.com/cplus1/composition-principle-platform.git main
+sudo -u "$repo_owner" -H git show FETCH_HEAD:deploy/update.sh | sudo APP_DIR=/opt/zcyl bash -s
 ```
+
+脚本要求现有 `main` 分支和已配置的 Gitee 访问凭证，以仓库所有者身份执行 Git 和构建。只做快进更新；遇到本地代码修改或分叉会停止。可用 `sudo REMOTE=gitee bash deploy/update.sh` 指定远程名称，默认自动选择此仓库的 Gitee remote，没有时使用上面的 Gitee 地址。
+
+更新前会把数据库的一致性备份、旧 `dist` 和提交号保存在 `/var/backups/zcyl/update-*`（仅 root 可访问）。新版前端构建好后才停止服务，执行迁移、切换前端并重启；检查数据库可读写和运行版本。保留已有账号、班级、学习记录、模型密钥、环境文件、systemd 配置和 Nginx 配置；不执行演示数据播种。增加的 `zz-update-version.conf` 仅记录本次发布版本。
+
+失败时脚本退出并打印备份目录。若已进入迁移阶段，服务可能处于停止状态；先检查 `systemctl status zcyl-platform` 和日志再处理。数据库不会自动回滚，避免覆盖更新过程中产生的学习记录。需要恢复数据库时，必须先停止服务，再由管理员确认应恢复的备份。
 
 ## 七、静态演示版（备用）
 
