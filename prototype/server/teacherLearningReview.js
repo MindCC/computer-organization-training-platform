@@ -1,13 +1,14 @@
 import { Router } from 'express';
 import { learningActivity } from './learningActivity.js';
 import { buildStudentMarkdownReport } from './studentReport.js';
-import { getStudentProgress, listClassStudents, teacherOwnsClass, summarizeDemoAttempts, recordStudentAttempt } from './db.js';
+import { getStudentProgress, listClassStudents, teacherOwnsClass, summarizeDemoAttempts, recordStudentAttempt, recordDemoAttempt, listDemoAttempts } from './db.js';
 import { normalizeStudentAttemptPayload } from './submissionValidation.js';
 import { buildUnifiedMistakeBook, practiceState } from './learningPractice.js';
 import { serviceRecords } from './shopServiceRoutes.js';
 import { LEARNING_ITEMS, summarizeLearning } from '../src/platformLogic.js';
-import { demoTitleOf } from './demoValidation.js';
+import { demoTitleOf, normalizeDemoAttemptPayload } from './demoValidation.js';
 import { analyzeTeachingRecords } from '../src/teacherLearningAnalysis.js';
+import { aiConversationSummary, classAiConversationSummary, conversationPage, listAiConversations } from './aiConversationRepository.js';
 
 function homeworkSummary(db, studentId, classId) {
   if (!classId) return { assigned: 0, submitted: 0, graded: 0, pendingGrading: 0, averageScore: null };
@@ -22,11 +23,12 @@ export function learningReviewData(db, user, classId = null) {
   if (classId) {
     const allowed = new Set(db.prepare('SELECT id FROM assignments WHERE class_id=?').all(classId).map(row => row.id));
     mistakes.items = mistakes.items.filter(item => item.source !== 'assignment' || allowed.has(item.assignmentId));
-    mistakes.overview = { totalMistakes: mistakes.items.reduce((sum,item) => sum + item.count, 0), pendingCount: mistakes.items.filter(item => !item.resolved).length, resolvedCount: mistakes.items.filter(item => item.resolved).length, sourceCounts: Object.fromEntries(['lab','practice','assignment','service'].map(source => [source, mistakes.items.filter(item => item.source === source).length])) };
+    mistakes.overview = { totalMistakes: mistakes.items.reduce((sum,item) => sum + item.count, 0), pendingCount: mistakes.items.filter(item => !item.resolved).length, resolvedCount: mistakes.items.filter(item => item.resolved).length, sourceCounts: Object.fromEntries(['lab','practice','assignment','service','demo'].map(source => [source, mistakes.items.filter(item => item.source === source).length])) };
   }
   const practice = practiceState(db, user.id), graded = Object.values(practice.graded);
   return { id: user.id, username: user.username, displayName: user.displayName, progress, summary: summarizeLearning(LEARNING_ITEMS, progress), mistakes,
-    practice: { answered: graded.length, correct: graded.filter(item => item.correct).length }, homework: homeworkSummary(db, user.id, classId) };
+    practice: { answered: graded.length, correct: graded.filter(item => item.correct).length }, demos:summarizeDemoAttempts(db,user.id), homework: homeworkSummary(db, user.id, classId),
+    aiConversations: aiConversationSummary(db, user.id) };
 }
 export function createTeacherLearningReviewRouter({ db, requireRole }) {
   const router = Router();
@@ -46,11 +48,20 @@ export function createTeacherLearningReviewRouter({ db, requireRole }) {
     } catch (error) { next(error); }
   });
   router.get('/teacher/mistakes', requireRole('teacher'), (req,res) => res.json(buildUnifiedMistakeBook(db, req.user.id)));
-  router.get('/teacher/demo-attempts', requireRole('teacher'), (req,res) => res.json({ demos: summarizeDemoAttempts(db, req.user.id).map(item => ({ ...item, title: demoTitleOf(item.demoId) })) }));
+  router.get('/teacher/demo-attempts', requireRole('teacher'), (req,res) => {res.set('Cache-Control','no-store');res.json({ demos: summarizeDemoAttempts(db, req.user.id).map(item => ({ ...item, title: demoTitleOf(item.demoId) })),events:listDemoAttempts(db,req.user.id) });});
+  router.post('/teacher/demo-attempts', requireRole('teacher'), (req,res,next) => {
+    try {
+      const normalized=normalizeDemoAttemptPayload(req.body ?? {});
+      if (!normalized.ok) return res.status(normalized.status).json({error:normalized.error});
+      if (req.body.accountId !== undefined && req.body.accountId !== req.user.id) return res.status(403).json({error:'登录账号已变化，请重新打开演示'});
+      const created=recordDemoAttempt(db,req.user.id,normalized.demoId,normalized.result,normalized.clientSubmissionId);
+      res.status(created ? 201 : 200).json({demos:summarizeDemoAttempts(db,req.user.id)});
+    } catch(error) { next(error); }
+  });
   function detail(user, classId) {
     const data = learningReviewData(db, user, classId);
     const demos = summarizeDemoAttempts(db, user.id).map(item => ({ ...item, title: demoTitleOf(item.demoId) }));
-    return { ...data, demos, serviceRecords: serviceRecords(db, user.id), analysis: analyzeTeachingRecords([data]) };
+    return { ...data, demos, demoEvents:listDemoAttempts(db,user.id), activity:learningActivity(db,user.id), serviceRecords: serviceRecords(db, user.id), conversations: listAiConversations(db,user.id), analysis: analyzeTeachingRecords([data]) };
   }
   router.get('/teacher/learning-review', requireRole('teacher'), (req,res) => {
     res.set('Cache-Control','no-store'); res.json(detail({ id: req.user.id, username: req.user.username, displayName: req.user.display_name }, null));
@@ -71,6 +82,19 @@ export function createTeacherLearningReviewRouter({ db, requireRole }) {
   router.get(base, (req,res) => {
     const students = listClassStudents(db, Number(req.params.classId)).map(user => learningReviewData(db, user, Number(req.params.classId)));
     res.json({ students: students.map(({ mistakes, progress, ...student }) => ({ ...student, mistakeOverview: mistakes.overview })), analysis: analyzeTeachingRecords(students) });
+  });
+  router.get(base+'/ai-conversations', (req,res) => {
+    const students = listClassStudents(db, Number(req.params.classId)).map(user=>({
+      id:user.id, aiConversations:aiConversationSummary(db,user.id),
+    }));
+    res.json(classAiConversationSummary(students));
+  });
+  router.get(base+'/:studentId/ai-conversations', (req,res) => {
+    const id=Number(req.params.studentId), classId=Number(req.params.classId);
+    const student=Number.isSafeInteger(id)&&listClassStudents(db,classId).some(item=>item.id===id);
+    if(!student)return res.status(404).json({error:'学生不在当前班级'});
+    try{res.json(conversationPage(db,id,req.query.before));}
+    catch(error){res.status(error.status??500).json({error:error.message});}
   });
   router.get(base+'/:studentId', (req,res) => {
     const id = Number(req.params.studentId), classId = Number(req.params.classId);

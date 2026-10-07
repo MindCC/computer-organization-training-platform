@@ -105,7 +105,7 @@ export function createTaskChainActions({db,repository,now,expireIfNeeded,assertT
         if(!submission)fail('请先完成并提交本环节的教师作业');
         // Completion is submission; pending teacher marking is not a zero grade.
         result={...result,submissionId:submission.id,gradingStatus:submission.status};
-      } else if(['ai','reflection'].includes(stage.type)||(stage.type==='custom'&&stage.submissionMode==='text')) {
+      } else if(['ai','reflection'].includes(stage.type)||(['custom','demo'].includes(stage.type)&&stage.submissionMode==='text')) {
         if(typeof evidence.text!=='string'||evidence.text.trim().length<10||evidence.text.length>2000)fail('请用10到2000字写下自己的理解');
       } else if(evidence.completed!==true)fail('请确认已完成本环节的学习');
       return db.transaction(()=>{

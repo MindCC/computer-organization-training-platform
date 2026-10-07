@@ -21,9 +21,30 @@ export async function ensureDemoAccounts(db) {
   const legacy = getUserByUsername(db, 'demo2026001');
   const isLegacyDemo = legacy?.role === 'student' && legacy.status === 'active' && legacy.display_name === '演示学生1' && sanitizeUser(legacy).profile?.seeded === true;
   const student = isLegacyDemo ? legacy : await dedicated('demo-student', 'student', '演示学生');
-  let classroom = db.prepare('SELECT * FROM classes WHERE teacher_id = ? AND name = ?').get(teacher.id, '芯游记 · 演示教学班');
-  if (!classroom) classroom = createClass(db, teacher.id, '芯游记 · 演示教学班');
-  db.prepare('DELETE FROM class_members WHERE class_id = ? AND student_id <> ?').run(classroom.id, student.id);
+  const className = '计算机组成原理1班';
+  let classroom = db.prepare('SELECT * FROM classes WHERE teacher_id = ? AND name = ?').get(teacher.id, className);
+  if (!classroom) {
+    classroom = db.prepare('SELECT * FROM classes WHERE teacher_id = ? AND name = ?').get(teacher.id, '芯游记 · 演示教学班');
+    if (classroom) {
+      db.prepare('UPDATE classes SET name = ? WHERE id = ?').run(className, classroom.id);
+      classroom = { ...classroom, name: className };
+    } else {
+      classroom = createClass(db, teacher.id, className);
+    }
+  }
+  // Only remove classmates from the retired synthetic seed. Keep intentionally
+  // provisioned student accounts in this shared teaching class across logins.
+  const members = db.prepare(`SELECT u.id, u.username, u.display_name, u.profile_json
+    FROM class_members cm JOIN users u ON u.id = cm.student_id
+    WHERE cm.class_id = ? AND u.id <> ?`).all(classroom.id, student.id);
+  for (const member of members) {
+    const match = /^demo2026(\d{3})$/.exec(member.username);
+    const index = match ? Number(match[1]) : 0;
+    if (index >= 1 && index <= 40 && member.display_name === `演示学生${index}`
+      && sanitizeUser(member).profile?.seeded === true) {
+      db.prepare('DELETE FROM class_members WHERE class_id = ? AND student_id = ?').run(classroom.id, member.id);
+    }
+  }
   addStudentToClass(db, classroom.id, student.id);
   return { teacher, student, classroom };
 }

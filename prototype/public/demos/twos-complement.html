@@ -578,7 +578,7 @@
   .quiz-actions .ghost-action { background: #f1f5f9; color: #0f172a; border-color: var(--line); }
 
 </style>
-<link rel="stylesheet" href="demo-theme.css">
+<link rel="stylesheet" href="demo-theme.css?v=20261007-quiz-buttons">
 </head>
 <body class="demo-theme">
 <div class="app">
@@ -1423,7 +1423,7 @@ function submitQuizAnswer() {
   }
 
   quizState.answered = true;
-  window.__platformLink?.recordQuizAnswer(isCorrect);
+  window.__platformLink?.recordQuizAnswer(isCorrect, q, q.mode === 'choice' ? quizState.selected : q.mode === 'bits' ? quizState.answerBits : document.getElementById('quizInput').value);
   quizState.total += 1;
   if (isCorrect) {
     quizState.correct += 1;
@@ -1976,6 +1976,16 @@ document.addEventListener("keydown", (event) => {
 });
 
 /* ───────────────────────── 启动 ───────────────────────── */
+// Task chains choose a public teaching activity; ordinary standalone demos keep their default.
+const chainActivity = new URLSearchParams(location.search).get('activity');
+const chainPresets = {add:{mode:'add',a:5,b:-3},sub:{mode:'sub',a:5,b:3},overflow:{mode:'add',a:100,b:100}};
+if (Object.hasOwn(chainPresets, chainActivity)) {
+  const preset = chainPresets[chainActivity];
+  state.mode = preset.mode;
+  state.A = decToBits(preset.a);
+  state.B = decToBits(preset.b);
+  document.querySelectorAll('#modeTabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === state.mode));
+}
 buildOperandBits("bitsA", "A");
 buildOperandBits("bitsB", "B");
 refreshScenario(0);
@@ -1983,6 +1993,6 @@ refreshScenario(0);
 /* 供自动化验收读取（verify.mjs 使用），页面逻辑不依赖 */
 window.__quizState = quizState;
 </script>
-<script src="./platform-link.js"></script>
+<script src="./platform-link.js?v=20261007-demo-records"></script>
 </body>
 </html>

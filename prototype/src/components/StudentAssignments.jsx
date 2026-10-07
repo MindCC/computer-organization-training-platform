@@ -548,7 +548,7 @@ function AssignmentView({ detail, answers, setAnswer, error, message, saving, on
               </div>
             )}
             {(q.type === "fill" || q.type === "short_answer") && (
-              <input placeholder="输入你的答案" value={answers[q.id] ?? ""} onChange={(e) => setAnswer(q.id, e.target.value)} disabled={isSubmitted||submitting||saving} />
+              <><input placeholder="输入你的答案" value={answers[q.id] ?? ""} onChange={(e) => setAnswer(q.id, e.target.value)} disabled={isSubmitted||submitting||saving} />{q.type === 'fill' && <small>多个空请按顺序填写，用“；”分隔。</small>}</>
             )}
           </div>
         ))}

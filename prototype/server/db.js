@@ -447,6 +447,9 @@ export function migrate(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_demo_attempts_student ON demo_attempts(student_id, demo_id, created_at DESC);
   `);
+  ensureColumn(db, 'demo_attempts', 'questions_json', "TEXT NOT NULL DEFAULT '[]'");
+  ensureColumn(db, 'demo_attempts', 'client_submission_id', 'TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_demo_submission_client ON demo_attempts(student_id, client_submission_id) WHERE client_submission_id IS NOT NULL');
   db.exec(`
     CREATE TABLE IF NOT EXISTS chapter_practice_attempts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -541,6 +544,20 @@ export function migrate(db) {
   sanitizeStoredUserProfiles(db);
   migrateLearningCoach(db);
   migrateStudyWorkspace(db);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('question','lab_hint')),
+      question TEXT NOT NULL,
+      answer_json TEXT NOT NULL,
+      answer_source TEXT NOT NULL,
+      chapter_id TEXT,
+      topic TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_conversations_student ON ai_conversations(student_id,id DESC);
+  `);
 }
 
 // SQLite cannot alter a CHECK constraint. Rebuild only the user table, retaining
@@ -797,11 +814,17 @@ export function recordStudentAttempt(db, studentId, challengeId, result, options
   return options.inTransaction ? run() : db.transaction(run)();
 }
 
-export function recordDemoAttempt(db, studentId, demoId, result) {
+export function recordDemoAttempt(db, studentId, demoId, result, clientSubmissionId = null) {
   const errors = (result.errors ?? []).map((error) => (typeof error === "string" ? error : (error?.message ?? error?.type ?? String(error))));
+  const questions = JSON.stringify(result.questions ?? []);
+  const previous = clientSubmissionId && db.prepare('SELECT * FROM demo_attempts WHERE student_id=? AND client_submission_id=?').get(studentId, clientSubmissionId);
+  if (previous) {
+    if (previous.demo_id !== demoId || previous.score !== result.score || previous.total !== result.total || previous.correct !== result.correct || previous.elapsed_minutes !== result.elapsedMinutes || previous.questions_json !== questions || previous.errors_json !== JSON.stringify(errors)) throw Object.assign(new Error('同一次演示提交不能更改'), {status:409});
+    return false;
+  }
   db.prepare(`
-    INSERT INTO demo_attempts (student_id, demo_id, score, total, correct, errors_json, elapsed_minutes)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO demo_attempts (student_id, demo_id, score, total, correct, errors_json, elapsed_minutes, questions_json, client_submission_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     studentId,
     String(demoId),
@@ -810,7 +833,10 @@ export function recordDemoAttempt(db, studentId, demoId, result) {
     Number(result.correct ?? 0),
     JSON.stringify(errors),
     Number(result.elapsedMinutes ?? 0),
+    questions,
+    clientSubmissionId,
   );
+  return true;
 }
 
 export function listDemoAttempts(db, studentId, demoId = null) {
@@ -833,10 +859,11 @@ export function listDemoAttempts(db, studentId, demoId = null) {
 export function summarizeDemoAttempts(db, studentId) {
   const rows = db.prepare(`
     SELECT demo_id AS demoId,
-      COUNT(*) AS batches,
+      SUM(CASE WHEN total > 0 THEN 1 ELSE 0 END) AS batches,
       SUM(total) AS totalQuestions,
       SUM(correct) AS totalCorrect,
-      MAX(score) AS bestScore
+      MAX(CASE WHEN total > 0 THEN score END) AS bestScore,
+      SUM(elapsed_minutes) AS elapsedMinutes
     FROM demo_attempts
     WHERE student_id = ?
     GROUP BY demo_id
@@ -846,11 +873,10 @@ export function summarizeDemoAttempts(db, studentId) {
     FROM demo_attempts
     WHERE student_id = ?
     ORDER BY id DESC
-    LIMIT 100
   `).all(studentId);
   const latestByDemo = new Map();
   for (const row of latestRows) {
-    if (!latestByDemo.has(row.demoId)) latestByDemo.set(row.demoId, row);
+    if (row.total > 0 && !latestByDemo.has(row.demoId)) latestByDemo.set(row.demoId, row);
   }
   return rows.map((row) => {
     const latest = latestByDemo.get(row.demoId);
@@ -859,6 +885,7 @@ export function summarizeDemoAttempts(db, studentId) {
       batches: row.batches,
       totalQuestions: row.totalQuestions ?? 0,
       totalCorrect: row.totalCorrect ?? 0,
+      elapsedMinutes: row.elapsedMinutes ?? 0,
       accuracy: row.totalQuestions > 0 ? Math.round((row.totalCorrect / row.totalQuestions) * 100) : 0,
       bestScore: row.bestScore ?? 0,
       latestScore: latest?.score ?? 0,

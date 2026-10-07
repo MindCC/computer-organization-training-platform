@@ -15,6 +15,12 @@ function fakeProgress(entries = {}) {
   return entries;
 }
 
+test('仅浏览演示也点亮学习热力图，心跳不增加答题次数',()=>{
+  const model=buildHeatmapModel({hourly:[{day:'2026-10-07',hour:10,attempts:0,minutes:0.5}]},{now:new Date(2026,9,7)});
+  assert.equal(model.hasData,true);assert.equal(model.total,0);assert.equal(model.minutes,0.5);assert.equal(model.activeDays,1);
+  assert.equal(model.rows.flatMap(row=>row.cells).filter(cell=>cell.level>0).length,1);
+});
+
 test("学习树按八章生长，树杈总数等于全部学习条目", () => {
   const model = buildLearningTreeModel(fakeProgress());
 

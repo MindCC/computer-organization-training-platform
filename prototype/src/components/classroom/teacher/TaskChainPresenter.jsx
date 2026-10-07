@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { TASK_TYPES } from '../../../shared/classroomTaskChain.js';
-import { hostedDemoOf } from '../../../shared/demoNavigation.js';
+import { taskDemoPath } from '../../../shared/demoNavigation.js';
 import { questionOf, gradeQuestion } from '../../../assignmentQuestions.js';
 import { PracticeQuestion } from '../../StudentAssignments.jsx';
 import { CoursewareView } from '../../CoursewareView.jsx';
@@ -37,7 +37,7 @@ export function TaskChainPresenter({mission,initialIndex=0,onClose,onOpenLab}) {
 function PresentationActivity({stage,onOpenLab}) {
   const [answers,setAnswers]=useState({}),[results,setResults]=useState(null),[detail,setDetail]=useState(null),[error,setError]=useState(''),[version,setVersion]=useState(0),[knowledge,setKnowledge]=useState(null);
   useEffect(()=>{let alive=true;if(stage.type!=='assignment')return;setError('');api.assignmentDetail(stage.assignmentId).then(data=>{if(alive)setDetail(data);}).catch(cause=>{if(alive)setError(cause.message);});return()=>{alive=false;};},[stage.assignmentId,stage.type,version]);
-  if(stage.type==='demo')return <iframe className="chain-demo-frame" title={`${stage.title} · 教师演示`} src={`${hostedDemoOf(stage.demoId)?.path}?embedded=1`} allow="fullscreen"/>;
+  if(stage.type==='demo')return <><iframe className="chain-demo-frame" title={`${stage.title} · 教师演示`} src={taskDemoPath(stage)} allow="fullscreen"/>{stage.submissionMode==='text'&&<div className="chain-reflection-content"><label>课堂演示说明<textarea aria-label="教师演示说明" rows={4} placeholder="记录操作数、补码位串、结果及判断依据。"/></label><small>学生需提交自己的运算说明；该说明记录参与，不自动计知识成绩。教师演示不影响学生进度。</small></div>}</>;
   if(stage.type==='courseware')return <CoursewareView initialChapterId={stage.chapterId}/>;
   if(stage.type==='practice')return <><div className="practice-question-list">{stage.questionIds.map((id,i)=><PracticeQuestion key={id} question={questionOf(id)} index={i} value={answers[id]??''} result={results?.[id]} onFocusKp={setKnowledge} onAnswer={(id,value)=>{setAnswers({...answers,[id]:value});setResults(null);}}/>)}</div>{knowledge&&<KnowledgeGraph initialChapterId={stage.chapterId} focusId={knowledge}/>}<div className="chain-activity-controls"><button type="button" className="primary-button" onClick={()=>setResults(Object.fromEntries(stage.questionIds.map(id=>[id,gradeQuestion(questionOf(id),answers[id])])))}>检查演示答案</button><small>本地演示判题，不写入学生成绩。</small></div></>;
   if((stage.type??'lab')==='lab')return <div className="chain-launch-card"><p>打开对应实验工作台，使用教师试做功能演示操作和检测过程。</p><button type="button" className="primary-button" onClick={()=>onOpenLab(stage.challengeId)}>打开实验演示</button></div>;

@@ -34,7 +34,9 @@ test('real generation route enforces class ownership, isolates records and produ
     assert.equal((await s.post(payload,s.cookies['chain-teacher'],s.otherClass)).status,404);
     assert.equal(calls,0);
     assert.equal((await s.post({prompt:'补码课堂'})).status,400);
-    const result=await s.post(payload);assert.equal(result.status,200);assert.equal(result.body.source,'deepseek');assert.equal(result.body.taskChain.stages.length,6);assert.equal(calls,1);assert.ok(!sent.includes('PRIVATE_'));
+    const result=await s.post(payload);assert.equal(result.status,200);assert.equal(result.body.source,'deepseek');assert.equal(result.body.taskChain.stages.length,8);assert.equal(calls,1);assert.ok(!sent.includes('PRIVATE_'));
+    assert.equal(result.body.taskChain.stages[1].type,'demo');
+    assert.equal(result.body.taskChain.stages[1].submissionMode,'confirm');
     assert.equal(s.db.prepare('SELECT count(*) n FROM classroom_sessions').get().n,0);
   }finally{await s.close();}
 });

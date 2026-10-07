@@ -162,7 +162,7 @@ export function ChapterStudyTimeChart({ series }) {
     <div className="tech-chart study-time-chart" data-testid="chart-study-time">
       <div className="tech-chart-head">
         <strong>各章累计学习时长</strong>
-        <small>分钟 · 全部尝试合计</small>
+        <small>分钟 · 实验与互动演示合计</small>
       </div>
       <svg preserveAspectRatio="none" viewBox={`0 0 ${STUDY_W} ${STUDY_H}`} role="img" aria-label="各章累计学习时长柱状图">
         {ticks.map((tick) => {
@@ -189,10 +189,10 @@ export function ChapterStudyTimeChart({ series }) {
                 x={x}
                 y={y}
               >
-                <title>{`${entry.label} · ${entry.studyMinutes} 分钟`}</title>
+                <title>{`${entry.label} · ${Math.round(entry.studyMinutes * 10) / 10} 分钟`}</title>
               </rect>
               <text className="study-bar-value" textAnchor="middle" x={x + barW / 2} y={y - 3}>
-                {entry.studyMinutes > 0 ? entry.studyMinutes : ""}
+                {entry.studyMinutes > 0 ? Math.round(entry.studyMinutes * 10) / 10 : ""}
               </text>
               <text className="study-bar-label" textAnchor="middle" x={x + barW / 2} y={STUDY_H - 6}>
                 {entry.number}

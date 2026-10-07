@@ -1,7 +1,7 @@
 import { CHALLENGES } from '../platformLogic.js';
 import { COURSEWARE } from '../courseware.js';
 import { questionsForChapter } from '../assignmentQuestions.js';
-import { HOSTED_DEMOS } from './demoNavigation.js';
+import { HOSTED_DEMOS, TWOS_ACTIVITIES } from './demoNavigation.js';
 import { knowledgePointOf, knowledgePointsForChallenge } from '../knowledgePoints.js';
 
 export const NODE_PURPOSES = Object.freeze({diagnosis:'诊断',learning:'学习',practice:'练习',retest:'复测',reflection:'反思'});
@@ -11,7 +11,7 @@ export function normalizeKnowledgeIds(ids=[]) {
 }
 
 export const TASK_TYPES = Object.freeze({
-  demo: {label:'互动演示',hint:'切换参数、观察运算过程',completion:'本人确认完成'},
+  demo: {label:'互动演示',hint:'切换参数、观察运算过程',completion:'按任务要求确认完成或提交说明'},
   practice: {label:'随堂练习',hint:'精选题库，自动判分与错题同步',completion:'提交或达到及格分'},
   lab: {label:'实验任务',hint:'进入现有实验台，提交操作证据',completion:'实验检测通过'},
   assignment: {label:'教师作业',hint:'关联当前班级已发布的作业',completion:'作业已提交'},
@@ -41,20 +41,32 @@ export function taskChainTemplate(key) {
     ].map(stage=>({...stage,knowledgePointIds:knowledgePointsForChallenge(stage.challengeId).map(point=>point.id)}));
     return {title:'计算机五大部件与数据流',knowledgePointIds:normalizeKnowledgeIds(stages.flatMap(stage=>stage.knowledgePointIds)),stages};
   }
-  const knowledgePointIds=['concept-signed-representations','concept-twos-complement','concept-signed-range-overflow'];
+  const knowledgePointIds=['concept-twos-complement','concept-signed-range-overflow'];
   const stages=[
-    {...newTaskStage('practice','predict'),title:'课前诊断：我会表示负数吗？',minutes:5,instructions:'独立作答，检查补码范围与负数编码。此环节提交即可继续。'},
-    {...newTaskStage('demo','observe'),title:'观察：5 − 3 为什么可以相加？',minutes:12,instructions:'切到“减法 A − B”，观察 5 − 3 的逐位运算；再观察 100 + 100，区分进位与溢出。'},
-    {...newTaskStage('lab','encode'),title:'动手：验证负数的机器编码',minutes:8,instructions:'改变整数输入，对比原码、反码与补码，然后完成编码路径的实验检测。'},
-    {...newTaskStage('ai','explain'),title:'问小芯：解释我的疑惑',minutes:5,instructions:'把不理解的问题主动告诉小芯，例如“为什么丢弃第九位进位不等于溢出？”阅读提示后，用自己的话写下理解。'},
-    {...newTaskStage('practice','check'),title:'检验：补码加减与溢出',minutes:10,questionIds:['ch2-q08','ch2-q09','ch2-q10'],completion:'passed',instructions:'完成三道补码运算题，达到课堂及格分后继续；未通过可以订正再提交。'},
-    {...newTaskStage('reflection','review'),title:'总结：我用什么证据判断溢出？',minutes:5,instructions:'用一个例子说明补码减法的步骤，以及为什么最高位进位不能直接当成溢出。'},
+    {...newTaskStage('practice','predict'),purpose:'diagnosis',title:'课前诊断：我会表示负数吗？',minutes:4,instructions:'独立作答，检查8位补码的表示范围与负数编码。提交即可继续；教师根据结果为有困难的学生安排前置补学，再进入加减运算。'},
+    twosTeacherDemonstration(),
+    ...twosArithmeticStages(),
+    {...newTaskStage('ai','explain'),purpose:'learning',title:'问小芯：解释我的运算疑惑',minutes:4,instructions:'把刚才的操作数、位宽、位串结果和疑问主动告诉小芯，例如“为什么5加负3有进位却没有溢出？”阅读提示后，提交自己的解释。'},
+    {...newTaskStage('practice','check'),purpose:'retest',title:'检验：补码加法、减法与溢出',minutes:8,questionIds:['ch2-q11','ch2-q08','ch2-q09','ch2-q10'],completion:'passed',instructions:'独立完成四道题，分别检验补码加法、减法和溢出判断。达到课堂及格分后继续；未通过可以订正。教师依据答题证据确认补学建议并发布个性化后续任务。'},
+    {...newTaskStage('reflection','review'),purpose:'reflection',title:'总结：我用什么证据判断溢出？',minutes:2,instructions:'各用一个例子说明补码加法、减法和溢出判断。记录仍不会的步骤，教师结合测验结果调整后续任务；后续复测检验相同知识目标。'},
   ].map(stage=>{
     const related=stage.type==='practice'?questionsForChapter(stage.chapterId).filter(question=>stage.questionIds.includes(question.id)).map(question=>knowledgePointOf(question.kpId)?.id)
-      :stage.type==='lab'?knowledgePointsForChallenge(stage.challengeId).map(point=>point.id):knowledgePointIds;
+      :stage.type==='lab'?knowledgePointsForChallenge(stage.challengeId).map(point=>point.id):stage.knowledgePointIds??knowledgePointIds;
     return {...stage,knowledgePointIds:knowledgePointIds.filter(id=>related.includes(id))};
   });
-  return {title:'补码运算：让减法变成加法',knowledgePointIds,stages};
+  return {title:'补码运算：加法、减法与溢出',knowledgePointIds,stages};
+}
+
+export function twosTeacherDemonstration(prefix='twos') {
+  return {...newTaskStage('demo',`${prefix}-demonstrate`),demoId:'twos-complement',demoActivity:'add',submissionMode:'confirm',purpose:'learning',title:'教师演示：补码加减运算怎么做？',minutes:6,knowledgePointIds:['concept-twos-complement','concept-signed-range-overflow'],instructions:'教师投屏，学生先预测再观察：从8位补码5 + (−3)逐列相加开始，讲解符号位参与运算和保留低8位；切到减法5 − 3，示范减法转加法；再用100 + 100展示溢出，说明进位与溢出的区别。学生跟随演示确认完成，然后进入独立动手环节。'};
+}
+
+export function twosArithmeticStages(prefix='twos') {
+  return [
+    {activity:'add',instructions:'统一使用8位补码。先手算5 + (−3)，再逐位操作验证，保留低8位；改为(−5) + (−3)再验证。提交两组输入、补码位串、结果及进位的说明。教师先示范一列，再由学生独立完成。'},
+    {activity:'sub',instructions:'统一使用8位补码。先手算5 − 3，把减数3取反加1得到−3的补码，再与5相加；改为3 − 5验证负数结果。提交减法转加法的位串、结果及为什么丢弃第9位进位。'},
+    {activity:'overflow',instructions:'先预测再操作：8位补码100 + 100、(−100) + (−50)、5 + (−3)，再切到减法验证100 − (−50)。记录真实结果与保留位串，按范围和符号判断溢出，对比进位与溢出的区别；教师根据学生解释集中讲评。'},
+  ].map(({activity,instructions})=>({...newTaskStage('demo',`${prefix}-${activity}`),demoId:'twos-complement',demoActivity:activity,submissionMode:'text',purpose:'practice',title:`动手：${TWOS_ACTIVITIES[activity]}`,minutes:7,instructions,knowledgePointIds:activity==='overflow'?['concept-signed-range-overflow']:['concept-twos-complement']}));
 }
 
 export function adoptTaskChainTemplate(current,next) {
@@ -73,7 +85,8 @@ export function validateTaskChain(raw) {
   const title=boundedText(raw.title,100,'任务链名称',true);
   if(!Array.isArray(raw.stages)||raw.stages.length<1||raw.stages.length>16)throw new Error('任务链须包含1到16个环节');
   const ids=new Set();
-  const stages=raw.stages.map(stage=>{
+  const stages=raw.stages.map((stage,stageIndex)=>{
+    try {
     if(!stage||!TASK_TYPES[stage.type])throw new Error('任务环节类型无效');
     if(typeof stage.id!=='string'||!/^[a-zA-Z0-9_-]{1,80}$/.test(stage.id))throw new Error('环节标识无效');
     if(ids.has(stage.id))throw new Error('环节标识重复');ids.add(stage.id);
@@ -86,13 +99,17 @@ export function validateTaskChain(raw) {
       if(!stage.position||!Number.isFinite(stage.position.x)||!Number.isFinite(stage.position.y)||Math.abs(stage.position.x)>100000||Math.abs(stage.position.y)>100000)throw new Error('节点位置无效');
       next.position={x:stage.position.x,y:stage.position.y};
     }
-    if(stage.type==='custom'){
-      if(!['confirm','text'].includes(stage.submissionMode??'text'))throw new Error('自定义任务完成条件无效');
-      next.submissionMode=stage.submissionMode??'text';
+    if(['custom','demo'].includes(stage.type)){
+      if(!['confirm','text'].includes(stage.submissionMode??(stage.type==='custom'?'text':'confirm')))throw new Error('任务完成条件无效');
+      if(stage.type==='custom'||stage.submissionMode!==undefined)next.submissionMode=stage.submissionMode??'text';
     }
     if(stage.type==='demo') {
       if(!HOSTED_DEMOS.some(demo=>demo.id===stage.demoId))throw new Error('互动演示不存在');
       next.demoId=stage.demoId;
+      if(stage.demoActivity!==undefined){
+        if(stage.demoId!=='twos-complement'||!Object.hasOwn(TWOS_ACTIVITIES,stage.demoActivity))throw new Error('互动演示活动无效');
+        next.demoActivity=stage.demoActivity;
+      }
     }
     if(stage.type==='lab') {
       const item=CHALLENGES.find(item=>item.id===stage.challengeId);
@@ -107,8 +124,10 @@ export function validateTaskChain(raw) {
     }
     if(stage.type==='practice') {
       const questions=questionsForChapter(stage.chapterId);
-      if(!Array.isArray(stage.questionIds)||stage.questionIds.length<1||stage.questionIds.length>30||new Set(stage.questionIds).size!==stage.questionIds.length
-        ||!stage.questionIds.every(id=>questions.some(q=>q.id===id)))throw new Error('请选择当前章节的有效题目');
+      if(!Array.isArray(stage.questionIds)||stage.questionIds.length<1)throw new Error('请至少选择1道题目');
+      if(stage.questionIds.length>30)throw new Error('每个练习环节最多选择30道题目');
+      if(new Set(stage.questionIds).size!==stage.questionIds.length)throw new Error('已选题目重复，请去掉重复题目');
+      if(!stage.questionIds.every(id=>questions.some(q=>q.id===id)))throw new Error('部分已选题目不属于当前章节或当前题库，请重新选择这些题目');
       next.questionIds=[...stage.questionIds];
       if(!['submitted','passed'].includes(stage.completion??'submitted'))throw new Error('练习完成条件无效');
       next.completion=stage.completion??'submitted';
@@ -118,6 +137,10 @@ export function validateTaskChain(raw) {
       next.assignmentId=stage.assignmentId;
     }
     return next;
+    } catch(cause) {
+      const name=typeof stage?.title==='string'?stage.title.trim().slice(0,100):'';
+      throw Object.assign(new Error(`第${stageIndex+1}个环节${name?`「${name}」`:''}：${cause.message}`),{stageId:stage?.id,stageIndex});
+    }
   });
   const next={title,stages};
   if(raw.knowledgePointIds!==undefined)next.knowledgePointIds=normalizeKnowledgeIds(raw.knowledgePointIds);

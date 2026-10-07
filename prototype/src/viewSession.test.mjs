@@ -21,6 +21,20 @@ test("view session round-trips through storage", () => {
   assert.equal(readViewSession(storage), null);
 });
 
+test('teacher homework workspace survives refresh and remains role scoped', () => {
+  const storage = makeStorage();
+  writeViewSession({ view: 'teacher', teacherWorkspace: 'assignments' }, storage);
+  const restored = readViewSession(storage);
+  assert.deepEqual(restored, { view: 'teacher', challengeId: null, teacherWorkspace: 'assignments' });
+  assert.deepEqual(resolveRestorableView(restored, 'teacher'), restored);
+  assert.equal(resolveRestorableView(restored, 'student'), null);
+  assert.equal(resolveRestorableView(restored, null), null);
+  writeViewSession({ view: 'teacher', teacherWorkspace: 'unknown' }, storage);
+  assert.deepEqual(readViewSession(storage), { view: 'teacher', challengeId: null });
+  writeViewSession({ view: 'assignments', teacherWorkspace: 'assignments' }, storage);
+  assert.deepEqual(readViewSession(storage), { view: 'assignments', challengeId: null });
+});
+
 test("view session ignores malformed payloads and hostile challenge ids", () => {
   assert.equal(readViewSession(makeStorage({ "zcyl:view-session": "not json" })), null);
   assert.equal(readViewSession(makeStorage({ "zcyl:view-session": JSON.stringify({ view: 42 }) })), null);
@@ -28,6 +42,20 @@ test("view session ignores malformed payloads and hostile challenge ids", () => 
     "zcyl:view-session": JSON.stringify({ view: "lab", challengeId: "../../etc/passwd" }),
   });
   assert.deepEqual(readViewSession(withHostileId), { view: "lab", challengeId: null });
+});
+
+test('teacher question bank is a persistent dashboard workspace and migrates old sessions', () => {
+  const storage = makeStorage();
+  writeViewSession({ view: 'teacher', teacherWorkspace: 'question-bank' }, storage);
+  const restored = readViewSession(storage);
+  assert.deepEqual(restored, { view: 'teacher', challengeId: null, teacherWorkspace: 'question-bank' });
+  assert.deepEqual(resolveRestorableView(restored, 'teacher'), restored);
+  const legacy = { view: 'question-bank', challengeId: null };
+  assert.deepEqual(resolveRestorableView(legacy, 'teacher'), restored);
+  for (const role of ['student', null]) {
+    assert.equal(resolveRestorableView(restored, role), null);
+    assert.equal(resolveRestorableView(legacy, role), null);
+  }
 });
 
 test("restoring a view respects the current role", () => {

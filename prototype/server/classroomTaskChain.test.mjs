@@ -29,6 +29,19 @@ test('task chains validate resources and reject duplicate steps',()=>{
   assert.throws(()=>validateClassroomSessionConfig({...base,taskChain:{title:'错误',stages:[{id:'a',title:'反思',type:'reflection'},{id:'a',title:'反思',type:'reflection'}]}}),/重复/);
 });
 
+test('hands-on demo requires an explanation, records it for the teacher and keeps it unscored',()=>{
+  const c=context();try{
+    c.service.updateDraft({teacherId:c.teacher.id,sessionId:c.session.id,config:{...c.config,taskChain:{title:'补码加法',stages:[{id:'add',type:'demo',title:'动手加法',demoId:'twos-complement',demoActivity:'add',submissionMode:'text'}]}}});
+    c.service.start({teacherId:c.teacher.id,sessionId:c.session.id});c.service.enterStudent({studentId:c.student.id,sessionId:c.session.id});
+    const send=evidence=>c.service.completeStage({studentId:c.student.id,sessionId:c.session.id,payload:{stageId:'add',evidence,clientSubmissionId:'demo-explanation-1'}});
+    assert.throws(()=>send({completed:true}),/10/);
+    const text='5加负3的补码，保留低8位得到2，有进位但没有有符号溢出。';
+    const done=send({text});assert.equal(done.result.score,null);assert.equal(done.studentState.result.gradedStageCount,0);
+    c.service.end({teacherId:c.teacher.id,sessionId:c.session.id});
+    assert.equal(c.service.getReport({teacherId:c.teacher.id,sessionId:c.session.id}).studentReports[0].stageResults[0].evidence.text,text);
+  }finally{c.db.close();}
+});
+
 test('heterogeneous chain persists, grades actual answers, retries and completes idempotently',()=>{
   const c=context(); try {
     c.service.start({teacherId:c.teacher.id,sessionId:c.session.id});

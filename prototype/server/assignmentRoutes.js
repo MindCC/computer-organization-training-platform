@@ -22,6 +22,13 @@ export function createAssignmentRouter({ service, requireRole }) {
   });
 
   // Teacher: publish
+  router.post('/teacher/assignments/:id/question-bank', requireRole('teacher'), (req, res, next) => {
+    try {
+      res.status(201).json(service.addBankQuestions({ teacherId: req.user.id, assignmentId: Number(req.params.id), questions: req.body?.questions }));
+    } catch (error) { next(error); }
+  });
+
+  // Teacher: publish
   router.post("/teacher/assignments/:id/publish", requireRole("teacher"), (req, res, next) => {
     try {
       res.json({ assignment: service.publishAssignment({ teacherId: req.user.id, assignmentId: Number(req.params.id) }) });

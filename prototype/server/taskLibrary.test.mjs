@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { taskChainTemplate } from '../src/shared/classroomTaskChain.js';
 import { openDatabase, migrate, createUser, createClass, addStudentToClass } from './db.js';
 import { createClassroomSessionService } from './classroomSessionService.js';
 import { createClassroomSessionRepository } from './classroomSessionRepository.js';
@@ -28,6 +29,19 @@ test('task library CRUD isolates owners, retains positions and detects stale rev
     assert.throws(()=>c.library.update(c.teacher.id,task.id,{revision:1,config:c.config}),/已被修改/);
     assert.throws(()=>c.library.remove(c.other.id,task.id,2),/不存在/);
     c.library.remove(c.teacher.id,task.id,2);assert.equal(c.library.list(c.teacher.id).length,0);
+  }finally{c.db.close();}
+});
+
+test('library rejects a later invalid quiz with its node identity while preserving earlier selections',()=>{
+  const c=setup();try{
+    const chain=taskChainTemplate('twos');
+    chain.stages.find(s=>s.id==='step-check').questionIds=[];
+    assert.throws(()=>c.library.create(c.teacher.id,{...c.config,taskChain:chain}),error=>{
+      assert.equal(error.code,'INVALID_TASK');assert.equal(error.stageId,'step-check');assert.equal(error.stageIndex,6);
+      assert.match(error.message,/第7个环节.*至少选择/);return true;
+    });
+    assert.equal(c.library.list(c.teacher.id).length,0);
+    assert.deepEqual(chain.stages[0].questionIds,['ch2-q02','ch2-q04','ch2-q07']);
   }finally{c.db.close();}
 });
 

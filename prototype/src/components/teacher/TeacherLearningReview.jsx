@@ -6,7 +6,7 @@ import './teacherLearningReview.css';
 const Records = lazy(() => import('../StudentRecords.jsx').then(module => ({ default: module.StudentRecords })));
 const Mistakes = lazy(() => import('../MistakeBookPage.jsx').then(module => ({ default: module.MistakeBookPage })));
 const CoachReview = lazy(() => import('../TeacherCoachReview.jsx').then(module => ({default: module.TeacherCoachReview})));
-const SOURCE = { lab: '实验室', practice: '题库练习', assignment: '课后作业', service: '维修诊断' };
+const SOURCE = { lab: '实验室', practice: '题库练习', demo:'互动演示', assignment: '课后作业', service: '维修诊断' };
 
 export function TeacherLearningReview({ mode, classes, classId, onClassChange, selectedStudent, onStudentChange, changeView, navigateToChallenge, openStudyTarget }) {
   const [classData, setClassData] = useState(null), [detail, setDetail] = useState(null);
@@ -44,13 +44,18 @@ export function TeacherLearningReview({ mode, classes, classId, onClassChange, s
     </section>
     {loading ? <p className="section-panel" role="status">正在同步学情与错题…</p> : error ? <section className="section-panel"><p role="alert">{error}</p><button type="button" className="primary-button" onClick={() => setVersion(value => value + 1)}>重试学情加载</button></section> : !own && !classId ? <section className="section-panel"><h2>还没有班级</h2><p>可以先查看“我的教师试练”，或到教师看板创建班级并导入学生。</p><button type="button" className="primary-button" onClick={() => changeView('teacher')}>前往教师看板</button></section> : <>
       {analysis && <section className="section-panel teacher-review-analysis" aria-label="学情分析">
-        <div className="section-heading"><div><h2>{detail ? `${own ? '教师试练' : detail.displayName} · 学情分析` : '全班学情分析'}</h2><p>根据已提交的实验、题库与作业计算；没有记录时显示暂无数据。</p></div><span className="teacher-analysis-source">系统内分析</span></div>
+        <div className="section-heading"><div><h2>{detail ? `${own ? '教师试练' : detail.displayName} · 学情分析` : '全班学情分析'}</h2><p>根据实验、题库、作业与 AI 求助记录在本地计算；提问不计为成绩或知识掌握。</p></div><span className="teacher-analysis-source">系统内分析</span></div>
         <div className="teacher-review-metrics"><div><span>{detail ? '练习题已判分' : '有提交记录的学生'}</span><strong>{detail ? detail.practice.answered : `${analysis.submittedStudents} / ${analysis.studentCount}`}</strong></div><div><span>待巩固错题</span><strong>{analysis.pendingMistakes}</strong></div><div><span>{detail ? '已提交 / 已发布作业' : '班级学生'}</span><strong>{detail ? `${detail.homework.submitted} / ${detail.homework.assigned}` : analysis.studentCount}</strong></div><div><span>{detail ? '作业已批改均分' : '高频错误主题'}</span><strong>{detail ? detail.homework.averageScore == null ? '暂无成绩' : detail.homework.averageScore + '%' : analysis.commonErrors.length}</strong></div></div>
         <details className="teacher-analysis-disclosure" open={!detail}><summary>章节进度、错误归因与教学建议</summary><div className="teacher-analysis-grid">
           <div className="teacher-analysis-card"><h3>各章实验完成进度</h3>{analysis.chapters.map(chapter => <div className="teacher-analysis-chapter" key={chapter.id}><span>{chapter.title}</span><small>{chapter.completed}/{chapter.possible} · {chapter.averageScore == null ? '暂无计分成绩' : '计分均分 ' + chapter.averageScore}</small><div className="teacher-analysis-track"><i style={{width:chapter.completionRate+'%'}}/></div></div>)}</div>
           <div className="teacher-analysis-card"><h3>建议下一步</h3><ol>{analysis.advice.map((advice,index) => <li key={index}>{advice}</li>)}</ol><h3>高频待巩固内容</h3>{analysis.commonErrors.length ? analysis.commonErrors.map((item,index) => <article className="teacher-common-error" key={index}><strong>{item.title}</strong><small>{SOURCE[item.source]} · {item.students} 人 · {item.count} 次错误</small></article>) : <p>暂无待巩固错误记录。</p>}</div>
         </div></details>
+        <details className="teacher-analysis-disclosure"><summary>AI 对话分析 · {analysis.conversations?.students ?? 0} 人 / {analysis.conversations?.total ?? 0} 次</summary>
+          <p>按提问时的课程上下文与问题主题归类，仅作为教师核对疑点的线索。</p>
+          {analysis.conversations?.topics?.length?<ul>{analysis.conversations.topics.map(item=><li key={`${item.chapterId}:${item.topic}`}>{item.topic}：{item.students} 人、{item.count} 次</li>)}</ul>:<p>暂无 AI 对话记录。</p>}
+        </details>
       </section>}
+      {detail&&!own&&<StudentConversationHistory key={`${classId}:${detail.id}`} classId={classId} studentId={detail.id} initial={detail.conversations??[]}/>}
       {!detail && classData && <Suspense fallback={<p role="status">正在加载补练回看…</p>}><CoachReview key={classId} classId={classId} refreshVersion={version}/></Suspense>}
       {!detail && classData && <section className="section-panel teacher-review-roster" aria-label="班级学生学情"><div className="section-heading"><div><h2><Student size={20}/>学生学情</h2><p>选择学生，查看完整图表或跨来源错题。</p></div></div>{classData.students.length ? <div className="teacher-review-table-scroll"><table><thead><tr><th>学生</th><th>实验完成</th><th>待巩固</th><th>题库判分</th><th>作业提交</th><th>查看</th></tr></thead><tbody>{classData.students.map(student => <tr key={student.id} data-review-student={student.id}><td><strong>{student.displayName}</strong><small>{student.username}</small></td><td>{student.summary.completedCount}/{LEARNING_TOTAL(student.summary)}</td><td>{student.mistakeOverview.pendingCount ?? 0}</td><td>{student.practice.answered} 题</td><td>{student.homework.submitted}/{student.homework.assigned}</td><td><button type="button" className="ghost-button" onClick={() => select(student.id,'records')}>学习记录</button><button type="button" className="ghost-button" onClick={() => select(student.id,'mistakes')}>错题本</button></td></tr>)}</tbody></table></div> : <p>本班暂无学生，请在教师看板导入学生。</p>}
         {analysis?.support.length > 0 && <details className="teacher-analysis-disclosure"><summary>建议关注的学生</summary>{analysis.support.map(student => <div className="teacher-support-row" key={student.id}><strong>{student.displayName}</strong><span>{student.reasons.join('；')}</span><button className="ghost-button" type="button" onClick={() => select(student.id,'records')}>查看记录</button></div>)}</details>}
@@ -60,3 +65,20 @@ export function TeacherLearningReview({ mode, classes, classId, onClassChange, s
   </div>;
 }
 function LEARNING_TOTAL(summary) { return (summary.completedCount ?? 0) + (summary.inProgressCount ?? 0) + (summary.unlockedCount ?? 0) + (summary.lockedCount ?? 0); }
+
+function StudentConversationHistory({classId,studentId,initial}) {
+  const [older,setOlder]=useState([]),[hasMore,setHasMore]=useState(initial.length===100),[loading,setLoading]=useState(false),[error,setError]=useState('');
+  const conversations=[...initial,...older];
+  async function loadMore(){
+    if(loading||!hasMore||!conversations.length)return;
+    setLoading(true);setError('');
+    try{
+      const page=await apiRequest(`/api/teacher/classes/${classId}/learning-review/${studentId}/ai-conversations?before=${conversations.at(-1).id}`);
+      setOlder(rows=>[...rows,...page.conversations]);setHasMore(page.hasMore);
+    }catch(failure){setError(failure.message);}finally{setLoading(false);}
+  }
+  return <section className="section-panel teacher-review-analysis" aria-label="学生 AI 对话记录"><div className="section-heading"><div><h2>助教对话记录</h2><p>按时间倒序查看，教师可核对学生具体提出的问题与助教讲解。</p></div></div>
+    {conversations.length?conversations.map(item=><details className="teacher-analysis-disclosure" key={item.id}><summary>{item.createdAt} · {item.topic} · {item.kind==='lab_hint'?'实验讲解':'课程提问'} · {item.answerSource==='ai'?'AI 生成':'本地提示'}</summary><p><strong>学生：</strong>{item.question}</p><p><strong>助教：</strong>{item.answer.explanation??item.answer.hint?.conceptReview??'已生成讲解'}</p>{item.answer.steps?.length?<ol>{item.answer.steps.map((step,index)=><li key={index}>{step}</li>)}</ol>:null}{item.answer.check&&<p><strong>自测：</strong>{item.answer.check}</p>}{item.answer.hint?.errorAnalysis?.length?<ul>{item.answer.hint.errorAnalysis.map((step,index)=><li key={index}>{step}</li>)}</ul>:null}{item.answer.hint?.nextStepHints?.length?<ol>{item.answer.hint.nextStepHints.map((step,index)=><li key={index}>{step}</li>)}</ol>:null}</details>):<p>暂无对话记录。</p>}
+    {hasMore&&<button type="button" className="ghost-button" onClick={loadMore} disabled={loading}>{loading?'加载中…':'加载更早对话'}</button>}{error&&<p role="alert">{error}</p>}
+  </section>;
+}

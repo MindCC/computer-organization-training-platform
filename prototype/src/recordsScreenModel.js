@@ -166,7 +166,7 @@ export function buildHeatmapModel(activity = {}, { days = 7, bucketHours = 2, no
   const rows = grid.map((cells, r) => {
     const startHour = r * bucketHours;
     const built = cells.map((cell, c) => {
-      if (cell.attempts > 0) activeDaySet.add(columns[c].day);
+      if (cell.attempts > 0 || cell.minutes > 0) activeDaySet.add(columns[c].day);
       if (cell.attempts > max) max = cell.attempts;
       total += cell.attempts;
       minutes += cell.minutes;
@@ -184,7 +184,8 @@ export function buildHeatmapModel(activity = {}, { days = 7, bucketHours = 2, no
       }
     }
   }
-  return { columns, rows, max, total, minutes, activeDays: activeDaySet.size, peak, bucketHours, days, hasData: total > 0 };
+  for (const row of rows) for (const cell of row.cells) if (cell.minutes > 0 && cell.level === 0) cell.level = 1;
+  return { columns, rows, max, total, minutes, activeDays: activeDaySet.size, peak, bucketHours, days, hasData: total > 0 || minutes > 0 };
 }
 
 /**
@@ -206,7 +207,7 @@ export function buildCalendarModel(activity = {}, items = LEARNING_ITEMS, chapte
   const touch = (day) => {
     const key = String(day);
     if (!days.has(key)) {
-      days.set(key, { day: key, passedIds: new Set(), entries: [], attempts: 0, minutes: 0, demoBatches: 0, milestones: [], kind: "idle" });
+      days.set(key, { day: key, passedIds: new Set(), entries: [], attempts: 0, minutes: 0, demoBatches: 0, demoMinutes:0, milestones: [], kind: "idle" });
     }
     return days.get(key);
   };
@@ -227,6 +228,7 @@ export function buildCalendarModel(activity = {}, items = LEARNING_ITEMS, chapte
   for (const row of demos) {
     const entry = touch(row.day);
     entry.demoBatches += Number(row.attempts ?? 0);
+    entry.demoMinutes += Number(row.minutes ?? 0);
     entry.minutes += Number(row.minutes ?? 0);
   }
 
@@ -257,7 +259,7 @@ export function buildCalendarModel(activity = {}, items = LEARNING_ITEMS, chapte
     if (entry.milestones.length > 0) entry.kind = "milestone";
     else if (entry.passedIds.size > 0) entry.kind = "complete";
     else if (entry.attempts > 0) entry.kind = "practice";
-    else if (entry.demoBatches > 0) entry.kind = "demo";
+    else if (entry.demoBatches > 0 || entry.minutes > 0) entry.kind = "demo";
   }
 
   // 连续学习天数：从最后一个有活动的日子往前数连续自然日

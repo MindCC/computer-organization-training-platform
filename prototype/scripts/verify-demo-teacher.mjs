@@ -32,10 +32,9 @@ try {
   await page.locator('[data-demo-role="teacher"]').click();
   await expect(page.locator('.teacher-reference-shell')).toBeVisible({ timeout: 20_000 });
   await expect(page.locator('.profile-button')).toContainText('演示教师');
-  await expect(page.locator('.teacher-class-select')).toContainText('芯游记 · 演示教学班');
+  await expect(page.locator('.teacher-class-select')).toContainText('计算机组成原理1班');
 
-  await page.locator('.teacher-workspace-nav').getByRole('button', { name: '教学活动', exact: true }).click();
-  await page.locator('.teacher-section-disclosure').filter({ hasText: '课后作业管理' }).locator('summary').click();
+  await page.locator('.teacher-workspace-nav').getByRole('button', { name: '作业管理', exact: true }).click();
   await page.getByRole('button', { name: '创建作业' }).click();
   const title = `演示联动作业 ${Date.now()}`;
   await page.getByRole('textbox', { name: '作业标题' }).fill(title);
@@ -43,6 +42,7 @@ try {
   const row = page.locator('.assignment-row').filter({ hasText: title });
   await expect(row).toBeVisible();
   await row.click();
+  await page.getByRole('tab', { name: '手动出题', exact: true }).click();
   await page.getByRole('textbox', { name: '题目内容' }).fill('CPU 的主要作用是什么？');
   await page.getByRole('combobox', { name: '题目类型' }).selectOption('short_answer');
   await page.getByRole('textbox', { name: '正确答案' }).fill('执行指令');
@@ -67,8 +67,7 @@ try {
   await openLogin();
   await page.locator('[data-demo-role="teacher"]').click();
   await expect(page.locator('.teacher-reference-shell')).toBeVisible({ timeout: 20_000 });
-  await page.locator('.teacher-workspace-nav').getByRole('button', { name: '教学活动', exact: true }).click();
-  await page.locator('.teacher-section-disclosure').filter({ hasText: '课后作业管理' }).locator('summary').click();
+  await page.locator('.teacher-workspace-nav').getByRole('button', { name: '作业管理', exact: true }).click();
   await page.locator('.assignment-row').filter({ hasText: title }).click();
   const submission = page.locator('.submission-row').filter({ hasText: '演示学生' });
   await expect(submission).toContainText('待批改');

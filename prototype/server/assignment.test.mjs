@@ -3,6 +3,91 @@ import assert from "node:assert/strict";
 import { hashPassword } from "./auth.js";
 import { createApp } from "./app.js";
 import { createUser, migrate, openDatabase } from "./db.js";
+import { questionOf, ASSIGNMENT_QUESTIONS } from '../src/assignmentQuestions.js';
+
+test('homework supports adding the entire default question bank in one atomic batch', async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const jar = {};
+  const post = (path, body) => request(baseUrl, path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, jar);
+  try {
+    await post('/api/auth/login', { username: 'teacher', password: 'Teacher123!' });
+    const cls = (await post('/api/classes', { name: '全选题库班' })).body.class;
+    const assignment = (await post(`/api/teacher/classes/${cls.id}/assignments`, { title: '全题库作业' })).body.assignment;
+    const endpoint = `/api/teacher/assignments/${assignment.id}/question-bank`;
+    const refs = ASSIGNMENT_QUESTIONS.map(question => ({ source: 'builtin', id: question.id }));
+    assert.ok(refs.length > 50, '默认题库全选超过原50题限制');
+    let result = await post(endpoint, { questions: refs });
+    assert.equal(result.response.status, 201);
+    assert.equal(result.body.addedCount, refs.length);
+    assert.equal(result.body.assignment.total_score, ASSIGNMENT_QUESTIONS.reduce((sum, question) => sum + question.score, 0));
+    result = await post(endpoint, { questions: Array.from({ length: 1001 }, () => refs[0]) });
+    assert.equal(result.response.status, 400);
+    assert.equal(db.prepare('SELECT COUNT(*) n FROM assignment_questions WHERE assignment_id=?').get(assignment.id).n, refs.length);
+  } finally { await new Promise(resolve => server.close(resolve)); db.close(); }
+});
+
+test('homework accepts canonical default and owned bank questions atomically, deduplicates retries and freezes published questions', async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const jar = {}, studentJar = {};
+  const post = (path, body, user = jar) => request(baseUrl, path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, user);
+  try {
+    await post('/api/auth/login', { username: 'teacher', password: 'Teacher123!' });
+    const { body: { class: cls } } = await post('/api/classes', { name: '题库作业班' });
+    await post(`/api/teacher/classes/${cls.id}/import-students`, { csv: 'bank-hw-student,题库作业学生,Student123!' });
+    await post('/api/auth/login', { username: 'bank-hw-student', password: 'Student123!' }, studentJar);
+    const { body: { assignment } } = await post(`/api/teacher/classes/${cls.id}/assignments`, { title: '题库混合作业' });
+    const endpoint = `/api/teacher/assignments/${assignment.id}/question-bank`;
+    const bank = (await post('/api/teacher/question-bank', { chapterId: 'ch6', type: 'choice', stem: '自建题：控制器负责？', options: ['译码', '存储'], answer: '译码', score: 12, analysis: '控制器进行指令译码。' })).body.question;
+    const refs = [{ source: 'builtin', id: 'ch2-q02', score: 20 }, { source: 'builtin', id: 'ch2-q03' }, { source: 'builtin', id: 'ch1-q05' }, { source: 'bank', id: bank.id }];
+    // 客户端题干、答案字段不能覆盖服务器的原题。
+    let result = await post(endpoint, { questions: refs.map(q => ({ ...q, stem: '伪造题干', answer: '伪造答案' })) });
+    assert.equal(result.response.status, 201);
+    assert.equal(result.body.addedCount, 4);
+    assert.equal(result.body.assignment.total_score, 57);
+    result = await post(endpoint, { questions: refs });
+    assert.equal(result.body.addedCount, 0);
+    assert.equal(result.body.skippedCount, 4);
+    assert.equal(db.prepare('SELECT COUNT(*) n FROM assignment_questions WHERE assignment_id=?').get(assignment.id).n, 4);
+    for (const invalid of [[], [{ source: 'builtin', id: 'missing' }], [{ source: 'builtin', id: 'ch2-q04', score: 0 }], [{ source: 'builtin', id: 'ch2-q04' }, { source: 'bank', id: 999999 }]]) {
+      result = await post(endpoint, { questions: invalid });
+      assert.equal(result.response.status, 400);
+      assert.equal(db.prepare('SELECT COUNT(*) n FROM assignment_questions WHERE assignment_id=?').get(assignment.id).n, 4, '失败批次不能留下部分题目');
+    }
+    result = await post(endpoint, { questions: refs }, studentJar);
+    assert.equal(result.response.status, 403);
+    const detail = (await request(baseUrl, `/api/teacher/assignments/${assignment.id}`, {}, jar)).body;
+    assert.equal(detail.questions[0].stem, questionOf('ch2-q02').stem);
+    assert.equal(JSON.parse(detail.questions[0].answer_json), questionOf('ch2-q02').answer);
+    assert.deepEqual(JSON.parse(detail.questions[0].options_json), questionOf('ch2-q02').options);
+    assert.equal(detail.questions[0].explanation, questionOf('ch2-q02').analysis);
+    await post(`/api/teacher/assignments/${assignment.id}/publish`, {});
+    assert.equal((await post(endpoint, { questions: [{ source: 'builtin', id: 'ch2-q04' }] })).response.status, 400);
+    const studentDetail = (await request(baseUrl, `/api/student/assignments/${assignment.id}`, {}, studentJar)).body;
+    assert.equal(studentDetail.questions.length, 4);
+    assert.ok(studentDetail.questions.every(q => !Object.hasOwn(q, 'answer_json') && !Object.hasOwn(q, 'explanation')));
+    result = await post(`/api/student/assignments/${assignment.id}/submit`, { answers: studentDetail.questions.map(q => ({ questionId: q.id, value: q.type === 'fill' ? '输入；输出' : q.type === 'truefalse' ? 'true' : q.stem === bank.stem ? '译码' : '-128 ~ 127' })) }, studentJar);
+    assert.equal(result.body.autoScore, 57);
+    assert.equal(result.body.submission.status, 'graded');
+  } finally { await new Promise(resolve => server.close(resolve)); db.close(); }
+});
+
+test('homework bank selection cannot read another teacher bank or write another teacher homework', async () => {
+  const { db, server, baseUrl } = await makeServer();
+  const jars = [{}, {}];
+  const post = (path, body, jar = jars[0]) => request(baseUrl, path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }, jar);
+  try {
+    createUser(db, { username: 'bank-owner-b', displayName: '教师乙', role: 'teacher', passwordHash: await hashPassword('Teacher123!') });
+    await post('/api/auth/login', { username: 'teacher', password: 'Teacher123!' });
+    await post('/api/auth/login', { username: 'bank-owner-b', password: 'Teacher123!' }, jars[1]);
+    const cls = (await post('/api/classes', { name: '隔离班级' })).body.class;
+    const assignment = (await post(`/api/teacher/classes/${cls.id}/assignments`, { title: '隔离作业' })).body.assignment;
+    const foreign = (await post('/api/teacher/question-bank', { chapterId: 'ch1', type: 'truefalse', stem: '私有题目', answer: 'true' }, jars[1])).body.question;
+    const endpoint = `/api/teacher/assignments/${assignment.id}/question-bank`;
+    assert.equal((await post(endpoint, { questions: [{ source: 'bank', id: foreign.id }] })).response.status, 400);
+    assert.equal((await post(endpoint, { questions: [{ source: 'builtin', id: 'ch2-q02' }] }, jars[1])).response.status, 404);
+    assert.equal(db.prepare('SELECT COUNT(*) n FROM assignment_questions').get().n, 0);
+  } finally { await new Promise(resolve => server.close(resolve)); db.close(); }
+});
 
 async function makeServer() {
   const db = openDatabase(":memory:");

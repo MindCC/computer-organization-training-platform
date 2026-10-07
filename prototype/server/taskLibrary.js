@@ -37,7 +37,7 @@ export function createTaskLibrary({db,sessionService}) {
     config_json TEXT NOT NULL, note TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(task_id,revision)
   );`);
-  function normalize(config){try{return validateClassroomSessionConfig({...config,targetStudentIds:undefined,templateKey:'task-chain'});}catch(error){fail('INVALID_TASK',error.message);}}
+  function normalize(config){try{return validateClassroomSessionConfig({...config,targetStudentIds:undefined,templateKey:'task-chain'});}catch(error){throw Object.assign(classroomError('INVALID_TASK',error.message,400,false),{stageId:error.stageId,stageIndex:error.stageIndex});}}
   function sourceFor(teacherId,config,checkRecipients=false){
     const source=config.taskChain?.followUp;if(!source)return null;
     const task=db.prepare('SELECT * FROM teacher_task_library WHERE id=? AND teacher_id=?').get(source.sourceTaskId,teacherId);

@@ -1,11 +1,11 @@
 /**
  * platform-link.js — 演示页 ↔ 组成原理实训平台 学情联动（可选增强）
  *
- * - 平台内打开（同源 /demos/*.html）：自动识别登录学生，练习成绩按批（每 5 题）
+ * - 平台内打开（同源 /demos/*.html）：识别当前账号，保存每题快照与可见学习时间
  *   提交到 /api/student/demo-attempts，计入学情报告与学习记录面板；
  * - 独立使用（file:// 或无登录）：自动降级为独立模式，页面功能完全不受影响。
  *
- * 演示页只需在判分后调用：window.__platformLink?.recordQuizAnswer(isCorrect)
+ * 判分后调用 recordQuizAnswer(isCorrect, question, originalAnswer)。独立页不依赖平台。
  */
 (function () {
   "use strict";
@@ -31,47 +31,79 @@
     demoId: page ? page.id : null,
     demoTitle: page ? page.title : null,
     user: null,
-    batch: { answered: 0, correct: 0, startedAt: Date.now() },
     batchesSubmitted: 0,
     recordQuizAnswer: recordQuizAnswer,
     flush: flush,
   };
   window.__platformLink = link;
+  var pending = [], sending = false, storageKey = null;
+  var activeMilliseconds = 0, lastTick = Date.now(), lastInteraction = Date.now();
+  var visible = !document.hidden, inViewport = true;
+  var IDLE_MS = 5 * 60000;
 
-  function recordQuizAnswer(isCorrect) {
-    link.batch.answered += 1;
-    if (isCorrect) link.batch.correct += 1;
-    if (link.linked && link.batch.answered >= 5) flush(false);
+  function plain(value) {
+    var el = document.createElement('div');
+    el.innerHTML = String(value == null ? '' : value);
+    return (el.textContent || '').trim().slice(0, 2000);
   }
-
-  function flush(isFinal) {
-    if (!link.linked || link.batch.answered === 0) return;
-    var answered = link.batch.answered;
-    var correct = link.batch.correct;
-    var score = Math.round((correct / answered) * 100);
-    link.batchesSubmitted += 1;
-    var elapsedMinutes = Math.max(1, Math.round((Date.now() - link.batch.startedAt) / 60000));
-    link.batch = { answered: 0, correct: 0, startedAt: Date.now() };
-    var payload = {
-      demoId: link.demoId,
-      result: {
-        score: score,
-        total: answered,
-        correct: correct,
-        errors: [{ type: "课堂演示练习", message: link.demoTitle + " · 第 " + link.batchesSubmitted + " 批：" + correct + "/" + answered }],
-        elapsedMinutes: elapsedMinutes,
-      },
-    };
-    fetch("/api/student/demo-attempts", {
+  function tick() {
+    var now = Date.now();
+    if (link.linked && visible && inViewport) activeMilliseconds += Math.max(0, Math.min(now, lastInteraction + IDLE_MS) - lastTick);
+    lastTick = now;
+  }
+  function persist() {
+    if (!storageKey) return;
+    try { pending.forEach(function(p) { localStorage.setItem(storageKey + p.clientSubmissionId, JSON.stringify(p)); }); } catch (_) { /* 当前页面仍可重试 */ }
+  }
+  function enqueue(questions) {
+    tick();
+    if (!link.linked || (!questions.length && activeMilliseconds < 1000)) return;
+    var milliseconds = Math.min(activeMilliseconds, 240 * 60000);
+    activeMilliseconds -= milliseconds;
+    var correct = questions.filter(function(q) { return q.correct; }).length;
+    pending.push({demoId:link.demoId, accountId:link.user.id,
+      clientSubmissionId: typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : 'demo-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+      result:{score:questions.length ? Math.round(correct / questions.length * 100) : 0,total:questions.length,correct:correct,questions:questions,errors:[],elapsedMinutes:milliseconds / 60000}});
+    persist();
+  }
+  function recordQuizAnswer(isCorrect, question, originalAnswer) {
+    if (!link.linked || !question) return;
+    var reference = question.answer;
+    if (Array.isArray(question.choices)) {
+      originalAnswer = question.choices[originalAnswer];
+      reference = question.choices[question.answer];
+    }
+    if (Array.isArray(originalAnswer)) originalAnswer = originalAnswer.join('');
+    if (Array.isArray(reference)) reference = reference.join('');
+    enqueue([{stem:plain(question.prompt || question.question),studentAnswer:plain(originalAnswer),referenceAnswer:plain(reference),explanation:plain(question.explain || ''),correct:Boolean(isCorrect)}]);
+    sendPending();
+  }
+  function sendPending() {
+    if (!link.linked || sending || !pending.length) return;
+    sending = true;
+    var payload = pending[0];
+    fetch('/api/' + link.user.role + '/demo-attempts', {
       method: "POST",
       credentials: "same-origin",
       keepalive: true,
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     }).then(function (res) {
-      if (res.ok) renderBadge("已连接学情 · " + (link.user.displayName || link.user.username) + " · 已存 " + link.batchesSubmitted + " 批", true);
-    }).catch(function () { /* 静默：不影响练习 */ });
-    void isFinal;
+      if (!res.ok) throw new Error('保存失败');
+      pending.shift();
+      try { localStorage.removeItem(storageKey + payload.clientSubmissionId); } catch (_) {}
+      sending = false;
+      if (payload.result.total) link.batchesSubmitted++;
+      renderBadge('已连接学情 · ' + (link.user.displayName || link.user.username) + ' · 答题与时长已保存', true);
+      sendPending();
+    }).catch(function () {
+      sending = false;
+      renderBadge('学情待同步 · 联网后自动重试', false);
+    });
+  }
+  function flush() {
+    enqueue([]);
+    sendPending();
   }
 
   function renderBadge(text, ok) {
@@ -93,10 +125,22 @@
     fetch("/api/auth/me", { credentials: "same-origin" })
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (body) {
-        if (body && body.user && body.user.role === "student") {
+        if (body && body.user && ['student','teacher'].includes(body.user.role)) {
           link.linked = true;
           link.user = body.user;
+          storageKey = 'demo-evidence-v2:' + body.user.id + ':';
+          try {
+            for (var i=0;i<localStorage.length;i++) {
+              var key=localStorage.key(i);
+              if (key.indexOf(storageKey) !== 0) continue;
+              var saved=JSON.parse(localStorage.getItem(key));
+              if (saved && saved.accountId === body.user.id && saved.clientSubmissionId && saved.result) pending.push(saved);
+            }
+          } catch (_) { /* 存储不可用时仍保存本页答题 */ }
+          lastTick = lastInteraction = Date.now();
           renderBadge("已连接学情 · " + (body.user.displayName || body.user.username), true);
+          sendPending();
+          setInterval(flush, 15000);
         } else {
           renderBadge("独立模式 · 练习成绩仅本页保留", false);
         }
@@ -106,6 +150,12 @@
 
   window.addEventListener("pagehide", function () { flush(true); });
   window.addEventListener("beforeunload", function () { flush(true); });
+  window.addEventListener('online', sendPending);
+  document.addEventListener('visibilitychange', function() { tick(); visible = !document.hidden; lastTick = Date.now(); if (visible) lastInteraction = Date.now(); flush(); });
+  ['pointerdown','keydown','wheel','touchstart'].forEach(function(event) { document.addEventListener(event, function() { tick(); lastInteraction = Date.now(); }, {passive:true}); });
+  if (typeof IntersectionObserver === 'function') {
+    new IntersectionObserver(function(entries) { tick(); inViewport = entries[0].isIntersecting; if (inViewport) lastInteraction = Date.now(); flush(); }).observe(document.documentElement);
+  }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();

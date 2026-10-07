@@ -1,6 +1,18 @@
 import { LEARNING_ITEMS } from './platformLogic.js';
 import { COURSE_CHAPTERS, isParticipationChallenge } from './courseChapters.js';
 
+function conversationAnalysis(students) {
+  const topics = new Map();
+  for (const student of students) for (const item of student.aiConversations?.topics ?? []) {
+    const key = `${item.chapterId ?? ''}:${item.topic}`;
+    const entry = topics.get(key) ?? { chapterId:item.chapterId, topic:item.topic, count:0, studentIds:new Set() };
+    entry.count += item.count; entry.studentIds.add(student.id); topics.set(key,entry);
+  }
+  return { total:students.reduce((sum,student)=>sum+(student.aiConversations?.total??0),0),
+    students:students.filter(student=>student.aiConversations?.total).length,
+    topics:[...topics.values()].map(({studentIds,...item})=>({...item,students:studentIds.size})).sort((a,b)=>b.count-a.count).slice(0,8) };
+}
+
 export function analyzeTeachingRecords(students = []) {
   const total = students.length;
   const chapters = COURSE_CHAPTERS.map(chapter => {
@@ -18,19 +30,19 @@ export function analyzeTeachingRecords(students = []) {
   const errors = new Map();
   for (const student of students) for (const item of student.mistakes?.items ?? []) {
     if (item.resolved) continue;
-    const key = [item.source, item.questionId ?? item.challengeId ?? item.title, item.errorType].join(':');
+    const key = [item.source, item.questionId ?? item.challengeId ?? item.id ?? item.title, item.errorType].join(':');
     if (!errors.has(key)) errors.set(key, { title: item.stem ?? item.title ?? item.challengeTitle, source: item.source, count: 0, studentIds: new Set(), navigation: item.navigation });
     const error = errors.get(key); error.count += item.count ?? 1; error.studentIds.add(student.id);
   }
   const commonErrors = [...errors.values()].map(({ studentIds, ...item }) => ({ ...item, students: studentIds.size })).sort((a,b) => b.students - a.students || b.count - a.count).slice(0, 6);
-  const submitted = students.filter(student => Object.values(student.progress ?? {}).some(record => record.attempts > 0) || student.practice?.answered > 0 || student.homework?.submitted > 0);
+  const submitted = students.filter(student => Object.values(student.progress ?? {}).some(record => record.attempts > 0) || student.practice?.answered > 0 || student.homework?.submitted > 0 || student.demos?.some(demo=>demo.totalQuestions > 0));
   const pendingMistakes = students.reduce((sum, student) => sum + (student.mistakes?.overview?.pendingCount ?? 0), 0);
   const support = students.map(student => {
     const attempts = Object.values(student.progress ?? {}).reduce((sum, record) => sum + (record.attempts ?? 0), 0);
     const pending = student.mistakes?.overview?.pendingCount ?? 0;
     const homework = student.homework ?? {};
     const reasons = [];
-    if (!attempts && !student.practice?.answered && !homework.submitted) reasons.push('尚无提交记录，先确认是否已进入课程');
+    if (!attempts && !student.practice?.answered && !homework.submitted && !student.demos?.some(demo=>demo.totalQuestions > 0 || demo.elapsedMinutes > 0)) reasons.push('尚无提交记录，先确认是否已进入课程');
     if (pending) reasons.push(`${pending} 项错题待巩固`);
     if ((homework.assigned ?? 0) > (homework.submitted ?? 0)) reasons.push(`${homework.assigned - homework.submitted} 份作业未提交（不等同于逾期）`);
     return { id: student.id, displayName: student.displayName, reasons };
@@ -46,5 +58,7 @@ export function analyzeTeachingRecords(students = []) {
     if (grading) advice.push(`${grading} 份已提交作业尚待批改，建议先给出反馈，再判断作业表现。`);
     if (!pendingMistakes) advice.push('目前没有待巩固错题，可安排迁移练习；没有错误记录不代表已掌握全部知识。');
   }
-  return { studentCount: total, submittedStudents: submitted.length, pendingMistakes, chapters, commonErrors, support, advice };
+  const conversations = conversationAnalysis(students);
+  if (conversations.topics.length) advice.push(`AI 求助较多的主题是「${conversations.topics[0].topic}」（${conversations.topics[0].students} 人、${conversations.topics[0].count} 次）。可结合答题和实验记录核对疑点；提问本身不代表未掌握。`);
+  return { studentCount: total, submittedStudents: submitted.length, pendingMistakes, chapters, commonErrors, support, advice, conversations };
 }

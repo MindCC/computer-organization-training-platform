@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Plus, CheckCircle, Users, ChartPieSlice, CaretDown, CaretRight } from "@phosphor-icons/react";
 import { api } from "../apiClient.js";
+import { AssignmentQuestionPicker } from './AssignmentQuestionPicker.jsx';
 import './teacherAssignments.css';
 
 const Q_TYPES = { choice: "选择题", truefalse: "判断题", fill: "填空题", short_answer: "简答题" };
@@ -87,8 +88,9 @@ export function TeacherAssignments({ classId }) {
               <div className="assignment-detail">
                 {detailLoading&&<p role="status">正在加载题目与提交记录…</p>}
                 {detailError&&<div role="alert" className="form-error"><p>{detailError}</p><button className="ghost-button" type="button" onClick={()=>loadSelectedAssignment(a.id)}>重试加载详情</button></div>}
-                {a.status === "draft" && <DraftActions assignmentId={a.id} questionCount={a.question_count} onRefresh={loadAll} />}
-                {a.status !== "draft" && !detailLoading && !detailError && selectedAssignment && <SubmissionList submissions={submissions} assignment={a} questions={selectedAssignment.questions ?? []} onRefresh={() => loadSelectedAssignment(a.id)} />}
+                {selectedAssignment && <AssignmentQuestions questions={selectedAssignment.questions ?? []} />}
+                {a.status === "draft" && <DraftActions assignmentId={a.id} questionCount={a.question_count} questions={selectedAssignment?.questions ?? []} onRefresh={() => Promise.all([loadSelectedAssignment(a.id), loadAll()])} />}
+                {a.status !== "draft" && !detailLoading && !detailError && selectedAssignment && <SubmissionList submissions={submissions} assignment={a} questions={selectedAssignment.questions ?? []} onRefresh={() => Promise.all([loadSelectedAssignment(a.id), loadAll()])} />}
               </div>
             )}
           </div>
@@ -99,12 +101,19 @@ export function TeacherAssignments({ classId }) {
   );
 }
 
-function DraftActions({ assignmentId, questionCount, onRefresh }) {
+function AssignmentQuestions({ questions }) {
+  function parse(value, fallback) { try { return JSON.parse(value); } catch { return fallback; } }
+  return <section className="homework-selected-questions" aria-label="已加入作业的题目"><h3>作业题目 · {questions.length} 题</h3>{questions.map((question, index) => <details key={question.id}><summary>{index + 1}. {question.stem}<small>{Q_TYPES[question.type]} · {question.score} 分</small></summary>{parse(question.options_json, []).length > 0 && <ul>{parse(question.options_json, []).map(option => <li key={option}>{option}</li>)}</ul>}<p>标准答案：{question.type === 'truefalse' ? (parse(question.answer_json, '') === 'true' ? '正确' : '错误') : parse(question.answer_json, '')}</p><p>{question.explanation}</p></details>)}{questions.length === 0 && <p>还没有题目，请从题库选择或手动出题。</p>}</section>;
+}
+
+function DraftActions({ assignmentId, questionCount, questions, onRefresh }) {
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [mode, setMode] = useState('bank');
   async function publish(){if(busy)return;setBusy(true);setError('');try{await api.publishAssignment(assignmentId);await onRefresh();}catch(err){setError(`发布失败：${err.message}`);}finally{setBusy(false);}}
   return (
     <div className="draft-actions">
-      <QuestionForm assignmentId={assignmentId} onDone={onRefresh} />
+      <div className="homework-question-modes" role="tablist" aria-label="作业出题方式"><button type="button" role="tab" aria-selected={mode === 'bank'} onClick={() => setMode('bank')}>题库选题</button><button type="button" role="tab" aria-selected={mode === 'manual'} onClick={() => setMode('manual')}>手动出题</button></div>
+      {mode === 'bank' ? <AssignmentQuestionPicker assignmentId={assignmentId} questions={questions} onDone={onRefresh} typeLabels={Q_TYPES} /> : <QuestionForm assignmentId={assignmentId} onDone={onRefresh} />}
       {questionCount > 0 && (
         <button type="button" className="primary-button" disabled={busy} onClick={publish}>{busy?'正在发布…':'发布作业'}</button>
       )}
@@ -195,7 +204,7 @@ function SubmissionRow({ submission, assignment, questions, onRefresh }) {
         isCorrect: submission.answers?.find((answer) => answer.questionId === question.id)?.isCorrect,
       }));
       await api.gradeSubmission(submission.id, { questionScores, feedback });
-      onRefresh();
+      await onRefresh();
     } catch (requestError) {
       setError(requestError.message);
     } finally {setBusy(false);}

@@ -167,7 +167,7 @@ test('retired synthetic seed is removed without touching formal accounts', async
       assert.ok(seededDb.prepare('SELECT 1 FROM users WHERE id = ?').get(other.id));
       assert.equal(seededDb.prepare('SELECT COUNT(*) AS count FROM class_members').get().count, 1);
       assert.equal(seededDb.prepare('PRAGMA foreign_key_check').all().length, 0);
-      const demoClass = seededDb.prepare("SELECT id FROM classes WHERE name = '芯游记 · 演示教学班'").get();
+      const demoClass = seededDb.prepare("SELECT id FROM classes WHERE name = '计算机组成原理1班'").get();
       seededDb.prepare("INSERT INTO assignments (class_id, teacher_id, title, description, status, total_score) VALUES (?, (SELECT id FROM users WHERE username = 'demo-teacher'), '保留新作业', '', 'published', 0)").run(demoClass.id);
       const second = await removeLegacyDemoSeed(seededDb);
       assert.equal(second.removedStudents, 0);

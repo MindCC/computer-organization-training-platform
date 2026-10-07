@@ -53,8 +53,7 @@ try{
   await page.locator('.teacher-quest-chapter-detail').first().locator('summary').click();await page.locator('.teacher-quest-item').first().click();await expect(page.getByRole('region',{name:'学生学习证据'})).toBeVisible();pass('教师章节明细点击后显示真实学习证据');
   for(const width of [1366,768,390]){await page.setViewportSize({width,height:900});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`teacher at ${width} px overflow`);await page.screenshot({path:path.join(artifacts,`platform-teacher-${width}.png`),fullPage:true});}
   await page.setViewportSize({width:1366,height:900});pass('教师工作台三个窗口尺寸无溢出');
-  await openTeacherWorkspace(page,TEACHER_WORKSPACE.teaching);
-  const disclosure=page.locator('.teacher-section-disclosure').filter({hasText:'课后作业管理'});await disclosure.locator('summary').click();
+  await page.locator('.teacher-workspace-nav').getByRole('button',{name:'作业管理',exact:true}).click();
   await page.getByRole('button',{name:'创建作业',exact:true}).click();await page.getByRole('textbox',{name:'作业标题',exact:true}).fill('全平台审核作业');
   await page.route('**/api/teacher/classes/*/assignments',async route=>{if(route.request().method()==='POST')await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'创建故障注入'})});else await route.continue();});
   await page.locator('.assignment-creator').getByRole('button',{name:'创建',exact:true}).click();await expect(page.locator('.assignment-creator')).toContainText('创建失败');await expect(page.getByRole('textbox',{name:'作业标题',exact:true})).toHaveValue('全平台审核作业');

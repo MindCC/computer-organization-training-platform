@@ -16,6 +16,12 @@ export function hostedDemoOf(id) {
   const demo = HOSTED_DEMOS.find(item => item.id === id);
   return demo ? {...demo,path:`/demos/${demo.file}`} : null;
 }
+export const TWOS_ACTIVITIES = Object.freeze({add:'补码加法',sub:'补码减法',overflow:'溢出判断'});
+export function taskDemoPath(stage) {
+  const params=new URLSearchParams({embedded:'1'});
+  if(stage.demoId==='twos-complement'&&TWOS_ACTIVITIES[stage.demoActivity])params.set('activity',stage.demoActivity);
+  return `${hostedDemoOf(stage.demoId)?.path}?${params}`;
+}
 export function demoRedirectTarget(requestUrl) {
   const url = new URL(requestUrl, "http://localhost");
   if (url.searchParams.get("embedded") === "1") return null;

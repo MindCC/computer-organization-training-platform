@@ -3,6 +3,14 @@ import assert from "node:assert/strict";
 
 import { apiRequest, ApiError } from "./apiClient.js";
 
+test('stage validation errors preserve the failing node so the editor can select it',async()=>{
+  const originalFetch=globalThis.fetch;
+  try{
+    globalThis.fetch=async()=>new Response(JSON.stringify({error:{code:'INVALID_TASK',message:'第7个环节：请至少选择1道题目',stageId:'step-check',stageIndex:6}}),{status:400,headers:{'content-type':'application/json'}});
+    await assert.rejects(()=>apiRequest('/api/teacher/task-library',{method:'POST',body:'{}'}),error=>error instanceof ApiError&&error.stageId==='step-check'&&error.stageIndex===6&&error.status===400);
+  }finally{globalThis.fetch=originalFetch;}
+});
+
 test('legacy HTTP errors retain their status so expired sessions differ from service failures',async()=>{
   const originalFetch=globalThis.fetch;
   try {

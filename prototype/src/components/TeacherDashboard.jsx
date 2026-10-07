@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useState } from "react";
-import { ArrowsClockwise, ChalkboardTeacher, ChartDonut, ChartLineUp, ClipboardText, DesktopTower, Export, Robot, Student } from "@phosphor-icons/react";
+import { ArrowsClockwise, ChalkboardTeacher, ChartDonut, ChartLineUp, ClipboardText, DesktopTower, Exam, Export, Robot, Student } from "@phosphor-icons/react";
 import { adaptHardwareGameSummary } from "../shared/api/teacherOverviewAdapter.js";
 import { useVisibilityInterval } from "../hooks/useVisibilityInterval.js";
 import { TeacherClassSidebar } from "./teacher/TeacherClassSidebar.jsx";
@@ -18,6 +18,7 @@ import { TaskLearningPanel } from './classroom/teacher/TaskLearningPanel.jsx';
 
 const OVERVIEW_REFRESH_MS = 45_000;
 const ClassManagement = lazy(()=>import('./teacher/TeacherClassManagement.jsx').then(m=>({default:m.TeacherClassManagement})));
+const QuestionBankPage = lazy(()=>import('./teacher/QuestionBankPage.jsx').then(m=>({default:m.QuestionBankPage})));
 const STATISTIC_ITEMS = [
   { id: "overview", label: "学情洞察", icon: ChartLineUp },
   { id: "monitor", label: "学习监控", icon: ChartDonut },
@@ -39,14 +40,13 @@ export function TeacherStudioDashboard({
   teacherMessage, refreshTeacherClasses, isDemoTeacher,
   openTeacherStudentDetail, resetStudentPassword, selectedTeacherStudent,
   setSelectedTeacherStudent, buildTeacherAssistantInsights,
-  teacherSession, onOpenLab,
+  teacherSession, onOpenLab, workspace, setWorkspace,
 }) {
   const selectedClass = teacherClasses.find((item) => item.id === selectedTeacherClassId);
   const assistant = buildTeacherAssistantInsights(classOverview, selectedClass);
   const students = classOverview?.students ?? [];
   const hardwareSummary = adaptHardwareGameSummary(classOverview?.hardwareGameSummary);
   const [lastRefreshAt, setLastRefreshAt] = useState(() => Date.now());
-  const [workspace, setWorkspace] = useState('tasks');
   const [statistic, setStatistic] = useState('overview');
   const [adoptedPlan, setAdoptedPlan] = useState(null);
   const [learningScope,setLearningScope]=useState(null);
@@ -77,6 +77,8 @@ export function TeacherStudioDashboard({
         <aside className="teacher-workspace-nav" aria-label="教师工作区">
           <span className="teacher-nav-label">教学工作台</span>
           <button type="button" aria-pressed={workspace === 'tasks'} onClick={() => setWorkspace('tasks')}><ClipboardText size={18} />任务库</button>
+          <button type="button" aria-pressed={workspace === 'question-bank'} onClick={() => setWorkspace('question-bank')}><Exam size={18} />题库出卷</button>
+          <button type="button" aria-pressed={workspace === 'assignments'} onClick={() => setWorkspace('assignments')}><ClipboardText size={18} />作业管理</button>
           <button type="button" aria-pressed={workspace === 'classroom'} onClick={() => setWorkspace('classroom')}><ChalkboardTeacher size={18} />课堂执行</button>
           <button type="button" aria-pressed={workspace === 'teaching'} onClick={() => setWorkspace('teaching')}><ChalkboardTeacher size={18} />教学活动</button>
           <button type="button" aria-pressed={workspace === 'statistics'} onClick={() => setWorkspace('statistics')}><ChartDonut size={18} />学情统计</button>
@@ -114,9 +116,11 @@ export function TeacherStudioDashboard({
           </header>
 
           <section className="teacher-studio-main">
+          {workspace === 'question-bank' && <Suspense fallback={<p role="status">正在加载题库出卷…</p>}><QuestionBankPage teacherClasses={teacherClasses}/></Suspense>}
           {workspace === 'classes' && <Suspense fallback={<p role="status">正在加载班级管理…</p>}><ClassManagement selectedClass={selectedClass} overview={classOverview} onClassesChanged={refreshTeacherClasses} createRequest={createClassRequest} isDemoTeacher={isDemoTeacher} onBack={()=>{setCreateClassRequest(0);setWorkspace('teaching');}}/></Suspense>}
           {teacherMessage && workspace !== 'classes' && <p className="teacher-message" role="status">{teacherMessage}</p>}
-          {workspace === 'teaching' && <header className="statistics-heading"><span className="eyebrow">教学活动</span><h2>作业与课程组织</h2><p>管理班级作业、协作项目与课程资源。</p></header>}
+          {workspace === 'teaching' && <header className="statistics-heading"><span className="eyebrow">教学活动</span><h2>课程组织与项目评价</h2><p>管理协作项目与课程资源。</p></header>}
+          {workspace === 'assignments' && <><header className="statistics-heading"><span className="eyebrow">作业管理</span><h2>布置作业与批改反馈</h2><p>{selectedClass ? `当前班级：${selectedClass.name}。` : '请先选择班级。'}创建草稿、添加题目后发布，学生在“课后作业 → 教师作业”中接收并提交。</p></header>{selectedTeacherClassId ? <TeacherAssignments key={selectedTeacherClassId} classId={selectedTeacherClassId} /> : <p className="empty-state">请先选择或创建班级，再布置作业。</p>}</>}
           {workspace === 'classroom' && <header className="statistics-heading"><span className="eyebrow">课堂执行</span><h2>课堂任务与学生反馈</h2><p>演示已发布的课堂任务，查看学生进度和提交反馈。</p></header>}
           {workspace === 'tasks' && <TaskLibrary classes={teacherClasses} classId={selectedTeacherClassId} activeSession={teacherSession?.viewModel} initialPlan={adoptedPlan} onPlanCreated={()=>setAdoptedPlan(null)} onOpenLab={onOpenLab} onOpenClassroom={()=>setWorkspace('classroom')} onOpenStatistics={scope=>{if(scope.classId&&scope.classId!==selectedTeacherClassId)selectClass(scope.classId);setLearningScope(scope);setWorkspace('statistics');setStatistic('monitor');}} onPublished={session=>{if(session.class_id!==selectedTeacherClassId)selectClass(session.class_id);else teacherSession.loadOverview(session.id);setWorkspace('classroom');}}/>}
           {workspace === 'statistics' && <header className="statistics-heading"><span className="eyebrow">学情统计</span><h2>{({ overview: '章节完成度与班级概览', monitor: '课堂完成度与报告', assistant: 'AI 学情分析', students: '学生学习明细', practice: '装机练习与操作复盘' })[statistic]}</h2><p>基于当前班级的真实学习记录，查看完成情况与教学反馈。</p></header>}
@@ -153,12 +157,6 @@ export function TeacherStudioDashboard({
               sections={["checklist"]}
               key={`checklist:${selectedTeacherClassId}`}
             />
-          ) : null}
-          {selectedTeacherClassId ? (
-            <details className="teacher-section-disclosure">
-              <summary><span><ClipboardText size={18} />课后作业管理</span><small>布置、批改与查看完成情况</small></summary>
-              <div className="teacher-section-disclosure-body"><TeacherAssignments key={selectedTeacherClassId} classId={selectedTeacherClassId} /></div>
-            </details>
           ) : null}
           {selectedTeacherClassId ? (
             <details className="teacher-section-disclosure">

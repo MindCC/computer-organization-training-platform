@@ -15,6 +15,7 @@ const TEACHER_VIEWS = new Set(["teacher", "home", "courseware", "demos", "hardwa
 const GUEST_VIEWS = new Set(["home", "courseware", "demos"]);
 
 const CHALLENGE_ID_PATTERN = /^[a-z0-9-]{1,64}$/;
+export const TEACHER_WORKSPACES = new Set(['tasks', 'question-bank', 'assignments', 'classroom', 'teaching', 'statistics', 'classes']);
 
 export function readViewSession(storage = globalThis.sessionStorage) {
   try {
@@ -25,7 +26,7 @@ export function readViewSession(storage = globalThis.sessionStorage) {
     const challengeId = typeof parsed.challengeId === "string" && CHALLENGE_ID_PATTERN.test(parsed.challengeId)
       ? parsed.challengeId
       : null;
-    return { view: parsed.view, challengeId };
+    return { view: parsed.view, challengeId, ...(parsed.view === 'teacher' && TEACHER_WORKSPACES.has(parsed.teacherWorkspace) ? { teacherWorkspace: parsed.teacherWorkspace } : {}) };
   } catch {
     return null;
   }
@@ -33,7 +34,7 @@ export function readViewSession(storage = globalThis.sessionStorage) {
 
 export function writeViewSession(session, storage = globalThis.sessionStorage) {
   try {
-    storage?.setItem(STORAGE_KEY, JSON.stringify({ view: session?.view ?? "home", challengeId: session?.challengeId ?? null }));
+    storage?.setItem(STORAGE_KEY, JSON.stringify({ view: session?.view ?? "home", challengeId: session?.challengeId ?? null, ...(session?.view === 'teacher' && TEACHER_WORKSPACES.has(session.teacherWorkspace) ? { teacherWorkspace: session.teacherWorkspace } : {}) }));
   } catch {
     // 隐私模式或配额不足时静默降级为“不记忆”
   }
@@ -51,5 +52,6 @@ export function clearViewSession(storage = globalThis.sessionStorage) {
 export function resolveRestorableView(session, role) {
   if (!session?.view) return null;
   const allowed = role === "teacher" ? TEACHER_VIEWS : role === "student" ? STUDENT_VIEWS : GUEST_VIEWS;
+  if (role === 'teacher' && session.view === 'question-bank') return { ...session, view: 'teacher', teacherWorkspace: 'question-bank' };
   return allowed.has(session.view) ? session : null;
 }

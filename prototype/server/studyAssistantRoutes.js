@@ -1,9 +1,15 @@
 import { Router } from 'express';
 import { askStudyAssistant } from './studyAssistant.js';
+import { conversationPage, saveAiConversation } from './aiConversationRepository.js';
 
-export function createStudyAssistantRouter({ requireRole, options = {} }) {
+export function createStudyAssistantRouter({ db, requireRole, options = {} }) {
   const router = Router(), requests = new Map(), pending = new Set();
   for(const role of ['student','teacher']) {
+  router.get(`/${role}/study-assistant/history`, requireRole(role), (req,res) => {
+    res.set('Cache-Control', 'no-store');
+    try {res.json(role==='student' ? conversationPage(db, req.user.id, req.query.before) : {conversations:[],hasMore:false});}
+    catch(error){res.status(error.status??500).json({error:{message:error.message}});}
+  });
   router.post(`/${role}/study-assistant`, requireRole(role), async (req, res) => {
     res.set('Cache-Control', 'no-store');
     const now = Date.now(), id = req.user.id;
@@ -14,7 +20,11 @@ export function createStudyAssistantRouter({ requireRole, options = {} }) {
     const body = req.body ?? {}, context = body.context ?? {};
     const payload = { question: body.question, consent: body.consent, stateConsent:body.stateConsent, context: { questionId: context.questionId, conceptId: context.conceptId, chapterId: context.chapterId, assembly:body.stateConsent==='current-task-state'?context.assembly:undefined,circuit:body.stateConsent==='current-task-state'?context.circuit:undefined } };
     pending.add(id); requests.set(id, [...times, now]);
-    try { res.json(await askStudyAssistant(payload, options)); }
+    try {
+      const answer = await askStudyAssistant(payload, options);
+      if (role === 'student') saveAiConversation(db, { studentId:id, kind:'question', question:body.question, answer, context:payload.context });
+      res.json(answer);
+    }
     catch (error) { res.status(error.status ?? 500).json({ error: { code: 'STUDY_QUESTION_INVALID', message: error.status ? error.message : '提问暂时失败，请重试。' } }); }
     finally { pending.delete(id); }
   });

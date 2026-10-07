@@ -36,4 +36,5 @@
 .teacher-review-scope { display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-radius: 9px; border: 1px solid #cae4db; background: #edf7f1; color: #386a5b; font-size: 12px; line-height: 1.8; }
 .teacher-support-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid #e3ebed; font-size: 12px; }
 .teacher-support-row span { flex: 1; color: #698088; }
+.teacher-review-analysis .teacher-analysis-disclosure p { overflow-wrap: anywhere; white-space: pre-wrap; }
 @media(max-width:700px) { .teacher-review-heading { align-items: flex-start; flex-direction: column; } .teacher-review-heading h1 { font-size: 22px; } .teacher-review-metrics { grid-template-columns: 1fr 1fr; } .teacher-review-metrics strong { font-size: 21px; } .teacher-analysis-grid { grid-template-columns: 1fr; } .teacher-review-controls label { min-width: 100%; } .teacher-review-tabs { width: 100%; } .teacher-review-tabs button { flex: 1; } .teacher-analysis-chapter { grid-template-columns: 1fr; } }

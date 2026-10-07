@@ -1,4 +1,4 @@
-import { newTaskStage } from './classroomTaskChain.js';
+import { newTaskStage,twosTeacherDemonstration,twosArithmeticStages } from './classroomTaskChain.js';
 import { COURSE_CHAPTERS } from '../courseChapters.js';
 import { knowledgePointsByChapter, knowledgePointOf } from '../knowledgePoints.js';
 import { CHALLENGES } from '../platformLogic.js';
@@ -28,11 +28,13 @@ export function buildTeachingTemplate(templateId,chapterIds,goalIds) {
     const quiz=(purpose,ids)=>ids.length?({...newTaskStage('practice',`${chapterId}-${purpose}`),title:`${chapter.title} · ${purpose==='diagnosis'?'课前诊断':purpose==='retest'?'变式复测':'引导练习'}`,chapterId,questionIds:ids,completion:'submitted',purpose,instructions:'独立作答，用真实答题记录检验知识目标。提交即可继续；复测后由教师查看变化。',knowledgePointIds:selected}):({...newTaskStage('custom',`${chapterId}-${purpose}`),purpose,knowledgePointIds:selected,title:`${chapter.title} · ${purpose==='retest'?'解释与验证':'知识说明'}`,instructions:`围绕${selected.map(id=>knowledgePointOf(id).title).join('、')}解释你的理解与验证依据。本知识点暂无内置评价题，教师需补充作业或评价证据；文字提交仅记录参与。`,submissionMode:'text'});
     if(templateId!=='remediation')stages.push(quiz('diagnosis',diagnosis));
     const demo=HOSTED_DEMOS.find(d=>d.chapterId===chapterId);
-    if(demo)stages.push({...newTaskStage('demo',`${chapterId}-learn`),demoId:demo.id,title:`观察：${demo.title}`,purpose:'learning',knowledgePointIds:selected,instructions:'先预测结果，再操作演示验证，用自己的话解释过程。'});
+    const arithmetic=chapterId==='ch2'&&selected.length>0&&selected.every(id=>['concept-twos-complement','concept-signed-range-overflow'].includes(id));
+    if(arithmetic)stages.push(...[twosTeacherDemonstration(chapterId),...twosArithmeticStages(chapterId)].map(s=>({...s,knowledgePointIds:s.knowledgePointIds.filter(id=>selected.includes(id))})));
+    else if(demo)stages.push({...newTaskStage('demo',`${chapterId}-learn`),demoId:demo.id,title:`观察：${demo.title}`,purpose:'learning',knowledgePointIds:selected,instructions:'先预测结果，再操作演示验证，用自己的话解释过程。'});
     const relevantLabs=selected.flatMap(id=>knowledgePointOf(id)?.challengeIds??[]);
     const labs=CHALLENGES.filter(c=>c.chapterId===chapterId&&(!goalIds?.length||relevantLabs.includes(c.id)));
     const lab=labs.find(c=>templateId!=='transfer'||c.grading!=='participation')??labs[0];
-    if(templateId!=='remediation'&&lab)stages.push({...newTaskStage('lab',`${chapterId}-lab`),challengeId:lab.id,title:`动手：${lab.title}`,purpose:'practice',knowledgePointIds:selected,instructions:'在实验台完成实际操作并提交检测证据。'});
+    if(!arithmetic&&templateId!=='remediation'&&lab)stages.push({...newTaskStage('lab',`${chapterId}-lab`),challengeId:lab.id,title:`动手：${lab.title}`,purpose:'practice',knowledgePointIds:selected,instructions:'在实验台完成实际操作并提交检测证据。'});
     if(templateId==='remediation')stages.push(quiz('practice',diagnosis));
     const retestStage=quiz('retest',retest.length?retest:diagnosis);
     if(!retest.length&&diagnosis.length)retestStage.instructions+=' 本目标暂时缺少不同题号，当前为重复题；教师需补充变式题或其他验证证据。';
