@@ -7,7 +7,6 @@ import {
   ChartPieSlice,
   CheckCircle,
   ChatCircleText,
-  Exam,
   ClockCountdown,
   Cpu,
   Flame,
@@ -77,7 +76,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { QuestSettlement } from "./components/quest/QuestSettlement.jsx";
 import { buildQuestSettlement } from "./questExperience.js";
 import { useLabState } from "./hooks/useLabState.js";
-import { clearViewSession, readViewSession, resolveRestorableView, writeViewSession } from "./viewSession.js";
+import { clearViewSession, readViewSession, resolveRestorableView, writeViewSession, TEACHER_WORKSPACES } from "./viewSession.js";
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
 import { TaskChainBar } from './components/classroom/student/TaskChainBar.jsx';
@@ -116,8 +115,6 @@ const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
 const LabPage = lazy(() => import("./components/LabPage.jsx")
   .then((module) => ({ default: module.LabPage })));
 const TaskChainPage=lazy(()=>import('./components/classroom/student/TaskChainPage.jsx').then(module=>({default:module.TaskChainPage})));
-const QuestionBankPage = lazy(() => import("./components/teacher/QuestionBankPage.jsx")
-  .then((module) => ({ default: module.QuestionBankPage })));
 
 // 「关卡实验」不再出现在学生导航里：实验一律从课程首页的章节卡片进入，
 // 刷新恢复与课堂任务等场景仍可直接落在实验台视图。
@@ -145,15 +142,14 @@ const navGroups = [
     label: "学习任务",
     items: [
       { id: "assignments", label: "课后作业", icon: Notebook, role: "student" },
+      { id: "assignments", label: "题库试练", icon: Notebook, role: "teacher" },
     ],
   },
   {
     id: "teach",
-    label: "教学活动",
+    label: "教师看板",
     items: [
       { id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" },
-      { id: "question-bank", label: "题库出卷", icon: Exam, role: "teacher" },
-      { id: "assignments", label: "课后作业", icon: Notebook, role: "teacher" },
     ],
   },
   {
@@ -517,6 +513,7 @@ export function App() {
   const pendingDestinationRef = useRef(null);
   const [demoId, setDemoId] = useState(() => new URLSearchParams(window.location.search).get("demo"));
   const [activeView, setActiveView] = useState(demoId ? "demo" : "home");
+  const [teacherWorkspace, setTeacherWorkspace] = useState('tasks');
   const [studyTarget, setStudyTarget] = useState(null);
   const platformTopbarRef=useRef(null);
   useEffect(()=>{
@@ -659,7 +656,8 @@ export function App() {
   const [initialViewSession] = useState(() => readViewSession());
   // 恢复结论落地前不要写回，避免同样的覆盖
   const restoreSettledRef = useRef(false);
-  useViewHistory({user:auth.user,enabled:auth.status!=='loading'&&auth.status!=='error'&&!showLogin,route:{view:activeView,challengeId:activeView==='lab'?lab.selectedChallengeId:null,caseId:activeView==='hardware-game'?selectedHardwareCaseId:null,demoId:activeView==='demo'?demoId:null,studyTarget:activeView==='assignments'?studyTarget:null},restore:route=>{
+  useViewHistory({user:auth.user,enabled:auth.status!=='loading'&&auth.status!=='error'&&!showLogin,route:{view:activeView,teacherWorkspace:activeView==='teacher'?teacherWorkspace:null,challengeId:activeView==='lab'?lab.selectedChallengeId:null,caseId:activeView==='hardware-game'?selectedHardwareCaseId:null,demoId:activeView==='demo'?demoId:null,studyTarget:activeView==='assignments'?studyTarget:null},restore:route=>{
+    if(route.view==='question-bank'&&auth.user?.role==='teacher')route={...route,view:'teacher',teacherWorkspace:'question-bank'};
     if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo','classroom','question-bank'].includes(route.view))return false;
     if(!auth.user&&!['home','courseware','demos','demo'].includes(route.view))return false;
     if(auth.user?.role==='teacher'&&!['teacher','home','courseware','demos','demo','hardware-game','records','mistakes','lab','assignments','notes','question-bank'].includes(route.view))return false;
@@ -667,6 +665,7 @@ export function App() {
     if(route.view==='lab'&&!lab.selectChallenge(route.challengeId))return false;
     if(route.view==='hardware-game'&&!HARDWARE_GAME_CASES.some(item=>item.id===route.caseId))return false;
     if(route.caseId)setSelectedHardwareCaseId(route.caseId);
+    if(route.view==='teacher')setTeacherWorkspace(TEACHER_WORKSPACES.has(route.teacherWorkspace)?route.teacherWorkspace:'tasks');
     setDemoId(route.demoId??null);setStudyTarget(route.studyTarget??null);setShowUserPanel(false);setSupportPanel(null);setQuestSettlement(null);setActiveView(route.view);window.scrollTo(0,0);return true;
   }});
 
@@ -689,6 +688,7 @@ export function App() {
           pendingLabRestoreRef.current = restored.challengeId;
           setActiveView("lab");
         } else if (restored) {
+          if(restored.view==='teacher')setTeacherWorkspace(restored.teacherWorkspace??'tasks');
           setActiveView(restored.view);
         } else if (user.role === "teacher") {
           setActiveView("teacher");
@@ -715,8 +715,8 @@ export function App() {
   // 否则会把教师/学生带到错误的落地页。
   useEffect(() => {
     if (auth.status === "loading" || auth.status === "error" || showLogin || !restoreSettledRef.current) return;
-    writeViewSession({ view: activeView, challengeId: activeView === "lab" ? lab.selectedChallengeId : null });
-  }, [auth.user?.id, auth.status, activeView, lab.selectedChallengeId, showLogin]);
+    writeViewSession({ view: activeView, challengeId: activeView === "lab" ? lab.selectedChallengeId : null, teacherWorkspace: activeView === 'teacher' ? teacherWorkspace : undefined });
+  }, [auth.user?.id, auth.status, activeView, teacherWorkspace, lab.selectedChallengeId, showLogin]);
 
   // 学情加载完成后再恢复实验台关卡；目标关卡仍锁定则退回首页。
   // 必须把 activeView 纳入依赖：pendingLabRestoreRef 是在 setAuth/progress 之后才赋值的，
@@ -900,6 +900,12 @@ export function App() {
   }
 
   function changeView(view) {
+    const destinationLabel = navGroups.flatMap(group => group.items).find(item => item.id === view)?.label;
+    if(view === 'teacher-assignments' || view === 'question-bank') {
+      if(auth.user?.role !== 'teacher')return;
+      setTeacherWorkspace(view === 'question-bank' ? 'question-bank' : 'assignments');
+      view='teacher';
+    } else if(view === 'teacher')setTeacherWorkspace('tasks');
     if (auth.user?.role === 'admin' && !['home', 'courseware', 'demos'].includes(view)) return;
     if (!auth.user && !["home", "courseware", "demos"].includes(view)) {
       requestLogin({ type: "view", view });
@@ -913,7 +919,7 @@ export function App() {
     setStudyTarget(null);
     setActiveView(view);
     window.scrollTo(0,0);
-    setStatusMessage(`已切换到${navGroups.flatMap((group) => group.items).find((item) => item.id === view)?.label ?? "当前页面"}。`);
+    setStatusMessage(`已切换到${destinationLabel ?? "当前页面"}。`);
   }
 
   function openDemo(id) {
@@ -926,7 +932,7 @@ export function App() {
   }
 
   function openStudyTarget(target) {
-    if (auth.user?.role === 'teacher' && target?.source === 'assignment') { changeView('teacher'); return; }
+    if (auth.user?.role === 'teacher' && target?.source === 'assignment') { changeView('teacher-assignments'); return; }
     changeView(target?.source==='service'?"hardware-game":"assignments");
     setStudyTarget(target);
   }
@@ -1239,13 +1245,6 @@ export function App() {
           {activeView === "assignments" ? <StudentAssignments key={`${auth.user?.id}:${JSON.stringify(studyTarget)}`} userId={auth.user?.id} practiceOnly={auth.user?.role === 'teacher'} destination={studyTarget} progress={progress} navigateToChallenge={navigateToChallenge} onOpenMistakes={() => changeView("mistakes")} onOpenLearning={() => changeView('records')} /> : null}
           {/* 互动演示只渲染演示 hub：AI讲演有自己的入口与视图，不能同屏叠加。 */}
           {activeView === "courseware" ? <CoursewareView key={auth.user?.id??'guest'} navigateToChallenge={navigateToChallenge} auth={auth} teacherClasses={teacherClasses} selectedTeacherClassId={selectedTeacherClassId} onSelectTeacherClass={setSelectedTeacherClassId} /> : null}
-          {activeView === "question-bank" && auth.user?.role === 'teacher' ? (
-            <ErrorBoundary>
-              <Suspense fallback={<FeatureLoading label="正在加载题库出卷..." />}>
-                <QuestionBankPage key={auth.user.id} teacherClasses={teacherClasses} />
-              </Suspense>
-            </ErrorBoundary>
-          ) : null}
           {activeView === "teacher" ? (
             <ErrorBoundary>
             <TeacherStudioDashboard
@@ -1259,6 +1258,7 @@ export function App() {
               selectedTeacherStudent={selectedTeacherStudent} setSelectedTeacherStudent={setSelectedTeacherStudent}
               buildTeacherAssistantInsights={buildTeacherAssistantInsights}
               teacherSession={teacherSession}
+              workspace={teacherWorkspace} setWorkspace={setTeacherWorkspace}
               onOpenLab={navigateToChallenge}
             />
             </ErrorBoundary>

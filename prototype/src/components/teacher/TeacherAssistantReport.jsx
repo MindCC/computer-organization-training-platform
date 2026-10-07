@@ -1,10 +1,20 @@
 import { Sparkle } from "@phosphor-icons/react";
+import { useEffect, useState } from 'react';
 import { CHALLENGES } from "../../platformLogic.js";
+import { apiRequest } from '../../apiClient.js';
 
 const challengeNames = new Map(CHALLENGES.map((challenge) => [challenge.id, challenge.title]));
 
 /** 智能助教面板：展示 AI（或本地规则降级）生成的课堂行动建议。 */
 export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assistantLoading, assistantError, generateAssistantReport, students = [], onOpenStudent, canAdoptPlan = true, onAdoptPlan }) {
+  const [conversations,setConversations]=useState(null);
+  useEffect(()=>{
+    let cancelled=false;
+    setConversations(null);
+    if(selectedTeacherClassId)apiRequest(`/api/teacher/classes/${selectedTeacherClassId}/learning-review/ai-conversations`)
+      .then(data=>{if(!cancelled)setConversations(data);}).catch(()=>{});
+    return()=>{cancelled=true;};
+  },[selectedTeacherClassId,assistant]);
   const report = assistant?.report ?? {};
   const riskStudents = report.riskStudents ?? [];
   const groupingPlan = report.groupingPlan ?? [];
@@ -28,6 +38,11 @@ export function TeacherAssistantReport({ assistant, selectedTeacherClassId, assi
           <Sparkle size={16} />{assistantLoading ? "生成中..." : "生成 AI 助教建议"}
         </button>
       </div>
+      {conversations&&<section className="teacher-assistant-evidence" aria-label="AI 对话学情分析">
+        <strong>学生与 AI 对话 · 本地学情分析</strong>
+        <p>{conversations.students} 名学生共发起 {conversations.total} 次求助，其中 {conversations.aiResponses} 次获得 AI 讲解，其余使用本地提示。提问只表示求助需求，不能直接作为掌握程度或成绩。</p>
+        {conversations.topics.length?<ul>{conversations.topics.slice(0,8).map(item=><li key={`${item.chapterId}:${item.topic}`}>{item.topic}：{item.students} 人，{item.count} 次</li>)}</ul>:<p>暂无对话记录。</p>}
+      </section>}
       {assistantError ? <p className="teacher-ai-warning">{assistantError}</p> : null}
       {assistant ? (
         <div className="teacher-assistant-report">

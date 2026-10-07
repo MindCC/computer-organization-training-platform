@@ -1976,6 +1976,16 @@ document.addEventListener("keydown", (event) => {
 });
 
 /* ───────────────────────── 启动 ───────────────────────── */
+// Task chains choose a public teaching activity; ordinary standalone demos keep their default.
+const chainActivity = new URLSearchParams(location.search).get('activity');
+const chainPresets = {add:{mode:'add',a:5,b:-3},sub:{mode:'sub',a:5,b:3},overflow:{mode:'add',a:100,b:100}};
+if (Object.hasOwn(chainPresets, chainActivity)) {
+  const preset = chainPresets[chainActivity];
+  state.mode = preset.mode;
+  state.A = decToBits(preset.a);
+  state.B = decToBits(preset.b);
+  document.querySelectorAll('#modeTabs button').forEach(btn => btn.classList.toggle('active', btn.dataset.mode === state.mode));
+}
 buildOperandBits("bitsA", "A");
 buildOperandBits("bitsB", "B");
 refreshScenario(0);

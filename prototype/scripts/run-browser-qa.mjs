@@ -8,6 +8,7 @@ import { fileURLToPath } from "node:url";
 const allowedVerifiers = new Set([
   'scripts/verify-first-load.mjs',
   'scripts/verify-navigation-practice.mjs',
+  'scripts/verify-teacher-homework.mjs',
   'scripts/verify-study-companion.mjs',
   'scripts/verify-feedback.mjs',
   'scripts/verify-teaching-loop.mjs',

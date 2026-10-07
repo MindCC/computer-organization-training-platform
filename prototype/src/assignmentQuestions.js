@@ -123,6 +123,11 @@ export const ASSIGNMENT_QUESTIONS = Object.freeze([
     stem:'补码加法只要最高位向外产生进位，就一定发生有符号溢出。',answer:'false',
     analysis:'向外进位与有符号溢出不同。例如 5 + (−3) 有向外进位，结果 2 仍在范围内；100 + 100 没有向外进位，却发生有符号溢出。'},
 
+  {id:'ch2-q11',chapterId:'ch2',kpId:'concept-twos-complement',type:'choice',score:10,
+    stem:'用8位补码计算 (−5) + (−3)，保留低8位的结果是？',
+    options:['11111000（−8）','00001000（8）','11111110（−2）','10001000（−120）'],answer:'11111000（−8）',
+    analysis:'11111011 + 11111101 = 1 11111000。保留低8位得到−8，符号位参与相加；有向外进位，结果仍在−128～127范围内，没有有符号溢出。'},
+
   // ---- 第三章 运算单元设计（数据流 + 门 + 加法器 + 选择器 + ALU） ----
   {
     id: "ch3-q01", chapterId: "ch3", kpId: "concept-boolean-gates", type: "choice", score: 10,

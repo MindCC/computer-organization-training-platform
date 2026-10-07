@@ -15,6 +15,7 @@ export function taskChainMessages(prompt) {
     '1到16个环节，id唯一，minutes为1到90的整数。demo需demoId；lab需challengeId；practice需chapterId、questionIds（同章节1到30题）、completion（submitted或passed）；ai/courseware需chapterId；reflection只需公共字段。courseware只能选已配置的章节。不要生成assignment节点，教师采用草稿后自行关联班级作业。',
     '按照课时安排环节时间。目标和操作要具体，用实验、题目或学生说明形成可查看的学习证据。不要编造学生学情。',
     '可选knowledgePointIds须使用知识目录id。节点purpose为diagnosis/learning/practice/retest/reflection，分别表示诊断/学习/练习/复测/反思。复测应使用不同题号且评价相同知识点。不要生成followUp或学生名单字段。',
+    '补码加减运算课应沿前置诊断→教师讲解演示→动手补码加法→动手补码减法→溢出判断→综合测验推进。教师演示是独立学习节点，使用demoId="twos-complement"、demoActivity="add"、purpose="learning"、submissionMode="confirm"，学生跟随观察，教师可切换加减法和溢出案例讲解。machine-number实验仅验证负数编码，适合前置补学。运算动手节点使用demoId="twos-complement"，demoActivity分别为add/sub/overflow，submissionMode="text"要求提交运算说明。学生可改参数逐步验证，文字说明只记录参与，测验提供知识成绩。',
     `可用功能：${JSON.stringify(Object.entries(TASK_TYPES).filter(([type])=>type!=='assignment').map(([type,meta])=>({type,label:meta.label,hint:meta.hint})))}`,
   ].join('\n')}];
   messages.push({role:'user',content:`公开互动演示：${JSON.stringify(HOSTED_DEMOS.map(({id,title,chapterId})=>({id,title,chapterId})))}`});

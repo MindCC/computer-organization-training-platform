@@ -6,7 +6,7 @@ import { COURSE_CHAPTERS } from '../../../courseChapters.js';
 import { buildTeachingTemplate,publicFollowUpPrompt } from '../../../shared/teachingLoop.js';
 import { TeachingTemplatePicker,RecipientPicker } from './TeachingTemplatePicker.jsx';
 import { validateClassroomSessionConfig } from '../../../shared/classroomMissionDefinitions.js';
-import { HOSTED_DEMOS } from '../../../shared/demoNavigation.js';
+import { HOSTED_DEMOS,TWOS_ACTIVITIES } from '../../../shared/demoNavigation.js';
 import { CHALLENGES } from '../../../platformLogic.js';
 import { COURSEWARE } from '../../../courseware.js';
 import { questionsForChapter } from '../../../assignmentQuestions.js';
@@ -44,7 +44,14 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, assistantR
   },[chain.followUp?.sourceTaskId,chain.followUp?.sourceSessionId,rosterVersion]);
   function present(index=0){
     try { setPreview({mission:validateTaskChain(chain),index});setError(''); }
-    catch(cause){setError(`请先完善任务内容：${cause.message}`);}
+    catch(cause){showValidationError(cause,'请先完善任务内容：');}
+  }
+  function showValidationError(cause,prefix=''){
+    if(cause.stageId&&chain.stages.some(stage=>stage.id===cause.stageId)){
+      setSelected(cause.stageId);setCreationMode('manual');
+      requestAnimationFrame(()=>document.querySelector('.chain-stage-editor')?.scrollIntoView({block:'center',behavior:'smooth'}));
+    }
+    setError(`${prefix}${cause.message??'任务链保存失败，请重试'}`);
   }
   const [creationMode,setCreationMode]=useState('manual'),[aiPrompt,setAiPrompt]=useState(''),[candidate,setCandidate]=useState(null),[generating,setGenerating]=useState(false);
   async function generate(){
@@ -73,16 +80,16 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, assistantR
     try{
       const config=validateClassroomSessionConfig({templateKey:'task-chain',taskChain:chain,durationMinutes,passScore,allowMakeup:initial.allowMakeup??false,...(plan?{lessonPlan:{...plan,steps:plan.steps.map(step=>step.trim()).filter(Boolean)}}:{})});
       await onCreateSession(config,sourceReport?{assistantReportId:sourceReport.reportId,decisionNote}:{});
-    }catch(cause){setError(cause.message??'任务链保存失败，请重试');}finally{setSubmitting(false);}
+    }catch(cause){showValidationError(cause);}finally{setSubmitting(false);}
   }
   return <section className="session-setup-panel task-chain-builder" aria-label="创建课堂任务链">
     <header className="chain-builder-heading">{libraryMode&&<button type="button" className="ghost-button" onClick={onCancel}>返回任务库</button>}<span className="chain-kicker"><Link size={18}/>{editing||initialSession?'修改任务':'创建课堂任务'}</span><h2>任务工作流编排</h2><p>拖动节点、连接任务顺序，选择节点设置内容与完成条件。</p></header>
     <div className="chain-creation-tabs" role="tablist" aria-label="任务链创建方式"><button type="button" role="tab" aria-selected={creationMode==='ai'} onClick={()=>setCreationMode('ai')}>AI 创建</button><button type="button" role="tab" aria-selected={creationMode==='manual'} onClick={()=>setCreationMode('manual')}>手动编排</button></div>
-    {creationMode==='ai'&&<section className="chain-ai-create" aria-label="AI创建任务链"><h3>描述你希望开展的课堂</h3><p>写明教学主题、课时、学生基础，以及需要串联的功能。生成后可继续手动修改。</p><label>教学要求<textarea aria-label="AI教学要求" rows={4} maxLength={2000} value={aiPrompt} onChange={event=>setAiPrompt(event.target.value)} placeholder="例如：一节45分钟的补码运算课，安排课前诊断、互动演示、编码实验、AI答疑、随堂检验与反思。"/></label><small>点击生成时，将本次教学要求与公开课程资源目录发送至 DeepSeek。</small><button type="button" className="primary-button" disabled={generating||!classId} onClick={generate}>{generating?'正在生成…':'生成任务链草稿'}</button>{candidate&&<div className="chain-generated-draft" aria-live="polite"><span className="chain-kicker">{candidate.source==='deepseek'?'DeepSeek 生成草稿':'本地模板建议 · 非模型生成'}</span>{generationNote(candidate)&&<p role="status">{generationNote(candidate)}</p>}<h3>{candidate.taskChain.title}</h3><ol>{candidate.taskChain.stages.map(stage=><li key={stage.id}>{stage.title} · {stage.minutes}分钟</li>)}</ol><button type="button" className="primary-button" onClick={()=>{adopt(candidate.taskChain);setDurationMinutes(Math.min(180,Math.max(10,candidate.taskChain.stages.reduce((sum,stage)=>sum+stage.minutes,0))));setSelected(candidate.taskChain.stages[0]?.id??null);setCreationMode('manual');setCandidate(null);}}>采用草稿并继续编排</button></div>}</section>}
+    {creationMode==='ai'&&<section className="chain-ai-create" aria-label="AI创建任务链"><h3>描述你希望开展的课堂</h3><p>写明教学主题、课时、学生基础，以及需要串联的功能。生成后可继续手动修改。</p><label>教学要求<textarea aria-label="AI教学要求" rows={4} maxLength={2000} value={aiPrompt} onChange={event=>setAiPrompt(event.target.value)} placeholder="例如：一节45分钟的补码运算课，安排前置诊断、动手加法、动手减法、溢出判断、AI答疑、综合测验与反思。"/></label><small>点击生成时，将本次教学要求与公开课程资源目录发送至 DeepSeek。</small><button type="button" className="primary-button" disabled={generating||!classId} onClick={generate}>{generating?'正在生成…':'生成任务链草稿'}</button>{candidate&&<div className="chain-generated-draft" aria-live="polite"><span className="chain-kicker">{candidate.source==='deepseek'?'DeepSeek 生成草稿':'本地模板建议 · 非模型生成'}</span>{generationNote(candidate)&&<p role="status">{generationNote(candidate)}</p>}<h3>{candidate.taskChain.title}</h3><ol>{candidate.taskChain.stages.map(stage=><li key={stage.id}>{stage.title} · {stage.minutes}分钟</li>)}</ol><button type="button" className="primary-button" onClick={()=>{adopt(candidate.taskChain);setDurationMinutes(Math.min(180,Math.max(10,candidate.taskChain.stages.reduce((sum,stage)=>sum+stage.minutes,0))));setSelected(candidate.taskChain.stages[0]?.id??null);setCreationMode('manual');setCandidate(null);}}>采用草稿并继续编排</button></div>}</section>}
     <div hidden={creationMode!=='manual'}>
     <details className="teaching-template-disclosure"><summary>选择通用教学模板（适用于八章）</summary><TeachingTemplatePicker onUse={adopt} initialChapterId={goalChapter}/></details>
     <div className="chain-template-picker" aria-label="任务链模板">
-      <button type="button" onClick={()=>useTemplate('twos')}><strong>补码运算课</strong><small>诊断 → 演示 → 实验 → AI 答疑 → 检验 → 反思</small></button>
+      <button type="button" onClick={()=>useTemplate('twos')}><strong>补码运算课</strong><small>诊断 → 教师演示 → 加法 → 减法 → 溢出 → 答疑 → 检验 → 反思</small></button>
       <button type="button" onClick={()=>useTemplate('data-flow')}><strong>五大部件与数据流</strong><small>复用原有四阶段实验路线</small></button>
       <button type="button" onClick={()=>useTemplate('empty')}><strong>自定义任务链</strong><small>从空白开始组合你的课堂</small></button>
     </div>
@@ -110,7 +117,7 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, assistantR
         <StageResource stage={active} patch={patch} assignments={assignments}/>
         {active.type==='assignment'&&assignmentError&&<p role="alert">{assignmentError}<button type="button" onClick={()=>setResourceVersion(value=>value+1)}>重试</button></p>}
         <div className="chain-stage-options"><label>预计用时（分钟）<input aria-label="环节预计用时" type="number" min={1} max={90} value={active.minutes} onChange={event=>patch({minutes:Number(event.target.value)})}/></label>
-          {active.type==='custom'?<label>完成条件<select aria-label="自定义完成条件" value={active.submissionMode??'text'} onChange={event=>patch({submissionMode:event.target.value})}><option value="text">提交文字说明</option><option value="confirm">本人确认完成</option></select><small>参与记录，不计知识成绩。</small></label>:active.type==='practice'?<label>完成条件<select aria-label="完成条件" value={active.completion} onChange={event=>patch({completion:event.target.value})}><option value="submitted">提交全部题目即可继续</option><option value="passed">达到课堂及格分才继续</option></select></label>:<div className="chain-completion-rule"><CheckCircle size={18}/><span>{TASK_TYPES[active.type].completion}<small>{['ai','reflection','demo','courseware'].includes(active.type)?'记录参与完成，不计入知识成绩':'以系统真实提交为依据'}</small></span></div>}
+          {['custom','demo'].includes(active.type)?<label>完成条件<select aria-label={active.type==='custom'?'自定义完成条件':'演示完成条件'} value={active.submissionMode??(active.type==='custom'?'text':'confirm')} onChange={event=>patch({submissionMode:event.target.value})}><option value="text">提交文字说明</option><option value="confirm">本人确认完成</option></select><small>参与记录，不计知识成绩。</small></label>:active.type==='practice'?<label>完成条件<select aria-label="完成条件" value={active.completion} onChange={event=>patch({completion:event.target.value})}><option value="submitted">提交全部题目即可继续</option><option value="passed">达到课堂及格分才继续</option></select></label>:<div className="chain-completion-rule"><CheckCircle size={18}/><span>{TASK_TYPES[active.type].completion}<small>{['ai','reflection','demo','courseware'].includes(active.type)?'记录参与完成，不计入知识成绩':'以系统真实提交为依据'}</small></span></div>}
         </div>
       </>:<div className="chain-empty"><Link size={32}/><p>选择一个环节，设置它的内容与完成条件。</p></div>}</section>
     </div>
@@ -132,9 +139,9 @@ export function TaskChainBuilder({ onCreateSession, initialPlan=null, assistantR
 }
 
 function StageResource({stage,patch,assignments}) {
-  if(stage.type==='demo')return <label>互动演示<select aria-label="互动演示内容" value={stage.demoId} onChange={event=>patch({demoId:event.target.value})}>{HOSTED_DEMOS.map(demo=><option key={demo.id} value={demo.id}>{demo.title}</option>)}</select></label>;
+  if(stage.type==='demo')return <><label>互动演示<select aria-label="互动演示内容" value={stage.demoId} onChange={event=>patch({demoId:event.target.value,demoActivity:undefined})}>{HOSTED_DEMOS.map(demo=><option key={demo.id} value={demo.id}>{demo.title}</option>)}</select></label>{stage.demoId==='twos-complement'&&<label>进入时的运算活动<select aria-label="运算活动" value={stage.demoActivity??''} onChange={event=>patch({demoActivity:event.target.value||undefined})}><option value="">自由探索</option>{Object.entries(TWOS_ACTIVITIES).map(([id,title])=><option key={id} value={id}>{title}</option>)}</select></label>}</>;
   if(stage.type==='lab')return <label>实验任务<select aria-label="实验任务内容" value={stage.challengeId} onChange={event=>patch({challengeId:event.target.value})}>{CHALLENGES.map(item=><option key={item.id} value={item.id}>{item.title}</option>)}</select></label>;
-  if(stage.type==='assignment')return <label>关联班级作业<select aria-label="关联班级作业" value={stage.assignmentId??''} onChange={event=>patch({assignmentId:Number(event.target.value)})}><option value="">选择已发布的作业</option>{assignments.map(item=><option key={item.id} value={item.id}>{item.title} · {item.question_count}题</option>)}</select>{!assignments.length&&<small>先在下方“课后作业管理”发布作业，再添加到任务链。</small>}</label>;
+  if(stage.type==='assignment')return <label>关联班级作业<select aria-label="关联班级作业" value={stage.assignmentId??''} onChange={event=>patch({assignmentId:Number(event.target.value)})}><option value="">选择已发布的作业</option>{assignments.map(item=><option key={item.id} value={item.id}>{item.title} · {item.question_count}题</option>)}</select>{!assignments.length&&<small>先在教学工作台的“作业管理”中发布作业，再添加到任务链。</small>}</label>;
   if(!['practice','ai','courseware'].includes(stage.type))return null;
   const chapters=COURSEWARE.chapters.filter(chapter=>stage.type!=='courseware'||chapter.embeds?.length);
   return <><label>课程章节<select aria-label="环节课程章节" value={stage.chapterId} onChange={event=>patch({chapterId:event.target.value,...(stage.type==='practice'?{questionIds:questionsForChapter(event.target.value).slice(0,3).map(q=>q.id)}:{})})}>{chapters.map(chapter=><option key={chapter.id} value={chapter.id}>{chapter.title}</option>)}</select></label>

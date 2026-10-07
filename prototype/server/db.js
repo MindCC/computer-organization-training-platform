@@ -541,6 +541,20 @@ export function migrate(db) {
   sanitizeStoredUserProfiles(db);
   migrateLearningCoach(db);
   migrateStudyWorkspace(db);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('question','lab_hint')),
+      question TEXT NOT NULL,
+      answer_json TEXT NOT NULL,
+      answer_source TEXT NOT NULL,
+      chapter_id TEXT,
+      topic TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_ai_conversations_student ON ai_conversations(student_id,id DESC);
+  `);
 }
 
 // SQLite cannot alter a CHECK constraint. Rebuild only the user table, retaining

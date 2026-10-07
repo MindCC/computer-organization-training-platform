@@ -8,6 +8,7 @@ import { serviceRecords } from './shopServiceRoutes.js';
 import { LEARNING_ITEMS, summarizeLearning } from '../src/platformLogic.js';
 import { demoTitleOf } from './demoValidation.js';
 import { analyzeTeachingRecords } from '../src/teacherLearningAnalysis.js';
+import { aiConversationSummary, classAiConversationSummary, conversationPage, listAiConversations } from './aiConversationRepository.js';
 
 function homeworkSummary(db, studentId, classId) {
   if (!classId) return { assigned: 0, submitted: 0, graded: 0, pendingGrading: 0, averageScore: null };
@@ -26,7 +27,8 @@ export function learningReviewData(db, user, classId = null) {
   }
   const practice = practiceState(db, user.id), graded = Object.values(practice.graded);
   return { id: user.id, username: user.username, displayName: user.displayName, progress, summary: summarizeLearning(LEARNING_ITEMS, progress), mistakes,
-    practice: { answered: graded.length, correct: graded.filter(item => item.correct).length }, homework: homeworkSummary(db, user.id, classId) };
+    practice: { answered: graded.length, correct: graded.filter(item => item.correct).length }, homework: homeworkSummary(db, user.id, classId),
+    aiConversations: aiConversationSummary(db, user.id) };
 }
 export function createTeacherLearningReviewRouter({ db, requireRole }) {
   const router = Router();
@@ -50,7 +52,7 @@ export function createTeacherLearningReviewRouter({ db, requireRole }) {
   function detail(user, classId) {
     const data = learningReviewData(db, user, classId);
     const demos = summarizeDemoAttempts(db, user.id).map(item => ({ ...item, title: demoTitleOf(item.demoId) }));
-    return { ...data, demos, serviceRecords: serviceRecords(db, user.id), analysis: analyzeTeachingRecords([data]) };
+    return { ...data, demos, serviceRecords: serviceRecords(db, user.id), conversations: listAiConversations(db,user.id), analysis: analyzeTeachingRecords([data]) };
   }
   router.get('/teacher/learning-review', requireRole('teacher'), (req,res) => {
     res.set('Cache-Control','no-store'); res.json(detail({ id: req.user.id, username: req.user.username, displayName: req.user.display_name }, null));
@@ -71,6 +73,19 @@ export function createTeacherLearningReviewRouter({ db, requireRole }) {
   router.get(base, (req,res) => {
     const students = listClassStudents(db, Number(req.params.classId)).map(user => learningReviewData(db, user, Number(req.params.classId)));
     res.json({ students: students.map(({ mistakes, progress, ...student }) => ({ ...student, mistakeOverview: mistakes.overview })), analysis: analyzeTeachingRecords(students) });
+  });
+  router.get(base+'/ai-conversations', (req,res) => {
+    const students = listClassStudents(db, Number(req.params.classId)).map(user=>({
+      id:user.id, aiConversations:aiConversationSummary(db,user.id),
+    }));
+    res.json(classAiConversationSummary(students));
+  });
+  router.get(base+'/:studentId/ai-conversations', (req,res) => {
+    const id=Number(req.params.studentId), classId=Number(req.params.classId);
+    const student=Number.isSafeInteger(id)&&listClassStudents(db,classId).some(item=>item.id===id);
+    if(!student)return res.status(404).json({error:'学生不在当前班级'});
+    try{res.json(conversationPage(db,id,req.query.before));}
+    catch(error){res.status(error.status??500).json({error:error.message});}
   });
   router.get(base+'/:studentId', (req,res) => {
     const id = Number(req.params.studentId), classId = Number(req.params.classId);

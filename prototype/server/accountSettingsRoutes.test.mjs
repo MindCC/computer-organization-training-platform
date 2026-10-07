@@ -109,6 +109,28 @@ test('legacy seeded classmates are removed from the one-click demo class roster'
   } finally { await f.close(); }
 });
 
+test('demo login renames the shared class and keeps provisioned classmates', async () => {
+  const f = await fixture();
+  try {
+    const teacherJar = {};
+    const first = await f.request('/api/auth/demo-login', { role: 'teacher' }, teacherJar);
+    assert.equal(first.status, 200);
+    const original = (await f.request('/api/teacher/classes', undefined, teacherJar, 'GET')).body.classes[0];
+    f.db.prepare('UPDATE classes SET name = ? WHERE id = ?').run('芯游记 · 演示教学班', original.id);
+    const classmate = createUser(f.db, { username: '2026001', displayName: '学生01', role: 'student', passwordHash: f.passwordHash });
+    addStudentToClass(f.db, original.id, classmate.id);
+
+    const second = await f.request('/api/auth/demo-login', { role: 'student' });
+    assert.equal(second.status, 200);
+    const classes = (await f.request('/api/teacher/classes', undefined, teacherJar, 'GET')).body.classes;
+    assert.equal(classes.length, 1);
+    assert.equal(classes[0].id, original.id);
+    assert.equal(classes[0].name, '计算机组成原理1班');
+    const overview = await f.request(`/api/teacher/classes/${original.id}/overview`, undefined, teacherJar, 'GET');
+    assert.deepEqual(new Set(overview.body.students.map(student => student.id)), new Set([classmate.id, second.body.user.id]));
+  } finally { await f.close(); }
+});
+
 test('production demo default is closed; explicitly disabled demo creates no accounts', async () => {
   assert.equal(isDemoLoginEnabled({}, { NODE_ENV: 'production' }), false);
   assert.equal(isDemoLoginEnabled({}, { NODE_ENV: 'production', ENABLE_DEMO_LOGIN: 'true' }), true);

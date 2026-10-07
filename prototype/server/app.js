@@ -85,6 +85,7 @@ import { createMindMapRouter } from './mindMapRoutes.js';
 import { createCustomCustomerRouter } from './customCustomerRoutes.js';
 import { createShopServiceRouter, serviceRecords } from './shopServiceRoutes.js';
 import { createStudyAssistantRouter } from './studyAssistantRoutes.js';
+import { saveAiConversation } from './aiConversationRepository.js';
 import { createLearningCoachRouter } from './learningCoachRoutes.js';
 import { createStudyWorkspaceRouter } from './studyWorkspaceRoutes.js';
 import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js";
@@ -102,6 +103,7 @@ export function createApp(options = {}) {
   const db = options.db ?? openDatabase(options.databasePath);
   const assistantReportGenerator =
     options.generateTeacherAssistantReport ?? generateTeacherAssistantReport;
+  const labAssistantGenerator = options.generateLabAssistantHint ?? generateLabAssistantHint;
   const assistantOptions = options.assistantOptions ?? {};
   const sessionSecret = options.sessionSecret || process.env.SESSION_SECRET || "development-session-secret";
   migrate(db);
@@ -215,7 +217,7 @@ export function createApp(options = {}) {
   app.use('/api', createMindMapRouter({db,requireRole,options:options.mindMapOptions??{}}));
   app.use('/api', createCustomCustomerRouter({db,requireRole,options:options.customCustomerOptions??{}}));
   app.use('/api', createShopServiceRouter({db,requireRole}));
-  app.use('/api', createStudyAssistantRouter({requireRole, options:options.studyAssistantOptions??{}}));
+  app.use('/api', createStudyAssistantRouter({db,requireRole, options:options.studyAssistantOptions??{}}));
   app.use('/api', createLearningCoachRouter({db,requireRole,options:options.learningCoachOptions??{}}));
   app.use('/api', createStudyWorkspaceRouter({db,requireRole,options:options.studyWorkspaceOptions??{}}));
 
@@ -665,12 +667,18 @@ export function createApp(options = {}) {
       if (typeof challengeId !== "string" || !challengeId.trim()) {
         return res.status(400).json({ error: "缺少关卡标识" });
       }
-      const report = await generateLabAssistantHint({
+      const report = await labAssistantGenerator({
         challengeId,
         connections: Array.isArray(connections) ? connections : [],
         inputState: typeof inputState === "object" && inputState ? inputState : {},
         feedback: feedback && typeof feedback === "object" ? feedback : null,
         realtimeDiagnostics: realtimeDiagnostics && typeof realtimeDiagnostics === "object" ? realtimeDiagnostics : null,
+      });
+      if (role === 'student') saveAiConversation(db, {
+        studentId:req.user.id, kind:'lab_hint',
+        question:`请求讲解实验：${challengeId}`,
+        answer:{ source:report.source, hint:report.hint },
+        context:{ chapterId: CHALLENGES.find(item => item.id === challengeId)?.chapterId },
       });
       audit(req, "ai_lab_hint", { targetType: "challenge", targetId: challengeId, metadata: { source: report.source } });
       res.json(report);
@@ -896,6 +904,8 @@ export function createApp(options = {}) {
           code: error.code,
           message: error.message,
           retryable: error.retryable === true,
+          ...(typeof error.stageId==='string'?{stageId:error.stageId}:{}),
+          ...(Number.isInteger(error.stageIndex)?{stageIndex:error.stageIndex}:{}),
         },
       });
     }

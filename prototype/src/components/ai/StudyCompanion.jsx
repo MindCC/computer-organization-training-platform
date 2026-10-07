@@ -10,7 +10,7 @@ const clamp = (p) => ({x:Math.max(8,Math.min(Number.isFinite(p?.x)?p.x:innerWidt
 export function StudyCompanion({userId,page,pageTitle,chapterId}) {
  const snapshot=useStudySnapshot(),storageKey=`chipquest:companion:${userId}`;
  const [position,setPosition]=useState(()=>{try{return clamp(JSON.parse(localStorage.getItem(storageKey)));}catch{return clamp();}});
- const [open,setOpen]=useState(false),[question,setQuestion]=useState(''),[answer,setAnswer]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[includeState,setIncludeState]=useState(false),[selected,setSelected]=useState(null);
+ const [open,setOpen]=useState(false),[question,setQuestion]=useState(''),[answer,setAnswer]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[includeState,setIncludeState]=useState(false),[selected,setSelected]=useState(null),[history,setHistory]=useState([]),[historyMore,setHistoryMore]=useState(false);
  const [viewport,setViewport]=useState(()=>({height:window.visualViewport?.height??innerHeight,top:window.visualViewport?.offsetTop??0}));
  const trigger=useRef(null),field=useRef(null),sequence=useRef(0),drag=useRef(null),suppressClick=useRef(false),sentKey=useRef(null);
  const current=snapshot?.kind==='assembly'?safeAssemblySnapshot(snapshot.assembly):null,help=current?assemblyHelp(current):null;
@@ -23,6 +23,7 @@ export function StudyCompanion({userId,page,pageTitle,chapterId}) {
  useEffect(()=>{setIncludeState(false);},[snapshot?.kind,snapshot?.expert]);
  useEffect(()=>()=>{sequence.current++;},[]);
  useEffect(()=>{if(open)field.current?.focus();},[open]);
+ useEffect(()=>{if(!open)return;let cancelled=false;apiRequest('/api/student/study-assistant/history').then(data=>{if(!cancelled){setHistory(data.conversations??[]);setHistoryMore(Boolean(data.hasMore));}}).catch(()=>{});return()=>{cancelled=true;};},[open]);
  useEffect(()=>{
   const resize=()=>{setPosition(value=>clamp(value));setViewport({height:window.visualViewport?.height??innerHeight,top:window.visualViewport?.offsetTop??0});};
   window.addEventListener('resize',resize);window.visualViewport?.addEventListener('resize',resize);window.visualViewport?.addEventListener('scroll',resize);
@@ -44,7 +45,7 @@ export function StudyCompanion({userId,page,pageTitle,chapterId}) {
   const context={questionId:publicContext.questionId,conceptId:publicContext.conceptId,chapterId:publicContext.chapterId};
   if(includeState&&!snapshot?.expert&&current)context.assembly=current;
   if(includeState&&!snapshot?.expert&&snapshot?.circuit)context.circuit=snapshot.circuit;
-  try{const result=await apiRequest('/api/student/study-assistant',{method:'POST',timeoutMs:25000,body:JSON.stringify({question:question.trim(),context,consent:'deepseek-public-question',...(includeState?{stateConsent:'current-task-state'}:{})})});if(requestId===sequence.current)setAnswer(result);}
+  try{const result=await apiRequest('/api/student/study-assistant',{method:'POST',timeoutMs:25000,body:JSON.stringify({question:question.trim(),context,consent:'deepseek-public-question',...(includeState?{stateConsent:'current-task-state'}:{})})});if(requestId===sequence.current){setAnswer(result);apiRequest('/api/student/study-assistant/history').then(data=>{setHistory(data.conversations??[]);setHistoryMore(Boolean(data.hasMore));}).catch(()=>{});}}
   catch(err){if(requestId===sequence.current)setError(`提问失败：${err.message}。可以重试。`);}
   finally{if(requestId===sequence.current)setBusy(false);}
  }
@@ -69,6 +70,7 @@ export function StudyCompanion({userId,page,pageTitle,chapterId}) {
     </section>
     {busy&&<p role="status">小芯正在整理讲解…</p>}{error&&<p role="alert" className="study-mascot-error">{error}</p>}
     {answer&&<section aria-live="polite"><span className="study-mascot-source">{studyAnswerSourceLabel(answer)}</span>{sentKey.current!==stateKey&&<p className="companion-stale">页面状态已变化，下面是上次提问时的回答；请参考上方实时提示或重新提问。</p>}<p>{answer.explanation}</p><ol>{answer.steps?.map((step,index)=><li key={index}>{step}</li>)}</ol>{answer.check&&<div className="study-mascot-check"><strong>试着想一想</strong><p>{answer.check}</p></div>}</section>}
+    <details className="companion-history"><summary>我的助教对话记录（已显示 {history.length} 条）</summary>{history.length?history.map(item=><details key={item.id}><summary>{item.createdAt} · {item.topic} · {item.kind==='lab_hint'?'实验讲解':'提问'} · {item.answerSource==='ai'?'AI 生成':'本地提示'}</summary><p><strong>我：</strong>{item.question}</p><p><strong>助教：</strong>{item.answer.explanation??item.answer.hint?.conceptReview??'已生成讲解'}</p>{item.answer.steps?.length?<ol>{item.answer.steps.map((step,index)=><li key={index}>{step}</li>)}</ol>:null}{item.answer.check&&<p><strong>自测：</strong>{item.answer.check}</p>}</details>):<p>暂无记录。</p>}{historyMore&&<button type="button" className="ghost-button" onClick={()=>apiRequest(`/api/student/study-assistant/history?before=${history.at(-1).id}`).then(data=>{setHistory(rows=>[...rows,...data.conversations]);setHistoryMore(Boolean(data.hasMore));}).catch(()=>{})}>加载更早对话</button>}</details>
    </div>
    <form onSubmit={ask}><label htmlFor="companion-question">你的课程问题</label><textarea ref={field} id="companion-question" rows={2} maxLength={1600} placeholder={help?'例如：为什么部件装齐了还不能开机？':'我不理解……'} value={question} onChange={event=>setQuestion(event.target.value)} disabled={busy}/>
     {(current||snapshot?.circuit)&&!snapshot?.expert&&<label className="companion-state-consent"><input type="checkbox" checked={includeState} onChange={event=>setIncludeState(event.target.checked)} disabled={busy}/>本次提问附带当前{current?'装配与接线快照':'电路输入与检查计数'}（含最近操作）</label>}

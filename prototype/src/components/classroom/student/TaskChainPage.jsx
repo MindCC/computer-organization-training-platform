@@ -4,7 +4,7 @@ import { TASK_TYPES,NODE_PURPOSES } from '../../../shared/classroomTaskChain.js'
 import { knowledgePointOf } from '../../../knowledgePoints.js';
 import { createRandomId } from '../../../shared/randomId.js';
 import { questionOf } from '../../../assignmentQuestions.js';
-import { hostedDemoOf } from '../../../shared/demoNavigation.js';
+import { hostedDemoOf,taskDemoPath } from '../../../shared/demoNavigation.js';
 import { PracticeQuestion, TeacherAssignments } from '../../StudentAssignments.jsx';
 import { CoursewareView } from '../../CoursewareView.jsx';
 import { StudyMascot } from '../../ai/StudyMascot.jsx';
@@ -36,7 +36,7 @@ function StageActivity({stage,vm,userId,submit,onFinished,onOpenStage,onOpenMist
   const initial=()=>{try{return JSON.parse(localStorage.getItem(draftKey)??'{}');}catch{return {};}};
   const [draft,setDraft]=useState(initial),[busy,setBusy]=useState(false),[error,setError]=useState(''),[feedback,setFeedback]=useState(null),[opened,setOpened]=useState(stage?.type!=='lab'),[knowledge,setKnowledge]=useState(null);
   const request=useRef(null),pending=useRef(false);
-  const requiresText=['ai','reflection'].includes(stage?.type)||(stage?.type==='custom'&&stage.submissionMode==='text');
+  const requiresText=['ai','reflection'].includes(stage?.type)||(['custom','demo'].includes(stage?.type)&&stage.submissionMode==='text');
   function patch(updates){const next={...draft,...updates};setDraft(next);try{localStorage.setItem(draftKey,JSON.stringify(next));}catch{}}
   async function finish(){
     if(pending.current||vm.paused||vm.ended)return;
@@ -55,7 +55,7 @@ function StageActivity({stage,vm,userId,submit,onFinished,onOpenStage,onOpenMist
   const controls=<div className="chain-activity-controls">{error&&<p role="alert">{error}</p>}<button type="button" className="primary-button" disabled={busy||vm.paused||vm.ended||!opened} onClick={finish}>{busy?'正在同步…':label}<ArrowRight size={17}/></button>{['demo','courseware'].includes(stage.type)&&<small>这是本人确认的参与记录。</small>}</div>;
   return <div className="chain-activity-content">
     {stage.type==='lab'?<div className="chain-launch-card"><p>在现有实验工作台中完成检测，通过后任务链将进入下一环节。</p><button type="button" className="primary-button" disabled={vm.paused} onClick={()=>onOpenStage(stage)}><Play size={17}/>开始本步实验</button></div>:null}
-    {stage.type==='demo'&&<><div className="chain-demo-toolbar"><strong>{hostedDemoOf(stage.demoId)?.title}</strong>{controls}</div><iframe className="chain-demo-frame" title={`${stage.title} · 互动演示`} src={`${hostedDemoOf(stage.demoId)?.path}?embedded=1`} allow="fullscreen"/></>}
+    {stage.type==='demo'&&<><div className="chain-demo-toolbar"><strong>{hostedDemoOf(stage.demoId)?.title}</strong>{!requiresText&&controls}</div><iframe className="chain-demo-frame" title={`${stage.title} · 互动演示`} src={taskDemoPath(stage)} allow="fullscreen"/></>}
     {stage.type==='courseware'&&<><div className="chain-demo-toolbar">{controls}</div><CoursewareView initialChapterId={stage.chapterId}/></>}
     {stage.type==='practice'&&<><div className="practice-question-list">{stage.questionIds.map((id,index)=><PracticeQuestion key={id} question={questionOf(id)} index={index} value={draft.answers?.[id]??''} result={feedback?.results?.[id]??null} onAnswer={(id,value)=>{patch({answers:{...draft.answers,[id]:value}});setFeedback(null);}} onFocusKp={setKnowledge} assistantEnabled/>)}</div>{knowledge&&<KnowledgeGraph initialChapterId={stage.chapterId} focusId={knowledge}/>}<footer className="practice-submit-footer"><span>本环节 {stage.questionIds.length} 题 · 判分与错题同步到账户</span>{controls}</footer></>}
     {stage.type==='assignment'&&<><TeacherAssignments userId={userId} destination={{source:'assignment',assignmentId:stage.assignmentId}} onOpenMistakes={onOpenMistakes} onlyAssignmentId={stage.assignmentId}/>{controls}</>}

@@ -1,12 +1,14 @@
 import { personalLearningPath } from './personalLearningApi.js';
 
 export class ApiError extends Error {
-  constructor({ status, code, message, retryable = false }) {
+  constructor({ status, code, message, retryable = false, stageId, stageIndex }) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.retryable = retryable;
+    if(typeof stageId==='string')this.stageId=stageId;
+    if(Number.isInteger(stageIndex))this.stageIndex=stageIndex;
   }
 }
 
@@ -88,6 +90,7 @@ export async function apiRequest(path, options = {}) {
           code: body.error.code ?? "UNKNOWN",
           message: body.error.message ?? "请求失败",
           retryable: body.error.retryable === true,
+          stageId:body.error.stageId,stageIndex:body.error.stageIndex,
         });
         if (apiError.code === "PASSWORD_CHANGE_REQUIRED") notifyPasswordChangeRequired();
         // 服务端明确标记可重试的错误才重试；其余直接抛
@@ -170,6 +173,7 @@ export const api = {
   // Assignment APIs
   createAssignment: (classId, payload) => apiRequest(`/api/teacher/classes/${classId}/assignments`, { method: "POST", body: JSON.stringify(payload) }),
   addQuestion: (assignmentId, payload) => apiRequest(`/api/teacher/assignments/${assignmentId}/questions`, { method: "POST", body: JSON.stringify(payload) }),
+  addAssignmentBankQuestions: (assignmentId, questions) => apiRequest(`/api/teacher/assignments/${assignmentId}/question-bank`, { method: 'POST', body: JSON.stringify({ questions }) }),
   publishAssignment: (assignmentId) => apiRequest(`/api/teacher/assignments/${assignmentId}/publish`, { method: "POST" }),
   teacherAssignments: (classId) => apiRequest(`/api/teacher/classes/${classId}/assignments`),
   generateTaskChain: (classId,payload) => apiRequest(`/api/teacher/classes/${classId}/task-chain/generate`,{method:'POST',body:JSON.stringify(payload),timeoutMs:70000}),

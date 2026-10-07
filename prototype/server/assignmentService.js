@@ -1,10 +1,13 @@
 import { teacherOwnsClass } from "./db.js";
 import { gradeObjectiveAnswer } from "./objectiveGrading.js";
+import { questionOf } from '../src/assignmentQuestions.js';
+import { normalizeQuestion } from './questionBankService.js';
 
 export function createAssignmentService({ db, repository }) {
   return {
     createAssignment,
     addQuestion,
+    addBankQuestions,
     publishAssignment,
     getTeacherAssignments,
     getTeacherAssignmentDetail,
@@ -55,6 +58,46 @@ export function createAssignmentService({ db, repository }) {
     assertTeacherOwns(a, teacherId);
     if (a.status !== "draft") throw Object.assign(new Error("已发布的作业不能修改题目"), { status: 400 });
     return repository.addQuestion({ assignmentId, ...q });
+  }
+
+  function addBankQuestions({ teacherId, assignmentId, questions }) {
+    return db.transaction(() => {
+      const assignment = getExistingAssignment(assignmentId);
+      assertTeacherOwns(assignment, teacherId);
+      if (assignment.status !== 'draft') throw Object.assign(new Error('已发布的作业不能修改题目'), { status: 400 });
+      if (!Array.isArray(questions) || questions.length < 1 || questions.length > 1000) {
+        throw Object.assign(new Error('请一次选择 1～1000 道题目'), { status: 400 });
+      }
+      // 只接收题目引用，题干、选项、答案和解析由服务器题库提供。
+      const canonical = questions.map((ref, index) => {
+        let input;
+        if (ref?.source === 'builtin') {
+          const original = questionOf(ref.id);
+          if (original) input = { ...original, answer: original.type === 'fill' ? original.keywords.map(group => group[0]).join('；') : original.answer };
+        } else if (ref?.source === 'bank' && Number.isSafeInteger(ref.id)) {
+          const row = db.prepare('SELECT * FROM question_bank WHERE id=? AND teacher_id=?').get(ref.id, teacherId);
+          if (row) input = { chapterId: row.chapter_id, type: row.type, stem: row.stem, options: safeJson(row.options_json), answer: safeJson(row.answer_json), analysis: row.analysis, score: row.score };
+        }
+        if (!input) throw Object.assign(new Error(`第 ${index + 1} 道题目不存在或不属于当前教师，请重新选择`), { status: 400 });
+        if (ref.score !== undefined) {
+          if (!Number.isInteger(ref.score) || ref.score < 1 || ref.score > 100) throw Object.assign(new Error(`第 ${index + 1} 道题目的分值须为 1～100 的整数`), { status: 400 });
+          input.score = ref.score;
+        }
+        return normalizeQuestion(input);
+      });
+      const existing = repository.getQuestions(assignmentId);
+      const fingerprint = q => JSON.stringify([q.type, q.stem, q.options ?? [], q.answer]);
+      const seen = new Set(existing.map(q => fingerprint({ ...q, options: safeJson(q.options_json), answer: safeJson(q.answer_json) })));
+      let addedCount = 0, skippedCount = 0;
+      let sortOrder = Math.max(0, ...existing.map(q => q.sort_order));
+      for (const q of canonical) {
+        const key = fingerprint(q);
+        if (seen.has(key)) { skippedCount++; continue; }
+        repository.addQuestion({ assignmentId, type: q.type, stem: q.stem, options: q.options, answer: q.answer, score: q.score, explanation: q.analysis, sortOrder: ++sortOrder });
+        seen.add(key); addedCount++;
+      }
+      return { assignment: repository.getById(assignmentId), addedCount, skippedCount };
+    })();
   }
 
   function publishAssignment({ teacherId, assignmentId }) {

@@ -1,6 +1,18 @@
 import { LEARNING_ITEMS } from './platformLogic.js';
 import { COURSE_CHAPTERS, isParticipationChallenge } from './courseChapters.js';
 
+function conversationAnalysis(students) {
+  const topics = new Map();
+  for (const student of students) for (const item of student.aiConversations?.topics ?? []) {
+    const key = `${item.chapterId ?? ''}:${item.topic}`;
+    const entry = topics.get(key) ?? { chapterId:item.chapterId, topic:item.topic, count:0, studentIds:new Set() };
+    entry.count += item.count; entry.studentIds.add(student.id); topics.set(key,entry);
+  }
+  return { total:students.reduce((sum,student)=>sum+(student.aiConversations?.total??0),0),
+    students:students.filter(student=>student.aiConversations?.total).length,
+    topics:[...topics.values()].map(({studentIds,...item})=>({...item,students:studentIds.size})).sort((a,b)=>b.count-a.count).slice(0,8) };
+}
+
 export function analyzeTeachingRecords(students = []) {
   const total = students.length;
   const chapters = COURSE_CHAPTERS.map(chapter => {
@@ -46,5 +58,7 @@ export function analyzeTeachingRecords(students = []) {
     if (grading) advice.push(`${grading} 份已提交作业尚待批改，建议先给出反馈，再判断作业表现。`);
     if (!pendingMistakes) advice.push('目前没有待巩固错题，可安排迁移练习；没有错误记录不代表已掌握全部知识。');
   }
-  return { studentCount: total, submittedStudents: submitted.length, pendingMistakes, chapters, commonErrors, support, advice };
+  const conversations = conversationAnalysis(students);
+  if (conversations.topics.length) advice.push(`AI 求助较多的主题是「${conversations.topics[0].topic}」（${conversations.topics[0].students} 人、${conversations.topics[0].count} 次）。可结合答题和实验记录核对疑点；提问本身不代表未掌握。`);
+  return { studentCount: total, submittedStudents: submitted.length, pendingMistakes, chapters, commonErrors, support, advice, conversations };
 }

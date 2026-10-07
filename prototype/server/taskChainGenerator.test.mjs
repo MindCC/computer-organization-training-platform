@@ -21,13 +21,15 @@ test('task-chain generation requires explicit action and bounded teaching requir
 });
 test('unconfigured generation has a labeled, editable local fallback',async()=>{
   const result=await generateTaskChain({prompt:'补码课堂',consent:'deepseek-task-chain'},{env:{}});
-  assert.equal(result.source,'local');assert.equal(result.reason,'AI_DISABLED');assert.equal(result.taskChain.stages.length,6);
+  assert.equal(result.source,'local');assert.equal(result.reason,'AI_DISABLED');assert.equal(result.taskChain.stages.length,8);
+  assert.equal(result.taskChain.stages[1].purpose,'learning');
+  assert.deepEqual(result.taskChain.stages.filter(s=>s.demoActivity&&s.purpose==='practice').map(s=>s.demoActivity),['add','sub','overflow']);
 });
 test('configured generation uses only public catalogue and teacher-entered requirements',async()=>{
   let sent;
   const result=await generateTaskChain({prompt:'讲解补码减法，并安排学习反思',consent:'deepseek-task-chain',studentId:333,grades:'PRIVATE_GRADE',history:'PRIVATE_HISTORY'},
     {env:{DEEPSEEK_API_KEY:'test'},requester:async(_config,messages)=>{sent=JSON.stringify(messages);return JSON.stringify(taskChainTemplate('twos'));}});
-  assert.equal(result.source,'deepseek');assert.equal(result.taskChain.stages.length,6);assert.ok(sent.includes('补码减法'));assert.ok(sent.includes('ch2-q08'));assert.ok(!sent.includes('PRIVATE_'));assert.ok(!sent.includes('333'));
+  assert.equal(result.source,'deepseek');assert.equal(result.taskChain.stages.length,8);assert.ok(sent.includes('补码减法'));assert.ok(sent.includes('ch2-q08'));assert.ok(!sent.includes('PRIVATE_'));assert.ok(!sent.includes('333'));
 });
 test('unavailable or invalid generated resources fall back without pretending to be AI output',async()=>{
   for(const requester of [async()=>'{broken',async()=>JSON.stringify({title:'错误',stages:[{id:'a',type:'demo',title:'未知页面',demoId:'evil'}]}),async()=>{throw Object.assign(new Error('timeout'),{code:'AI_TIMEOUT'});}]){
