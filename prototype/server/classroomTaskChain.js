@@ -13,7 +13,27 @@ export function ensureTaskChainTables(db) {
     stage_id TEXT NOT NULL, client_submission_id TEXT NOT NULL,
     evidence_json TEXT NOT NULL, result_json TEXT NOT NULL, created_at TEXT NOT NULL,
     UNIQUE(session_id,student_id,client_submission_id)
-  ); CREATE INDEX IF NOT EXISTS idx_classroom_stage_student ON classroom_stage_events(session_id,student_id,id);`);
+  ); CREATE INDEX IF NOT EXISTS idx_classroom_stage_student ON classroom_stage_events(session_id,student_id,id);
+  CREATE TABLE IF NOT EXISTS classroom_stage_ai_answers (
+    session_id INTEGER NOT NULL REFERENCES classroom_sessions(id) ON DELETE CASCADE,
+    student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    stage_id TEXT NOT NULL,
+    conversation_id INTEGER NOT NULL UNIQUE REFERENCES ai_conversations(id) ON DELETE CASCADE,
+    PRIMARY KEY(session_id,student_id,stage_id,conversation_id)
+  );`);
+}
+
+// Classroom identifiers are local evidence, never part of the external AI prompt.
+export function taskChainQuestionContext(db,studentId,raw) {
+  if(raw===undefined)return null;
+  if(!raw||!Number.isSafeInteger(raw.sessionId)||typeof raw.stageId!=='string')fail('答疑环节标识无效');
+  const session=db.prepare(`SELECT cs.*,s.current_stage_index,s.status AS student_status
+    FROM classroom_sessions cs JOIN student_session_states s ON s.session_id=cs.id
+    JOIN class_members cm ON cm.class_id=cs.class_id AND cm.student_id=s.student_id
+    WHERE cs.id=? AND s.student_id=?`).get(raw.sessionId,studentId);
+  const stage=session&&missionForSession(session).stages[session.current_stage_index];
+  if(!session||!['live','paused'].includes(session.status)||session.student_status!=='in_progress'||stage?.type!=='ai'||stage.id!==raw.stageId)fail('请在当前任务链答疑环节向小芯提问','STAGE_MISMATCH',409);
+  return {sessionId:session.id,stageId:stage.id};
 }
 
 export function validateChainAssignments(db,config,classId) {
@@ -88,6 +108,11 @@ export function createTaskChainActions({db,repository,now,expireIfNeeded,assertT
       const mission=missionForSession(fresh),index=state.current_stage_index,stage=mission.stages[index];
       if(!stage||stage.id!==payload.stageId)fail('提交与当前任务环节不匹配','STAGE_MISMATCH',409);
       if(!stage.type||stage.type==='lab')fail('请在实验工作台提交实际操作','STAGE_MISMATCH',409);
+      if(stage.type==='ai') {
+        const conversation=Number.isSafeInteger(evidence.conversationId)&&db.prepare('SELECT id FROM ai_conversations WHERE id=? AND student_id=? AND kind=?').get(evidence.conversationId,studentId,'question');
+        if(!conversation)fail('请先向小芯提问并等待小芯回答');
+        if(!db.prepare('SELECT 1 FROM classroom_stage_ai_answers WHERE session_id=? AND student_id=? AND stage_id=? AND conversation_id=?').get(sessionId,studentId,stage.id,conversation.id))fail('请等待小芯回答当前环节的问题');
+      }
       let result={score:null,passed:true,errors:[]},practice=null;
       if(stage.type==='practice') {
         const answers=evidence.answers;
@@ -106,7 +131,8 @@ export function createTaskChainActions({db,repository,now,expireIfNeeded,assertT
         // Completion is submission; pending teacher marking is not a zero grade.
         result={...result,submissionId:submission.id,gradingStatus:submission.status};
       } else if(['ai','reflection'].includes(stage.type)||(['custom','demo'].includes(stage.type)&&stage.submissionMode==='text')) {
-        if(typeof evidence.text!=='string'||evidence.text.trim().length<10||evidence.text.length>2000)fail('请用10到2000字写下自己的理解');
+        if(evidence.skipped!==true&&(typeof evidence.text!=='string'||!evidence.text.trim()||evidence.text.length>2000))fail('请填写2000字以内的学习说明，或选择跳过说明');
+        if(evidence.skipped===true&&evidence.text!==undefined)fail('跳过说明时不应同时提交文字');
       } else if(evidence.completed!==true)fail('请确认已完成本环节的学习');
       return db.transaction(()=>{
         if(practice)db.prepare('INSERT INTO chapter_practice_attempts (student_id,chapter_id,client_submission_id,answers_json,results_json,created_at) VALUES (?,?,?,?,?,?)')

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { fillLoginForm } from './lib/qaLogin.mjs';
 import { clickTopNavItem } from './nav-helpers.mjs';
+import { knowledgePointOf } from '../src/knowledgePoints.js';
 
 const url=process.env.PROTOTYPE_APP_URL??'http://127.0.0.1:5173';
 const apiUrl=process.env.PROTOTYPE_API_URL??url;
@@ -61,7 +62,7 @@ try {
   await posted(teacher,`/api/teacher/task-library/${taskId}`,()=>teacher.getByRole('button',{name:'保存任务',exact:true}).click());
   await teacher.locator(`[data-task-id="${taskId}"]`).getByRole('button',{name:'发布',exact:true}).click();
   const published=await posted(teacher,`/api/teacher/task-library/${taskId}/publish`,()=>teacher.getByRole('button',{name:'确认发布',exact:true}).click());const sessionId=published.session.id;
-  await teacher.getByRole('button',{name:'课堂演示',exact:true}).click();await answer(teacher,'ch2-q02','-128 ~ 127');await teacher.getByRole('button',{name:'检查演示答案',exact:true}).click();assert.equal(await teacher.locator('.chain-presenter .q-result').count(),3);await teacher.locator('.chain-presenter .kp-chip').first().click();await teacher.locator('.chain-presenter-nav button').nth(1).click();await teacher.frameLocator('.chain-presenter iframe').locator('[data-mode="sub"]').click();await teacher.getByRole('button',{name:'大屏演示',exact:true}).click();await teacher.screenshot({path:path.join(dir,'task-chain-teacher-demo.png'),fullPage:true});await teacher.getByRole('button',{name:'退出大屏',exact:true}).click();await teacher.getByRole('button',{name:'关闭演示',exact:true}).click();
+  await teacher.getByRole('button',{name:'课堂演示',exact:true}).click();await answer(teacher,'ch2-q02','-128 ~ 127');await teacher.getByRole('button',{name:'检查演示答案',exact:true}).click();assert.equal(await teacher.locator('.chain-presenter .q-result').count(),3);await teacher.locator('.chain-presenter .kp-chip').first().click();await teacher.locator('.chain-presenter-nav button').nth(1).click();await teacher.getByRole('complementary',{name:'当前讲解知识点'}).getByText(knowledgePointOf('concept-twos-complement').title,{exact:true}).waitFor();await teacher.frameLocator('.chain-presenter iframe').locator('[data-mode="sub"]').click();await teacher.getByRole('button',{name:'大屏演示',exact:true}).click();await teacher.screenshot({path:path.join(dir,'task-chain-teacher-demo.png'),fullPage:true});await teacher.getByRole('button',{name:'退出大屏',exact:true}).click();await teacher.getByRole('button',{name:'关闭演示',exact:true}).click();
   console.log('PASS teacher edits, reorders, persists, restores and starts task chain');
   const student=await login(studentContext,'chain101','Student123!');
   await student.getByRole('region',{name:'当前课堂任务链'}).waitFor();
@@ -99,6 +100,8 @@ try {
     [3,'sub','sub',5,3,'5减3转为5加负3，结果为2；3减5保留低8位为11111110，即负2。'],
     [4,'overflow','add',100,100,'100加100真实和为200，8位结果11001000读作负56，发生有符号溢出；5加负3有进位却未溢出。'],
   ]){
+    const targets=student.getByRole('complementary',{name:'当前讲解知识点'});
+    await targets.waitFor();assert.equal(await targets.locator('span').count(),1,'current activity shows its own target, not all lesson goals');
     assert.equal(new URL(await student.locator('.chain-demo-frame').getAttribute('src'),url).searchParams.get('activity'),activity);
     assert.equal(await frame.locator(`[data-mode="${mode}"]`).getAttribute('class'),'active');
     assert.match(await frame.locator('#decA').innerText(),new RegExp(String(a)));assert.match(await frame.locator('#decB').innerText(),new RegExp(String(b)));
@@ -112,8 +115,19 @@ try {
   await student.getByLabel('我的学习说明').fill('我观察到符号位参与加法，进位不能直接作为有符号溢出的证据。');
   await student.reload();await student.getByLabel('我的学习说明').waitFor();assert.match(await student.getByLabel('我的学习说明').inputValue(),/符号位/);
   await student.getByRole('button',{name:'向小芯 AI 助教提问',exact:true}).click();await student.getByLabel('你的课程问题').fill('补码加法的进位和溢出有什么区别？');
-  const ai=await posted(student,'/api/student/study-assistant',()=>student.getByRole('button',{name:'询问助教'}).click());assert.equal(ai.source,'local');await student.getByRole('button',{name:'关闭小芯助教'}).click();
-  await posted(student,`/api/student/classroom/${sessionId}/complete-stage`,()=>student.getByRole('button',{name:'提交学习说明并继续'}).click());await student.getByRole('button',{name:'继续下一环节'}).click();
+  assert.equal(await student.getByRole('button',{name:'提交学习说明并继续'}).isDisabled(),true,'writing alone cannot skip the AI answer');
+  let releaseAnswer;const answerGate=new Promise(resolve=>{releaseAnswer=resolve;});
+  await student.route('**/api/student/study-assistant',async route=>{await answerGate;await route.continue();});
+  const aiResponse=student.waitForResponse(response=>response.url().endsWith('/api/student/study-assistant')&&response.request().method()==='POST');
+  await student.getByRole('button',{name:'询问助教'}).click();
+  const waiting=student.getByRole('button',{name:'等待小芯回答…',exact:true});await waiting.waitFor();assert.equal(await waiting.isDisabled(),true);
+  await student.screenshot({path:path.join(dir,'task-chain-ai-waiting.png'),fullPage:true});releaseAnswer();
+  const ai=await (await aiResponse).json();assert.equal(ai.source,'local');assert.ok(ai.classroomAnswer.conversationId);await student.unroute('**/api/student/study-assistant');
+  await student.getByRole('button',{name:'关闭小芯助教'}).click();await student.getByText('已收到小芯回答，可以继续。',{exact:true}).waitFor();
+  await student.reload();await student.getByText('已收到小芯回答，可以继续。',{exact:true}).waitFor();
+  await student.getByLabel('我的学习说明').fill('');
+  step=await posted(student,`/api/student/classroom/${sessionId}/complete-stage`,()=>student.getByRole('button',{name:'跳过说明并继续'}).click());assert.equal(step.studentState.result.stageResults.at(-1).evidence.skipped,true);
+  await student.getByRole('button',{name:'继续下一环节'}).click();
   await answer(student,'ch2-q11','00001000（8）');await answer(student,'ch2-q08','00000011');await answer(student,'ch2-q09','正确答案就是 −56');await answer(student,'ch2-q10','正确');
   step=await posted(student,`/api/student/classroom/${sessionId}/complete-stage`,()=>student.getByRole('button',{name:'提交本环节并判分'}).click());assert.equal(step.studentState.current_stage_index,6);assert.equal(step.result.score,0);
   await answer(student,'ch2-q11','11111000（−8）');await answer(student,'ch2-q08','11111101');await answer(student,'ch2-q09','发生有符号溢出，真实和为 200');await answer(student,'ch2-q10','错误');
@@ -126,5 +140,17 @@ try {
   for(const result of step.studentState.result.stageResults.filter(result=>result.type==='demo'&&result.evidence.text))await teacher.getByRole('region',{name:'学生任务反馈'}).getByText(result.evidence.text,{exact:true}).waitFor();
   await teacher.getByRole('button',{name:'结束课堂',exact:true}).click();const ended=await posted(teacher,`/api/teacher/sessions/${sessionId}/end`,()=>teacher.getByRole('button',{name:'确认结束',exact:true}).click());assert.equal(ended.report.studentReports[0].completedStages,8);
   console.log('PASS student follows teacher demonstration, addition, subtraction, overflow, AI help, graded practice retry and reflection; teacher sees process evidence');
+  const labConfig={templateKey:'task-chain',durationMinutes:15,passScore:80,taskChain:{title:'当前知识点实训 QA',knowledgePointIds:['concept-twos-complement'],stages:[{id:'lab-knowledge',type:'lab',title:'补码实操知识点',challengeId:'machine-number',knowledgePointIds:['concept-twos-complement']}]}};
+  const labTask=(await api(jar,'/api/teacher/task-library','POST',labConfig)).task;
+  const labSession=(await api(jar,`/api/teacher/task-library/${labTask.id}/publish`,'POST',{classId:cls.id,revision:labTask.revision,clientSubmissionId:'qa-lab-target-publish'})).session;
+  await teacher.reload();await teacher.getByRole('button',{name:'任务库',exact:true}).click();await teacher.locator(`[data-task-id="${labTask.id}"]`).getByRole('button',{name:'查看',exact:true}).click();
+  await teacher.getByRole('button',{name:'打开实验演示',exact:true}).click();await teacher.locator('.lab-mode-shell .lab-studio').waitFor();
+  await teacher.getByRole('complementary',{name:'当前讲解知识点'}).getByText(knowledgePointOf('concept-twos-complement').title,{exact:true}).waitFor();
+  await teacher.screenshot({path:path.join(dir,'task-chain-teacher-lab-knowledge.png'),fullPage:true});
+  await student.reload();await student.getByRole('button',{name:'接受任务并开始',exact:true}).click();await student.locator('.lab-mode-shell .lab-studio').waitFor();
+  await student.getByRole('complementary',{name:'当前讲解知识点'}).getByText(knowledgePointOf('concept-twos-complement').title,{exact:true}).waitFor();
+  await student.setViewportSize({width:390,height:844});await noOverflow(student);await student.screenshot({path:path.join(dir,'task-chain-student-lab-knowledge-mobile.png'),fullPage:true});
+  await api(jar,`/api/teacher/sessions/${labSession.id}/end`,'POST');
+  console.log('PASS current knowledge targets remain above actual teacher and student lab workspaces');
   assert.deepEqual(errors,[]);console.log('PASS responsive layouts, reload recovery and zero page errors');
 }catch(error){console.error(error.stack);process.exitCode=1;}finally{await teacherContext.close();await studentContext.close();await browser.close();}

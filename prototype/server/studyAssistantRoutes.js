@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { askStudyAssistant } from './studyAssistant.js';
 import { conversationPage, saveAiConversation } from './aiConversationRepository.js';
+import { taskChainQuestionContext } from './classroomTaskChain.js';
 
 export function createStudyAssistantRouter({ db, requireRole, options = {} }) {
   const router = Router(), requests = new Map(), pending = new Set();
@@ -21,9 +22,19 @@ export function createStudyAssistantRouter({ db, requireRole, options = {} }) {
     const payload = { question: body.question, consent: body.consent, stateConsent:body.stateConsent, context: { questionId: context.questionId, conceptId: context.conceptId, chapterId: context.chapterId, assembly:body.stateConsent==='current-task-state'?context.assembly:undefined,circuit:body.stateConsent==='current-task-state'?context.circuit:undefined } };
     pending.add(id); requests.set(id, [...times, now]);
     try {
+      const classroom=role==='student'?taskChainQuestionContext(db,id,body.classroom):null;
       const answer = await askStudyAssistant(payload, options);
-      if (role === 'student') saveAiConversation(db, { studentId:id, kind:'question', question:body.question, answer, context:payload.context });
-      res.json(answer);
+      let classroomAnswer;
+      if (role === 'student') {
+        const conversationId=saveAiConversation(db, { studentId:id, kind:'question', question:body.question, answer, context:payload.context });
+        if(classroom&&!['COURSE_SCOPE_REJECTED','COURSE_SCOPE_UNVERIFIED','COURSE_ANSWER_REJECTED'].includes(answer.reason)) {
+          // Recheck after the asynchronous reply: an ended/changed stage cannot unlock another one.
+          const current=taskChainQuestionContext(db,id,classroom);
+          db.prepare('INSERT INTO classroom_stage_ai_answers (session_id,student_id,stage_id,conversation_id) VALUES (?,?,?,?)').run(current.sessionId,id,current.stageId,conversationId);
+          classroomAnswer={...current,conversationId};
+        }
+      }
+      res.json({...answer,...(classroomAnswer?{classroomAnswer}:{})});
     }
     catch (error) { res.status(error.status ?? 500).json({ error: { code: 'STUDY_QUESTION_INVALID', message: error.status ? error.message : '提问暂时失败，请重试。' } }); }
     finally { pending.delete(id); }

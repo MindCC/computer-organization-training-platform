@@ -90,7 +90,7 @@ test('publication is atomic and idempotent; library changes cannot alter classro
     assert.throws(()=>c.library.publish(c.teacher.id,task.id,{...payload,clientSubmissionId:'publish-request-002'}),/已有进行中/);
     assert.equal(c.db.prepare('SELECT count(*) n FROM classroom_sessions').get().n,1);
     c.service.enterStudent({studentId:c.student.id,sessionId:first.session.id});
-    assert.throws(()=>c.service.completeStage({studentId:c.student.id,sessionId:first.session.id,payload:{stageId:'discussion',evidence:{completed:true},clientSubmissionId:'student-custom-001'}}),/10到2000/);
+    assert.throws(()=>c.service.completeStage({studentId:c.student.id,sessionId:first.session.id,payload:{stageId:'discussion',evidence:{completed:true},clientSubmissionId:'student-custom-001'}}),/学习说明|跳过说明/);
     const complete=c.service.completeStage({studentId:c.student.id,sessionId:first.session.id,payload:{stageId:'discussion',evidence:{text:'用负数的补码作为加数，符号位一起参与运算。'},clientSubmissionId:'student-custom-002'}});
     assert.equal(complete.studentState.status,'completed');assert.equal(complete.result.score,null);
     c.library.update(c.teacher.id,task.id,{revision:1,config:{...c.config,taskChain:{...c.config.taskChain,title:'新版本'}}});

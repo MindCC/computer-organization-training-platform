@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom';
 import { studyAnswerSourceLabel } from './studyAnswerSource.js';
 import { PaperPlaneTilt, X } from '@phosphor-icons/react';
 import { apiRequest } from '../../apiClient.js';
+import { publishTaskAssistantStatus } from './taskAssistantStatus.js';
 import './studyMascot.css';
 
-export function StudyMascot({ context = {}, suggestion = '哪里不懂？告诉小芯你的问题，一起理清思路。', compact = false }) {
+export function StudyMascot({ context = {}, classroom, userId, suggestion = '哪里不懂？告诉小芯你的问题，一起理清思路。', compact = false }) {
   const [open,setOpen]=useState(false), [question,setQuestion]=useState(''), [answer,setAnswer]=useState(null), [busy,setBusy]=useState(false), [error,setError]=useState('');
   const button=useRef(null), field=useRef(null), generation=useRef(0), id=useId();
-  const contextKey=JSON.stringify([context.questionId,context.conceptId,context.chapterId]);
+  const contextKey=JSON.stringify([context.questionId,context.conceptId,context.chapterId,classroom]);
   useEffect(()=>{generation.current++;setAnswer(null);setError('');setBusy(false);setQuestion('');},[contextKey]);
   useEffect(()=>()=>{generation.current++;},[]);
   useEffect(()=>{if(open)field.current?.focus();},[open]);
@@ -28,15 +29,16 @@ export function StudyMascot({ context = {}, suggestion = '哪里不懂？告诉�
   async function ask(event){
     event.preventDefault();if(busy||!question.trim())return;
     const sequence=++generation.current;setBusy(true);setError('');setAnswer(null);
+    publishTaskAssistantStatus(classroom,userId,'pending');
     try {
       // Local review suggestion, learning records and student answers are never included.
-      const result=await apiRequest('/api/student/study-assistant',{method:'POST',timeoutMs:25000,body:JSON.stringify({question:question.trim(),consent:'deepseek-public-question',context:{questionId:context.questionId,conceptId:context.conceptId,chapterId:context.chapterId}})});
-      if(sequence===generation.current)setAnswer(result);
-    }catch(err){if(sequence===generation.current)setError(`提问失败：${err.message}。问题仍保留，可以重试。`);}
+      const result=await apiRequest('/api/student/study-assistant',{method:'POST',timeoutMs:25000,body:JSON.stringify({question:question.trim(),consent:'deepseek-public-question',...(classroom?{classroom}:{}),context:{questionId:context.questionId,conceptId:context.conceptId,chapterId:context.chapterId}})});
+      if(sequence===generation.current){setAnswer(result);publishTaskAssistantStatus(classroom,userId,result.classroomAnswer?'answered':'failed',result.classroomAnswer?.conversationId);}
+    }catch(err){if(sequence===generation.current){setError(`提问失败：${err.message}。问题仍保留，可以重试。`);publishTaskAssistantStatus(classroom,userId,'failed');}}
     finally{if(sequence===generation.current)setBusy(false);}
   }
   return <div className={`study-mascot${compact?' is-compact':''}`}>
-    <button ref={button} className="study-mascot-trigger" type="button" aria-label={compact ? "小芯复习建议，点击提问" : "向小芯 AI 助教提问"} aria-expanded={open} aria-describedby={open ? undefined : `${id}-tip`} onClick={()=>{if(document.querySelector('[data-testid="study-companion"]'))window.dispatchEvent(new CustomEvent('study-companion-request',{detail:{context,suggestion}}));else setOpen(value=>!value);}}>
+    <button ref={button} className="study-mascot-trigger" type="button" aria-label={compact ? "小芯复习建议，点击提问" : "向小芯 AI 助教提问"} aria-expanded={open} aria-describedby={open ? undefined : `${id}-tip`} onClick={()=>{if(document.querySelector('[data-testid="study-companion"]'))window.dispatchEvent(new CustomEvent('study-companion-request',{detail:{context,suggestion,classroom}}));else setOpen(value=>!value);}}>
       <img src="/ai/study-mascot.webp" alt="小芯，抱着课本的芯片机器人" width="88" height="88"/><span><strong>小芯助教</strong><small>{compact?'问一问':'有疑问，问小芯'}</small></span>
     </button>
     {!open&&<div className="study-mascot-tip" id={`${id}-tip`} role="tooltip"><strong>小芯的复习提示</strong><p>{suggestion}</p><small>点击小芯，输入问题获得讲解。</small></div>}

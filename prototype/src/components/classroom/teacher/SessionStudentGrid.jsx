@@ -73,6 +73,7 @@ export function SessionStudentFeedback({ student, mission, onClose }) {
       <p>提交 {result.attempts} 次 · {result.passed?'已完成':'待订正'}</p>
       {result.errors?.length>0&&<ul>{result.errors.map((message,index)=><li key={index}>{message}</li>)}</ul>}
       {result.evidence?.text&&<p className="chain-report-evidence">{result.evidence.text}</p>}
+      {result.evidence?.skipped&&<p>已跳过学习说明</p>}
     </article>)}
   </section>;
 }

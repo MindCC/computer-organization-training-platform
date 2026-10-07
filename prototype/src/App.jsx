@@ -80,6 +80,7 @@ import { clearViewSession, readViewSession, resolveRestorableView, writeViewSess
 import { useClassroomSession } from "./hooks/useClassroomSession.js";
 import { useTeacherSession } from "./hooks/useTeacherSession.js";
 import { TaskChainBar } from './components/classroom/student/TaskChainBar.jsx';
+import { TaskStageKnowledge } from './components/classroom/TaskStageKnowledge.jsx';
 import { useViewHistory } from './hooks/useViewHistory.js';
 import { getActiveGuideForChallenge } from "./courseWorkbenchState.js";
 import avatarImage from "./assets/alex-chen-avatar.webp";
@@ -519,6 +520,8 @@ export function App() {
   const [activeView, setActiveView] = useState(demoId ? "demo" : "home");
   const [teacherWorkspace, setTeacherWorkspace] = useState('tasks');
   const [studyTarget, setStudyTarget] = useState(null);
+  const [teacherTaskContext,setTeacherTaskContext]=useState(null);
+  useEffect(()=>setTeacherTaskContext(null),[auth.user?.id]);
   const platformTopbarRef=useRef(null);
   useEffect(()=>{
     const element=platformTopbarRef.current;
@@ -904,6 +907,7 @@ export function App() {
   }
 
   function changeView(view) {
+    if(view!=='lab')setTeacherTaskContext(null);
     const destinationLabel = navGroups.flatMap(group => group.items).find(item => item.id === view)?.label;
     if(view === 'teacher-assignments' || view === 'question-bank') {
       if(auth.user?.role !== 'teacher')return;
@@ -942,11 +946,12 @@ export function App() {
     setStudyTarget(target);
   }
 
-  function navigateToChallenge(challengeId) {
+  function navigateToChallenge(challengeId,teachingContext=null) {
     if (!['student','teacher'].includes(auth.user?.role)) {
       requestLogin({ type: "challenge", challengeId });
       return;
     }
+    setTeacherTaskContext(auth.user?.role==='teacher'?teachingContext:null);
     openChallenge(challengeId);
   }
 
@@ -1198,7 +1203,8 @@ export function App() {
         {renderPlatformTopbar()}
         {renderPlatformState()}
         {renderCompanion()}
-        {auth.user?.role==='student'&&<TaskChainBar viewModel={classroomSession.viewModel} onContinue={continueClassroomTask}/>}
+        {auth.user?.role==='student'&&<TaskChainBar viewModel={classroomSession.viewModel} onContinue={continueClassroomTask} challengeId={lab.currentChallenge?.id}/>}
+        {auth.user?.role==='teacher'&&teacherTaskContext?.stage.challengeId===lab.currentChallenge?.id&&<TaskStageKnowledge stage={teacherTaskContext.stage} mission={teacherTaskContext.mission}/>}
         <ErrorBoundary fallback={(
           <LabFeatureFallback
             challenge={lab.currentChallenge}
