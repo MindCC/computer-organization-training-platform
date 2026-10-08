@@ -1175,7 +1175,7 @@ export function App() {
               <img alt="学生头像" src={avatarImage} />
               <span>
                 <strong>{auth.user?.displayName ?? "学习档案"}</strong>
-                <small>{auth.user?.role === 'admin' ? '管理员' : auth.user?.role === "teacher" ? "教师" : student.mode}</small>
+                <small>{auth.user?.role === 'admin' ? '管理员' : auth.user?.role === "teacher" ? (auth.user?.profile?.readOnly === true ? "教师 · 只读" : "教师") : student.mode}</small>
               </span>
               <CaretDown size={18} />
             </button>

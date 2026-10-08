@@ -46,7 +46,7 @@ test('selected login identity is enforced without creating a wrong-role session'
   } finally { await f.close(); }
 });
 
-test('two demo identities use isolated demo ownership and never expose a management credential', async () => {
+test('只读演示教师看得到正式教师的班级但不是属主，且拿不到管理凭据', async () => {
   const f = await fixture();
   try {
     const teacherJar = {}, studentJar = {};
@@ -56,15 +56,22 @@ test('two demo identities use isolated demo ownership and never expose a managem
     assert.equal(t.body.user.role, 'teacher'); assert.equal(s.body.user.role, 'student');
     assert.notEqual(t.body.user.id, f.teacher.id); assert.notEqual(s.body.user.id, f.student.id);
     for (const result of [t, s]) { assert.equal(result.body.user.password, undefined); assert.equal(result.body.user.password_hash, undefined); assert.equal(result.body.user.profile.initialPassword, undefined); }
-    const classes = await f.request('/api/teacher/classes', undefined, teacherJar, 'GET');
-    assert.equal(classes.body.classes.length, 1); assert.notEqual(classes.body.classes[0].id, f.formalClass.id);
-    const overview = await f.request(`/api/teacher/classes/${classes.body.classes[0].id}/overview`, undefined, teacherJar, 'GET');
+    // 2026-10-07：演示教师改为只读，并改为查看正式教师名下的同一份班级数据。
+    assert.equal(t.body.user.profile.readOnly, true, '演示教师必须是只读账号');
+    const classes = (await f.request('/api/teacher/classes', undefined, teacherJar, 'GET')).body.classes;
+    const own = classes.find((row) => row.isOwner === 1);
+    const granted = classes.find((row) => row.id === f.formalClass.id);
+    assert.ok(own, '演示自己名下的演示班仍然保留');
+    assert.ok(granted, '正式教师的班级对只读账号可见（数据同步，不复制）');
+    assert.equal(granted.isOwner, 0, '只读账号不是该班属主');
+    const overview = await f.request(`/api/teacher/classes/${own.id}/overview`, undefined, teacherJar, 'GET');
     assert.equal(overview.status, 200); assert.equal(overview.body.students[0].id, s.body.user.id);
-    assert.equal((await f.request(`/api/teacher/classes/${f.formalClass.id}/overview`, undefined, teacherJar, 'GET')).status, 404);
+    assert.equal((await f.request(`/api/teacher/classes/${f.formalClass.id}/overview`, undefined, teacherJar, 'GET')).status, 200, '只读账号可以查看该班学情');
+    assert.equal((await f.request('/api/classes', { name: '只读不该建班' }, teacherJar)).status, 403, '只读账号不能建班');
   } finally { await f.close(); }
 });
 
-test('demo teacher publishes to the shared class and the demo student can see the homework', async () => {
+test('演示教师只读：不能布置作业；正式教师发布后演示学生能看到', async () => {
   const f = await fixture();
   try {
     const teacherJar = {}, studentJar = {};
@@ -73,23 +80,26 @@ test('demo teacher publishes to the shared class and the demo student can see th
     assert.equal(teacherLogin.status, 200);
     assert.equal(studentLogin.status, 200);
     const classes = await f.request('/api/teacher/classes', undefined, teacherJar, 'GET');
-    assert.equal(classes.body.classes.length, 1);
-    const classId = classes.body.classes[0].id;
-    const overview = await f.request(`/api/teacher/classes/${classId}/overview`, undefined, teacherJar, 'GET');
+    const own = classes.body.classes.find((row) => row.isOwner === 1);
+    assert.ok(own, '演示账号应能看到自己名下的演示班');
+    const overview = await f.request(`/api/teacher/classes/${own.id}/overview`, undefined, teacherJar, 'GET');
     assert.deepEqual(overview.body.students.map((student) => student.id), [studentLogin.body.user.id]);
-    const draft = await f.request(`/api/teacher/classes/${classId}/assignments`, { title: '演示作业', description: '班级关联检查' }, teacherJar);
+    // 只读：任何写操作都被全局闸门拒绝
+    assert.equal((await f.request(`/api/teacher/classes/${own.id}/assignments`, { title: '只读不该发布', description: 'x' }, teacherJar)).status, 403);
+    assert.equal((await f.request(`/api/teacher/classes/${own.id}/import-students`, { csv: '学号,姓名,初始密码\nreadonly-x,不该导入,Test-123456' }, teacherJar)).status, 403);
+    // 正式教师照常发布作业（数据与权限不受只读演示账号影响）
+    const formalJar = await f.login('teacher-formal', 'teacher');
+    addStudentToClass(f.db, f.formalClass.id, f.student.id);
+    const draft = await f.request(`/api/teacher/classes/${f.formalClass.id}/assignments`, { title: '正式作业', description: '班级关联检查' }, formalJar);
     assert.equal(draft.status, 201);
     const assignmentId = draft.body.assignment.id;
     await f.request(`/api/teacher/assignments/${assignmentId}/questions`, {
       type: 'choice', stem: 'CPU 是什么？', options: ['处理器', '硬盘'], answer: '处理器', score: 10,
-    }, teacherJar);
-    assert.deepEqual((await f.request('/api/student/assignments', undefined, studentJar, 'GET')).body.assignments, []);
-    assert.equal((await f.request(`/api/teacher/assignments/${assignmentId}/publish`, {}, teacherJar)).status, 200);
-    const visible = await f.request('/api/student/assignments', undefined, studentJar, 'GET');
-    assert.deepEqual(visible.body.assignments.map((assignment) => assignment.id), [assignmentId]);
-    assert.equal((await f.request(`/api/student/assignments/${assignmentId}`, undefined, studentJar, 'GET')).status, 200);
+    }, formalJar);
+    assert.equal((await f.request(`/api/teacher/assignments/${assignmentId}/publish`, {}, formalJar)).status, 200);
     const formalStudent = await f.login('student-formal', 'student');
-    assert.deepEqual((await f.request('/api/student/assignments', undefined, formalStudent, 'GET')).body.assignments, []);
+    assert.deepEqual((await f.request('/api/student/assignments', undefined, formalStudent, 'GET')).body.assignments.map((assignment) => assignment.id), [assignmentId]);
+    assert.deepEqual((await f.request('/api/student/assignments', undefined, studentJar, 'GET')).body.assignments, [], '演示学生不属于正式班级，看不到该作业');
   } finally { await f.close(); }
 });
 
@@ -115,7 +125,8 @@ test('demo login renames the shared class and keeps provisioned classmates', asy
     const teacherJar = {};
     const first = await f.request('/api/auth/demo-login', { role: 'teacher' }, teacherJar);
     assert.equal(first.status, 200);
-    const original = (await f.request('/api/teacher/classes', undefined, teacherJar, 'GET')).body.classes[0];
+    const original = (await f.request('/api/teacher/classes', undefined, teacherJar, 'GET')).body.classes.find((row) => row.isOwner === 1);
+    assert.ok(original, '演示账号名下的演示班应可见');
     f.db.prepare('UPDATE classes SET name = ? WHERE id = ?').run('芯游记 · 演示教学班', original.id);
     const classmate = createUser(f.db, { username: '2026001', displayName: '学生01', role: 'student', passwordHash: f.passwordHash });
     addStudentToClass(f.db, original.id, classmate.id);
@@ -123,9 +134,10 @@ test('demo login renames the shared class and keeps provisioned classmates', asy
     const second = await f.request('/api/auth/demo-login', { role: 'student' });
     assert.equal(second.status, 200);
     const classes = (await f.request('/api/teacher/classes', undefined, teacherJar, 'GET')).body.classes;
-    assert.equal(classes.length, 1);
-    assert.equal(classes[0].id, original.id);
-    assert.equal(classes[0].name, '计算机组成原理1班');
+    const owned = classes.filter((row) => row.isOwner === 1);
+    assert.equal(owned.length, 1, '只读账号名下只保留演示班');
+    assert.equal(owned[0].id, original.id);
+    assert.equal(owned[0].name, '计算机组成原理1班');
     const overview = await f.request(`/api/teacher/classes/${original.id}/overview`, undefined, teacherJar, 'GET');
     assert.deepEqual(new Set(overview.body.students.map(student => student.id)), new Set([classmate.id, second.body.user.id]));
   } finally { await f.close(); }
@@ -169,7 +181,9 @@ test('legacy seeded demo grades are reused; unrelated accounts cannot be imperso
     assert.equal(result.body.user.id, legacy.id);
     assert.deepEqual(f.db.prepare('SELECT * FROM student_progress WHERE student_id = ?').all(legacy.id), before);
     const teacher = getUserByUsername(f.db, 'demo-teacher');
-    f.db.prepare('UPDATE users SET profile_json = ? WHERE id = ?').run('{}', teacher.id);
+    assert.equal(teacher.profile_json.includes('"readOnly":true'), true, '演示教师持久化为只读');
+    // 演示账号名不可被其它身份的账号占用
+    f.db.prepare('UPDATE users SET role = ? WHERE id = ?').run('student', teacher.id);
     assert.equal((await f.request('/api/auth/demo-login', { role: 'teacher' })).status, 409);
   } finally { await f.close(); }
 });
