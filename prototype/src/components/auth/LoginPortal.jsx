@@ -221,8 +221,9 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
           {onDemoLogin ? (
             <>
             <div className="login-divider"><span>也可以先体验一下</span></div>
+            {/* 2026-10-07 用户要求：教师取消一键登录，改用账号密码登录；只保留学生演示。 */}
             <div className="login-demo-entries" aria-label="选择演示身份">
-              {[{ id: 'student', title: '学生演示', copy: '课程探索、装机与练习', Icon: GraduationCap }, { id: 'teacher', title: '教师演示', copy: '布置作业、评分与班级学情', Icon: PresentationChart }].map(({ id, title, copy: demoCopy, Icon }) => <button key={id} className={`login-demo-entry ${id === 'student' ? 'demo-login-button' : 'teacher-demo-login-button'}`} data-demo-role={id} onClick={() => demoLogin(id)} disabled={Boolean(busy)} type="button">
+              {[{ id: 'student', title: '学生演示', copy: '课程探索、装机与练习', Icon: GraduationCap }].map(({ id, title, copy: demoCopy, Icon }) => <button key={id} className={`login-demo-entry ${id === 'student' ? 'demo-login-button' : 'teacher-demo-login-button'}`} data-demo-role={id} onClick={() => demoLogin(id)} disabled={Boolean(busy)} type="button">
                 <Icon aria-hidden="true" size={20} />
                 <span><strong>{busy === `demo-${id}` ? '正在进入…' : `${title} · 一键进入`}</strong><small>{demoCopy}</small></span>
                 {busy === `demo-${id}` ? <SpinnerGap className="login-spinner" aria-hidden="true" size={18}/> : <ArrowRight size={18} aria-hidden="true"/>}

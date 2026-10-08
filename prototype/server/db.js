@@ -560,6 +560,18 @@ export function migrate(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_ai_conversations_student ON ai_conversations(student_id,id DESC);
   `);
+  // 只读演示教师看正式教师的同一份班级数据：不复制班级，只登记“可访问”。
+  // 属主仍是正式教师，任何写操作都由服务端只读闸门拦下。
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS class_teacher_access (
+      class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+      teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      granted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (class_id, teacher_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_class_teacher_access_teacher
+    ON class_teacher_access(teacher_id, class_id);
+  `);
   reassignRosterClassFromDemoTeacher(db);
 }
 
@@ -688,22 +700,43 @@ export function setClassAllowSkipLocked(db, classId, allow) {
   return db.prepare("SELECT allow_skip_locked AS allowSkipLocked FROM classes WHERE id = ?").get(classId);
 }
 
+/** 班级可访问性 = 属主，或被登记为只读协作者（只读演示教师）。 */
 export function teacherOwnsClass(db, teacherId, classId) {
+  const row = db.prepare(`
+    SELECT c.id FROM classes c
+    LEFT JOIN class_teacher_access a ON a.class_id = c.id AND a.teacher_id = ?
+    WHERE c.id = ? AND (c.teacher_id = ? OR a.teacher_id IS NOT NULL)
+  `).get(teacherId, classId, teacherId);
+  return Boolean(row);
+}
+
+/** 明确“这是我自己名下的班”，与“被授权只读查看”区分开，用于禁止只读协作者写入。 */
+export function teacherOwnsClassDirectly(db, teacherId, classId) {
   const row = db.prepare("SELECT id FROM classes WHERE id = ? AND teacher_id = ?").get(classId, teacherId);
   return Boolean(row);
+}
+
+export function grantClassAccess(db, classId, teacherId) {
+  db.prepare("INSERT OR IGNORE INTO class_teacher_access (class_id, teacher_id) VALUES (?, ?)").run(classId, teacherId);
+}
+
+export function revokeClassAccess(db, classId, teacherId) {
+  db.prepare("DELETE FROM class_teacher_access WHERE class_id = ? AND teacher_id = ?").run(classId, teacherId);
 }
 
 export function listTeacherClasses(db, teacherId, includeArchived = false) {
   const statusFilter = includeArchived ? "" : "AND c.status = 'active'";
   return db.prepare(`
     SELECT c.id, c.name, c.status, c.archived_at AS archivedAt, c.created_at AS createdAt,
-           c.allow_skip_locked AS allowSkipLocked, COUNT(cm.student_id) AS studentCount
+           c.allow_skip_locked AS allowSkipLocked, COUNT(cm.student_id) AS studentCount,
+           CASE WHEN c.teacher_id = ? THEN 1 ELSE 0 END AS isOwner
     FROM classes c
+    LEFT JOIN class_teacher_access a ON a.class_id = c.id AND a.teacher_id = ?
     LEFT JOIN class_members cm ON cm.class_id = c.id
-    WHERE c.teacher_id = ? ${statusFilter}
+    WHERE (c.teacher_id = ? OR a.teacher_id IS NOT NULL) ${statusFilter}
     GROUP BY c.id
-    ORDER BY c.id DESC
-  `).all(teacherId);
+    ORDER BY isOwner DESC, c.id DESC
+  `).all(teacherId, teacherId, teacherId);
 }
 
 export function addStudentToClass(db, classId, studentId) {

@@ -42,7 +42,7 @@ test('demo accounts are read-only: browsing allowed, every write rejected and au
     // 读取放行：班级、概览、学生进度都可以看
     const classes = await f.request('/api/teacher/classes', undefined, teacherJar, 'GET');
     assert.equal(classes.status, 200);
-    const classId = classes.body.classes[0].id;
+    const classId = classes.body.classes.find(row => row.isOwner === 1).id;
     assert.equal((await f.request(`/api/teacher/classes/${classId}/overview`, undefined, teacherJar, 'GET')).status, 200);
     assert.equal((await f.request('/api/student/progress', undefined, studentJar, 'GET')).status, 200);
     assert.equal((await f.request('/api/auth/me', undefined, studentJar, 'GET')).status, 200);
@@ -92,7 +92,7 @@ test('existing demo-class data stays readable; only writes are blocked', async (
     const teacherJar = {}, studentJar = {};
     await f.request('/api/auth/demo-login', { role: 'teacher' }, teacherJar);
     const studentLogin = await f.request('/api/auth/demo-login', { role: 'student' }, studentJar);
-    const classId = (await f.request('/api/teacher/classes', undefined, teacherJar, 'GET')).body.classes[0].id;
+    const classId = (await f.request('/api/teacher/classes', undefined, teacherJar, 'GET')).body.classes.find(row => row.isOwner === 1).id;
     // 直接落库一份作业与学生实验记录（模拟只读生效前已有的演示数据）
     const studentId = studentLogin.body.user.id;
     recordStudentAttempt(f.db, studentId, 'machine-number', { passed: true, score: 92, errors: [] });

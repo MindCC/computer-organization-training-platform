@@ -136,7 +136,7 @@ export function SettingsModal({
                 <li>用一个学生账号完成一次实验提交。</li>
                 <li>回到教师看板查看完成率、高频错误和 AI 助教建议。</li>
               </ol>
-              <p>体验教学流程时，可在登录页选择教师演示，进入独立的演示班级。</p>
+              <p>体验教学流程时，可用演示教师账号登录（demo-teacher / Demo123!）。该账号为只读：能看正式账号名下的班级与学情，不能修改任何数据。</p>
             </section>
 
             <StudentImportPanel key={selectedTeacherClassId ?? 'none'} classId={selectedTeacherClassId} className={selectedClass?.name} onImported={onClassesChanged} isDemoTeacher={isDemoTeacher}/>

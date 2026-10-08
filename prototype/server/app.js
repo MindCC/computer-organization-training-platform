@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
-import { createDemoReadOnlyGuard, ensureDemoAccounts, isDemoLoginEnabled } from './demoAccounts.js';
+import { createDemoReadOnlyGuard, ensureDemoAccounts, isDemoLoginEnabled, isReadOnlyUser } from './demoAccounts.js';
 import { validateAccountSettings } from './accountSettings.js';
 import { validateAvatarImage } from './avatarImage.js';
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
@@ -193,6 +193,18 @@ export function createApp(options = {}) {
     if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
     if (!isTrustedRequestOrigin(req, options.publicBaseUrl ?? process.env.PUBLIC_BASE_URL ?? "")) {
       return res.status(403).json({ error: "跨站请求被拒绝" });
+    }
+    next();
+  });
+
+  // 只读账号（演示教师）：除了退出登录，一律拒绝会改变状态的请求。
+  // 放在会话加载之后、所有业务路由之前，避免只读账号通过任何一条 API 写数据。
+  app.use((req, res, next) => {
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+    if (!req.user) return next();
+    if (["/api/auth/logout", "/api/auth/logout-all"].includes(req.path)) return next();
+    if (isReadOnlyUser(req.user)) {
+      return res.status(403).json({ error: "演示账号为只读模式：可以查看全部数据，不能修改或提交" });
     }
     next();
   });
@@ -424,7 +436,7 @@ export function createApp(options = {}) {
 
   app.post("/api/teacher/classes/:id/import-students", requireRole("teacher"), async (req, res, next) => {
     try {
-      if (sanitizeUser(req.user).profile?.demoAccount === true) return res.status(403).json({ error: '演示教师使用演示学生，导入正式学生请使用正式教师账号' });
+      if (isReadOnlyUser(req.user)) return res.status(403).json({ error: '只读演示账号不能导入学生，请使用正式教师账号' });
       const classId = Number(req.params.id);
       if (!teacherOwnsClass(db, req.user.id, classId)) return res.status(404).json({ error: "班级不存在" });
       const csvText = typeof req.body === "string" ? req.body : String(req.body?.csv ?? "");
@@ -564,7 +576,7 @@ export function createApp(options = {}) {
   });
 
   app.get("/api/teacher/audit-logs", requireRole("teacher"), (req, res) => {
-    if (sanitizeUser(req.user).profile?.demoAccount === true) return res.status(403).json({ error: '演示教师不能查看整个平台的审计记录' });
+    if (isReadOnlyUser(req.user)) return res.status(403).json({ error: '只读演示账号不能查看整个平台的审计记录' });
     const { action, from, to, page, pageSize } = req.query;
     res.json(listAuditLogs(db, { action, from, to, page, pageSize }));
   });
@@ -842,7 +854,7 @@ export function createApp(options = {}) {
   // 必须重新输入本人口令——快照包含全部口令散列与会话摘要，不能让一个被盗的会话
   // cookie 直接拖走整库。GET 版本已移除，避免绕过这道确认。
   app.post("/api/admin/backup", requireRole("teacher"), async (req, res, next) => {
-    if (sanitizeUser(req.user).profile?.demoAccount === true) return res.status(403).json({ error: '演示教师不能下载整库备份' });
+    if (isReadOnlyUser(req.user)) return res.status(403).json({ error: '只读演示账号不能下载整库备份' });
     let tempDirectory = null;
     const cleanup = () => {
       if (!tempDirectory) return;
@@ -889,7 +901,7 @@ export function createApp(options = {}) {
   });
 
   app.get("/api/admin/db-info", requireRole("teacher"), (req, res) => {
-    if (sanitizeUser(req.user).profile?.demoAccount === true) return res.status(403).json({ error: '演示教师不能查看平台数据库信息' });
+    if (isReadOnlyUser(req.user)) return res.status(403).json({ error: '只读演示账号不能查看平台数据库信息' });
     const dbPath = req.app.locals.dbPath ?? ":memory:";
     const isMemory = !dbPath || dbPath === ":memory:";
     const size = isMemory ? 0 : (fs.existsSync(dbPath) ? fs.statSync(dbPath).size : 0);
