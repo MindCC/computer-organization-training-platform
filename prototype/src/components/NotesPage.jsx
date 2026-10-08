@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../apiClient.js";
 import { BookOpen, CaretRight, FileText, FolderSimple, MagnifyingGlass, SidebarSimple, SortAscending, UploadSimple, TreeStructure } from "@phosphor-icons/react";
 import { MindMapBoard } from './MindMapBoard.jsx';
+import { LearningWorkspace } from './learning/LearningWorkspace.jsx';
 import "./knowledgeWorkspace.css";
 
 const FILE_TYPE_LABELS = { txt: "TXT", md: "MD", docx: "DOCX", pdf: "PDF", pptx: "PPTX" };
@@ -60,10 +61,15 @@ function formatKbDate(createdAt) {
  * 知识库（LLMWiki 式）：上传文件 → 系统解析正文 → 分块 → 全文索引 → 自动分析，
  * 支持全文检索与摘要/要点/关键词查看。组件自管数据（App 传入的旧笔记 props 一律忽略）。
  */
-export function NotesPage({userId}) {
-  const [mode, setMode] = useState("files");
+export function NotesPage({userId, progress = {}, onOpenChallenge, onOpenStudyTarget}) {
+  const [mode, setMode] = useState(() => {
+    try { return window.sessionStorage.getItem(`zcyl:knowledge-mode:${userId}`) === 'graph' ? 'graph' : 'files'; } catch { return 'files'; }
+  });
+  useEffect(() => {
+    try { window.sessionStorage.setItem(`zcyl:knowledge-mode:${userId}`, mode); } catch { /* Storage is optional. */ }
+  }, [mode, userId]);
   const [mindMapSeed,setMindMapSeed]=useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia("(max-width: 720px)").matches);
+  const [sidebarOpen, setSidebarOpen] = useState(() => mode !== 'graph' && !window.matchMedia("(max-width: 720px)").matches);
   const [selectedId, setSelectedId] = useState(null);
   const selectedIdRef = useRef(selectedId);
   selectedIdRef.current = selectedId;
@@ -242,9 +248,18 @@ export function NotesPage({userId}) {
   const folders = Object.entries(FILE_TYPE_LABELS).filter(([type]) => filteredDocuments.some(document => document.fileType === type));
 
   return (
+    <div className="kb-page">
+      <nav className="kb-destinations" aria-label="知识库内容">
+        <div><strong>知识库</strong><small>梳理课程知识，整理自己的学习资料</small></div>
+        <div className="kb-destination-actions">
+          <button type="button" aria-pressed={mode === 'graph'} onClick={() => { setMode('graph'); setSidebarOpen(false); }}><TreeStructure size={18} />课程知识图谱</button>
+          <button type="button" aria-pressed={['files','search','upload'].includes(mode)} onClick={() => { setMode('files'); setSidebarOpen(!window.matchMedia('(max-width: 720px)').matches); }}><FolderSimple size={18} />我的文档</button>
+          <button type="button" aria-pressed={mode === 'mindmap'} onClick={openMindMap}><BookOpen size={18} />思维画板</button>
+        </div>
+      </nav>
     <div className={`kb-layout kb-vault${sidebarOpen ? "" : " is-collapsed"}`}>
       <nav className="kb-ribbon" aria-label="知识库工具">
-        {[{id:"files",label:"我的文档",icon:FolderSimple},{id:"search",label:"全文检索",icon:MagnifyingGlass},{id:"upload",label:"上传文档",icon:UploadSimple},{id:"mindmap",label:"思维画板",icon:TreeStructure}].map(({id,label,icon:Icon}) => <button key={id} type="button" title={label} aria-label={label} aria-pressed={mode === id} onClick={() => id==='mindmap'?openMindMap():setMode(id)}><Icon size={21} /></button>)}
+        {[{id:"graph",label:"课程知识图谱",icon:TreeStructure},{id:"files",label:"我的文档",icon:FolderSimple},{id:"search",label:"全文检索",icon:MagnifyingGlass},{id:"upload",label:"上传文档",icon:UploadSimple},{id:"mindmap",label:"思维画板",icon:BookOpen}].map(({id,label,icon:Icon}) => <button key={id} type="button" title={label} aria-label={label} aria-pressed={mode === id} onClick={() => id==='mindmap'?openMindMap():id==='graph'?(setMode('graph'),setSidebarOpen(false)):setMode(id)}><Icon size={21} /></button>)}
         <span className="kb-ribbon-bottom"><BookOpen size={20} /></span>
       </nav>
       {sidebarOpen ? <aside className="kb-vault-sidebar" id="kb-file-sidebar" aria-label="知识库文件导航">
@@ -269,8 +284,9 @@ export function NotesPage({userId}) {
         <footer className="kb-vault-foot"><span>{documents.length} 篇文档</span><span>{totalChunks} 个知识块</span></footer>
       </aside> : null}
       <div className="kb-vault-main">
-        <header className="kb-workspace-tabs"><button type="button" className="kb-sidebar-toggle" aria-label={sidebarOpen ? "收起文件侧栏" : "展开文件侧栏"} aria-expanded={sidebarOpen} aria-controls="kb-file-sidebar" onClick={() => setSidebarOpen(value => !value)}><SidebarSimple size={19} /></button><div className="kb-active-tab"><FileText size={16} /><span>{mode === 'mindmap' ? '思维画板' : mode === "upload" ? "导入资料" : mode === "search" ? "搜索知识库" : activeDocument?.title ?? "知识库"}</span></div><span className="kb-workspace-hint">个人学习空间</span></header>
+        <header className="kb-workspace-tabs"><button type="button" className="kb-sidebar-toggle" aria-label={sidebarOpen ? "收起文件侧栏" : "展开文件侧栏"} aria-expanded={sidebarOpen} aria-controls="kb-file-sidebar" onClick={() => setSidebarOpen(value => !value)}><SidebarSimple size={19} /></button><div className="kb-active-tab"><FileText size={16} /><span>{mode === 'graph' ? '课程知识图谱' : mode === 'mindmap' ? '思维画板' : mode === "upload" ? "导入资料" : mode === "search" ? "搜索知识库" : activeDocument?.title ?? "知识库"}</span></div><span className="kb-workspace-hint">个人学习空间</span></header>
         <div className="kb-workspace-content">
+      {mode === 'graph' ? <LearningWorkspace progress={progress} onOpenChallenge={onOpenChallenge} onOpenStudyTarget={onOpenStudyTarget} /> : null}
       {mode === 'mindmap' ? <MindMapBoard userId={userId} initialText={mindMapSeed} /> : null}
 
       {mode === "upload" ? <section className="section-panel kb-upload-panel">
@@ -499,8 +515,9 @@ export function NotesPage({userId}) {
         )}
       </section> : null}
       </div>
-      <footer className="kb-reading-status"><span>{mode === "files" && activeDocument ? `${activeDocument.originalName} · ${activeDocument.charCount} 字` : "TXT · MD · DOCX · PDF · PPTX"}</span><span>{mode === "files" && activeDocument ? `${activeDocument.chunkCount} 个知识块` : "支持全文检索"}</span></footer>
+      <footer className="kb-reading-status"><span>{mode === 'graph' ? '八章课程概念与关系' : mode === "files" && activeDocument ? `${activeDocument.originalName} · ${activeDocument.charCount} 字` : "TXT · MD · DOCX · PDF · PPTX"}</span><span>{mode === 'graph' ? '实验记录仅作学习参考，不代表知识掌握' : mode === "files" && activeDocument ? `${activeDocument.chunkCount} 个知识块` : "支持全文检索"}</span></footer>
       </div>
+    </div>
     </div>
   );
 }

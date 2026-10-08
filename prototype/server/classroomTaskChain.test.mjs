@@ -6,6 +6,7 @@ import { createClassroomSessionService } from './classroomSessionService.js';
 import { validateClassroomSessionConfig } from '../src/shared/classroomMissionDefinitions.js';
 import { createAssignmentRepository } from './assignmentRepository.js';
 import { getCircuitChallenge } from '../src/circuit/challengeCircuitModel.js';
+import { saveAiConversation } from './aiConversationRepository.js';
 
 function context() {
   const db = openDatabase(':memory:'); migrate(db);
@@ -23,23 +24,56 @@ function context() {
   return {db,teacher,student,stranger,service,session,config};
 }
 
+test('AI stage waits for this student’s answer in the current stage before accepting reflection',()=>{
+  const c=context();try {
+    c.service.updateDraft({teacherId:c.teacher.id,sessionId:c.session.id,config:{...c.config,taskChain:{title:'答疑',stages:[{id:'ask',type:'ai',title:'问小芯',chapterId:'ch2'}]}}});
+    c.service.start({teacherId:c.teacher.id,sessionId:c.session.id});c.service.enterStudent({studentId:c.student.id,sessionId:c.session.id});
+    const send=evidence=>c.service.completeStage({studentId:c.student.id,sessionId:c.session.id,payload:{stageId:'ask',evidence,clientSubmissionId:'ai-stage-answer-1'}});
+    const text='补码加法保留低8位，有进位不一定发生有符号溢出。';
+    assert.throws(()=>send({text}),/等待小芯回答/);
+    assert.throws(()=>send({text,conversationId:999}),/等待小芯回答/);
+    const own=saveAiConversation(c.db,{studentId:c.student.id,kind:'question',question:'补码是什么？',answer:{source:'local',explanation:'补码是一种机器数表示。'},context:{chapterId:'ch2'}});
+    assert.throws(()=>send({text,conversationId:own}),/当前环节/);
+    const foreign=saveAiConversation(c.db,{studentId:c.stranger.id,kind:'question',question:'补码是什么？',answer:{source:'local',explanation:'补码是一种机器数表示。'}});
+    c.db.prepare('INSERT INTO classroom_stage_ai_answers (session_id,student_id,stage_id,conversation_id) VALUES (?,?,?,?)').run(c.session.id,c.stranger.id,'ask',foreign);
+    assert.throws(()=>send({text,conversationId:foreign}),/等待小芯回答/);
+    c.db.prepare('INSERT INTO classroom_stage_ai_answers (session_id,student_id,stage_id,conversation_id) VALUES (?,?,?,?)').run(c.session.id,c.student.id,'ask',own);
+    const done=send({text,conversationId:own});assert.equal(done.studentState.status,'completed');assert.equal(done.result.score,null);
+    assert.equal(done.studentState.result.stageResults[0].evidence.conversationId,own);
+    assert.equal(send({text,conversationId:own}).duplicate,true);
+  }finally {c.db.close();}
+});
+
 test('task chains validate resources and reject duplicate steps',()=>{
   const base={templateKey:'task-chain',durationMinutes:45,passScore:80};
   assert.throws(()=>validateClassroomSessionConfig({...base,taskChain:{title:'错误',stages:[{id:'a',title:'演示',type:'demo',demoId:'evil'}]}}),/演示/);
   assert.throws(()=>validateClassroomSessionConfig({...base,taskChain:{title:'错误',stages:[{id:'a',title:'反思',type:'reflection'},{id:'a',title:'反思',type:'reflection'}]}}),/重复/);
 });
 
-test('hands-on demo requires an explanation, records it for the teacher and keeps it unscored',()=>{
+test('hands-on demo records an optional explanation for the teacher and keeps it unscored',()=>{
   const c=context();try{
     c.service.updateDraft({teacherId:c.teacher.id,sessionId:c.session.id,config:{...c.config,taskChain:{title:'补码加法',stages:[{id:'add',type:'demo',title:'动手加法',demoId:'twos-complement',demoActivity:'add',submissionMode:'text'}]}}});
     c.service.start({teacherId:c.teacher.id,sessionId:c.session.id});c.service.enterStudent({studentId:c.student.id,sessionId:c.session.id});
     const send=evidence=>c.service.completeStage({studentId:c.student.id,sessionId:c.session.id,payload:{stageId:'add',evidence,clientSubmissionId:'demo-explanation-1'}});
-    assert.throws(()=>send({completed:true}),/10/);
+    assert.throws(()=>send({completed:true}),/说明/);
     const text='5加负3的补码，保留低8位得到2，有进位但没有有符号溢出。';
     const done=send({text});assert.equal(done.result.score,null);assert.equal(done.studentState.result.gradedStageCount,0);
     c.service.end({teacherId:c.teacher.id,sessionId:c.session.id});
     assert.equal(c.service.getReport({teacherId:c.teacher.id,sessionId:c.session.id}).studentReports[0].stageResults[0].evidence.text,text);
   }finally{c.db.close();}
+});
+
+test('students may explicitly skip hands-on and reflection explanations without fabricated scores',()=>{
+  const c=context();try {
+    c.service.updateDraft({teacherId:c.teacher.id,sessionId:c.session.id,config:{...c.config,taskChain:{title:'可选说明',stages:[{id:'demo',type:'demo',title:'动手',demoId:'twos-complement',submissionMode:'text'},{id:'reflection',type:'reflection',title:'反思'}]}}});
+    c.service.start({teacherId:c.teacher.id,sessionId:c.session.id});c.service.enterStudent({studentId:c.student.id,sessionId:c.session.id});
+    for(const stageId of ['demo','reflection']) {
+      const done=c.service.completeStage({studentId:c.student.id,sessionId:c.session.id,payload:{stageId,evidence:{skipped:true},clientSubmissionId:`optional-${stageId}`}});
+      assert.equal(done.result.score,null);assert.equal(done.studentState.result.gradedStageCount,0);
+      assert.equal(done.studentState.result.stageResults.at(-1).evidence.skipped,true);
+    }
+    assert.equal(c.service.getStudentCurrent({studentId:c.student.id}).studentState.status,'completed');
+  }finally {c.db.close();}
 });
 
 test('heterogeneous chain persists, grades actual answers, retries and completes idempotently',()=>{
@@ -61,7 +95,7 @@ test('heterogeneous chain persists, grades actual answers, retries and completes
     c.service.pause({teacherId:c.teacher.id,sessionId:c.session.id});
     assert.throws(()=>send('reflect',{text:'符号位参与加法，超出范围时判断溢出。'}),/暂停/);
     c.service.resume({teacherId:c.teacher.id,sessionId:c.session.id});
-    assert.throws(()=>send('reflect',{text:'好'}),/10/);
+    assert.throws(()=>send('reflect',{text:123}),/说明/);
     const done=send('reflect',{text:'符号位参与加法，超出范围时判断溢出。'});
     assert.equal(done.studentState.status,'completed');
     assert.equal(done.studentState.result.averageScore,100);

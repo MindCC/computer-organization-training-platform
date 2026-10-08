@@ -13,6 +13,7 @@ function StageFeedback({stage}){
       {student.result?<><p>{Number.isFinite(student.result.score)?`${student.result.score} 分`:'参与记录 · 不计知识成绩'} · 提交 {student.result.attempts??1} 次</p>
         {student.result.errors?.length?<ul>{student.result.errors.map((message,index)=><li key={index}>{message}</li>)}</ul>:null}
         {student.result.evidence?.text?<p className="task-learning-text">{student.result.evidence.text}</p>:null}
+        {student.result.evidence?.skipped?<p>已跳过学习说明</p>:null}
       </>:<p>尚无本任务的提交记录。</p>}
     </article>)}{!stage.students.length?<p>本场课堂暂无学生。</p>:null}
   </section>;

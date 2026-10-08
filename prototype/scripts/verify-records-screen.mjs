@@ -34,6 +34,7 @@ const browser = await chromium.launch({ headless: true });
 try {
   const context = await browser.newContext({ viewport: { width: 1366, height: 768 } });
   const page = await context.newPage();
+  const restoreCompanion = async () => { const trigger = page.locator('.study-companion-trigger'); if (await trigger.count()) await trigger.press('Home'); };
 
   await gotoApp(page, `${BASE_URL}/`);
   await fillLoginForm(page, {username:'demo2026001',password:'Student123!'});
@@ -47,7 +48,35 @@ try {
 
   // KPI 指标条
   check("KPI 指标条 5 项", await page.locator(".records-kpi").count() === 5);
-  check("KPI 含已点亮树杈", (await page.locator(".records-kpi").first().innerText()).includes("已点亮树杈"));
+  check("KPI 使用明确的已完成实验文案", (await page.locator(".records-kpi").first().innerText()).includes("已完成实验"));
+  check('学习记录不再挂载知识图谱', await page.getByTestId('course-knowledge-graph').count() === 0);
+  check('默认学习概览，计划与明细分区隐藏', await page.getByRole('tab', {name:'学习概览'}).getAttribute('aria-selected') === 'true' && !(await page.locator('#records-pane-planning').isVisible()) && !(await page.locator('#records-pane-details').isVisible()));
+  await page.screenshot({path:`${ARTIFACT_DIR}/records-overview-desktop.png`,fullPage:true});
+  await page.getByRole('tab', {name:'计划与专注'}).click();
+  await page.getByTestId('study-planning').waitFor({state:'visible'});
+  check('计划与专注只显示自己的学习工具', await page.locator('.pomodoro-panel').isVisible() && !(await page.getByTestId('records-statistics-grid').isVisible()));
+  await page.getByRole('button', {name:'新建学习计划',exact:true}).click();
+  await page.getByLabel('学习计划目标').fill('整理记录分区验收');
+  await page.getByRole('button', {name:'保存学习计划',exact:true}).click();
+  await page.locator('.study-plan-item').filter({hasText:'整理记录分区验收'}).waitFor();
+  await page.locator('.pomo-primary').click();
+  await page.getByRole('tab', {name:'学习概览'}).click();
+  check('离开专注分区暂停动画解码', await page.locator('.pomo-video').evaluate(video => video.paused));
+  await page.getByRole('tab', {name:'计划与专注'}).click();
+  check('切换分区保留正在运行的计时', (await page.locator('.pomo-primary').innerText()).includes('暂停'));
+  await page.locator('.pomo-primary').click();
+  const pausedClock = await page.locator('.pomo-sign-clock').innerText();
+  await page.evaluate(()=>window.scrollTo(0,0));
+  await page.screenshot({path:`${ARTIFACT_DIR}/records-planning-desktop.png`,fullPage:true});
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.getByRole('tab', {name:'计划与专注'}).click();
+  await page.locator('.study-plan-item').filter({hasText:'整理记录分区验收'}).waitFor();
+  check('刷新保留服务器计划及已暂停的番茄钟', (await page.locator('.pomo-primary').innerText()).includes('开始') && await page.locator('.pomo-sign-clock').innerText() === pausedClock);
+  await page.getByRole('tab', {name:'学习概览'}).click();
+  await page.getByRole('tab', {name:'学习概览'}).focus();
+  await page.keyboard.press('End');
+  check('键盘可切换到详细记录', await page.getByRole('tab', {name:'详细记录'}).getAttribute('aria-selected') === 'true');
+  await page.getByRole('tab', {name:'学习概览'}).click();
 
   // ── 浅色主题（computed style 断言，替代原深色大屏的语义） ──
   const screenStyle = await page.locator(".records-screen").evaluate((el) => {
@@ -73,9 +102,10 @@ try {
   const mascotHover = await page.locator('.records-kpi-review [role="tooltip"]').evaluate(node => ({visible:getComputedStyle(node).visibility,opacity:getComputedStyle(node).opacity,hover:node.parentElement.matches(':hover')}));
   check('悬停小芯显示复习建议', mascotHover.visible === 'visible' && Number(mascotHover.opacity) > .9, JSON.stringify(mascotHover));
   await mascot.click();
+  await page.getByRole('dialog').locator('.companion-live').waitFor({state:'visible'});
   // 2026-10-05：小芯对话框改为 createPortal 渲染到 document 根节点（upstream 决定），
   // 因此不能再限定在 .records-kpi-review 内查找；用只属于小芯的 .study-mascot-review 定位。
-  check('点击小芯也能读到复习建议', await page.locator('[role="dialog"] .study-mascot-review').first().isVisible());
+  check('点击小芯也能读到复习建议', (await page.locator('[role="dialog"] .companion-live').innerText()).includes('建议继续'));
   await page.getByRole('button', {name:'关闭小芯助教'}).click();
   check('明细默认折叠，缩短页面', await page.locator('[data-testid="records-details-section"]').evaluate(node=>!node.open));
   await page.locator('[data-testid="records-statistics-grid"]').screenshot({path:`${ARTIFACT_DIR}/records-statistics-equal.png`,style:'.topbar {visibility:hidden;}'});
@@ -103,11 +133,13 @@ try {
   await page.locator(".chart-zoom-close").click();
   await page.waitForTimeout(250);
   check("关闭后收回小图（弹层消失）", await page.locator(".chart-zoom-overlay").count() === 0);
+  await restoreCompanion();
 
   // ── 冒险地图：状态来自同一份真实课程进度，概念图谱不承担关卡锁定 ──
   await page.getByRole('button', {name:'课程首页',exact:true}).click();
   await page.waitForSelector("[data-testid='course-adventure-map'] [data-region-id]", { timeout: 15000 });
-  const expectedMap = buildAdventureMap(prog);
+  const progressResponse = await (await page.request.get(`${API_URL}/api/student/progress`)).json();
+  const expectedMap = buildAdventureMap(progressResponse.progress ?? {});
   const map = page.locator("[data-testid='course-adventure-map']");
   const regionCount = await map.locator(".adventure-map-svg [data-region-id]").count();
   check("冒险地图：八章课程区域", regionCount === 8 && regionCount === expectedMap.regions.length, `实际 ${regionCount}`);
@@ -138,10 +170,12 @@ try {
   // 这里不再有树上的叶子/缩放交互可测。
 
   await page.screenshot({ path: `${ARTIFACT_DIR}/records-tech-screen.png`, fullPage: false });
+  await restoreCompanion();
 
   // 明细契约保留（verify-ui 依赖 .record-table .record-row）
   await clickTopNavItem(page, "学习记录");
   await page.waitForSelector(".records-screen", { timeout: 15000 });
+  await page.getByRole('tab', {name:'详细记录'}).click();
   await page.locator('[data-testid="records-details-section"] > summary').click();
   const rowCount = await page.locator(".record-table .record-row").count();
   check("章节化关卡明细保留（.record-table .record-row）", rowCount === CHALLENGES.length, `实际 ${rowCount} 行`);
@@ -165,6 +199,37 @@ try {
   await page.locator("details.record-chapter .record-chapter-summary").nth(1).click();
 
   await page.screenshot({ path: `${ARTIFACT_DIR}/records-tech-screen-full.png`, fullPage: true });
+  await page.getByTestId('records-practice-section').locator('summary').click();
+  await page.getByTestId('records-service-section').locator('summary').click();
+  check('随堂练习和维修记录分开归组', await page.getByTestId('demo-practice-panel').isVisible() && await page.getByTestId('records-service-section').evaluate(node => node.open));
+  for (const label of ['学习概览','计划与专注','详细记录']) {
+    await page.setViewportSize({width:390,height:844});
+    await restoreCompanion();
+    await page.getByRole('tab',{name:label}).click();
+    check(`手机${label}无横向溢出`, await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1));
+    await page.evaluate(()=>window.scrollTo(0,0));
+    await page.screenshot({path:`${ARTIFACT_DIR}/records-${label}-mobile.png`,fullPage:true});
+  }
+  await page.getByRole('tab',{name:'学习概览'}).click();
+  await page.getByTestId('records-activity-section').locator('summary').click();
+  check('日历与热力图可按需展开', await page.locator('.records-calendar-panel').isVisible() && await page.locator('.records-heatmap-panel').isVisible());
+  const teacherContext = await browser.newContext({viewport:{width:1366,height:768}});
+  const teacher = await teacherContext.newPage();
+  await gotoApp(teacher,`${BASE_URL}/`);
+  await fillLoginForm(teacher,{username:'teacher',password:'ChangeMe123!'});
+  await teacher.locator('[data-login-role="teacher"]').click();
+  await submitLoginForm(teacher);
+  await teacher.locator('.teacher-studio').waitFor();
+  await clickTopNavItem(teacher,'学习记录');
+  await teacher.locator('.teacher-review-roster').waitFor();
+  await teacher.locator('.teacher-review-roster tbody tr').first().getByRole('button',{name:'学习记录',exact:true}).click();
+  await teacher.locator('.records-screen').waitFor();
+  check('教师查看学生只保留概览与明细，不挂载私人计划和计时', await teacher.getByRole('tab',{name:'计划与专注'}).count() === 0 && await teacher.getByTestId('study-planning').count() === 0 && await teacher.locator('.pomodoro-panel').count() === 0);
+  await teacher.getByLabel('学情查看对象',{exact:true}).selectOption('mine');
+  await teacher.getByRole('tab',{name:'计划与专注'}).click();
+  await teacher.getByTestId('study-planning').waitFor();
+  check('教师试练拥有独立计划分区，未继承学生私人计划', !(await teacher.getByTestId('study-planning').innerText()).includes('整理记录分区验收'));
+  await teacherContext.close();
   await context.close();
 } finally {
   await browser.close();

@@ -43,7 +43,7 @@ export function StatusDonut({ distribution }) {
   return (
     <div className="tech-chart tech-donut" data-testid="chart-donut">
       <div className="tech-chart-head">
-        <strong>树杈点亮分布</strong>
+        <strong>实验完成分布</strong>
         <small>共 {total} 个实验</small>
       </div>
       <div className="tech-donut-body">
@@ -201,7 +201,7 @@ export function ChapterStudyTimeChart({ series }) {
           );
         })}
       </svg>
-      <p className="tech-chart-foot">累计 {series.reduce((sum, entry) => sum + entry.studyMinutes, 0)} 分钟 · 仅统计实验记录中的学习时长</p>
+      <p className="tech-chart-foot">累计 {Math.round(series.reduce((sum, entry) => sum + entry.studyMinutes, 0) * 10) / 10} 分钟 · 实验与互动演示合计</p>
     </div>
   );
 }

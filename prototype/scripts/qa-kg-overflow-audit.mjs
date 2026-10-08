@@ -9,7 +9,8 @@ try {
   await fillLoginForm(page, { username: "demo2026001", password: "Student123!" });
   await submitLoginForm(page);
   await page.waitForSelector(".quest-student-home", { timeout: 20000 });
-  await clickTopNavItem(page, "学习记录");
+  await clickTopNavItem(page, "知识库");
+  await page.locator('.kb-destinations').getByRole('button',{name:'课程知识图谱',exact:true}).click();
   await page.waitForSelector("[data-testid=course-knowledge-graph]", { timeout: 20000 });
   for (let chapter = 1; chapter <= 8; chapter += 1) {
     await page.locator(`[data-knowledge-chapter="ch${chapter}"]`).click();

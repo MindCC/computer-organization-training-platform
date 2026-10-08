@@ -4,6 +4,7 @@ import { studyAnswerSourceLabel } from './studyAnswerSource.js';
 import { apiRequest } from '../../apiClient.js';
 import { assemblyHelp, safeAssemblySnapshot } from '../../assemblyHelp.js';
 import { useStudySnapshot } from './currentStudyContext.js';
+import { publishTaskAssistantStatus } from './taskAssistantStatus.js';
 import './studyMascot.css';
 import './studyCompanion.css';
 const clamp = (p) => ({x:Math.max(8,Math.min(Number.isFinite(p?.x)?p.x:innerWidth-112,Math.max(8,innerWidth-104))),y:Math.max(8,Math.min(Number.isFinite(p?.y)?p.y:innerHeight-144,Math.max(8,innerHeight-124)))});
@@ -16,8 +17,9 @@ export function StudyCompanion({userId,page,pageTitle,chapterId}) {
  const current=snapshot?.kind==='assembly'?safeAssemblySnapshot(snapshot.assembly):null,help=current?assemblyHelp(current):null;
  const action=help?.action??snapshot?.action;
  const publicContext=selected?.context??snapshot?.publicContext??{chapterId};
+ const classroom=selected?.classroom??snapshot?.classroom;
  const stateKey=JSON.stringify([page,publicContext,current,snapshot?.circuit,snapshot?.action]);
- const publicKey=JSON.stringify(snapshot?.publicContext);
+ const publicKey=JSON.stringify([snapshot?.publicContext,snapshot?.classroom]);
  useEffect(()=>{setSelected(null);setAnswer(null);setError('');sequence.current++;setBusy(false);},[publicKey]);
  useEffect(()=>{setSelected(null);setQuestion('');setAnswer(null);setError('');setIncludeState(false);setOpen(false);sequence.current++;setBusy(false);},[page]);
  useEffect(()=>{setIncludeState(false);},[snapshot?.kind,snapshot?.expert]);
@@ -42,11 +44,12 @@ export function StudyCompanion({userId,page,pageTitle,chapterId}) {
  async function ask(event){
   event.preventDefault();if(busy||!question.trim())return;
   const requestId=++sequence.current;setBusy(true);setAnswer(null);setError('');sentKey.current=stateKey;
+  publishTaskAssistantStatus(classroom,userId,'pending');
   const context={questionId:publicContext.questionId,conceptId:publicContext.conceptId,chapterId:publicContext.chapterId};
   if(includeState&&!snapshot?.expert&&current)context.assembly=current;
   if(includeState&&!snapshot?.expert&&snapshot?.circuit)context.circuit=snapshot.circuit;
-  try{const result=await apiRequest('/api/student/study-assistant',{method:'POST',timeoutMs:25000,body:JSON.stringify({question:question.trim(),context,consent:'deepseek-public-question',...(includeState?{stateConsent:'current-task-state'}:{})})});if(requestId===sequence.current){setAnswer(result);apiRequest('/api/student/study-assistant/history').then(data=>{setHistory(data.conversations??[]);setHistoryMore(Boolean(data.hasMore));}).catch(()=>{});}}
-  catch(err){if(requestId===sequence.current)setError(`提问失败：${err.message}。可以重试。`);}
+  try{const result=await apiRequest('/api/student/study-assistant',{method:'POST',timeoutMs:25000,body:JSON.stringify({question:question.trim(),context,consent:'deepseek-public-question',...(classroom?{classroom}:{}),...(includeState?{stateConsent:'current-task-state'}:{})})});if(requestId===sequence.current){setAnswer(result);publishTaskAssistantStatus(classroom,userId,result.classroomAnswer?'answered':'failed',result.classroomAnswer?.conversationId);apiRequest('/api/student/study-assistant/history').then(data=>{setHistory(data.conversations??[]);setHistoryMore(Boolean(data.hasMore));}).catch(()=>{});}}
+  catch(err){if(requestId===sequence.current){setError(`提问失败：${err.message}。可以重试。`);publishTaskAssistantStatus(classroom,userId,'failed');}}
   finally{if(requestId===sequence.current)setBusy(false);}
  }
  return createPortal(<>

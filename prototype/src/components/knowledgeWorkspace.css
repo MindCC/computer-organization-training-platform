@@ -75,3 +75,21 @@
 @media(max-width:1050px) { .kb-vault { --kb-rail:44px; --kb-files:220px; } .kb-workspace-hint { display:none; } .kb-active-tab { max-width:85%; } .kb-reading-status { flex-wrap:wrap; } }
 @media(max-width:720px) { .kb-vault,.kb-vault.is-collapsed { grid-template-columns:42px minmax(0,1fr); min-height:65dvh; } .kb-ribbon { grid-column:1; grid-row:1 / 3; height:calc(100dvh - var(--platform-nav-height,120px) - 100px); min-height:300px; } .kb-vault-sidebar { grid-column:2; border-right:0; border-bottom:1px solid #dfe6e0; position:static; height:auto; min-height:0; } .kb-file-tree { max-height:250px; overflow:auto; flex:none; } .kb-vault-main { grid-column:2; } .kb-vault .section-panel { padding:24px 16px; } .kb-vault .section-heading { gap:16px; } .kb-vault h1 { font-size:23px; } .kb-workspace-tabs { padding-left:6px; } .kb-active-tab { max-width:calc(100% - 50px); padding:0 10px; } .kb-vault .kb-upload-zone { padding:14px; } .kb-vault .kb-file-label { min-width:0; overflow-wrap:anywhere; } .kb-vault .kb-hit-card header { flex-wrap:wrap; } }
 @media(max-width:720px) { .kb-vault { --kb-rail:42px; --kb-files:0px; } }
+.kb-page { display: grid; gap: 16px; min-width: 0; }
+.kb-destinations { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 4px 0; color: #273f32; }
+.kb-destinations > div:first-child { display: grid; gap: 6px; }
+.kb-destinations strong { font-size: 24px; }
+.kb-destinations small { font-size: 13px; color: #5e7163; }
+.kb-destination-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.kb-destination-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 10px 14px; border: 1px solid #d9e2dc; border-radius: 8px; background: #fff; color: #526e5c; font-size: 13px; cursor: pointer; }
+.kb-destination-actions button[aria-pressed="true"] { background: #e6f2ec; border-color: #87b8a0; color: #176e51; font-weight: 700; }
+.kb-destination-actions button:hover { border-color: #438e6d; }
+.kb-destination-actions button:focus-visible { outline: 2px solid #438e6d; outline-offset: 3px; }
+.kb-vault .learning-workspace { margin: 0; border: 0; border-radius: 0; background: #fff; }
+.kb-vault .learning-workspace-head { padding: 18px 22px; }
+.kb-vault .learning-workspace-head small { display: none; }
+@media(max-width:720px) {
+  .kb-destination-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); width: 100%; }
+  .kb-destination-actions button { flex-direction: column; padding: 10px 5px; font-size: 12px; }
+  .kb-vault .learning-workspace-head { padding: 16px; }
+}

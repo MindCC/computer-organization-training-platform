@@ -64,7 +64,7 @@ function loadPersisted() {
   }
 }
 
-export function PomodoroPanel({ task = null }) {
+export function PomodoroPanel({ task = null, visible = true }) {
   const [state, setState] = useState(() => loadPersisted() ?? initialPhaseState());
   const baseTitle = useRef(typeof document === "undefined" ? "" : document.title);
   const audioRef = useRef(null);
@@ -168,13 +168,13 @@ export function PomodoroPanel({ task = null }) {
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    if (state.running && !reducedMotion) {
+    if (state.running && !reducedMotion && visible) {
       const played = video.play();
       if (played?.catch) played.catch(() => { /* 自动播放被拒也不影响计时 */ });
     } else {
       video.pause();
     }
-  }, [state.running, reducedMotion]);
+  }, [state.running, reducedMotion, visible]);
 
   const toggle = () => {
     setState((current) => {

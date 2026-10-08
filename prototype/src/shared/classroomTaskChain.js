@@ -15,8 +15,8 @@ export const TASK_TYPES = Object.freeze({
   practice: {label:'随堂练习',hint:'精选题库，自动判分与错题同步',completion:'提交或达到及格分'},
   lab: {label:'实验任务',hint:'进入现有实验台，提交操作证据',completion:'实验检测通过'},
   assignment: {label:'教师作业',hint:'关联当前班级已发布的作业',completion:'作业已提交'},
-  ai: {label:'AI 答疑',hint:'向小芯主动提问，再解释自己的理解',completion:'提交学习说明'},
-  reflection: {label:'学习反思',hint:'记录发现、证据与仍有的疑问',completion:'提交学习反思'},
+  ai: {label:'AI 答疑',hint:'向小芯主动提问，等待讲解后继续',completion:'等待小芯回答，学习说明可跳过'},
+  reflection: {label:'学习反思',hint:'记录发现、证据与仍有的疑问',completion:'可填写反思或跳过说明'},
   courseware: {label:'AI讲演',hint:'观看本章 AI 讲演',completion:'本人确认完成'},
   custom: {label:'自定义任务',hint:'设置课堂讨论、观察或其他学习任务',completion:'确认完成或提交说明'},
 });
@@ -46,7 +46,7 @@ export function taskChainTemplate(key) {
     {...newTaskStage('practice','predict'),purpose:'diagnosis',title:'课前诊断：我会表示负数吗？',minutes:4,instructions:'独立作答，检查8位补码的表示范围与负数编码。提交即可继续；教师根据结果为有困难的学生安排前置补学，再进入加减运算。'},
     twosTeacherDemonstration(),
     ...twosArithmeticStages(),
-    {...newTaskStage('ai','explain'),purpose:'learning',title:'问小芯：解释我的运算疑惑',minutes:4,instructions:'把刚才的操作数、位宽、位串结果和疑问主动告诉小芯，例如“为什么5加负3有进位却没有溢出？”阅读提示后，提交自己的解释。'},
+    {...newTaskStage('ai','explain'),purpose:'learning',title:'问小芯：解释我的运算疑惑',minutes:4,instructions:'把刚才的操作数、位宽、位串结果和疑问主动告诉小芯，例如“为什么5加负3有进位却没有溢出？”等待小芯回答后继续，可选填自己的理解或跳过说明。'},
     {...newTaskStage('practice','check'),purpose:'retest',title:'检验：补码加法、减法与溢出',minutes:8,questionIds:['ch2-q11','ch2-q08','ch2-q09','ch2-q10'],completion:'passed',instructions:'独立完成四道题，分别检验补码加法、减法和溢出判断。达到课堂及格分后继续；未通过可以订正。教师依据答题证据确认补学建议并发布个性化后续任务。'},
     {...newTaskStage('reflection','review'),purpose:'reflection',title:'总结：我用什么证据判断溢出？',minutes:2,instructions:'各用一个例子说明补码加法、减法和溢出判断。记录仍不会的步骤，教师结合测验结果调整后续任务；后续复测检验相同知识目标。'},
   ].map(stage=>{
@@ -63,8 +63,8 @@ export function twosTeacherDemonstration(prefix='twos') {
 
 export function twosArithmeticStages(prefix='twos') {
   return [
-    {activity:'add',instructions:'统一使用8位补码。先手算5 + (−3)，再逐位操作验证，保留低8位；改为(−5) + (−3)再验证。提交两组输入、补码位串、结果及进位的说明。教师先示范一列，再由学生独立完成。'},
-    {activity:'sub',instructions:'统一使用8位补码。先手算5 − 3，把减数3取反加1得到−3的补码，再与5相加；改为3 − 5验证负数结果。提交减法转加法的位串、结果及为什么丢弃第9位进位。'},
+    {activity:'add',instructions:'统一使用8位补码。先手算5 + (−3)，再逐位操作验证，保留低8位；改为(−5) + (−3)再验证。可选填两组输入、补码位串、结果及进位的说明，也可跳过。教师先示范一列，再由学生独立完成。'},
+    {activity:'sub',instructions:'统一使用8位补码。先手算5 − 3，把减数3取反加1得到−3的补码，再与5相加；改为3 − 5验证负数结果。可记录减法转加法的位串、结果及为什么丢弃第9位进位，说明可跳过。'},
     {activity:'overflow',instructions:'先预测再操作：8位补码100 + 100、(−100) + (−50)、5 + (−3)，再切到减法验证100 − (−50)。记录真实结果与保留位串，按范围和符号判断溢出，对比进位与溢出的区别；教师根据学生解释集中讲评。'},
   ].map(({activity,instructions})=>({...newTaskStage('demo',`${prefix}-${activity}`),demoId:'twos-complement',demoActivity:activity,submissionMode:'text',purpose:'practice',title:`动手：${TWOS_ACTIVITIES[activity]}`,minutes:7,instructions,knowledgePointIds:activity==='overflow'?['concept-signed-range-overflow']:['concept-twos-complement']}));
 }
