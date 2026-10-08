@@ -66,6 +66,9 @@ export async function ensureDemoAccounts(db) {
       if (row.teacher_id === owner.id) grantClassAccess(db, row.id, teacher.id);
     }
   }
+  // 反向也要通：演示班（含演示学生与既往成绩）同样授权给正式教师，
+  // 这样正式账号里也能看到这份演示数据，且不改变属主、不复制数据。
+  for (const owner of formalTeachers) grantClassAccess(db, classroom.id, owner.id);
   // Only remove classmates from the retired synthetic seed. Keep intentionally
   // provisioned student accounts in this shared teaching class across logins.
   const members = db.prepare(`SELECT u.id, u.username, u.display_name, u.profile_json

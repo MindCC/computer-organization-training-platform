@@ -81,13 +81,32 @@ test('演示教师自己的演示班仍然存在且可见', async () => {
   db.close();
 });
 
+test('演示班同时授权给正式教师：正式账号看得到演示数据，属主仍是演示账号', async () => {
+  const db = freshDb();
+  const passwordHash = await hashPassword('Teacher123!');
+  const formal = createUser(db, { username: 'teacher', displayName: '正式教师', role: 'teacher', passwordHash });
+  const { classroom } = await ensureDemoAccounts(db);
+  const visible = listTeacherClasses(db, formal.id).find((row) => row.id === classroom.id);
+  assert.ok(visible, '正式教师应能看到演示班（含演示学生与成绩）');
+  assert.equal(visible.isOwner, 0, '属主仍是演示账号，正式教师是授权查看');
+  assert.equal(teacherOwnsClassDirectly(db, formal.id, classroom.id), false);
+  assert.equal(teacherOwnsClass(db, formal.id, classroom.id), true, '正式账号可以打开该班学情');
+  db.close();
+});
+
 test('重复授权同一个班不会报错（PRIMARY KEY 冲突被忽略）', async () => {
   const db = freshDb();
   const passwordHash = await hashPassword('Teacher123!');
   const formal = createUser(db, { username: 'teacher', displayName: '正式教师', role: 'teacher', passwordHash });
   const formalClass = createClass(db, formal.id, '计组一班');
   const demo = await ensureDemoAccounts(db).then(({ teacher }) => teacher);
+  const demoClass = db.prepare('SELECT id FROM classes WHERE teacher_id = ?').get(demo.id);
   assert.doesNotThrow(() => { grantClassAccess(db, formalClass.id, demo.id); grantClassAccess(db, formalClass.id, demo.id); });
-  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM class_teacher_access').get().n, 1);
+  // 双向授权各一条：正式班 → 只读演示账号；演示班 → 正式账号
+  const grants = db.prepare('SELECT class_id, teacher_id FROM class_teacher_access ORDER BY class_id, teacher_id').all();
+  assert.deepEqual(grants, [
+    { class_id: formalClass.id, teacher_id: demo.id },
+    { class_id: demoClass.id, teacher_id: formal.id },
+  ]);
   db.close();
 });
