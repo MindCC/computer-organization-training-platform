@@ -21,7 +21,7 @@ export function mindMapCapabilities(env=process.env) {
   const text=readMindMapConfig(env), image=readMindMapVisionConfig(env);
   return {textAi:text.enabled && Boolean(text.baseUrl && text.model),imageAi:image.enabled && image.vision && Boolean(image.baseUrl && image.model)};
 }
-function validateImage(image) {
+export function validateImage(image) {
   if (typeof image!=='string') throw mindMapError(400,'图片格式无效');
   const match=/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(image);
   if(!match) throw mindMapError(400,'仅支持 PNG、JPEG、WebP 图片');

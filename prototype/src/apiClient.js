@@ -172,6 +172,9 @@ export const api = {
   classroomReport: (sessionId) => apiRequest(`/api/teacher/sessions/${sessionId}/report`),
   // Assignment APIs
   createAssignment: (classId, payload) => apiRequest(`/api/teacher/classes/${classId}/assignments`, { method: "POST", body: JSON.stringify(payload) }),
+  assignmentPhotoCapabilities: () => apiRequest('/api/teacher/assignment-photos/capabilities'),
+  recognizeAssignmentPhotos: (payload) => apiRequest('/api/teacher/assignment-photos/recognize', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 70000 }),
+  saveAssignmentPhotos: (payload) => apiRequest('/api/teacher/assignment-photos/save', { method: 'POST', body: JSON.stringify(payload) }),
   addQuestion: (assignmentId, payload) => apiRequest(`/api/teacher/assignments/${assignmentId}/questions`, { method: "POST", body: JSON.stringify(payload) }),
   addAssignmentBankQuestions: (assignmentId, questions) => apiRequest(`/api/teacher/assignments/${assignmentId}/question-bank`, { method: 'POST', body: JSON.stringify({ questions }) }),
   publishAssignment: (assignmentId) => apiRequest(`/api/teacher/assignments/${assignmentId}/publish`, { method: "POST" }),
@@ -220,6 +223,17 @@ export const api = {
   chapterPractice: () => apiRequest("/api/student/chapter-practice"),
   submitChapterPractice: (payload) => apiRequest("/api/student/chapter-practice", { method: "POST", body: JSON.stringify(payload) }),
   reviewAssignmentMistake: (payload) => apiRequest("/api/student/mistakes/review", { method: "POST", body: JSON.stringify(payload) }),
+  photoCapabilities: () => apiRequest("/api/student/photo-mistakes/capabilities"),
+  createPhotoImport: (payload) => apiRequest("/api/student/photo-imports", { method: "POST", body: JSON.stringify(payload), timeoutMs: 130000 }),
+  photoImport: (id) => apiRequest(`/api/student/photo-imports/${id}`),
+  updatePhotoImportQuestions: (id, questions) => apiRequest(`/api/student/photo-imports/${id}/questions`, { method: "PUT", body: JSON.stringify({ questions }) }),
+  archivePhotoImport: (id) => apiRequest(`/api/student/photo-imports/${id}/archive`, { method: "POST", body: JSON.stringify({}) }),
+  explainPhotoMistake: (id, payload) => apiRequest(`/api/student/photo-mistakes/${id}/explain`, { method: "POST", body: JSON.stringify(payload), timeoutMs: 45000 }),
+  generatePhotoSimilar: (id, payload) => apiRequest(`/api/student/photo-mistakes/${id}/similar`, { method: "POST", body: JSON.stringify(payload), timeoutMs: 45000 }),
+  photoMistakeRounds: (id) => apiRequest(`/api/student/photo-mistakes/${id}/rounds`),
+  answerPhotoRound: (roundId, payload) => apiRequest(`/api/student/photo-rounds/${roundId}/answers`, { method: "POST", body: JSON.stringify(payload), timeoutMs: 45000 }),
+  setPhotoMastered: (id, mastered) => apiRequest(`/api/student/photo-mistakes/${id}/mastered`, { method: "POST", body: JSON.stringify({ mastered }) }),
+  deletePhotoMistake: (id) => apiRequest(`/api/student/photo-mistakes/${id}`, { method: "DELETE" }),
   auditLogs: (params = {}) => {
     const query = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== "")).toString();
     return apiRequest(`/api/teacher/audit-logs${query ? `?${query}` : ""}`);

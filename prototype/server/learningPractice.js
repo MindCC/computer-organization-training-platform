@@ -5,6 +5,7 @@ import { LEARNING_ITEMS } from "../src/platformLogic.js";
 import { buildMistakeBook } from "../src/mistakeBook.js";
 import { gradeObjectiveAnswer } from "./objectiveGrading.js";
 import { serviceMistakes } from './shopServiceRoutes.js';
+import { photoMistakeItems } from './photoMistakes.js';
 import { HOSTED_DEMOS } from '../src/shared/demoNavigation.js';
 import { createHash } from 'node:crypto';
 
@@ -164,8 +165,9 @@ export function buildUnifiedMistakeBook(db, studentId) {
     }
   }
   items.push(...demoMistakes.values());
+  items.push(...photoMistakeItems(db,studentId));
   items.sort((a,b) => String(b.updatedAt ?? b.lastSeen).localeCompare(String(a.updatedAt ?? a.lastSeen)));
-  return {overview:{...lab.overview,totalMistakes:lab.overview.totalMistakes+[...practice.values()].reduce((sum,item)=>sum+item.count,0)+items.filter(item=>['assignment','service','demo'].includes(item.source)).reduce((sum,item)=>sum+item.count,0),
+  return {overview:{...lab.overview,totalMistakes:lab.overview.totalMistakes+[...practice.values()].reduce((sum,item)=>sum+item.count,0)+items.filter(item=>['assignment','service','demo','photo'].includes(item.source)).reduce((sum,item)=>sum+item.count,0),
     pendingCount:items.filter(item=>!item.resolved).length,resolvedCount:items.filter(item=>item.resolved).length,
-    sourceCounts:Object.fromEntries(["lab","practice","assignment","service","demo"].map(source=>[source,items.filter(item=>item.source===source).length]))},items};
+    sourceCounts:Object.fromEntries(["lab","practice","assignment","service","demo","photo"].map(source=>[source,items.filter(item=>item.source===source).length]))},items};
 }

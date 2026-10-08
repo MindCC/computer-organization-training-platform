@@ -7,8 +7,9 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js";
-import { ensureDemoAccounts, isDemoLoginEnabled } from './demoAccounts.js';
+import { createDemoReadOnlyGuard, ensureDemoAccounts, isDemoLoginEnabled } from './demoAccounts.js';
 import { validateAccountSettings } from './accountSettings.js';
+import { validateAvatarImage } from './avatarImage.js';
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
 import { saveAssistantReport, readAssistantReport } from './teacherAssistantHistory.js';
 import { generateLabAssistantHint } from "./labAssistant.js";
@@ -63,6 +64,7 @@ import { createClassroomSessionRouter } from "./classroomSessionRoutes.js";
 import { createAssignmentRepository } from "./assignmentRepository.js";
 import { createAssignmentService } from "./assignmentService.js";
 import { createAssignmentRouter } from "./assignmentRoutes.js";
+import { createAssignmentPhotoRouter } from './assignmentPhotoRoutes.js';
 import { createQuestionBankService } from "./questionBankService.js";
 import { createQuestionBankRouter } from "./questionBankRoutes.js";
 import { createCourseWorkbenchRepository } from "./courseWorkbenchRepository.js";
@@ -92,6 +94,7 @@ import { createLoginFailureTracker, isTrustedRequestOrigin } from "./security.js
 import { createTaskLibraryRouter } from './taskLibraryRoutes.js';
 import { buildClassArchive, archiveFileName } from "./classArchiveService.js";
 import { buildUnifiedMistakeBook, createLearningPracticeRouter } from "./learningPractice.js";
+import { createPhotoMistakeRouter } from "./photoMistakeRoutes.js";
 import { hostedDemoMiddleware } from "../src/shared/demoNavigation.js";
 import { createFeedbackRouter, ensureFeedbackAdmin } from './feedbackRoutes.js';
 
@@ -135,7 +138,7 @@ export function createApp(options = {}) {
     }
   }
 
-  app.use(express.json({ limit: "1mb", type:req => req.path !== '/api/mind-maps/generate' && Boolean(req.is('application/json')) }));
+  app.use(express.json({ limit: "1mb", type:req => !['/api/mind-maps/generate', '/api/teacher/assignment-photos/recognize', '/api/teacher/assignment-photos/save'].includes(req.path.replace(/\/+$/, '')) && !/^\/api\/(student|teacher)\/photo-imports/.test(req.path) && Boolean(req.is('application/json')) }));
   app.use(express.text({ type: ["text/csv", "text/plain"], limit: "1mb" }));
 
   // 安全响应头：项目未引入 helmet，这里补齐最小必要集合。
@@ -151,6 +154,9 @@ export function createApp(options = {}) {
   });
 
   app.use(loadSession(db, sessionSecret));
+
+  // 演示账号只读：登录、浏览、退出放行，其余写操作统一被服务器拒绝并记录审计日志。
+  app.use(createDemoReadOnlyGuard({ audit }));
 
   // Classroom and assignment services
   const sessionRepository = createClassroomSessionRepository(db);
@@ -196,8 +202,10 @@ export function createApp(options = {}) {
   app.use("/api", createClassroomSessionRouter({ service: sessionService, requireRole, generatorOptions:options.taskChainGeneratorOptions }));
   app.use('/api',createTaskLibraryRouter({db,sessionService,requireRole}));
   app.use("/api", createAssignmentRouter({ service: assignmentService, requireRole }));
+  app.use('/api', createAssignmentPhotoRouter({ db, assignments: assignmentService, bank: questionBankService, requireRole, options: options.assignmentPhotoOptions ?? {} }));
   app.use("/api", createQuestionBankRouter({ db, service: questionBankService, requireRole }));
   app.use("/api", createLearningPracticeRouter({ db, requireRole }));
+  app.use("/api", createPhotoMistakeRouter({ db, requireRole }));
   app.use("/api", createCourseWorkbenchRouter({ service: courseWorkbenchService, requireRole, audit }));
   app.use("/api", createLabRunRouter({ service: labRunService, requireRole, audit }));
   app.use("/api", createCpuPracticeRouter({ service: cpuPracticeService, requireRole, audit }));
@@ -207,6 +215,7 @@ export function createApp(options = {}) {
   app.use('/api', createAssemblyPracticeRouter({ repository: createAssemblyPracticeRepository(db), requireRole, role: 'teacher' }));
   app.use('/api', createShopServiceRouter({ db, requireRole, role: 'teacher' }));
   app.use('/api', createLearningPracticeRouter({ db, requireRole, role: 'teacher' }));
+  app.use('/api', createPhotoMistakeRouter({ db, requireRole, role: 'teacher' }));
   app.use("/api", createCoursewareUploadRouter({
     db,
     requireRole,
@@ -382,6 +391,8 @@ export function createApp(options = {}) {
     try {
       const settings = validateAccountSettings(req.body, req.user.role);
       if (!settings.ok) return res.status(400).json({ error: settings.error });
+      const avatarCheck = await validateAvatarImage(settings.avatar);
+      if (!avatarCheck.ok) return res.status(400).json({ error: avatarCheck.error });
       const original = getUserById(db, req.user.id);
       let passwordHash = null;
       if (settings.changePassword) {
@@ -390,7 +401,7 @@ export function createApp(options = {}) {
       }
       const saved = db.transaction(() => {
         if (settings.changePassword && getUserById(db, req.user.id).password_hash !== original.password_hash) throw Object.assign(new Error('密码已在其他操作中更新，请重新输入当前密码'), { status: 409 });
-        const profile = { ...(settings.mode !== undefined ? { mode: settings.mode } : {}), ...(settings.changePassword ? { mustChangePassword: false, passwordChangedAt: new Date().toISOString() } : {}) };
+        const profile = { ...(settings.mode !== undefined ? { mode: settings.mode } : {}), ...(settings.avatar !== undefined ? { avatar: settings.avatar } : {}), ...(settings.changePassword ? { mustChangePassword: false, passwordChangedAt: new Date().toISOString() } : {}) };
         if (passwordHash) updateUserPassword(db, req.user.id, passwordHash);
         const user = updateUserProfile(db, req.user.id, { displayName: settings.displayName, profile });
         const revokedSessions = passwordHash ? revokeOtherSessions(db, req.user.id, req.sessionTokenHash ?? null) : 0;

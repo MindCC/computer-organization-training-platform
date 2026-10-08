@@ -23,7 +23,7 @@ export function learningReviewData(db, user, classId = null) {
   if (classId) {
     const allowed = new Set(db.prepare('SELECT id FROM assignments WHERE class_id=?').all(classId).map(row => row.id));
     mistakes.items = mistakes.items.filter(item => item.source !== 'assignment' || allowed.has(item.assignmentId));
-    mistakes.overview = { totalMistakes: mistakes.items.reduce((sum,item) => sum + item.count, 0), pendingCount: mistakes.items.filter(item => !item.resolved).length, resolvedCount: mistakes.items.filter(item => item.resolved).length, sourceCounts: Object.fromEntries(['lab','practice','assignment','service','demo'].map(source => [source, mistakes.items.filter(item => item.source === source).length])) };
+    mistakes.overview = { totalMistakes: mistakes.items.reduce((sum,item) => sum + item.count, 0), pendingCount: mistakes.items.filter(item => !item.resolved).length, resolvedCount: mistakes.items.filter(item => item.resolved).length, sourceCounts: Object.fromEntries(['lab','practice','assignment','service','demo','photo'].map(source => [source, mistakes.items.filter(item => item.source === source).length])) };
   }
   const practice = practiceState(db, user.id), graded = Object.values(practice.graded);
   return { id: user.id, username: user.username, displayName: user.displayName, progress, summary: summarizeLearning(LEARNING_ITEMS, progress), mistakes,

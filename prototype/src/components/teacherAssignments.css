@@ -1,4 +1,27 @@
 .assignment-panel { color:#213d39; }
+.assignment-photo-actions { display:flex; align-items:center; flex-wrap:wrap; gap:10px; }
+.assignment-photo-importer { margin:18px 0; padding:20px; border:1px solid #cdded8; border-radius:10px; background:#f7faf8; min-width:0; }
+.assignment-photo-importer h3 { display:flex; align-items:center; gap:8px; margin:0; }
+.assignment-photo-importer p { font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
+.assignment-photo-importer fieldset { min-width:0; }
+.assignment-photo-upload,.assignment-photo-review { display:grid; gap:14px; padding:16px; margin-top:16px; border:1px solid #dce5e0; border-radius:8px; }
+.assignment-photo-importer legend { padding:0 6px; font-weight:600; }
+.assignment-photo-field { display:grid; gap:6px; min-width:0; font-size:13px; }
+.assignment-photo-field input,.assignment-photo-field textarea,.assignment-photo-field select { box-sizing:border-box; width:100%; min-width:0; border:1px solid #cddbd3; border-radius:7px; padding:10px; background:white; color:inherit; font:inherit; }
+.assignment-photo-field textarea { resize:vertical; }
+.assignment-photo-check { display:flex; align-items:flex-start; gap:9px; font-size:14px; line-height:1.6; }
+.assignment-photo-check input { flex-shrink:0; margin-top:4px; }
+.assignment-photo-previews { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.assignment-photo-previews figure { min-width:0; margin:0; padding:10px; border:1px solid #dce5e0; background:white; border-radius:8px; }
+.assignment-photo-previews img { width:100%; height:140px; object-fit:contain; }
+.assignment-photo-previews figcaption { overflow-wrap:anywhere; font-size:12px; margin:8px 0; }
+.assignment-photo-question { display:grid; gap:12px; padding:16px; border:1px solid #dce5e0; border-radius:8px; background:white; }
+.assignment-photo-meta { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr) 80px; gap:10px; }
+.assignment-photo-warning { color:#825717; background:#fff6df; padding:10px; border-radius:6px; margin:0; }
+.assignment-photo-save { display:grid; gap:12px; padding-top:10px; }
+.assignment-photo-save small { color:#567164; line-height:1.7; }
+.assignment-photo-success { color:#176247; background:#e4f4e9; padding:12px; border-radius:7px; }
+@media(max-width:700px) { .assignment-header { flex-wrap:wrap; } .homework-question-modes { flex-wrap:wrap; } .assignment-photo-importer { padding:12px; } .assignment-photo-upload,.assignment-photo-review,.assignment-photo-question { padding:12px; } .assignment-photo-previews { grid-template-columns:1fr; } .assignment-photo-meta { grid-template-columns:1fr; } .assignment-photo-save .assignment-photo-actions { align-items:stretch; flex-direction:column; } }
 .teacher-studio-main > .assignment-panel { padding:24px 36px; }
 .assignment-header { display:flex; align-items:center; justify-content:space-between; gap:14px; padding-bottom:18px; border-bottom:1px solid #dce5e0; }
 .assignment-creator,.question-form { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; align-items:start; gap:12px; padding:20px; margin:18px 0; border:1px solid #dce5e0; border-radius:10px; background:#f7faf8; min-width:0; }

@@ -7,6 +7,12 @@
     "node": ">=22"
   },
   "scripts": {
+    "preqa:avatar-settings": "npm run build -- --manifest",
+    "qa:avatar-settings": "node scripts/verify-avatar-settings.mjs",
+    "qa:chapter2": "node scripts/verify-chapter2-corrections.mjs",
+    "preqa:mistake-photo": "npm run build -- --manifest",
+    "qa:mistake-photo": "node scripts/run-browser-qa.mjs scripts/verify-mistake-photo.mjs --production",
+    "qa:shift-encodings": "node scripts/run-browser-qa.mjs scripts/verify-shift-encodings.mjs",
     "preqa:task-library": "npm run build -- --manifest",
     "qa:task-library": "node scripts/run-browser-qa.mjs scripts/verify-task-library.mjs --production",
     "preqa:class-management": "npm run build -- --manifest",
@@ -92,6 +98,7 @@
     "pptx-preview": "^1.0.7",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "sharp": "^0.35.5",
     "three": "^0.185.1",
     "vite": "6.4.2"
   },

@@ -83,6 +83,7 @@ import { TaskChainBar } from './components/classroom/student/TaskChainBar.jsx';
 import { useViewHistory } from './hooks/useViewHistory.js';
 import { getActiveGuideForChallenge } from "./courseWorkbenchState.js";
 import avatarImage from "./assets/alex-chen-avatar.webp";
+import { resolveAvatarSrc } from "./avatarCatalog.js";
 import labIllustration from "./assets/lab-circuit-illustration.webp";
 
 const NotesPage = lazy(() => import("./components/NotesPage.jsx")
@@ -1177,7 +1178,7 @@ export function App() {
           </button>}
           {auth.user ? <div className="profile-wrap">
             <button className="profile-button" aria-expanded={showUserPanel} aria-controls="profile-options" onClick={() => setShowUserPanel((value) => !value)} type="button">
-              <img alt="学生头像" src={avatarImage} />
+              <img alt="账号头像" src={resolveAvatarSrc(auth.user?.profile) ?? avatarImage} />
               <span>
                 <strong>{auth.user?.displayName ?? "学习档案"}</strong>
                 <small>{auth.user?.role === 'admin' ? '管理员' : auth.user?.role === "teacher" ? "教师" : student.mode}</small>
@@ -1254,7 +1255,7 @@ export function App() {
           {activeView === "records" && auth.user?.role !== 'teacher' ? <StudentRecords key={auth.user?.id} userId={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "demos" ? <InteractiveDemos openDemo={openDemo} navigateToChallenge={navigateToChallenge} /> : null}
           {activeView === "demo" ? <DemoPage demoId={demoId} role={auth.user?.role} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
-          {activeView === "mistakes" && auth.user?.role !== 'teacher' ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
+          {activeView === "mistakes" && auth.user?.role !== 'teacher' ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} studentName={auth.user?.displayName ?? ""} /> : null}
           {activeView === "hardware-game" ? (
             <ErrorBoundary>
               <Suspense fallback={<FeatureLoading label="正在加载硬件配置挑战..." />}>
@@ -1323,7 +1324,7 @@ export function App() {
 
   function renderPlatformState() {
     const feedbackPage = activeView === 'lab' ? `实验：${lab.currentChallenge?.title ?? ''}` : navGroups.flatMap(group => group.items).find(item => item.id === activeView)?.label ?? '课程页面';
-    return <>{feedbackOpen && <Suspense fallback={<FeatureLoading label="正在加载反馈…"/>}><FeedbackPanel key={auth.user?.id ?? 'guest'} user={auth.user} page={feedbackPage} onClose={() => setFeedbackOpen(false)}/></Suspense>}{(!online||roleDataError)&&<div className="platform-sync-banner" role="alert"><WarningCircle size={20}/><span>{!online?'网络连接已断开，请恢复网络后同步或提交。':roleDataError}</span>{online&&<button className="ghost-button" type="button" disabled={roleDataLoading} onClick={retryRoleData}>{roleDataLoading?'正在同步…':'重试同步'}</button>}</div>}{supportPanel&&<Suspense fallback={<FeatureLoading label="正在加载帮助与提醒…"/>}><PlatformSupport mode={supportPanel} user={auth.user} classroom={auth.user?.role==='teacher'?teacherSession.viewModel:classroomSession.viewModel} nextChallenge={nextRecommendedChallenge} onClose={()=>setSupportPanel(null)} onOpenSettings={section=>{setSettingsSection(section==='classroom'?'classroom':'account');setShowSettings(true);}} changeView={changeView} onMission={auth.user?.role==='student'?enterClassroomMission:()=>changeView('teacher')} navigateToChallenge={navigateToChallenge}/></Suspense>}</>;
+    return <>{feedbackOpen && <Suspense fallback={<FeatureLoading label="正在加载反馈…"/>}><FeedbackPanel key={auth.user?.id ?? 'guest'} user={auth.user} page={feedbackPage} onClose={() => setFeedbackOpen(false)}/></Suspense>}{auth.user?.profile?.demoAccount===true&&<div className="demo-readonly-banner" role="status"><WarningCircle size={20}/><span>演示账号为只读：可以浏览全部功能与数据，任何修改都不会被保存。</span></div>}{(!online||roleDataError)&&<div className="platform-sync-banner" role="alert"><WarningCircle size={20}/><span>{!online?'网络连接已断开，请恢复网络后同步或提交。':roleDataError}</span>{online&&<button className="ghost-button" type="button" disabled={roleDataLoading} onClick={retryRoleData}>{roleDataLoading?'正在同步…':'重试同步'}</button>}</div>}{supportPanel&&<Suspense fallback={<FeatureLoading label="正在加载帮助与提醒…"/>}><PlatformSupport mode={supportPanel} user={auth.user} classroom={auth.user?.role==='teacher'?teacherSession.viewModel:classroomSession.viewModel} nextChallenge={nextRecommendedChallenge} onClose={()=>setSupportPanel(null)} onOpenSettings={section=>{setSettingsSection(section==='classroom'?'classroom':'account');setShowSettings(true);}} changeView={changeView} onMission={auth.user?.role==='student'?enterClassroomMission:()=>changeView('teacher')} navigateToChallenge={navigateToChallenge}/></Suspense>}</>;
   }
 
   function renderSettingsModal() {

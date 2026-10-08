@@ -1,18 +1,27 @@
-import { ArrowRight, BookOpen, Flame, Repeat, WarningCircle } from "@phosphor-icons/react";
+import { ArrowRight, BookOpen, Camera, Flame, Notebook, Repeat, WarningCircle } from "@phosphor-icons/react";
 import { useEffect, useState, useRef } from "react";
 import { api } from "../apiClient.js";
 import { StudyMascot } from './ai/StudyMascot.jsx';
+import { PhotoImportDialog } from "./photo/PhotoImportDialog.jsx";
+import { PhotoMistakeTools } from "./photo/PhotoMistakeTools.jsx";
+import { ReviewPaperDialog } from "./photo/ReviewPaperDialog.jsx";
+import { canJoinReviewPaper } from "../photoMistakes.js";
 import "./mistakeBook.css";
 
-const SOURCES = {lab:"实验室",practice:"题库练习",demo:"互动演示",assignment:"课后作业",service:"维修诊断"};
+const SOURCES = {lab:"实验室",practice:"题库练习",demo:"互动演示",assignment:"课后作业",service:"维修诊断",photo:"拍照导入"};
 
-export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarget, suppliedBook, readOnly = false, assistantEnabled = true }) {
+export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarget, suppliedBook, readOnly = false, assistantEnabled = true, studentName = "" }) {
   const [book, setBook] = useState(null);
   const [error, setError] = useState("");
   const [source, setSource] = useState("all");
   const [pendingOnly, setPendingOnly] = useState(false);
   const [version,setVersion]=useState(0);
+  const [importOpen, setImportOpen] = useState(false);
+  const [paperMode, setPaperMode] = useState(false);
+  const [paperSelected, setPaperSelected] = useState(new Set());
+  const [paperOpen, setPaperOpen] = useState(false);
 
+  const interactive = suppliedBook === undefined;
   useEffect(() => {
     let cancelled = false;
     setError('');
@@ -22,6 +31,16 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
       .catch((err) => { if (!cancelled) setError(err.message); });
     return () => { cancelled = true; };
   }, [version, suppliedBook]);
+
+  const reload = async () => { setVersion((value) => value + 1); };
+
+  function togglePaperSelect(id) {
+    setPaperSelected((value) => {
+      const next = new Set(value);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   if (error) {
     return (
@@ -53,18 +72,27 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
         <div className="section-heading">
           <div>
             <h1>错题本</h1>
-            <p>实验室、题库练习、互动演示、课后作业和维修诊断的错误集中回顾。查看原因、重练订正，再回到课程继续学习。</p>
+            <p>实验室、题库练习、互动演示、课后作业、维修诊断和拍照导入的错误集中回顾。查看原因、重练订正，或把错题组成复习卷打印出来。</p>
           </div>
-          {assistantEnabled && !readOnly && <StudyMascot compact context={{source:'mistakes'}} suggestion="先用自己的话解释错误原因，再重练一次。小芯可以帮你理清不懂的概念。"/>}
+          <div className="mistake-heading-actions">
+            {interactive && !readOnly ? (
+              <>
+                <button type="button" className="primary-button" onClick={() => setImportOpen(true)} data-testid="photo-import-open"><Camera size={16} /> 拍照导入</button>
+                <button type="button" className="ghost-button" aria-pressed={paperMode} onClick={() => { setPaperMode((value) => !value); setPaperSelected(new Set()); }} data-testid="review-paper-toggle"><Notebook size={16} /> {paperMode ? "退出组卷" : "组复习卷"}</button>
+              </>
+            ) : null}
+            {assistantEnabled && !readOnly && <StudyMascot compact context={{source:'mistakes'}} suggestion="先用自己的话解释错误原因，再重练一次。小芯可以帮你理清不懂的概念。"/>}
+          </div>
         </div>
 
         {overview.totalMistakes === 0 ? (
           <div className="empty-state">
             <BookOpen size={40} weight="duotone" />
             <strong>暂无错题</strong>
-            <p>实验检测、题库及演示练习判分和作业批改后，答错的内容会自动汇总到这里。</p>
+            <p>实验检测、题库及演示练习判分和作业批改后，答错的内容会自动汇总到这里；纸面错题可以拍照导入。</p>
             {!readOnly && <><button className="primary-button" onClick={() => changeView("lab")} type="button">去实验工作台</button>
-            <button className="ghost-button" onClick={() => changeView("assignments")} type="button">去题库与课后作业</button></>}
+            <button className="ghost-button" onClick={() => changeView("assignments")} type="button">去题库与课后作业</button>
+            {interactive ? <button className="ghost-button" onClick={() => setImportOpen(true)} type="button"><Camera size={15} /> 拍照导入纸面错题</button> : null}</>}
           </div>
         ) : (
           <>
@@ -93,6 +121,11 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
             <div className="mistake-group-list">
               {items.filter(item => (source === "all" || item.source === source) && (!pendingOnly || !item.resolved)).map((item) => (
                 <article className="mistake-group" key={item.id} data-source={item.source} data-question-id={item.questionId}>
+                  {paperMode && canJoinReviewPaper(item) ? (
+                    <label className="mistake-paper-select" data-testid="paper-select">
+                      <input type="checkbox" checked={paperSelected.has(item.id)} onChange={() => togglePaperSelect(item.id)} /> 选入复习卷
+                    </label>
+                  ) : null}
                   <div className="mistake-group-header">
                     <div>
                       <span className="mistake-source">{SOURCES[item.source]}</span>
@@ -107,6 +140,7 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
                   </div>
                   {item.stem ? <><h3 className="mistake-stem">{item.stem}</h3><dl className="mistake-answers"><div><dt>原作答</dt><dd>{formatAnswer(item.studentAnswer,item.type)}</dd></div><div><dt>参考答案</dt><dd>{item.referenceAnswer || "结合教师反馈复习"}</dd></div></dl><details className="mistake-explanation"><summary>查看解析与反馈</summary>{item.explanation ? <p>{item.explanation}</p> : null}{item.feedback ? <p>教师反馈：{item.feedback}</p> : null}{!item.explanation && !item.feedback ? <p>对照参考答案，再尝试一次。</p> : null}</details></> : null}
                   {item.source==='service'&&<p>{item.explanation}</p>}
+                  {item.source==='photo' ? <PhotoMistakeTools item={item} readOnly={readOnly || !interactive} onChanged={reload} /> : null}
                   {item.snapshots.length > 0 ? (
                     <div className="mistake-snapshot-row">
                       {item.snapshots.map((snap, index) => (
@@ -116,6 +150,7 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
                       ))}
                     </div>
                   ) : null}
+                  {item.source === 'photo' ? null : (
                   <div className="mistake-actions">{assistantEnabled && !readOnly && <StudyMascot compact context={{source:'mistakes',questionId:item.source==='practice'?item.questionId:undefined,chapterId:item.chapterId}}/>}<button
                     className="ghost-button mistake-retry"
                     onClick={() => item.source === "lab" ? navigateToChallenge(item.challengeId) : readOnly && item.source === 'assignment' ? changeView('teacher') : openStudyTarget(item.navigation)}
@@ -123,6 +158,7 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
                   >
                     <ArrowRight size={14} /> {readOnly ? item.source === 'assignment' ? '前往作业管理' : '教师试讲此内容' : item.source === "lab" ? "回到该关卡练习" : item.source === "practice" ? "重练这道题" : item.source==='demo'?'回到章节演示练习':item.source==='service'?'重做维修工单':"回看原作业"}
                   </button></div>
+                  )}
                   {!readOnly && item.source === "assignment" && item.type !== "short_answer" ? <AssignmentReview item={item} onUpdated={async () => setBook(await api.mistakes())} /> : null}
                 </article>
               ))}
@@ -131,6 +167,15 @@ export function MistakeBookPage({ navigateToChallenge, changeView, openStudyTarg
           </>
         )}
       </section>
+      {importOpen ? <PhotoImportDialog onClose={() => setImportOpen(false)} onArchived={async () => { setImportOpen(false); await reload(); }} /> : null}
+      {paperMode && paperSelected.size > 0 ? (
+        <div className="mistake-paper-bar" role="status">
+          已选 {paperSelected.size} 道错题
+          <button type="button" className="primary-button" onClick={() => setPaperOpen(true)} data-testid="review-paper-open">生成复习卷</button>
+          <button type="button" className="ghost-button" onClick={() => setPaperSelected(new Set())}>清空</button>
+        </div>
+      ) : null}
+      {paperOpen ? <ReviewPaperDialog items={items.filter((item) => paperSelected.has(item.id))} studentName={studentName} onClose={() => setPaperOpen(false)} /> : null}
     </div>
   );
 }

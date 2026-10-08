@@ -1,6 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../apiClient.js";
 import { passwordStrength } from "../passwordStrength.js";
+import {
+  AVATAR_PRESETS,
+  CUSTOM_AVATAR_MAX_LENGTH,
+  CUSTOM_AVATAR_SIZE,
+  CUSTOM_AVATAR_SOURCE_MAX_BYTES,
+  presetAvatarSrc,
+  resolveAvatarSrc,
+  validateAvatarValue,
+} from "../avatarCatalog.js";
+import defaultAvatar from "../assets/alex-chen-avatar.webp";
 import { StudentImportPanel } from './teacher/StudentImportPanel.jsx';
 import './accountSettings.css';
 
@@ -283,11 +293,46 @@ export function SettingsModal({
               </section>
               </>
               ) : (
-          <PersonalAccountForm user={auth.user} student={student} onSave={saveStudentSettings} />
+          <PersonalAccountForm key={auth.user.id} user={auth.user} student={student} onSave={saveStudentSettings} />
         )}
       </div>
     </div>
   );
+}
+
+/** 把用户上传的图片中心裁剪并压缩为 128×128 WebP data URL，超限则逐步降低质量。 */
+async function compressAvatarImage(file, signal) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      const cleanup = () => signal.removeEventListener('abort', abort);
+      const abort = () => {
+        cleanup();
+        element.src = '';
+        reject(new DOMException('Avatar upload cancelled', 'AbortError'));
+      };
+      element.onload = () => { cleanup(); resolve(element); };
+      element.onerror = () => { cleanup(); reject(new Error('Image could not be decoded')); };
+      if (signal.aborted) { abort(); return; }
+      signal.addEventListener('abort', abort, { once: true });
+      element.src = objectUrl;
+    });
+    const side = Math.min(image.naturalWidth, image.naturalHeight);
+    const sx = Math.round((image.naturalWidth - side) / 2);
+    const sy = Math.round((image.naturalHeight - side) / 2);
+    const canvas = document.createElement('canvas');
+    canvas.width = CUSTOM_AVATAR_SIZE;
+    canvas.height = CUSTOM_AVATAR_SIZE;
+    canvas.getContext('2d').drawImage(image, sx, sy, side, side, 0, 0, CUSTOM_AVATAR_SIZE, CUSTOM_AVATAR_SIZE);
+    for (const quality of [0.85, 0.7, 0.55]) {
+      const dataUrl = canvas.toDataURL('image/webp', quality);
+      if (dataUrl.length <= CUSTOM_AVATAR_MAX_LENGTH) return dataUrl;
+    }
+    return canvas.toDataURL('image/webp', 0.4);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 function formatAuditTime(value) {
@@ -310,6 +355,17 @@ function describeUserAgent(userAgent) {
 function PersonalAccountForm({ user, student, onSave }) {
   const [displayName, setDisplayName] = useState(user?.displayName ?? student?.name ?? '');
   const [mode, setMode] = useState(user?.profile?.mode ?? student?.mode ?? '适中提示模式');
+  const savedAvatar = user?.profile?.avatar ?? null;
+  const [avatar, setAvatar] = useState(savedAvatar);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
+  const avatarFileRef = useRef(null);
+  const avatarRequestRef = useRef(0);
+  const avatarControllerRef = useRef(null);
+  const avatarProcessingRef = useRef(false);
+  const mountedRef = useRef(true);
+  const savingRef = useRef(false);
+  const [avatarProcessing, setAvatarProcessing] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [nextPassword, setNextPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -317,9 +373,74 @@ function PersonalAccountForm({ user, student, onSave }) {
   const [messageType, setMessageType] = useState(""); // success | error
   const [busy, setBusy] = useState(false);
   const strength = passwordStrength(nextPassword);
+  const avatarChanged = avatar !== savedAvatar;
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      avatarRequestRef.current++;
+      avatarControllerRef.current?.abort();
+    };
+  }, []);
+
+  function cancelAvatarUpload() {
+    avatarRequestRef.current++;
+    avatarControllerRef.current?.abort();
+    avatarControllerRef.current = null;
+    avatarProcessingRef.current = false;
+    setAvatarProcessing(false);
+  }
+
+  function chooseAvatar(value) {
+    if (savingRef.current) return;
+    cancelAvatarUpload();
+    setAvatar(value);
+    setAvatarError('');
+    setMessage('');
+  }
+
+  async function handleAvatarUpload(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || savingRef.current) return;
+    cancelAvatarUpload();
+    setMessage('');
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setAvatarError('头像请选 PNG、JPG 或 WebP 图片。'); return;
+    }
+    if (file.size > CUSTOM_AVATAR_SOURCE_MAX_BYTES) {
+      setAvatarError('图片不能超过 2MB，请换一张更小的。'); return;
+    }
+    const request = avatarRequestRef.current;
+    const controller = new AbortController();
+    avatarControllerRef.current = controller;
+    avatarProcessingRef.current = true;
+    setAvatarProcessing(true);
+    setAvatarError('');
+    try {
+      const dataUrl = await compressAvatarImage(file, controller.signal);
+      if (!mountedRef.current || request !== avatarRequestRef.current) return;
+      const check = validateAvatarValue(dataUrl);
+      if (!check.ok) { setAvatarError(check.error); return; }
+      setAvatar(check.value);
+      setAvatarError('');
+    } catch {
+      if (!mountedRef.current || request !== avatarRequestRef.current) return;
+      setAvatarError('头像读取失败，请重新选择。');
+    } finally {
+      if (mountedRef.current && request === avatarRequestRef.current) {
+        avatarControllerRef.current = null;
+        avatarProcessingRef.current = false;
+        setAvatarProcessing(false);
+      }
+    }
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
+    if (savingRef.current) return;
+    if (avatarProcessingRef.current) { setAvatarError('头像正在处理，请完成后再保存，或改选预设头像。'); return; }
     setMessage("");
     const passwordRequested = Boolean(currentPassword || nextPassword || confirmPassword);
     if (!displayName.trim()) {
@@ -338,24 +459,68 @@ function PersonalAccountForm({ user, student, onSave }) {
       setMessage("密码强度太弱：至少 8 位并包含字母和数字或特殊字符");
       return;
     }
+    savingRef.current = true;
     setBusy(true);
     try {
-      await onSave({ displayName: displayName.trim(), ...(user.role === 'student' ? { mode } : {}), ...(passwordRequested ? { currentPassword, nextPassword } : {}) });
+      await onSave({ displayName: displayName.trim(), ...(user.role === 'student' ? { mode } : {}), ...(avatarChanged ? { avatar } : {}), ...(passwordRequested ? { currentPassword, nextPassword } : {}) });
+      if (!mountedRef.current) return;
       setMessageType("success");
       setMessage(passwordRequested ? '资料与密码已一起保存' : '个人设置已保存');
+      setAvatarPickerOpen(false);
       setCurrentPassword("");
       setNextPassword("");
       setConfirmPassword("");
     } catch (error) {
+      if (!mountedRef.current) return;
       setMessageType("error");
       setMessage(error.message ?? '保存失败，请重试');
     } finally {
-      setBusy(false);
+      savingRef.current = false;
+      if (mountedRef.current) setBusy(false);
     }
   }
 
   return (
-    <form className="personal-account-form" onSubmit={handleSubmit} aria-busy={busy}>
+    <form className="personal-account-form" onSubmit={handleSubmit} aria-busy={busy || avatarProcessing}>
+      <section className="account-avatar-fields" aria-label="头像设置">
+        <div className="account-avatar-row">
+          <img className="account-avatar-preview" alt="当前头像" src={resolveAvatarSrc({ avatar }) ?? defaultAvatar} />
+          <div className="account-avatar-heading">
+            <strong>头像</strong>
+            <span>显示在右上角账号菜单{avatarChanged ? ' · 新头像将在保存后生效' : ''}</span>
+          </div>
+          <button className="ghost-button" type="button" aria-expanded={avatarPickerOpen} onClick={() => { if (avatarPickerOpen) cancelAvatarUpload(); setAvatarPickerOpen((open) => !open); setAvatarError(''); }} disabled={busy}>
+            {avatarPickerOpen ? '收起' : '更换头像'}
+          </button>
+        </div>
+        {avatarPickerOpen ? (
+          <div className="account-avatar-picker">
+            <div className="account-avatar-presets" role="group" aria-label="预设头像">
+              {AVATAR_PRESETS.map((preset) => (
+                <button
+                  aria-label={preset.label}
+                  aria-pressed={avatar === `preset:${preset.id}`}
+                  className="account-avatar-preset"
+                  key={preset.id}
+                  onClick={() => chooseAvatar(`preset:${preset.id}`)}
+                  disabled={busy}
+                  type="button"
+                >
+                  <img alt="" src={presetAvatarSrc(preset.id)} />
+                </button>
+              ))}
+            </div>
+            <div className="account-avatar-actions">
+              <button className="ghost-button" type="button" onClick={() => avatarFileRef.current?.click()} disabled={busy}>上传图片</button>
+              <input aria-label="上传头像图片" ref={avatarFileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={handleAvatarUpload} disabled={busy} />
+              {avatar !== null || avatarProcessing ? <button className="ghost-button" type="button" onClick={() => chooseAvatar(null)} disabled={busy}>恢复默认</button> : null}
+              <small>上传图片会自动压缩为 {CUSTOM_AVATAR_SIZE}×{CUSTOM_AVATAR_SIZE}。</small>
+            </div>
+            {avatarError ? <p role="alert" className="note-error">{avatarError}</p> : null}
+          </div>
+        ) : null}
+        {avatarProcessing ? <p role="status">正在处理头像，请稍候；也可以改选预设或恢复默认。</p> : null}
+      </section>
       <section className="account-profile-fields" aria-label="账户资料">
         <label className="form-row"><span>姓名</span><input value={displayName} onChange={event => setDisplayName(event.target.value)} required maxLength={64} autoComplete="name" disabled={busy} /></label>
         <label className="form-row"><span>账号</span><input value={user.username} readOnly aria-readonly="true" /></label>
@@ -384,7 +549,7 @@ function PersonalAccountForm({ user, student, onSave }) {
       </label>
       </section>
       {message ? <p role={messageType === 'error' ? 'alert' : 'status'} className={messageType === "error" ? "note-error" : "note-success"}>{message}</p> : null}
-      <button className="primary-button account-save-button" disabled={busy} type="submit">
+      <button className="primary-button account-save-button" disabled={busy || avatarProcessing} type="submit">
         {busy ? '正在保存…' : '保存设置'}
       </button>
     </form>

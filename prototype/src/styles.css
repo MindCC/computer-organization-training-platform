@@ -9559,6 +9559,9 @@ body {
 .platform-sync-banner { display:flex; align-items:center; gap:12px; margin:12px 20px; padding:13px 16px; border:1px solid #e6c887; border-radius:10px; background:#fff9e9; color:#80531c; font-size:14px; }
 .platform-sync-banner>svg { flex-shrink:0; }
 .platform-sync-banner>span { flex:1; }
+.demo-readonly-banner { display:flex; align-items:center; gap:12px; margin:12px 20px 0; padding:11px 16px; border:1px solid #b7d8d2; border-radius:10px; background:#eef7f4; color:#1d5c4e; font-size:13px; }
+.demo-readonly-banner>svg { flex-shrink:0; }
+.demo-readonly-banner>span { flex:1; }
 .platform-connection { min-height:100dvh; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:28px; padding:24px; background:#edf3f2; }
 .platform-connection>img { width:180px; height:auto; }
 .platform-connection>.section-panel { width:min(520px,100%); padding:36px; text-align:center; }

@@ -15,6 +15,23 @@
 .personal-account-form .account-save-button { width:100%; min-height:42px; justify-content:center; margin-top:2px; }
 .personal-account-form .note-error,.personal-account-form .note-success { margin:0; line-height:1.6; font-size:12px; }
 .personal-account-form .note-success { color:#207657; }
+.account-avatar-fields { display:grid; gap:10px; padding-bottom:16px; border-bottom:1px solid #dce4de; }
+.account-avatar-row { display:flex; align-items:center; gap:12px; }
+.account-avatar-preview { width:56px; height:56px; border-radius:50%; object-fit:cover; border:2px solid #d3dfd9; background:#fff; }
+.account-avatar-heading { flex:1; display:grid; gap:2px; min-width:0; }
+.account-avatar-heading strong { font-size:13px; color:#233e35; }
+.account-avatar-heading span { font-size:11px; color:#74847a; }
+.account-avatar-picker { display:grid; gap:10px; padding:12px; border:1px solid #d3dfd9; border-radius:8px; background:#fff; }
+.account-avatar-presets { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:8px; }
+.account-avatar-preset { padding:2px; border:2px solid transparent; border-radius:50%; background:transparent; cursor:pointer; line-height:0; }
+.account-avatar-preset img { width:100%; height:auto; border-radius:50%; }
+.account-avatar-preset:hover { border-color:#bcd4cb; }
+.account-avatar-preset[aria-pressed=true] { border-color:#178175; }
+.account-avatar-preset:focus-visible { outline:2px solid #17817555; outline-offset:1px; }
+.account-avatar-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.account-avatar-actions small { color:#74847a; font-size:11px; }
+.account-avatar-fields .note-error { margin:0; font-size:12px; }
+@media(max-width:560px) { .account-avatar-presets { grid-template-columns:repeat(4,minmax(0,1fr)); } }
 .account-settings-tabs { display:flex; gap:5px; padding:4px; background:#eaf0ed; border-radius:8px; }
 .account-settings-tabs button { flex:1; padding:9px; border:0; border-radius:6px; color:#60746b; background:transparent; cursor:pointer; font-size:13px; }
 .account-settings-tabs button[aria-selected=true] { color:#176f61; background:#fff; }

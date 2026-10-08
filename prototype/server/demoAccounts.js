@@ -54,3 +54,38 @@ export function isDemoLoginEnabled(options = {}, env = process.env) {
   if (env.ENABLE_DEMO_LOGIN !== undefined) return ['1', 'true'].includes(env.ENABLE_DEMO_LOGIN.toLowerCase());
   return env.NODE_ENV !== 'production';
 }
+
+/**
+ * 演示账号（demo-teacher / demo-student）是只读身份。
+ * 数据库行（profile_json 字符串）与 sanitizeUser 结果（profile 对象）都接受。
+ */
+export function isDemoAccount(user) {
+  if (!user) return false;
+  try {
+    const profile = typeof user.profile_json === 'string'
+      ? JSON.parse(user.profile_json || '{}')
+      : (user.profile ?? {});
+    return profile?.demoAccount === true;
+  } catch {
+    return false;
+  }
+}
+
+// 只读守卫：登录、退出与一切读取放行；其余写操作统一 403 并写审计日志。
+// 这样演示环境可以安全开放浏览，真实教学数据不会被演示操作改动。
+const DEMO_WRITE_ALLOWLIST = new Set(['/api/auth/login', '/api/auth/logout', '/api/auth/demo-login']);
+export function createDemoReadOnlyGuard({ audit } = {}) {
+  return (req, res, next) => {
+    if (!isDemoAccount(req.user)) return next();
+    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+    if (DEMO_WRITE_ALLOWLIST.has(req.path)) return next();
+    audit?.(req, 'demo_readonly_blocked', {
+      targetType: 'route',
+      targetId: `${req.method} ${req.path}`,
+      metadata: { method: req.method },
+    });
+    res.status(403).json({
+      error: { code: 'DEMO_READ_ONLY', message: '演示账号为只读账号，数据仅供浏览，不能修改。' },
+    });
+  };
+}

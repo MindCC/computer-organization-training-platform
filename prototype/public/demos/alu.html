@@ -1166,19 +1166,21 @@ function generateQuestion(forceType = null) {
   }
 
   if (type === "floatnorm") {
-    const m = randomInt(8, 255), e = randomInt(-4, 4);
-    const norm = floatAdd(encodeFloat(0, e + FMT.bias + FMT.fracBits, bitString(m - 128, FMT.fracBits)), encodeFloat(0, e + FMT.bias + FMT.fracBits, "0".repeat(FMT.fracBits)));
-    const rel = norm.leftShifts > 0 ? "左" : norm.rightShifts > 0 ? "右" : "不";
-    const count = norm.leftShifts > 0 ? norm.leftShifts : norm.rightShifts;
-    const correct = count === 0 ? "尾数已在 [1, 2)，无需规格化" : `${rel}规 ${count} 位`;
-    const pool = ["左规 1 位", "右规 1 位", "左规 2 位", "右规 2 位", "无需规格化"];
+    // Derive the stem, answer and explanation from the same unnormalized mantissa.
+    const m = randomInt(8, 255);
+    const sum = m / 128 * 2;
+    let normalized = sum, count = 0, rel = "";
+    while (normalized < 1) { normalized *= 2; count++; rel = "左"; }
+    while (normalized >= 2) { normalized /= 2; count++; rel = "右"; }
+    const correct = count === 0 ? "无需规格化" : `${rel}规 ${count} 位`;
+    const pool = ["左规 1 位", "左规 2 位", "左规 3 位", "右规 1 位", "右规 2 位", "无需规格化"];
     const choiceSet = buildChoices(correct, pool);
-    const sumDisp = (m / 128 * 2).toFixed(4);
+    const sumDisp = sum.toFixed(4);
     return {
       type, mode: "choice",
       prompt: `浮点尾数运算得到和约 <code>${sumDisp}</code>（对应 1.xxx 表示法），接下来需要怎样规格化？`,
       choices: choiceSet.choices, answer: choiceSet.answer,
-      explain: count === 0 ? "尾数已经规格化。" : `尾数和需要${rel}规 ${count} 位，使尾数回到 [1, 2) 区间，同时阶码相${rel === "左" ? "减" : "加"} ${count}。`,
+      explain: count === 0 ? "尾数已在 [1, 2) 区间，无需规格化。" : `尾数和需要${rel}规 ${count} 位，得到 ${normalized.toFixed(4)}，回到 [1, 2) 区间，同时阶码相${rel === "左" ? "减" : "加"} ${count}。`,
     };
   }
 

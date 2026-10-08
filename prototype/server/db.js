@@ -7,6 +7,7 @@ import { reconcileDependencyLocks } from "../src/challengeDependencies.js";
 import { sanitizeProfile } from "./security.js";
 import { ensureShopServiceTables } from './shopServiceRoutes.js';
 import { ensureMindMapTables } from './mindMapRepository.js';
+import { ensurePhotoMistakeTables } from './photoMistakeRepository.js';
 import { migrateLearningCoach } from './learningCoachRepository.js';
 import { migrateStudyWorkspace } from './studyWorkspace.js';
 
@@ -476,6 +477,7 @@ export function migrate(db) {
   `);
   ensureShopServiceTables(db);
   ensureMindMapTables(db);
+  ensurePhotoMistakeTables(db);
   // LLMWiki 式知识库：文档 → 分块 → FTS5 全文索引。
   // kb_documents.analysis_json 存自动分析结果（摘要/要点/关键词），
   // kb_index 是独立的 FTS5 虚表（不挂外部内容表），删除时按 document_id 级联清理。
@@ -558,6 +560,23 @@ export function migrate(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_ai_conversations_student ON ai_conversations(student_id,id DESC);
   `);
+  reassignRosterClassFromDemoTeacher(db);
+}
+
+/**
+ * 一次性数据迁移（幂等）：花名册导入的真实班级由演示教师划归正式教师，
+ * 40 名真实学生的正式教学数据归正式账号管理；演示账号转为只读浏览身份。
+ * 演示班（计算机组成原理1班 / 芯游记演示班）不在此列，仍归演示账号保持师生同班。
+ */
+function reassignRosterClassFromDemoTeacher(db) {
+  const demo = db.prepare("SELECT id FROM users WHERE username = 'demo-teacher'").get();
+  const formal = db.prepare("SELECT id FROM users WHERE username = 'teacher'").get();
+  if (!demo || !formal) return;
+  const moved = db.prepare("UPDATE classes SET teacher_id = ? WHERE teacher_id = ? AND name = ?")
+    .run(formal.id, demo.id, '26计算机科学与技术(专升本)9');
+  if (moved.changes > 0) {
+    console.info(`[MIGRATE] 真实班级 26计算机科学与技术(专升本)9 已由演示教师划归正式教师（${moved.changes} 个班级）`);
+  }
 }
 
 // SQLite cannot alter a CHECK constraint. Rebuild only the user table, retaining

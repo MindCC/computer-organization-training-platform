@@ -9,11 +9,13 @@ const allowedVerifiers = new Set([
   'scripts/verify-first-load.mjs',
   'scripts/verify-navigation-practice.mjs',
   'scripts/verify-teacher-homework.mjs',
+  'scripts/verify-assignment-photos.mjs',
   'scripts/verify-study-companion.mjs',
   'scripts/verify-feedback.mjs',
   'scripts/verify-teaching-loop.mjs',
   'scripts/verify-task-library.mjs',
   'scripts/verify-task-library-learning.mjs',
+  'scripts/verify-shift-encodings.mjs',
   'scripts/verify-class-management.mjs',
   'scripts/verify-mobile.mjs',
   'scripts/verify-study-planning.mjs',
@@ -61,6 +63,7 @@ const allowedVerifiers = new Set([
   // 这三个依赖隔离 QA 库中的旧合成学情，需加 --seed-demo 播种
   "scripts/verify-completion.mjs",
   "scripts/verify-mistakes.mjs",
+  "scripts/verify-mistake-photo.mjs",
   "scripts/verify-overview-exploration.mjs",
   // 定向回归脚本：3D 中间键平移、总览自由探索、教师看板本轮修复
   "scripts/verify-middle-pan.mjs",
@@ -167,6 +170,14 @@ try {
       },
     });
     if (await waitForExit(demoSeed) !== 0) throw new Error("Demo classroom seed failed");
+  }
+
+  // 拍照错题 UI 回归：在隔离库中铺一名学生和两条已归档的拍照错题
+  if (verifier === 'scripts/verify-mistake-photo.mjs') {
+    const photoSeed = run(process.execPath, ["scripts/seed-mistake-photo.mjs"], {
+      env: { DATABASE_PATH: databasePath },
+    });
+    if (await waitForExit(photoSeed) !== 0) throw new Error("Mistake photo seed failed");
   }
 
   const productionBootstrap="import {createApp} from './server/app.js';import {openDatabase} from './server/db.js';const app=createApp({db:openDatabase(process.env.DATABASE_PATH),sessionSecret:process.env.SESSION_SECRET,distDir:process.env.QA_DIST_DIR});app.listen(Number(process.env.PORT),'127.0.0.1',()=>console.log('Isolated production QA server ready'));";

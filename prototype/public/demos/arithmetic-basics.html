@@ -326,6 +326,11 @@
   .op-btn.logic2 { border-color: #bae6fd; }
   .op-btn.arith { border-color: #c4b5fd; }
   .op-btn.rotate { border-color: #6ee7b7; }
+  .enc-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 8px; }
+  .enc-tabs button { border: 1px solid #cbd5e1; border-radius: 10px; padding: 8px 6px; background: #fff; color: #0f172a; font-size: 12.5px; font-weight: 700; cursor: pointer; text-align: center; }
+  .enc-tabs button small { display: block; font-size: 10px; color: var(--dim); font-weight: 400; margin-top: 2px; line-height: 1.5; }
+  .enc-tabs button[aria-pressed="true"] { border-color: #0369a1; background: #e0f2fe; box-shadow: 0 0 0 1px #0369a1; }
+  .readout.active { border-color: #0369a1; background: #e0f2fe; box-shadow: 0 0 0 1px #0369a1; }
   .shift-viz { display: grid; gap: 4px; }
   .viz-row { display: grid; grid-template-columns: 84px 1fr; align-items: center; gap: 8px; }
   .viz-label { font-size: 12px; color: var(--dim); text-align: right; }
@@ -922,12 +927,14 @@ function renderPresets() {
     list.appendChild(btn);
   };
   if (state.mode === "workbench") {
-    addBtn("26 逻辑左移 ×2", "00011010 → 00110100", false, () => workSet(26, "lsl"));
-    addBtn("−32 算术右移 ÷2", "11100000 → 11110000", false, () => workSet(-32, "asr"));
-    addBtn("−32 逻辑右移（翻车）", "11100000 → 01110000 = +112 !", true, () => workSet(-32, "lsr"));
-    addBtn("100 算术左移（溢出）", "01100100 → 11001000 符号翻转", true, () => workSet(100, "asl"));
-    addBtn("0xB4 循环两连移", "移出的位绕回另一端", false, () => workSet(0xB4, "rol"));
-    if (sideNote) sideNote.innerHTML = "同屏动线：① 点操作数 bit 设数 ② 点一种移位 ③ 看原值/结果、移出位回收站、进位标志与读数。";
+    addBtn("26 逻辑左移 ×2", "00011010 → 00110100", false, () => workSet(26, "lsl", "twos"));
+    addBtn("−32 算术右移 ÷2（补码）", "11100000 → 11110000", false, () => workSet(-32, "asr", "twos"));
+    addBtn("−32 逻辑右移（翻车）", "11100000 → 01110000 = +112 !", true, () => workSet(-32, "lsr", "twos"));
+    addBtn("100 算术左移（补码溢出）", "01100100 → 11001000 符号翻转", true, () => workSet(100, "asl", "twos"));
+    addBtn("−10 原码算术左移", "10001010 → 10010100 = −20 · 符号不动", false, () => workSet(-10, "asl", "sign"));
+    addBtn("−10 反码算术左移", "11110101 → 11101011 = −20 · 空位补 1", false, () => workSet(-10, "asl", "ones"));
+    addBtn("0xB4 循环两连移", "移出的位绕回另一端", false, () => workSet(0xB4, "rol", "twos"));
+    if (sideNote) sideNote.innerHTML = "同屏动线：① 点操作数 bit 设数 ② 先选原码/反码/补码，再点一种移位 ③ 看同一串位在三种编码下的不同读数。";
     return;
   }
   if (state.mode === "compare") {
@@ -1093,7 +1100,7 @@ function buildAddSubScenario() {
     cells: [],
     formula: `${bitsToString(A)} ${isSub ? "−" : "+"} ${bitsToString(B)} = ${bitsToString(sum)}`,
     overflow: overflow
-      ? `两个${isSub ? (A[0] ? "负数减负数" : "正数减正数") : (A[0] ? "负数加负数" : "正数加正数")}，结果符号却变了：${fmtDec(expected)} 超出表示范围，硬件会置起溢出标志（OF）。`
+      ? `${isSub ? "异号相减，结果符号与被减数不同" : `两个${A[0] ? "负数" : "正数"}相加，结果符号却变了`}：${fmtDec(expected)} 超出表示范围，硬件会置起溢出标志（OF）。`
       : null,
     showResult: {
       line: `${fmtDec(decA)} ${isSub ? "−" : "+"} (${fmtDec(decB)}) = ${overflow ? fmtDec(decSum) + "（溢出）" : fmtDec(decSum)}`,
@@ -1108,7 +1115,19 @@ function buildEncodeScenario() {
   const D = state.encodeValue;
   const bits = decToBits(D);
   const magnitude = Math.abs(D).toString(2).padStart(7, "0");
-  const ones = bits[0] === 0 ? bits.join("") : bits.map((b, i) => (i === 0 ? b : b ? 0 : 1)).join("");
+  // −128 has no 8-bit sign-magnitude/ones representation; derive it modulo 256.
+  if (D === MIN_VAL) {
+    const steps = [
+      { text: `目标：把十进制 <b>${D}</b> 编码成 8 位补码。它是补码范围的最小值，需要单独处理。`, cells: [], formula: `D = ${D}` },
+      { text: `绝对值 |${D}| = ${Math.abs(D)}，二进制为 <b>${magnitude}</b>，需要 8 位，超过原码的 7 位数值位容量。`, cells: [], formula: `|${D}| = ${magnitude}₂（需要 8 位）` },
+      { text: `8 位<b>原码不可表示</b> ${D}：一位符号加八位数值需要 9 位。`, cells: [], formula: `8 位原码范围：−127 ~ +127` },
+      { text: `8 位<b>反码不可表示</b> ${D}，不能沿用“原码取反再加一”的路径。`, cells: [], formula: `8 位反码范围：−127 ~ +127` },
+      { text: `直接按模 256 编码：256 + (${D}) = ${256 + D}，得到补码 <b>${bitsToString(bits)}</b>。它在 8 位补码范围内没有可表示的正相反数。`, cells: bits.map((b, i) => cell("twos", i, b, "pop " + (b ? "on" : ""))), formula: `补码 = ${bitsToString(bits)}` },
+      { text: `验证：符号位权值 −128，其余位为 0，读出 <b>${D}</b>。点下面的补码位，查看新的十进制读数。`, cells: [], formula: `${bitsToString(bits)} ↔ ${D}`, interactive: true },
+    ];
+    return { kind: "encode", steps, D, bits, magnitude, ones: null };
+  }
+  const ones = onesComplementBits(D).join("");
   const steps = [
     {
       text: `目标：把十进制 <b>${D}</b> 编码成 8 位补码。先看符号：${D < 0 ? "<b>负数 → 符号位 1</b>" : "<b>非负 → 符号位 0</b>"}。`,
@@ -1137,7 +1156,7 @@ function buildEncodeScenario() {
           formula: `反码 = ${ones}`,
         },
     {
-      text: `<b>补码 = 反码 + 1</b>。${D === MIN_VAL ? "注意：−128 的补码还是 10000000——它没有对应的 +128，这是补码的特殊值。" : "加 1 的进位像涟漪一样从最低位往上传。"}`,
+      text: D < 0 ? `<b>负数的补码 = 反码 + 1</b>。加 1 的进位像涟漪一样从最低位往上传。` : `<b>非负数的原码、反码、补码相同</b>，保持不变，无需加一。`,
       cells: bits.map((b, i) => cell("twos", i, b, "pop " + (b ? "on" : ""))),
       formula: `补码 = ${bitsToString(bits)}`,
     },
@@ -1211,7 +1230,7 @@ function buildFourScenario() {
     { zone: 0, text: `同一个真值，四种机器表示。<b>正数：原码 = 反码 = 补码</b>；负数各走各路；移码则把整个数轴平移 +128。改上面的数字，四行实时联动。`, formula: `一个真值 → 四种位串` },
     { zone: 0, text: `<b>原码</b> = 符号位 + 数值位，最像人写的数。但 0 有 +0/−0 两个样子，做减法还得先比大小定符号——硬件不爱用。`, formula: `原码：符号 + 绝对值` },
     { zone: 0, text: `<b>反码</b>：负数数值位按位取反。它是原码到补码的桥梁，自己也有 ±0 两个零，加减还要循环进位，工程上不直接使用。`, formula: `反码：负数逐位取反` },
-    { zone: 0, text: `<b>补码</b> = 反码 + 1。<b>0 唯一、加减统一、范围 −128 ~ +127</b>——现代计算机的整数表示标准，本页的加减法都在用它。`, formula: `补码 = 反码 + 1` },
+    { zone: 0, text: `<b>补码</b>：非负数不变；−127 ~ −1 的反码加 1；−128 按模 256 直接编码。<b>0 唯一、加减统一、范围 −128 ~ +127</b>——现代计算机的整数表示标准，本页的加减法都在用它。`, formula: `补码 = 真值 mod 256` },
     { zone: 0, text: `<b>移码</b> = 真值 + 128（相当于补码符号位取反）。全部变成非负位串后，<b>按无符号数比较大小 = 按真值比较大小</b>。`, formula: `移码 = 真值 + 128` },
     { zone: 1, text: `<b>同一个位串，四种身份。</b>点下面任何一位，四种读法同步翻转——位数只是容器，<b>解释规则才是灵魂</b>。`, formula: `位串 × 解释规则 = 值` },
     { zone: 2, text: `为什么要学移码？浮点数的阶码要频繁比大小（对阶），移码让比较器直接用无符号比较电路——<b>IEEE 754 的阶码正是移码</b>。`, formula: `移码 → IEEE 754 阶码` },
@@ -1223,7 +1242,7 @@ function fourRowSpec(v) {
   return [
     { key: "sm", name: "原码", rule: "符号 + 绝对值", bits: signMagnitudeBits(v), read: (b) => decodeSignMagnitude(b), formula: (b) => (b[0] ? "−" : "+") + bitsToString(b.slice(1)) + "₂" },
     { key: "ones", name: "反码", rule: "负数逐位取反", bits: onesComplementBits(v), read: (b) => decodeOnesComplement(b), formula: () => "" },
-    { key: "twos", name: "补码", rule: "反码 + 1", bits: decToBits(v), read: (b) => bitsToDec(b), formula: (b) => (b[0] ? "−128 + " + bitsToDec([0, ...b.slice(1)]) : "+" + bitsToDec(b)) },
+    { key: "twos", name: "补码", rule: v >= 0 ? "非负数不变" : v === MIN_VAL ? "模 256 编码" : "反码 + 1", bits: decToBits(v), read: (b) => bitsToDec(b), formula: (b) => (b[0] ? "−128 + " + bitsToDec([0, ...b.slice(1)]) : "+" + bitsToDec(b)) },
     { key: "excess", name: "移码", rule: "真值 + 128", bits: excessBits(v), read: (b) => decodeExcess(b), formula: (b) => Number.parseInt(b.join(""), 2) + " − 128" },
   ];
 }
@@ -1370,6 +1389,11 @@ const QUIZ_CONCEPTS = [
   { q: "带进位循环移位（RCL/RCR）最典型的用途是？", choices: ["浮点运算", "多字节数据的链接移位", "地址译码", "中断处理"], answer: 1, why: "C 标志把多个寄存器缝成一个长移位链：高字节的移出位经 C 流入低字节。" },
   { q: "算术左移发生溢出的判定是？", choices: ["移出位为 1", "结果符号位与原来不同", "结果为 0", "进位为 1"], answer: 1, why: "符号翻转说明真实乘 2 的结果超出了补码范围——置溢出标志。" },
   { q: "−5（11111011）算术右移一位的结果是？", choices: ["−2", "−3", "125", "−1"], answer: 1, why: "11111011 → 11111101 = −3。补码右移向 −∞ 取整：−2.5 → −3。" },
+  // —— 原码 / 反码 / 补码的移位规则必须区分 ——
+  { q: "原码负数做算术左移，正确的动作是？", choices: ["符号位不动，数值位左移补 0", "整体左移补 0", "整体左移补 1", "符号位移出后补符号位"], answer: 0, why: "原码是符号 + 绝对值：算术移位只动数值位、空位补 0，符号位始终不变——所以 −10（10001010）左移得 −20（10010100）。" },
+  { q: "反码负数做算术右移，空出的最高位填什么？", choices: ["0", "1", "移出位", "进位 C"], answer: 1, why: "反码负数的高位是 1（数值位取反后为 1），算术右移补符号位 1 才能保持数值正确。" },
+  { q: "补码做算术左移，空出的最低位填什么？", choices: ["0", "1", "符号位", "进位 C"], answer: 0, why: "补码算术左移与逻辑左移机械动作相同（补 0）；但符号位翻转就是溢出。" },
+  { q: "同一串位 11111010，按原码和按反码读出的值是？", choices: ["原码 −122，反码 −5", "原码 −5，反码 −122", "都是 −6", "都是 −122"], answer: 0, why: "原码读绝对值：符号 1 + 1111010 = −122；反码要取反：数值 0000101 = 5 → −5。三种编码必须分开读。" },
 ];
 
 function randomInt(min, max) { return min + Math.floor(Math.random() * (max - min + 1)); }
@@ -1396,7 +1420,7 @@ function uniqueChoices(correct, distractors) {
 }
 
 function generateQuestion(forceType = null) {
-  const types = ["dec2twos", "twos2dec", "addcalc", "overflow", "excess", "shiftcalc", "shiftvalue", "asloverflow", "picktype", "shiftmul", "concept"];
+  const types = ["dec2twos", "twos2dec", "addcalc", "overflow", "excess", "shiftcalc", "encshift", "shiftvalue", "asloverflow", "picktype", "shiftmul", "concept"];
   const type = forceType ?? types[randomInt(0, types.length - 1)];
 
   if (type === "dec2twos") {
@@ -1476,9 +1500,31 @@ function generateQuestion(forceType = null) {
     const choices = shuffled([...new Set([correct, ...wrongs])]);
     return {
       type, mode: "choice",
-      prompt: `<code>${bits.join("")}</code> ${SHIFT_OPS[opKey].name}一位，结果是？`,
+      prompt: `${opKey === "asr" ? "补码 " : ""}<code>${bits.join("")}</code> ${SHIFT_OPS[opKey].name}一位，结果是？`,
       choices: choices.map((c) => `<code>${c}</code>`), answer: choices.indexOf(correct),
-      explain: `${SHIFT_OPS[opKey].name}：${opKey === "asr" ? "空位补符号位" : SHIFT_OPS[opKey].fill === "wrap" ? "移出位回绕" : "空位补 0"}，得 <b>${correct}</b>。`,
+      explain: `${SHIFT_OPS[opKey].name}：${opKey === "asr" ? "补码空位补符号位" : SHIFT_OPS[opKey].fill === "wrap" ? "移出位回绕" : "空位补 0"}，得 <b>${correct}</b>。`,
+    };
+  }
+  if (type === "encshift") {
+    // 原码 / 反码的算术移位与补码规则不同，必须分开判断。
+    const encoding = ["sign", "ones"][randomInt(0, 1)];
+    const left = Math.random() > 0.5;
+    const dir = left ? "left" : "right";
+    const value = -randomInt(1, 100);
+    const bits = valueToBits(value, encoding);
+    const correct = arithmeticShiftOnce(bits, dir, encoding).result.join("");
+    const wrongs = [
+      arithmeticShiftOnce(bits, dir, encoding === "sign" ? "ones" : "sign").result.join(""),
+      arithmeticShiftOnce(bits, dir, "twos").result.join(""),
+      shiftOnce(bits, left ? "lsl" : "lsr").result.join(""),
+    ];
+    const choices = shuffled([...new Set([correct, ...wrongs])]);
+    const enc = ENCODINGS[encoding];
+    return {
+      type, mode: "choice",
+      prompt: `${enc.name} <b>${fmtS(decodeBits(bits, encoding))}（${bits.join("")}）</b> 算术${left ? "左" : "右"}移一位，结果是？`,
+      choices: choices.map((c) => `<code>${c}</code>`), answer: choices.indexOf(correct),
+      explain: `${enc.name}算术移位：${enc.rule}，得 <b>${correct}</b> = ${fmtS(decodeBits(correct.split("").map(Number), encoding))}。`,
     };
   }
   if (type === "shiftvalue") {
@@ -1674,6 +1720,43 @@ function bitsToSigned(bits) { return bits[0] ? bitsToUnsigned(bits) - 256 : bits
 function unsignedToBits(v) { const u = ((v % 256) + 256) % 256; return Array.from({ length: 8 }, (_, i) => (u >> (7 - i)) & 1); }
 function fmtS(v) { return (v > 0 ? "+" : "") + v; }
 
+/* ── 原码 / 反码 / 补码：三种机器编码必须区分开 ──
+   同一串 8 位，三种编码读出的真值不同；算术移位的规则也随之不同。 */
+const ENCODINGS = {
+  twos: { name: "补码", rule: "左移补 0，右移补符号位" },
+  ones: { name: "反码", rule: "左移右移都补符号位（正补 0、负补 1）" },
+  sign: { name: "原码", rule: "符号位不动，数值位移，空位补 0" },
+};
+const ENC_RANGE = { twos: "−128 ~ +127", ones: "−127 ~ +127", sign: "−127 ~ +127" };
+function bitsToMagnitude(bits) { return bits.slice(1).reduce((v, b, i) => v + b * (1 << (6 - i)), 0); }
+function bitsToSignMagnitude(bits) { const m = bitsToMagnitude(bits); return bits[0] ? -m : m; }
+function bitsToOnes(bits) { const m = bitsToMagnitude(bits); return bits[0] ? -(127 - m) : m; }
+function decodeBits(bits, encoding) {
+  return encoding === "sign" ? bitsToSignMagnitude(bits) : encoding === "ones" ? bitsToOnes(bits) : bitsToSigned(bits);
+}
+function valueToBits(v, encoding = "twos") {
+  if (encoding === "twos") return unsignedToBits(v);
+  const mag = Array.from({ length: 7 }, (_, i) => (Math.abs(v) >> (6 - i)) & 1);
+  if (encoding === "sign") return [v < 0 ? 1 : 0, ...mag];
+  return v < 0 ? [1, ...mag.map((b) => (b ? 0 : 1))] : [0, ...mag];
+}
+/* 算术移位按编码区分：
+   补码：左移补 0、右移补符号位；反码：两个方向都补符号位；
+   原码：符号位不参与，只有数值位移动、空位补 0。 */
+function arithmeticShiftOnce(bits, dir, encoding = "twos") {
+  const left = dir === "left";
+  if (encoding === "sign") {
+    const mag = bits.slice(1);
+    const ejected = left ? mag[0] : mag[6];
+    const result = left ? [bits[0], ...mag.slice(1), 0] : [bits[0], 0, ...mag.slice(0, 6)];
+    return { result, ejected, carry: ejected, newBit: 0, overflow: left && ejected === 1 };
+  }
+  const fill = left ? (encoding === "ones" ? bits[0] : 0) : bits[0];
+  const ejected = left ? bits[0] : bits[7];
+  const result = left ? [...bits.slice(1), fill] : [fill, ...bits.slice(0, 7)];
+  return { result, ejected, carry: ejected, newBit: fill, overflow: left && result[0] !== bits[0] };
+}
+
 function setBanner(html, kind) {
   const el = document.getElementById("banner");
   if (!kind) { el.className = "banner"; el.innerHTML = ""; return; }
@@ -1692,6 +1775,12 @@ const SHIFT_OPS = {
   rcr: { name: "带进位右移", short: "RCR", dir: "right", fill: "carry", note: "C 参与环流" },
 };
 
+function shiftNote(type, encoding = workState.encoding) {
+  if (type === "asl") return `≈ ×2（${ENCODINGS[encoding].name}，可能溢出）`;
+  if (type === "asr") return `≈ ÷2（${ENCODINGS[encoding].name}，${encoding === "twos" ? "向下取整" : "向零取整"}）`;
+  return SHIFT_OPS[type].note;
+}
+
 function shiftOnce(bits, type, carryIn = 0) {
   const left = SHIFT_OPS[type].dir === "left";
   if (left) {
@@ -1704,7 +1793,7 @@ function shiftOnce(bits, type, carryIn = 0) {
   return { result: [newBit, ...bits.slice(0, 7)], ejected, carry: ejected, newBit };
 }
 
-const workState = { bits: unsignedToBits(26), carry: 0, ejected: [], lastType: null, overflow: false };
+const workState = { bits: unsignedToBits(26), carry: 0, ejected: [], lastType: null, overflow: false, encoding: "twos" };
 const compareState = { base: unsignedToBits(-32), left: unsignedToBits(-32), right: unsignedToBits(-32), shifted: false };
 const mulState = { x: 7, k: 10, termIndex: 0 };
 const ringState = { bits: unsignedToBits(0xB4), carry: 1, lastType: null };
@@ -1712,30 +1801,36 @@ const multiState = { hi: unsignedToBits(0x40), lo: unsignedToBits(0x21), carry: 
 
 function buildWorkbenchScenario() {
   const steps = [
-    { zone: 0, text: `先认识操作台：上面是 8 位寄存器（<b>点 bit 直接设数</b>），下面是 8 种移位操作。每种移位只回答三个问题：<b>哪边移出、移出的去哪、空位填什么</b>。`, formula: `移出位 → 进位 C / 回绕 / 丢弃` },
-    { zone: 1, text: `点一种移位看动画：每一位整体挪一格，<b>移出位掉进回收站（同时进 C 标志）</b>，空出的一端填入新位（绿色高亮）。逻辑移位填 0，算术右移填符号位，循环移位填移出位。`, formula: `空位 ← 0 / 符号位 / 移出位 / C` },
-    { zone: 2, text: `看读数区：<b>左移 ≈ ×2、右移 ≈ ÷2</b>，但只在对的规则下成立——负数用逻辑右移会变成巨大正数，算术左移可能让符号翻转（溢出红警报）。`, formula: `LSL≈×2 · LSR≈÷2(无符号) · ASR≈÷2(补码)` },
+    { zone: 0, text: `先认识操作台：上面保留<b>移位前的位串</b>作对照；在按钮旁的<b>当前寄存器点 bit 直接设数</b>。每种移位只回答三个问题：<b>哪边移出、移出的去哪、空位填什么</b>。`, formula: `移出位 → 进位 C / 回绕 / 丢弃` },
+    { zone: 1, text: `点一种移位看动画：每一位整体挪一格，<b>移出位掉进回收站（同时进 C 标志）</b>，空出的一端填入新位（绿色高亮）。逻辑移位填 0；<b>算术移位看编码</b>：补码左移补 0、右移补符号位；反码两向都补符号位；原码符号位不动、只有数值位移且补 0。`, formula: `空位 ← 0 / 符号位 / 移出位 / C · 算术规则随编码而变` },
+    { zone: 2, text: `看读数区：<b>同一串位，原码、反码、补码读出三个不同的值</b>。左移 ≈ ×2、右移 ≈ ÷2 只在对的编码规则下成立——负数用逻辑右移会变成巨大正数，算术左移可能让符号翻转（溢出红警报）。`, formula: `LSL≈×2 · LSR≈÷2(无符号) · 算术移位按编码区分` },
   ];
   return { kind: "workbench", zoneBased: true, steps };
 }
 
-function workSet(value, op) {
-  workState.bits = unsignedToBits(value);
+function workSet(value, op, encoding = "twos") {
+  workState.encoding = encoding;
+  workState.bits = valueToBits(value, encoding);
   workState.carry = 0;
   workState.ejected = [];
   workState.overflow = false;
+  workState.lastType = null;
   renderWorkbench();
   if (op) workExecute(op);
 }
 
 function workExecute(type) {
   const before = workState.bits;
-  const { result, ejected, carry, newBit } = shiftOnce(before, type, workState.carry);
+  const arithmetic = type === "asl" || type === "asr";
+  const step = arithmetic
+    ? arithmeticShiftOnce(before, SHIFT_OPS[type].dir, workState.encoding)
+    : { ...shiftOnce(before, type, workState.carry), overflow: false };
+  const { result, ejected, carry, newBit } = step;
   workState.bits = result;
   workState.carry = carry;
   workState.ejected = [...workState.ejected.slice(-5), ejected];
   workState.lastType = type;
-  workState.overflow = type === "asl" && result[0] !== before[0];
+  workState.overflow = Boolean(step.overflow);
   renderWorkbench({ before, result, ejected, newBit, type });
 }
 
@@ -1748,6 +1843,19 @@ function renderWorkbench(fx = null) {
       if (btn) workExecute(btn.dataset.op);
     });
   }
+  const encEl = document.getElementById("encTabs");
+  if (encEl && !encEl.dataset.bound) {
+    encEl.dataset.bound = "1";
+    encEl.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-enc]");
+      if (!btn || btn.dataset.enc === workState.encoding) return;
+      // 同一串位不换，只换解读与算术规则——三种编码的差异立刻可见。
+      workState.encoding = btn.dataset.enc;
+      workState.overflow = false;
+      workState.lastType = null;
+      renderWorkbench();
+    });
+  }
   const before = fx?.before ?? workState.bits;
   const result = workState.bits;
   const type = fx?.type ?? workState.lastType ?? "lsl";
@@ -1757,43 +1865,72 @@ function renderWorkbench(fx = null) {
     `<div class="bit ${b ? "on" : ""} ${i === 0 ? "sign" : ""} ${extra(i)}" data-col="${i}">${b}<small>${i === 0 ? "符号" : 2 ** (7 - i)}</small></div>`).join("");
 
   document.getElementById("workBits").innerHTML = rowHtml(before);
-  document.querySelectorAll("#workBits .bit").forEach((cellEl, i) => {
-    cellEl.classList.add("clickable");
-    cellEl.addEventListener("click", () => {
-      workState.bits[i] = workState.bits[i] ? 0 : 1;
-      workState.ejected = [];
-      renderWorkbench();
-    });
-  });
 
   document.getElementById("vizArrows").innerHTML = before.map(() =>
     `<span style="--nudge:${dir === "left" ? "-5px" : "5px"}">${dir === "left" ? "⬅" : "➡"}</span>`).join("");
 
-  const newIndex = fx ? (dir === "left" ? 7 : 0) : -1;
+  const newIndex = fx ? (dir === "left" ? 7 : type === "asr" && workState.encoding === "sign" ? 1 : 0) : -1;
   document.getElementById("vizResult").innerHTML = rowHtml(result, (i) =>
     i === newIndex ? "new-bit" : fx ? "moved" : "");
+  document.querySelectorAll("#vizResult .bit").forEach((cellEl, i) => {
+    cellEl.classList.add("clickable");
+    cellEl.setAttribute("role", "button");
+    cellEl.setAttribute("tabindex", "0");
+    cellEl.setAttribute("aria-label", `翻转当前寄存器第 ${i + 1} 位，当前值 ${result[i]}`);
+    const toggle = () => {
+      workState.bits[i] = workState.bits[i] ? 0 : 1;
+      workState.ejected = [];
+      workState.overflow = false;
+      workState.lastType = null;
+      renderWorkbench();
+      document.querySelectorAll("#vizResult .bit")[i].focus({ preventScroll: true });
+    };
+    cellEl.addEventListener("click", toggle);
+    cellEl.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); event.stopPropagation(); toggle(); }
+    });
+  });
 
   document.getElementById("binBits").innerHTML = workState.ejected.length
     ? workState.ejected.map((b) => `<span class="bin-bit">${b}</span>`).join("")
     : `<span class="enc-note">空</span>`;
   document.getElementById("carryVal").textContent = workState.carry;
 
+  const arithmetic = type === "asl" || type === "asr";
+  document.querySelectorAll("#encTabs [data-enc]").forEach((btn) => {
+    btn.setAttribute("aria-pressed", String(btn.dataset.enc === workState.encoding));
+  });
+  document.querySelectorAll("#opGrid [data-op]").forEach(btn => {
+    btn.querySelector("small").textContent = `${SHIFT_OPS[btn.dataset.op].short} · ${shiftNote(btn.dataset.op)}`;
+  });
+  const readings = [
+    ["unsigned", "无符号读数", (bits) => String(bitsToUnsigned(bits))],
+    ["sign", "原码读数", (bits) => fmtS(bitsToSignMagnitude(bits))],
+    ["ones", "反码读数", (bits) => fmtS(bitsToOnes(bits))],
+    ["twos", "补码读数", (bits) => fmtS(bitsToSigned(bits))],
+  ];
+  document.getElementById("readoutGrid").innerHTML = readings.map(([key, label, decode]) =>
+    `<div class="readout ${arithmetic && key === workState.encoding ? "active" : ""}"><span>${label}</span><strong>${decode(before)} → <em>${decode(result)}</em></strong></div>`).join("");
+
   const su = bitsToUnsigned(result), ss = bitsToSigned(result);
   const bu = bitsToUnsigned(before), bs = bitsToSigned(before);
-  document.getElementById("readUnsigned").innerHTML = `<span>无符号读数</span><strong>${bu} → <em>${su}</em></strong>`;
-  document.getElementById("readSigned").innerHTML = `<span>补码读数</span><strong>${fmtS(bs)} → <em>${fmtS(ss)}</em></strong>`;
-
+  const enc = ENCODINGS[workState.encoding];
   const op = SHIFT_OPS[type];
   document.getElementById("formulaStrip").textContent = fx
-    ? `${op.name}（${op.short}）：${before.join("")} ${dir === "left" ? "<<" : ">>"} 1 = ${result.join("")} · 移出 ${fx.ejected}，空位填 ${fx.newBit}`
-    : `${bitsToUnsigned(workState.bits)}（无符号）/ ${fmtS(bitsToSigned(workState.bits))}（补码） · 点下方一种移位开始`;
+    ? `${op.name}（${op.short}${arithmetic ? ` · ${enc.name}` : ""}）：${before.join("")} ${dir === "left" ? "<<" : ">>"} 1 = ${result.join("")} · 移出 ${fx.ejected}，空位填 ${fx.newBit}${arithmetic ? `（${enc.rule}）` : ""}`
+    : `${bitsToUnsigned(workState.bits)}（无符号）/ ${fmtS(bitsToSignMagnitude(workState.bits))}（原码）/ ${fmtS(bitsToOnes(workState.bits))}（反码）/ ${fmtS(bitsToSigned(workState.bits))}（补码） · 点下方一种移位开始`;
 
-  if (workState.overflow) {
-    setBanner(`🟥 <b>溢出！</b>算术左移后符号位从 ${before[0]} 变成 ${result[0]}：${fmtS(bs)} × 2 的真实值超出 −128 ~ +127，结果被卷绕成 ${fmtS(ss)}。`, "miss");
+  if (!fx) {
+    setBanner("", null);
+  } else if (workState.overflow && type === "asl" && workState.encoding === "sign") {
+    setBanner(`🟥 <b>原码算术左移溢出！</b>数值位最高位的 1 被移出：${fmtS(bitsToSignMagnitude(before))} × 2 的绝对值超出原码 7 位数值范围（${ENC_RANGE.sign}），符号位不变但数值已被卷绕成 ${fmtS(bitsToSignMagnitude(result))}。`, "miss");
+  } else if (workState.overflow && type === "asl") {
+    const encName = enc.name, decode = (bits) => fmtS(decodeBits(bits, workState.encoding));
+    setBanner(`🟥 <b>溢出！</b>${encName}算术左移后符号位从 ${before[0]} 变成 ${result[0]}：${decode(before)} × 2 的真实值超出 ${ENC_RANGE[workState.encoding]}，结果被卷绕成 ${decode(result)}。`, "miss");
   } else if (fx && type === "lsr" && before[0] === 1) {
-    setBanner(`⚠ 注意：对负数 ${fmtS(bs)} 做<b>逻辑</b>右移，空位填 0 后变成正数 ${su}——有符号数请用算术右移。`, "evict");
+    setBanner(`⚠ 注意：对负数 ${fmtS(bs)}（补码）做<b>逻辑</b>右移，空位填 0 后变成正数 ${su}——有符号数请按编码用算术右移。`, "evict");
   } else if (fx) {
-    setBanner(`${op.name}完成：${op.note}。移出位 ${fx.ejected} 已进入 C 标志与回收站。`, "hit");
+    setBanner(`${op.name}完成${arithmetic ? `（${enc.name}：${enc.rule}）` : ""}：${shiftNote(type)}。移出位 ${fx.ejected} 已进入 C 标志与回收站。`, "hit");
   }
 }
 
@@ -1801,7 +1938,7 @@ function renderWorkbenchStage() {
   stage.innerHTML = `
     <div class="stage-title"><h2>移位操作台</h2><span class="st-sub">8 种移位 · 点 bit 设数 · 移出位全程可见</span></div>
     <div class="zone logic-zone" data-zone="0">
-      <div class="zone-title">① 操作数（点 bit 设数）</div>
+      <div class="zone-title">① 移位前位串（只读对照）</div>
       <div class="bits8" id="workBits"></div>
       <div class="bin-row">
         <div class="bin-box"><span class="bin-title">移出位<br>回收站</span><div class="bin-row" id="binBits"></div></div>
@@ -1809,24 +1946,26 @@ function renderWorkbenchStage() {
       </div>
     </div>
     <div class="zone logic-zone" data-zone="1">
-      <div class="zone-title">② 选一种移位（点即执行）</div>
+      <div class="zone-title">② 先选机器编码，再点一种移位（点即执行）</div>
+      <div class="enc-tabs" id="encTabs">
+        ${Object.entries(ENCODINGS).map(([key, enc]) => `
+          <button type="button" data-enc="${key}" aria-pressed="${key === workState.encoding}">${enc.name}<small>${enc.rule}</small></button>`).join("")}
+      </div>
       <div class="op-grid" id="opGrid">
         ${Object.entries(SHIFT_OPS).map(([key, op]) => `
           <button class="op-btn ${key === "asl" || key === "asr" ? "arith" : key.startsWith("r") ? "rotate" : "logic2"}" data-op="${key}">
-            ${op.name}<small>${op.short} · ${op.note}</small>
+            ${op.name}<small>${op.short} · ${shiftNote(key)}</small>
           </button>`).join("")}
       </div>
       <div class="shift-viz">
         <div class="viz-arrows" id="vizArrows"></div>
-        <div class="viz-row"><span class="viz-label">结果</span><div class="bits8" id="vizResult"></div></div>
+        <div class="enc-note">当前寄存器（点 bit 重新设数；下一次移位使用此值）</div>
+        <div class="viz-row"><span class="viz-label">当前值</span><div class="bits8" id="vizResult"></div></div>
       </div>
     </div>
     <div class="zone logic-zone" data-zone="2">
-      <div class="zone-title">③ 结果读数</div>
-      <div class="readout-grid">
-        <div class="readout" id="readUnsigned"></div>
-        <div class="readout" id="readSigned"></div>
-      </div>
+      <div class="zone-title">③ 结果读数（同一串位 · 三种编码分别读）</div>
+      <div class="readout-grid" id="readoutGrid"></div>
     </div>
     <div class="formula-strip" id="formulaStrip"></div>`;
   renderWorkbench();
@@ -1902,16 +2041,16 @@ function renderCompareStage() {
           <div class="compare-read" id="cmpLogicRead"></div>
         </div>
         <div class="compare-col arithc">
-          <h4>算术右移 ASR · 补符号位</h4>
+          <h4>算术右移 ASR · 补码补符号位</h4>
           <div class="bits8" id="cmpArithRow"></div>
           <div class="compare-read" id="cmpArithRead"></div>
         </div>
       </div>
     </div>
     <div class="zone logic-zone" data-zone="1">
-      <div class="zone-title">算术左移的溢出暗坑</div>
-      <div class="inline-steps"><button id="cmpAslDemo">演示：100 算术左移（溢出）</button></div>
-      <div class="enc-note">ASL 与 LSL 机械动作相同，区别只在「符号翻转即溢出」这条判定</div>
+      <div class="zone-title">补码算术左移的溢出暗坑</div>
+      <div class="inline-steps"><button id="cmpAslDemo">演示：100 补码算术左移（溢出）</button></div>
+      <div class="enc-note">这是补码的规则：ASL 与 LSL 机械动作相同，区别只在「符号翻转即溢出」这条判定；原码、反码的算术移位规则不同，到「移位操作台」切换编码对比。</div>
     </div>
     <div class="formula-strip" id="formulaStrip"></div>`;
   document.getElementById("cmpShiftRight").addEventListener("click", () => {
@@ -2038,11 +2177,12 @@ function buildRotateScenario() {
   return { kind: "rotate", zoneBased: true, steps };
 }
 
-function ringSet(value) {
+function ringSet(value, carry = 1) {
   ringState.bits = unsignedToBits(value);
-  ringState.carry = 0;
+  ringState.carry = carry;
   ringState.lastType = null;
   renderRing();
+  setBanner("", null);
 }
 
 function ringExecute(type) {
@@ -2292,19 +2432,22 @@ function renderStageShell() {
         <div class="row-label"><span class="rl-name">绝对值（7 位数值位）</span></div>
         <div class="weights"><span></span>${[64,32,16,8,4,2,1].map((w) => `<span>${w}</span>`).join("")}</div>
         <div class="bit-row" data-row="mag">${makeCells(8, ["ghost"])}</div>
+        ${scenario.D === MIN_VAL ? '<div class="enc-note">绝对值 128 超过 7 位数值位容量</div>' : ''}
       </div>
-      <div class="enc-arrow">▼ 加符号位 = 原码</div>
+      <div class="enc-arrow">${scenario.D === MIN_VAL ? "▼ 超出 8 位原码范围" : "▼ 加符号位 = 原码"}</div>
       <div class="zone">
         <div class="row-label"><span class="rl-name">原码</span></div>
         <div class="weights"><span class="sign-w">符号</span>${[64,32,16,8,4,2,1].map((w) => `<span>${w}</span>`).join("")}</div>
         <div class="bit-row" data-row="sign">${makeCells(8, ["ghost"])}</div>
+        ${scenario.D === MIN_VAL ? '<div class="enc-note">8 位原码不可表示 −128</div>' : ''}
       </div>
-      <div class="enc-arrow" id="arrowOnes">▼ 负数按位取反（正数不变）= 反码</div>
+      <div class="enc-arrow" id="arrowOnes">${scenario.D === MIN_VAL ? "▼ 超出 8 位反码范围" : "▼ 负数的数值位取反（非负数不变）= 反码"}</div>
       <div class="zone">
         <div class="row-label"><span class="rl-name">反码</span></div>
         <div class="bit-row" data-row="ones">${makeCells(8, ["ghost"])}</div>
+        ${scenario.D === MIN_VAL ? '<div class="enc-note">8 位反码不可表示 −128</div>' : ''}
       </div>
-      <div class="enc-arrow">▼ 加 1 = 补码</div>
+      <div class="enc-arrow" id="arrowTwos">${scenario.D === MIN_VAL ? "▼ 按模 256 直接编码 = 补码" : scenario.D < 0 ? "▼ 反码加 1 = 补码" : "▼ 非负数保持不变 = 补码"}</div>
       <div class="zone">
         <div class="row-label"><span class="rl-name">补码</span><span class="rl-val" id="twosLive"></span></div>
         <div class="weights"><span class="sign-w">−128</span>${[64,32,16,8,4,2,1].map((w) => `<span>${w}</span>`).join("")}</div>

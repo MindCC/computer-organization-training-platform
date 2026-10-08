@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { hashPassword, verifyPassword } from './auth.js';
 import { addStudentToClass, createClass, createUser, getUserById, getUserByUsername, migrate, openDatabase, recordStudentAttempt } from './db.js';
 import { isDemoLoginEnabled } from './demoAccounts.js';
+import { PNG_AVATAR, JPEG_AVATAR, WEBP_AVATAR, WIDE_PNG_AVATAR } from '../scripts/lib/avatarFixtures.mjs';
 
 async function fixture(options = {}) {
   const db = openDatabase(':memory:'); migrate(db);
@@ -64,7 +65,7 @@ test('two demo identities use isolated demo ownership and never expose a managem
   } finally { await f.close(); }
 });
 
-test('demo teacher publishes to the shared class and the demo student can see the homework', async () => {
+test('demo accounts are read-only: publishing is rejected, existing class homework stays visible', async () => {
   const f = await fixture();
   try {
     const teacherJar = {}, studentJar = {};
@@ -77,14 +78,14 @@ test('demo teacher publishes to the shared class and the demo student can see th
     const classId = classes.body.classes[0].id;
     const overview = await f.request(`/api/teacher/classes/${classId}/overview`, undefined, teacherJar, 'GET');
     assert.deepEqual(overview.body.students.map((student) => student.id), [studentLogin.body.user.id]);
+    // 只读：演示教师不能新建作业、不能提交任何修改
     const draft = await f.request(`/api/teacher/classes/${classId}/assignments`, { title: '演示作业', description: '班级关联检查' }, teacherJar);
-    assert.equal(draft.status, 201);
-    const assignmentId = draft.body.assignment.id;
-    await f.request(`/api/teacher/assignments/${assignmentId}/questions`, {
-      type: 'choice', stem: 'CPU 是什么？', options: ['处理器', '硬盘'], answer: '处理器', score: 10,
-    }, teacherJar);
-    assert.deepEqual((await f.request('/api/student/assignments', undefined, studentJar, 'GET')).body.assignments, []);
-    assert.equal((await f.request(`/api/teacher/assignments/${assignmentId}/publish`, {}, teacherJar)).status, 200);
+    assert.equal(draft.status, 403);
+    assert.equal(draft.body.error.code, 'DEMO_READ_ONLY');
+    // 已有的班级作业（只读生效前的数据）师生双方仍然可以看到
+    const demoTeacherId = getUserByUsername(f.db, 'demo-teacher').id;
+    const inserted = f.db.prepare("INSERT INTO assignments (class_id, teacher_id, title, description, status, question_count) VALUES (?, ?, '演示作业', '班级关联检查', 'published', 0)").run(classId, demoTeacherId);
+    const assignmentId = Number(inserted.lastInsertRowid);
     const visible = await f.request('/api/student/assignments', undefined, studentJar, 'GET');
     assert.deepEqual(visible.body.assignments.map((assignment) => assignment.id), [assignmentId]);
     assert.equal((await f.request(`/api/student/assignments/${assignmentId}`, undefined, studentJar, 'GET')).status, 200);
@@ -211,5 +212,65 @@ test('settings support teacher profile and reject unauthenticated or invalid sav
     const teacherJar = await f.login('teacher-formal');
     const result = await f.request('/api/auth/settings', { displayName: '教师新姓名' }, teacherJar, 'PUT');
     assert.equal(result.status, 200); assert.equal(result.body.user.displayName, '教师新姓名'); assert.equal(result.body.user.role, 'teacher');
+  } finally { await f.close(); }
+});
+
+test('avatar saves through settings, resets to default, and survives a wrong-password rejection unchanged', async () => {
+  const f = await fixture();
+  try {
+    const jar = await f.login('student-formal');
+    // 预设头像：保存后 profile.avatar 持久化并随 /api/auth/me 返回
+    const preset = await f.request('/api/auth/settings', { displayName: '正式学生', mode: '强引导模式', avatar: 'preset:chip-teal' }, jar, 'PUT');
+    assert.equal(preset.status, 200); assert.equal(preset.body.user.profile.avatar, 'preset:chip-teal');
+    assert.equal((await f.request('/api/auth/me', undefined, jar, 'GET')).body.user.profile.avatar, 'preset:chip-teal');
+    assert.equal(JSON.parse(getUserById(f.db, f.student.id).profile_json).avatar, 'preset:chip-teal');
+    // 自定义头像：合法的 WebP data URL 可保存
+    const customAvatar = WEBP_AVATAR;
+    const custom = await f.request('/api/auth/settings', { displayName: '正式学生', avatar: customAvatar }, jar, 'PUT');
+    assert.equal(custom.status, 200); assert.equal(custom.body.user.profile.avatar, customAvatar);
+    // 不携带 avatar 字段的保存保持原头像不变
+    const untouched = await f.request('/api/auth/settings', { displayName: '再次更新' }, jar, 'PUT');
+    assert.equal(untouched.status, 200); assert.equal(untouched.body.user.profile.avatar, customAvatar);
+    // 非法头像：未知预设、伪造协议、超长 data URL 全部 400
+    assert.equal((await f.request('/api/auth/settings', { displayName: '正式学生', avatar: 'preset:chip-unknown' }, jar, 'PUT')).status, 400);
+    assert.equal((await f.request('/api/auth/settings', { displayName: '正式学生', avatar: 'https://evil.example/x.png' }, jar, 'PUT')).status, 400);
+    assert.equal((await f.request('/api/auth/settings', { displayName: '正式学生', avatar: `data:image/webp;base64,${'A'.repeat(120_001)}` }, jar, 'PUT')).status, 400);
+    assert.equal((await f.request('/api/auth/settings', { displayName: '正式学生', avatar: 'data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=' }, jar, 'PUT')).status, 400);
+    // 密码错误时整单不保存，头像也不变
+    const rejected = await f.request('/api/auth/settings', { displayName: '正式学生', avatar: 'preset:chip-blue', currentPassword: 'incorrect', nextPassword: `New-${crypto.randomBytes(12).toString('hex')}` }, jar, 'PUT');
+    assert.equal(rejected.status, 400);
+    assert.equal(JSON.parse(getUserById(f.db, f.student.id).profile_json).avatar, customAvatar);
+    // null 恢复默认头像
+    const reset = await f.request('/api/auth/settings', { displayName: '正式学生', avatar: null }, jar, 'PUT');
+    assert.equal(reset.status, 200); assert.equal(reset.body.user.profile.avatar, null);
+  } finally { await f.close(); }
+});
+
+test('avatar API fully decodes raster images and rejects corrupt, disguised and oversized dimensions atomically', async () => {
+  const f = await fixture();
+  try {
+    const jar = await f.login('student-formal');
+    for (const avatar of [PNG_AVATAR, JPEG_AVATAR, WEBP_AVATAR]) {
+      const result = await f.request('/api/auth/settings', { displayName: '真实图片测试', avatar }, jar, 'PUT');
+      assert.equal(result.status, 200);
+      assert.equal(result.body.user.profile.avatar, avatar);
+    }
+    const corruptPng = 'data:image/png;base64,' + Buffer.from(PNG_AVATAR.split(',')[1], 'base64').subarray(0, 40).toString('base64');
+    for (const avatar of ['data:image/webp;base64,' + Buffer.from('not an image').toString('base64'), PNG_AVATAR.replace('image/png', 'image/webp'), corruptPng, WIDE_PNG_AVATAR, 'data:image/png;base64,====']) {
+      const result = await f.request('/api/auth/settings', { displayName: '不应保存的姓名', avatar }, jar, 'PUT');
+      assert.equal(result.status, 400);
+      const saved = getUserById(f.db, f.student.id);
+      assert.equal(saved.display_name, '真实图片测试');
+      assert.equal(JSON.parse(saved.profile_json).avatar, WEBP_AVATAR);
+    }
+  } finally { await f.close(); }
+});
+
+test('teacher accounts can also set an avatar', async () => {
+  const f = await fixture();
+  try {
+    const teacherJar = await f.login('teacher-formal');
+    const result = await f.request('/api/auth/settings', { displayName: '正式教师', avatar: 'preset:chip-violet' }, teacherJar, 'PUT');
+    assert.equal(result.status, 200); assert.equal(result.body.user.profile.avatar, 'preset:chip-violet');
   } finally { await f.close(); }
 });

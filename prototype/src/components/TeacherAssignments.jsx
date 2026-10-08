@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Plus, CheckCircle, Users, ChartPieSlice, CaretDown, CaretRight } from "@phosphor-icons/react";
 import { api } from "../apiClient.js";
 import { AssignmentQuestionPicker } from './AssignmentQuestionPicker.jsx';
+import { AssignmentPhotoImporter } from './AssignmentPhotoImporter.jsx';
 import './teacherAssignments.css';
 
 const Q_TYPES = { choice: "选择题", truefalse: "判断题", fill: "填空题", short_answer: "简答题" };
@@ -10,6 +11,7 @@ export function TeacherAssignments({ classId }) {
   const [assignments, setAssignments] = useState([]);
   const [analytics, setAnalytics] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [showPhoto, setShowPhoto] = useState(false);
   const [selected, setSelected] = useState(null);
   const [submissions, setSubmissions] = useState([]);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
@@ -56,10 +58,11 @@ export function TeacherAssignments({ classId }) {
     <div className="assignment-panel">
       <div className="assignment-header">
         <strong>作业管理</strong>
-        <button type="button" className="primary-button" aria-expanded={showCreate} onClick={() => setShowCreate(!showCreate)}><Plus size={16} /> {showCreate?'收起创建':'创建作业'}</button>
+        <div className="assignment-photo-actions"><button type="button" className="ghost-button" aria-expanded={showPhoto} onClick={() => setShowPhoto(!showPhoto)}>{showPhoto ? '收起拍照上传' : '拍照上传作业'}</button><button type="button" className="primary-button" aria-expanded={showCreate} onClick={() => setShowCreate(!showCreate)}><Plus size={16} /> {showCreate?'收起创建':'创建作业'}</button></div>
       </div>
 
       {showCreate && <AssignmentCreator classId={classId} onDone={() => { setShowCreate(false); loadAll(); }} />}
+      {showPhoto && <AssignmentPhotoImporter key={classId} classId={classId} onSaved={loadAll} />}
       {loading&&<p role="status">正在读取班级作业…</p>}
       {error&&<div className="form-error" role="alert"><p>{error}</p><button type="button" className="ghost-button" onClick={loadAll}>重试加载作业</button></div>}
 
@@ -112,8 +115,8 @@ function DraftActions({ assignmentId, questionCount, questions, onRefresh }) {
   async function publish(){if(busy)return;setBusy(true);setError('');try{await api.publishAssignment(assignmentId);await onRefresh();}catch(err){setError(`发布失败：${err.message}`);}finally{setBusy(false);}}
   return (
     <div className="draft-actions">
-      <div className="homework-question-modes" role="tablist" aria-label="作业出题方式"><button type="button" role="tab" aria-selected={mode === 'bank'} onClick={() => setMode('bank')}>题库选题</button><button type="button" role="tab" aria-selected={mode === 'manual'} onClick={() => setMode('manual')}>手动出题</button></div>
-      {mode === 'bank' ? <AssignmentQuestionPicker assignmentId={assignmentId} questions={questions} onDone={onRefresh} typeLabels={Q_TYPES} /> : <QuestionForm assignmentId={assignmentId} onDone={onRefresh} />}
+      <div className="homework-question-modes" role="tablist" aria-label="作业出题方式"><button type="button" role="tab" aria-selected={mode === 'bank'} onClick={() => setMode('bank')}>题库选题</button><button type="button" role="tab" aria-selected={mode === 'manual'} onClick={() => setMode('manual')}>手动出题</button><button type="button" role="tab" aria-selected={mode === 'photo'} onClick={() => setMode('photo')}>拍照识别</button></div>
+      {mode === 'bank' ? <AssignmentQuestionPicker assignmentId={assignmentId} questions={questions} onDone={onRefresh} typeLabels={Q_TYPES} /> : mode === 'photo' ? <AssignmentPhotoImporter key={assignmentId} assignmentId={assignmentId} onSaved={onRefresh} /> : <QuestionForm assignmentId={assignmentId} onDone={onRefresh} />}
       {questionCount > 0 && (
         <button type="button" className="primary-button" disabled={busy} onClick={publish}>{busy?'正在发布…':'发布作业'}</button>
       )}
