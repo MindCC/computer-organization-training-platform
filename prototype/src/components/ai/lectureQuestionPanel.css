@@ -1,0 +1,41 @@
+.ai-lecture-player-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.ai-lecture-body { display:grid; grid-template-columns:minmax(0,1fr); height:var(--ai-lecture-height,620px); min-height:0; position:relative; background:#f6f9fc; }
+.ai-lecture-body.has-qa { grid-template-columns:minmax(0,1fr) 330px; }
+.ai-lecture-body > iframe { min-width:0; }
+.lecture-question-panel { display:flex; flex-direction:column; min-height:0; min-width:0; height:min(100%,var(--lecture-qa-height,620px)); background:#f6f9fc; color:#17333d; border-left:1px solid #cbd5e1; text-align:left; }
+.lecture-question-panel[hidden] { display:none; }
+.lecture-question-heading { display:flex; align-items:center; gap:10px; padding:10px 16px 8px; }
+.lecture-question-heading img { object-fit:contain; flex:none; }
+.lecture-question-heading h2 { margin:0; font-size:17px; color:#17333d; }
+.lecture-question-heading p { margin:4px 0 0; font-size:12px; color:#526775; }
+.lecture-question-context { padding:0 16px 10px; border-bottom:1px solid #dfe7ee; font-size:13px; }
+.lecture-question-context p { margin:6px 0 0; font-size:12px; color:#526775; line-height:1.6; }
+.lecture-question-output { flex:1; min-height:0; overflow:auto; overscroll-behavior:contain; padding:12px 16px; overflow-wrap:anywhere; font-size:13px; line-height:1.75; }
+.lecture-question-output p { margin:0 0 10px; white-space:pre-wrap; }
+.lecture-question-output ol { padding-left:20px; }
+.lecture-question-welcome { color:#526775; }
+.lecture-question-user { background:#e8f2f7; padding:9px 11px; border-radius:8px; }
+.lecture-question-answer { background:white; border:1px solid #e1e8ef; padding:12px; border-radius:8px; }
+.lecture-question-sources { border-top:1px solid #e1e8ef; margin-top:8px; padding-top:8px; color:#526775; font-size:12px; }
+.lecture-question-sources ul { padding-left:16px; }
+.lecture-question-sources small { display:block; }
+.lecture-question-form { flex:none; display:grid; gap:8px; padding:12px 16px 16px; border-top:1px solid #dfe7ee; background:#fff; max-height:65%; overflow:auto; }
+.lecture-question-form > details { font-size:12px; color:#526775; }
+.lecture-question-form summary, .lecture-question-sources summary { cursor:pointer; }
+.lecture-question-form > details > label { display:block; margin:8px 0 5px; }
+.lecture-question-form label { font-size:13px; font-weight:600; }
+.lecture-question-form textarea { box-sizing:border-box; width:100%; min-width:0; resize:vertical; min-height:68px; max-height:160px; padding:9px 11px; border:1px solid #bdcdd9; border-radius:8px; background:white; color:#17333d; font:inherit; font-size:13px; line-height:1.6; }
+.lecture-question-form .lecture-question-consent { display:flex; align-items:flex-start; gap:6px; font-size:12px; font-weight:400; }
+.lecture-question-consent input { flex:none; margin:3px 0 0; }
+.lecture-question-form .primary-button { width:100%; }
+.ai-lecture-player:fullscreen .ai-lecture-body { flex:1; height:0; }
+.ai-lecture-player:fullscreen .ai-lecture-body > iframe { height:100%; }
+.ai-lecture-player:fullscreen .lecture-question-panel { height:100%; }
+@media(max-width:1000px) {
+  .ai-lecture-body.has-qa { grid-template-columns:minmax(0,1fr); }
+  .ai-lecture-body.has-qa > .lecture-question-panel { position:absolute; inset:0; border-left:0; }
+  .ai-lecture-body.has-qa > iframe { visibility:hidden; }
+  .lecture-question-form textarea { font-size:16px; }
+  .ai-lecture-player-head { flex-wrap:wrap; }
+  .ai-lecture-player-actions { margin-left:auto; }
+}

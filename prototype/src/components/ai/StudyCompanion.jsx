@@ -24,6 +24,7 @@ export function StudyCompanion({userId,page,pageTitle,chapterId}) {
  useEffect(()=>{setSelected(null);setQuestion('');setAnswer(null);setError('');setIncludeState(false);setOpen(false);sequence.current++;setBusy(false);},[page]);
  useEffect(()=>{setIncludeState(false);},[snapshot?.kind,snapshot?.expert]);
  useEffect(()=>()=>{sequence.current++;},[]);
+ useEffect(()=>{if(snapshot?.inlineAssistant)setOpen(false);},[snapshot?.inlineAssistant]);
  useEffect(()=>{if(open)field.current?.focus();},[open]);
  useEffect(()=>{if(!open)return;let cancelled=false;apiRequest('/api/student/study-assistant/history').then(data=>{if(!cancelled){setHistory(data.conversations??[]);setHistoryMore(Boolean(data.hasMore));}}).catch(()=>{});return()=>{cancelled=true;};},[open]);
  useEffect(()=>{
@@ -45,14 +46,14 @@ export function StudyCompanion({userId,page,pageTitle,chapterId}) {
   event.preventDefault();if(busy||!question.trim())return;
   const requestId=++sequence.current;setBusy(true);setAnswer(null);setError('');sentKey.current=stateKey;
   publishTaskAssistantStatus(classroom,userId,'pending');
-  const context={questionId:publicContext.questionId,conceptId:publicContext.conceptId,chapterId:publicContext.chapterId};
+  const context={questionId:publicContext.questionId,conceptId:publicContext.conceptId,chapterId:publicContext.chapterId,lectureIndex:publicContext.lectureIndex};
   if(includeState&&!snapshot?.expert&&current)context.assembly=current;
   if(includeState&&!snapshot?.expert&&snapshot?.circuit)context.circuit=snapshot.circuit;
   try{const result=await apiRequest('/api/student/study-assistant',{method:'POST',timeoutMs:25000,body:JSON.stringify({question:question.trim(),context,consent:'deepseek-public-question',...(classroom?{classroom}:{}),...(includeState?{stateConsent:'current-task-state'}:{})})});if(requestId===sequence.current){setAnswer(result);publishTaskAssistantStatus(classroom,userId,result.classroomAnswer?'answered':'failed',result.classroomAnswer?.conversationId);apiRequest('/api/student/study-assistant/history').then(data=>{setHistory(data.conversations??[]);setHistoryMore(Boolean(data.hasMore));}).catch(()=>{});}}
   catch(err){if(requestId===sequence.current){setError(`提问失败：${err.message}。可以重试。`);publishTaskAssistantStatus(classroom,userId,'failed');}}
   finally{if(requestId===sequence.current)setBusy(false);}
  }
- return createPortal(<>
+ return snapshot?.inlineAssistant ? null : createPortal(<>
   <div className="study-companion" data-testid="study-companion" style={{left:position.x,top:position.y}}>
    <button ref={trigger} className="study-companion-trigger" type="button" aria-label="小芯随行学伴，点击答疑或拖动移动" title="点击提问；拖动或用方向键移动，Home键复位" aria-expanded={open}
     onPointerDown={event=>{if(event.button!==0)return;suppressClick.current=false;drag.current={id:event.pointerId,x:event.clientX,y:event.clientY,position};event.currentTarget.setPointerCapture(event.pointerId);}}

@@ -120,8 +120,10 @@
 .review-paper-wrong, .review-paper-explain { margin:2px 0 0; color:#607571; }
 
 .review-paper-print { display:none; }
+.photo-saved-drafts ul { padding:0; list-style:none; }
+.photo-saved-drafts li { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
 @media print {
-  body > *:not(.review-paper-print) { display:none !important; }
+  body:has(> .review-paper-print) > *:not(.review-paper-print) { display:none !important; }
   .review-paper-print { display:block; }
   .review-paper-print .review-paper { border:0; padding:0; }
   .review-paper-answers { page-break-before:always; }

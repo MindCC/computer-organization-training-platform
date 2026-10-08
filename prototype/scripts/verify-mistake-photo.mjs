@@ -46,6 +46,8 @@ console.log("2 来源筛选与裁剪图正常");
 
 // 3) 讲错因：同意后可生成，QA 环境未配置 AI 时给出明确提示而非静默失败
 await photoCards.first().getByRole("button", { name: "讲错因" }).click();
+await photoCards.first().getByText(/知识库未找到同题答案/).waitFor();
+assert.equal(await photoCards.first().getByRole("button", { name: "生成错因讲解" }).isDisabled(), true);
 await photoCards.first().getByText(/生成讲解时会把这道题的题干与我的作答发送给课程 AI/).click();
 await photoCards.first().getByRole("button", { name: "生成错因讲解" }).click();
 await photoCards.first().locator(".form-error").waitFor({ state: "visible", timeout: 15_000 });

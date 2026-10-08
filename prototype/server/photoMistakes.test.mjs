@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openDatabase, migrate, createUser } from './db.js';
 import { hashPassword } from './auth.js';
+import * as repo from './photoMistakeRepository.js';
+import { createKnowledgeRepository } from './knowledgeRepository.js';
 import {
   readPhotoVisionConfig, photoCapabilities, normalizeDraftQuestion, matchKnowledgePoint,
   recognizePhotoMistakes, createPhotoImport, getImportDetail, updateImportQuestions, archivePhotoImport,
@@ -158,7 +160,8 @@ test('AI 讲错因：需要同意、生成四段讲解并缓存', async () => {
   const { db, student } = await setup();
   try {
     const mistake = await archivedMistake(db, student);
-    await assert.rejects(() => explainPhotoMistake(db, student.id, mistake.id, { consent: false }, { env: ENV }), /确认/);
+    const missing = await explainPhotoMistake(db, student.id, mistake.id, { consent: false }, { env: ENV, fetchImpl: () => assert.fail('本地检索不得调用模型') });
+    assert.equal(missing.needsAi, true);
     let calls = 0;
     const fetchImpl = async () => { calls += 1; return { ok: true, json: async () => JSON.parse(chatBody({ focus: '补码真值计算', pitfalls: '把符号位当成数值位', solution: '先确定符号位，再按位权求负值。', studyAdvice: '多练补码与真值互转。' })) }; };
     const first = await explainPhotoMistake(db, student.id, mistake.id, { consent: true }, { env: ENV, fetchImpl });
@@ -272,5 +275,140 @@ test('错误轮次计入错题次数与快照', async () => {
     assert.equal(item.count, 2);
     assert.equal(item.snapshots.length, 1);
     assert.equal(item.resolved, false);
+  } finally { db.close(); }
+});
+
+// Delay the provider response so requests overlap; a correct implementation calls it once.
+function delayedProvider(payload) {
+  let calls = 0;
+  const requests = [];
+  return {
+    requests, count: () => calls,
+    fetchImpl: async (_url, init) => {
+      calls += 1;
+      requests.push(JSON.parse(init.body));
+      await new Promise(resolve => setTimeout(resolve, 25));
+      return { ok: true, json: async () => JSON.parse(chatBody(payload)) };
+    },
+  };
+}
+
+test('并发识别同一提交只调用一次模型，所有请求返回同一份草稿', async () => {
+  const { db, student } = await setup();
+  try {
+    const provider = delayedProvider({ questions: RECOGNIZED });
+    const results = await Promise.all(Array.from({ length: 4 }, () => createPhotoImport(db, student.id,
+      { images: [PNG], consent: true, clientSubmissionId: 'concurrent-import' }, { env: ENV, fetchImpl: provider.fetchImpl })));
+    assert.equal(provider.count(), 1);
+    assert.equal(new Set(results.map(result => result.importId)).size, 1);
+    assert.equal(results.filter(result => !result.duplicated).length, 1);
+    assert.equal(getImportDetail(db, student.id, results[0].importId).questions.length, 1);
+  } finally { db.close(); }
+});
+
+test('并发讲解只生成一次，并发同类题只建一轮且不发送原作答', async () => {
+  const { db, student } = await setup();
+  try {
+    const mistake = await archivedMistake(db, student);
+    db.prepare('UPDATE photo_mistakes SET student_answer = ? WHERE id = ?').run('PRIVATE_ORIGINAL_ANSWER', mistake.id);
+    const explanation = delayedProvider({ solution: '按位权计算', focus: '补码' });
+    const explained = await Promise.all([1, 2, 3].map(() => explainPhotoMistake(db, student.id, mistake.id,
+      { consent: true }, { env: ENV, fetchImpl: explanation.fetchImpl })));
+    assert.equal(explanation.count(), 1);
+    assert.equal(explained.filter(result => !result.cached).length, 1);
+    assert.match(explanation.requests[0].messages[0].content, /PRIVATE_ORIGINAL_ANSWER/);
+    const provider = delayedProvider(SIMILAR);
+    const rounds = await Promise.all([1, 2, 3].map(() => generateSimilarRound(db, student.id, mistake.id,
+      { consent: true, clientSubmissionId: 'concurrent-round' }, { env: ENV, fetchImpl: provider.fetchImpl })));
+    assert.equal(provider.count(), 1);
+    assert.equal(new Set(rounds.map(result => result.round.id)).size, 1);
+    assert.equal(rounds.filter(result => !result.duplicated).length, 1);
+    assert.doesNotMatch(provider.requests[0].messages[0].content, /PRIVATE_ORIGINAL_ANSWER|学生的错误作答/);
+    assert.match(provider.requests[0].messages[0].content, /8 位补码|补码表示与转换/);
+    const otherMistake = await archivedMistake(db, student, 'another-mistake');
+    await assert.rejects(() => generateSimilarRound(db, student.id, otherMistake.id,
+      { consent: true, clientSubmissionId: 'concurrent-round' }, { env: ENV, fetchImpl: provider.fetchImpl }), /其他错题/);
+  } finally { db.close(); }
+});
+
+test('模型失败后同一提交可以重试，不会遗留挂起的请求', async () => {
+  const { db, student } = await setup();
+  try {
+    const input = { images: [PNG], consent: true, clientSubmissionId: 'retry-import' };
+    await assert.rejects(() => createPhotoImport(db, student.id, input, { env: ENV, fetchImpl: async () => { throw new Error('offline'); } }), /识别失败/);
+    const provider = delayedProvider({ questions: RECOGNIZED });
+    const result = await createPhotoImport(db, student.id, input, { env: ENV, fetchImpl: provider.fetchImpl });
+    assert.equal(result.duplicated, false);
+    assert.equal(provider.count(), 1);
+  } finally { db.close(); }
+});
+
+test('讲解优先检索本地知识库，命中时无需同意或模型配置；仅未命中才调用 AI', async () => {
+  const { db, student, other } = await setup();
+  try {
+    const mistake = await archivedMistake(db, student);
+    const repository = createKnowledgeRepository(db);
+    function add(ownerId) {
+      return repository.createDocument({ studentId: ownerId, title: '我的补码讲义', originalName: '讲义.txt', fileType: 'txt', fileSize: 100,
+        analysis: {}, analysisSource: 'local', chunks: [{ index: 0, pageNo: 5, content: `题目：${mistake.stem}\n答案：-106\n解析：按位权求和。` }] });
+    }
+    add(other.id);
+    const noAi = { env: {}, fetchImpl: () => assert.fail('本地检索不得调用模型') };
+    assert.equal((await explainPhotoMistake(db, student.id, mistake.id, { consent: false }, noAi)).needsAi, true);
+    const doc = add(student.id);
+    const hit = await explainPhotoMistake(db, student.id, mistake.id, { consent: false }, noAi);
+    assert.equal(hit.source, 'knowledge');
+    assert.equal(hit.needsAi, false);
+    assert.match(hit.explanation.solution, /-106/);
+    assert.equal(hit.references[0].documentId, doc.id);
+    // Local matches also take priority when the user already consented to AI.
+    assert.equal((await explainPhotoMistake(db, student.id, mistake.id, { consent: true }, noAi)).source, 'knowledge');
+    repository.deleteDocument(student.id, doc.id);
+    const provider = delayedProvider({ solution: 'AI 解题步骤' });
+    assert.equal((await explainPhotoMistake(db, student.id, mistake.id, { consent: true }, { env: ENV, fetchImpl: provider.fetchImpl })).source, 'ai');
+    assert.equal(provider.count(), 1);
+    assert.equal((await explainPhotoMistake(db, student.id, mistake.id, { consent: false }, noAi)).cached, true);
+  } finally { db.close(); }
+});
+
+test('简答题允许部分自评、其余交 AI，只发送待判题目及其作答', async () => {
+  const { db, student } = await setup();
+  try {
+    const mistake = await archivedMistake(db, student);
+    const round = repo.createRound(db, { studentId: student.id, photoMistakeId: mistake.id, clientSubmissionId: 'mixed-grading-round',
+      questions: [
+        { qtype: 'short_answer', stem: '自评题目', answer: '自评参考' },
+        { qtype: 'short_answer', stem: '待判题目', answer: '待判参考' },
+      ] });
+    const provider = delayedProvider({ results: [{ index: 1, correct: true, note: '正确' }] });
+    const result = await answerSimilarRound(db, student.id, round.id,
+      { answers: { 0: 'PRIVATE_SELF_ANSWER', 1: 'AI_ANSWER' }, selfAssessments: { 0: 'correct' }, aiJudgeConsent: true },
+      { env: ENV, fetchImpl: provider.fetchImpl });
+    assert.equal(result.allCorrect, true);
+    assert.equal(result.results[0].mode, 'self');
+    assert.equal(result.results[1].mode, 'ai');
+    assert.doesNotMatch(provider.requests[0].messages[0].content, /PRIVATE_SELF_ANSWER/);
+    assert.match(provider.requests[0].messages[0].content, /AI_ANSWER/);
+  } finally { db.close(); }
+});
+
+test('两轮全对不覆盖手动掌握来源；手动取消后仍允许新练习自动掌握', async () => {
+  const { db, student } = await setup();
+  try {
+    const mistake = await archivedMistake(db, student);
+    setPhotoMastered(db, student.id, mistake.id, true);
+    async function correctRound(key) {
+      const round = repo.createRound(db, { studentId: student.id, photoMistakeId: mistake.id, clientSubmissionId: key,
+        questions: [{ qtype: 'fill', stem: '补码计算', answer: '1' }] });
+      await answerSimilarRound(db, student.id, round.id, { answers: { 0: '1' } });
+    }
+    await correctRound('manual-correct-1');
+    await correctRound('manual-correct-2');
+    assert.equal(photoMistakeItems(db, student.id)[0].masteredManual, true);
+    setPhotoMastered(db, student.id, mistake.id, false);
+    await correctRound('manual-correct-3');
+    const item = photoMistakeItems(db, student.id)[0];
+    assert.equal(item.resolved, true);
+    assert.equal(item.masteredManual, false);
   } finally { db.close(); }
 });

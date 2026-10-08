@@ -138,6 +138,13 @@ export function setMastered(db, studentId, id, mastered, manual) {
     .run(mastered ? 1 : 0, manual ? 1 : 0, id, studentId);
 }
 
+export function autoMaster(db, studentId, id) {
+  // Preserve an already-mastered student's explicit manual mark. A later new
+  // successful round may still restore mastery after they manually cancelled it.
+  db.prepare("UPDATE photo_mistakes SET mastered = 1, mastered_manual = 0 WHERE id = ? AND student_id = ? AND mastered = 0")
+    .run(id, studentId);
+}
+
 export function saveAiExplanation(db, id, payload) {
   db.prepare("UPDATE photo_mistakes SET ai_explanation_json = ? WHERE id = ?").run(JSON.stringify(payload), id);
 }

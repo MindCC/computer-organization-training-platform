@@ -19,7 +19,9 @@ export function createStudyAssistantRouter({ db, requireRole, options = {} }) {
     if (pending.has(id) || times.length >= 10) return res.status(429).json({ error: { code: 'AI_BUSY', message: '小芯正在思考，请稍后再问。每分钟最多提问十次。' } });
     // Reconstruct an allowlist. Even a modified client cannot auto-forward private learning data.
     const body = req.body ?? {}, context = body.context ?? {};
-    const payload = { question: body.question, consent: body.consent, stateConsent:body.stateConsent, context: { questionId: context.questionId, conceptId: context.conceptId, chapterId: context.chapterId, assembly:body.stateConsent==='current-task-state'?context.assembly:undefined,circuit:body.stateConsent==='current-task-state'?context.circuit:undefined } };
+    const payload = { question: body.question, consent: body.consent, stateConsent:body.stateConsent,
+      lectureExcerpt: body.lectureExcerpt, materialConsent: body.materialConsent,
+      context: { questionId: context.questionId, conceptId: context.conceptId, chapterId: context.chapterId, lectureIndex: context.lectureIndex, assembly:body.stateConsent==='current-task-state'?context.assembly:undefined,circuit:body.stateConsent==='current-task-state'?context.circuit:undefined } };
     pending.add(id); requests.set(id, [...times, now]);
     try {
       const classroom=role==='student'?taskChainQuestionContext(db,id,body.classroom):null;

@@ -24,12 +24,16 @@ export function PhotoImportDialog({ onClose, onArchived }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [savedImports, setSavedImports] = useState(null);
+  const [draftLoadError, setDraftLoadError] = useState("");
   const submissionRef = useRef(crypto.randomUUID());
 
   useEffect(() => {
     let cancelled = false;
     api.photoCapabilities().then((data) => { if (!cancelled) setCapabilities(data); })
       .catch(() => { if (!cancelled) setCapabilities({ vision: false, textAi: false }); });
+    api.photoImportDrafts().then((data) => { if (!cancelled) setSavedImports(data.imports); })
+      .catch((err) => { if (!cancelled) setDraftLoadError(err.message); });
     return () => { cancelled = true; };
   }, []);
 
@@ -43,6 +47,7 @@ export function PhotoImportDialog({ onClose, onArchived }) {
       const compressed = [];
       for (const file of files.slice(0, MAX_IMAGES - images.length)) compressed.push(await fileToCompressedDataUrl(file));
       setImages((value) => [...value, ...compressed].slice(0, MAX_IMAGES));
+      submissionRef.current = crypto.randomUUID();
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
@@ -53,12 +58,31 @@ export function PhotoImportDialog({ onClose, onArchived }) {
     try {
       const data = await api.createPhotoImport({ images, consent, clientSubmissionId: submissionRef.current });
       applyDetail(data);
-      setNotice("识别完成。请逐题核对：题干、章节和知识点都可以修改，识别错的可以删除或合并。");
+      setNotice("识别结果已保存。请逐题核对：题干、章节和知识点都可以修改，识别错的可以删除或合并；编辑后可保存草稿稍后继续。");
     } catch (err) {
       setError(err.message);
       setStep("pick");
-      submissionRef.current = crypto.randomUUID();
     } finally { setBusy(false); }
+  }
+
+  async function restoreDraft(id) {
+    if (busy) return;
+    setBusy(true); setError("");
+    try {
+      const data = await api.photoImport(id);
+      if (data.import.status !== "review") throw new Error("这份草稿已归档，请关闭后刷新错题本。");
+      applyDetail(data);
+      setNotice("已恢复待核对草稿，无需重新识别。核对后可归档，或保存草稿稍后继续。");
+    } catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  }
+
+  async function saveAndClose() {
+    if (busy) return;
+    setBusy(true); setError("");
+    try { await saveDrafts(); onClose(); }
+    catch (err) { setError(err.message); }
+    finally { setBusy(false); }
   }
 
   function applyDetail(data) {
@@ -137,6 +161,19 @@ export function PhotoImportDialog({ onClose, onArchived }) {
 
         {step === "pick" || step === "recognizing" ? (
           <div className="photo-pick">
+            {savedImports === null && !draftLoadError ? <p role="status">正在查找待核对草稿…</p> : null}
+            {draftLoadError ? <p className="form-error" role="alert">草稿列表加载失败：{draftLoadError}。请关闭后重新打开。</p> : null}
+            {savedImports?.length ? (
+              <section className="photo-saved-drafts" aria-label="待核对草稿">
+                <h3>继续核对草稿</h3>
+                <ul>
+                  {savedImports.map((draft) => <li key={draft.id}>
+                    <span>{new Date(draft.createdAt).toLocaleString("zh-CN")} · {draft.questionCount} 道题</span>
+                    <button type="button" className="ghost-button" onClick={() => restoreDraft(draft.id)} disabled={busy}>继续核对</button>
+                  </li>)}
+                </ul>
+              </section>
+            ) : null}
             <p>把作业、试卷或草稿纸上做错的题拍下来（一次最多 {MAX_IMAGES} 张），AI 会自动切题、识别题干和你的作答，并按课程章节与知识点归档。</p>
             {capabilities && !capabilities.vision ? (
               <p className="note-error" role="alert">拍照识别尚未配置视觉模型，请联系管理员；也可以先在题库练习或课后作业中积累错题。</p>
@@ -146,7 +183,7 @@ export function PhotoImportDialog({ onClose, onArchived }) {
                   {images.map((image, index) => (
                     <figure key={index} className="photo-pick-item">
                       <img src={image} alt={`待识别照片 ${index + 1}`} />
-                      <button type="button" className="ghost-button" onClick={() => setImages((value) => value.filter((_, i) => i !== index))} disabled={busy}><Trash size={14} /> 移除</button>
+                      <button type="button" className="ghost-button" onClick={() => { setImages((value) => value.filter((_, i) => i !== index)); submissionRef.current = crypto.randomUUID(); }} disabled={busy}><Trash size={14} /> 移除</button>
                     </figure>
                   ))}
                   {images.length < MAX_IMAGES ? (
@@ -238,6 +275,7 @@ export function PhotoImportDialog({ onClose, onArchived }) {
             </div>
             {error ? <p className="form-error" role="alert">{error}</p> : null}
             <div className="photo-dialog-actions">
+              <button type="button" className="ghost-button" onClick={saveAndClose} disabled={busy || !drafts.length}>保存草稿并关闭</button>
               <button type="button" className="primary-button" onClick={saveAndArchive} disabled={busy || !drafts.length}>
                 <CheckCircle size={16} /> {busy ? "正在归档…" : "核对无误，收入错题本"}
               </button>

@@ -154,6 +154,20 @@ export function createKnowledgeRepository(db) {
       return true;
     },
 
+    /** Internal answer lookup: owned original text, including the next chunk
+     * when a question and its answer straddle a chunk boundary. No model calls. */
+    searchAnswerChunks(studentId, matchQuery) {
+      if (!matchQuery) return [];
+      const rows = db.prepare(`SELECT c.id AS chunkId, c.document_id AS documentId,
+          c.chunk_index AS chunkIndex, c.page_no AS pageNo, c.content, d.title AS documentTitle
+        FROM kb_index JOIN kb_chunks c ON c.id = kb_index.chunk_id
+        JOIN kb_documents d ON d.id = c.document_id
+        WHERE kb_index MATCH ? AND kb_index.student_id = ? AND c.student_id = ? AND d.student_id = ?
+        ORDER BY kb_index.rank LIMIT 30`).all(matchQuery, studentId, studentId, studentId);
+      const following = db.prepare('SELECT content FROM kb_chunks WHERE document_id = ? AND student_id = ? AND chunk_index = ?');
+      return rows.map(row => ({ ...row, content: [row.content, following.get(row.documentId, studentId, row.chunkIndex + 1)?.content].filter(Boolean).join('\n') }));
+    },
+
     /**
      * 全文检索：FTS5 MATCH + student_id 过滤；返回命中块（含所属文档、
      * 片段高亮标记、关联要点）。query 为空串时由路由层 400，这里收到 null 直接返回空。

@@ -226,6 +226,7 @@ export const api = {
   photoCapabilities: () => apiRequest("/api/student/photo-mistakes/capabilities"),
   createPhotoImport: (payload) => apiRequest("/api/student/photo-imports", { method: "POST", body: JSON.stringify(payload), timeoutMs: 130000 }),
   photoImport: (id) => apiRequest(`/api/student/photo-imports/${id}`),
+  photoImportDrafts: () => apiRequest("/api/student/photo-imports"),
   updatePhotoImportQuestions: (id, questions) => apiRequest(`/api/student/photo-imports/${id}/questions`, { method: "PUT", body: JSON.stringify({ questions }) }),
   archivePhotoImport: (id) => apiRequest(`/api/student/photo-imports/${id}/archive`, { method: "POST", body: JSON.stringify({}) }),
   explainPhotoMistake: (id, payload) => apiRequest(`/api/student/photo-mistakes/${id}/explain`, { method: "POST", body: JSON.stringify(payload), timeoutMs: 45000 }),

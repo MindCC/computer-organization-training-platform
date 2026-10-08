@@ -7,11 +7,15 @@
     "node": ">=22"
   },
   "scripts": {
+    "preqa:lecture-qa": "npm run build -- --manifest",
+    "qa:lecture-qa": "node scripts/verify-lecture-qa.mjs",
     "preqa:avatar-settings": "npm run build -- --manifest",
     "qa:avatar-settings": "node scripts/verify-avatar-settings.mjs",
     "qa:chapter2": "node scripts/verify-chapter2-corrections.mjs",
     "preqa:mistake-photo": "npm run build -- --manifest",
     "qa:mistake-photo": "node scripts/run-browser-qa.mjs scripts/verify-mistake-photo.mjs --production",
+    "preqa:mistake-photo-regressions": "npm run build -- --manifest",
+    "qa:mistake-photo-regressions": "node scripts/verify-mistake-photo-regressions.mjs",
     "qa:shift-encodings": "node scripts/run-browser-qa.mjs scripts/verify-shift-encodings.mjs",
     "preqa:task-library": "npm run build -- --manifest",
     "qa:task-library": "node scripts/run-browser-qa.mjs scripts/verify-task-library.mjs --production",

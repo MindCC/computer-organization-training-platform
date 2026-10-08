@@ -2,7 +2,7 @@ import { Router, json } from 'express';
 import {
   photoCapabilities, createPhotoImport, getImportDetail, updateImportQuestions, archivePhotoImport,
   explainPhotoMistake, generateSimilarRound, listMistakeRounds, answerSimilarRound,
-  setPhotoMastered, deletePhotoMistake, photoError,
+  setPhotoMastered, deletePhotoMistake, photoError, listPhotoImportDrafts,
 } from './photoMistakes.js';
 import { getImportImage, getImportRow } from './photoMistakeRepository.js';
 
@@ -31,7 +31,11 @@ export function createPhotoMistakeRouter({ db, requireRole, role = 'student', en
     res.json(getImportDetail(db, req.user.id, req.params.id));
   }));
 
-  router.put(`/${role}/photo-imports/:id/questions`, requireRole(role), wrap(async (req, res) => {
+  router.get(`/${role}/photo-imports`, requireRole(role), (req, res) => {
+    res.set('cache-control', 'no-store').json(listPhotoImportDrafts(db, req.user.id));
+  });
+
+  router.put(`/${role}/photo-imports/:id/questions`, requireRole(role), json({ limit: '1mb' }), wrap(async (req, res) => {
     res.json(updateImportQuestions(db, req.user.id, req.params.id, req.body?.questions));
   }));
 

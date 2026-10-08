@@ -32,42 +32,59 @@ function ExplainPanel({ item, onChanged }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [explanation, setExplanation] = useState(null);
-  async function load() {
+  const [needsAi, setNeedsAi] = useState(false);
+  const [answerSource, setAnswerSource] = useState(null);
+  const [references, setReferences] = useState([]);
+  const [cached, setCached] = useState(false);
+  async function load(allowAi = false) {
     if (busy) return;
     setBusy(true); setError("");
     try {
-      const data = await api.explainPhotoMistake(item.photoMistakeId, { consent });
+      const data = await api.explainPhotoMistake(item.photoMistakeId, { consent: allowAi && consent });
       setExplanation(data.explanation);
-      if (!data.cached) onChanged?.({ silent: true });
+      setNeedsAi(data.needsAi === true);
+      setAnswerSource(data.source);
+      setReferences(data.references ?? []);
+      setCached(data.cached);
+      if (data.source === "ai" && !data.cached) onChanged?.({ silent: true });
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
   return (
     <section className="photo-tool-block">
-      <button type="button" className="ghost-button" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
-        <Lightbulb size={15} /> {open ? "收起错因讲解" : item.hasAiExplanation ? "查看 AI 错因讲解" : "讲错因"}
+      <button type="button" className="ghost-button" aria-expanded={open} onClick={() => { setOpen((value) => !value); if (!open && !explanation) load(); }}>
+        <Lightbulb size={15} /> {open ? "收起错因讲解" : item.hasAiExplanation ? "查看已有讲解" : "讲错因"}
       </button>
       {open ? (
         <div className="photo-tool-body">
           {explanation ? (
+            <>
+            <p className="photo-tool-status" data-testid="photo-answer-source">{answerSource === "knowledge" ? "知识库命中 · 本次未调用 AI（0 Token）" : cached ? "已有 AI 讲解 · 本次未调用 AI" : "AI 生成讲解"}</p>
+            {references.length ? <ul className="photo-tool-hint">{references.map((reference, index) => <li key={index}>来源：{reference.title}{reference.pageNo ? ` · 第 ${reference.pageNo} 页` : ""}{reference.kind === "course-question" ? ` · ${reference.questionId}` : ""}</li>)}</ul> : null}
             <dl className="photo-explain">
               {explanation.focus ? <div><dt>这题考什么</dt><dd>{explanation.focus}</dd></div> : null}
               {explanation.pitfalls ? <div><dt>容易错在哪</dt><dd>{explanation.pitfalls}</dd></div> : null}
               <div><dt>正确思路</dt><dd>{explanation.solution}</dd></div>
               {explanation.studyAdvice ? <div><dt>复习建议</dt><dd>{explanation.studyAdvice}</dd></div> : null}
             </dl>
+            </>
           ) : (
             <>
+              {needsAi ? (
+              <>
+              <p className="photo-tool-hint" role="status">知识库未找到同题答案。可选择调用 AI 生成讲解。</p>
               <label className="photo-consent">
                 <input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} disabled={busy} />
                 我了解：生成讲解时会把这道题的题干与我的作答发送给课程 AI。
               </label>
-              <button type="button" className="primary-button" onClick={load} disabled={busy || !consent}>
+              <button type="button" className="primary-button" onClick={() => load(true)} disabled={busy || !consent}>
                 {busy ? "正在生成…" : "生成错因讲解"}
               </button>
+              </>
+              ) : <button type="button" className="ghost-button" onClick={() => load()} disabled={busy}>{busy ? "正在检索知识库…" : "检索知识库（0 Token）"}</button>}
             </>
           )}
-          {busy && !explanation ? <p className="photo-tool-status" role="status"><SpinnerGap size={15} className="spin" /> AI 正在分析错因…</p> : null}
+          {busy && !explanation ? <p className="photo-tool-status" role="status"><SpinnerGap size={15} className="spin" /> {needsAi ? "正在生成讲解…" : "正在检索知识库…"}</p> : null}
           {error ? <p className="form-error" role="alert">{error}</p> : null}
         </div>
       ) : null}
@@ -107,7 +124,6 @@ function SimilarPanel({ item, onChanged }) {
       submissionRef.current = crypto.randomUUID();
     } catch (err) {
       setError(err.message);
-      submissionRef.current = crypto.randomUUID();
     } finally { setBusy(false); }
   }
 
@@ -137,9 +153,9 @@ function SimilarPanel({ item, onChanged }) {
             </ol>
           ) : null}
           {activeRound && !activeRound.answers ? (
-            <RoundAnswerForm round={activeRound} onDone={async (result) => {
+            <RoundAnswerForm key={activeRound.id} round={activeRound} onDone={async (result) => {
               await refresh();
-              setActiveRound((current) => current ? { ...current, answers: true, results: result.results, allCorrect: result.allCorrect } : current);
+              setActiveRound((current) => current?.id === activeRound.id ? { ...current, answers: true, results: result.results, allCorrect: result.allCorrect } : current);
               onChanged?.();
             }} />
           ) : null}
@@ -174,14 +190,14 @@ function RoundAnswerForm({ round, onDone }) {
   const [aiJudge, setAiJudge] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const hasShort = round.questions.some((question) => question.qtype === "short_answer");
+  const needsAiJudge = round.questions.some((question, index) => question.qtype === "short_answer" && !["correct", "wrong"].includes(selfAssessments[index]));
   const complete = round.questions.every((_, index) => String(answers[index] ?? "").trim());
   async function submit(event) {
     event.preventDefault();
     if (busy || !complete) return;
     setBusy(true); setError("");
     try {
-      const result = await api.answerPhotoRound(round.id, { answers, selfAssessments, aiJudgeConsent: hasShort && !Object.keys(selfAssessments).length ? aiJudge : undefined });
+      const result = await api.answerPhotoRound(round.id, { answers, selfAssessments, aiJudgeConsent: needsAiJudge && aiJudge });
       await onDone(result);
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
@@ -189,7 +205,7 @@ function RoundAnswerForm({ round, onDone }) {
   return (
     <form className="photo-round-form" onSubmit={submit} data-testid="photo-round-form">
       {round.questions.map((question, index) => (
-        <fieldset key={index} className="photo-round-question">
+        <fieldset key={index} className="photo-round-question" disabled={busy}>
           <legend>第 {index + 1} 题（{{ choice: "选择题", truefalse: "判断题", fill: "填空题", short_answer: "简答题" }[question.qtype]}）</legend>
           <p className="photo-round-stem">{question.stem}</p>
           {question.qtype === "choice" ? question.options.map((option) => (
@@ -216,13 +232,13 @@ function RoundAnswerForm({ round, onDone }) {
           ) : null}
         </fieldset>
       ))}
-      {hasShort && !Object.keys(selfAssessments).length ? (
+      {needsAiJudge ? (
         <label className="photo-consent">
           <input type="checkbox" checked={aiJudge} onChange={(event) => setAiJudge(event.target.checked)} disabled={busy} />
-          简答题交给 AI 判分（会把题目与我的作答发送给课程 AI）；不自评时必须勾选。
+          未自评的简答题交给 AI 判分（会把这些题目与我的作答发送给课程 AI）；不自评时必须勾选。
         </label>
       ) : null}
-      <button type="submit" className="primary-button" disabled={busy || !complete}>{busy ? "正在判分…" : "提交并判分"}</button>
+      <button type="submit" className="primary-button" disabled={busy || !complete || (needsAiJudge && !aiJudge)}>{busy ? "正在判分…" : "提交并判分"}</button>
       {error ? <p className="form-error" role="alert">{error}</p> : null}
     </form>
   );
