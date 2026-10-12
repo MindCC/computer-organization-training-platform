@@ -88,7 +88,7 @@ async function generateStudyAnswer({ question, context = {}, consent, stateConse
   const scopeConfig=()=>({...config,timeoutMs:Math.max(1,Math.min(config.timeoutMs,6000,deadline-Date.now()))});
   const questionDecision=await checkCourseScope(scopeConfig(),question,material,undefined,scopeRequester);
   if(questionDecision==='out_of_scope')return courseScopeReply();
-  if(questionDecision!=='course')return courseScopeReply('COURSE_SCOPE_UNVERIFIED');
+  const uncertainQuestion=questionDecision!=='course'; // 'uncertain' 仍尝试回答，但附范围追问
   try {
     const remaining=deadline-Date.now()-6000;
     if(remaining<=0)return courseScopeReply('COURSE_SCOPE_UNVERIFIED');
@@ -101,7 +101,11 @@ async function generateStudyAnswer({ question, context = {}, consent, stateConse
     const answerDecision=await checkCourseScope(scopeConfig(),question,material,answer,scopeRequester);
     if(Date.now()>=deadline)return courseScopeReply('COURSE_SCOPE_UNVERIFIED');
     if(answerDecision==='out_of_scope')return {...localStudyReference(context,'COURSE_ANSWER_REJECTED'),check:'请围绕当前课程概念或实验步骤重新提问。'};
-    if(answerDecision!=='course')return courseScopeReply('COURSE_SCOPE_UNVERIFIED');
+    const uncertainAnswer=answerDecision!=='course'; // 'uncertain' 仍返回，但附范围追问
+    if(uncertainQuestion||uncertainAnswer){
+      const note='\n\n（小芯提示：你的问题范围我不太确定，已尽量结合课程公开内容回答。如果是指某一章的具体部件，比如运算单元的 ALU、存储器的 Cache、CPU 的寄存器，告诉我章节或题目，讲解会更准。）';
+      answer.explanation=(answer.explanation||'')+note;
+    }
     return { source: 'ai', ...answer };
   } catch (error) { return localStudyReference(context, error.code ?? 'AI_UNAVAILABLE'); }
 }
