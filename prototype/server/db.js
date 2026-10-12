@@ -589,6 +589,36 @@ function reassignRosterClassFromDemoTeacher(db) {
   if (moved.changes > 0) {
     console.info(`[MIGRATE] 真实班级 26计算机科学与技术(专升本)9 已由演示教师划归正式教师（${moved.changes} 个班级）`);
   }
+  reassignTaskLibraryWithClass(db, demo.id, formal.id, '26计算机科学与技术(专升本)9');
+}
+
+/**
+ * 任务库是教师个人私有数据（teacher_task_library.teacher_id），不随班级归属变化。
+ * 班级划归正式教师后，若不一起迁移，正式账号在「课堂任务与学生反馈」和任务库里
+ * 就看不到此前发布过的任务链（它们仍挂在演示账号名下）。
+ *
+ * 只迁移与该班级的发布记录直接相关的条目，双条件限定（班级名 + 发布者），
+ * 因此只会移动确实属于这次划转的数据，且可重复执行。
+ */
+function reassignTaskLibraryWithClass(db, fromTeacherId, toTeacherId, className) {
+  const hasLibrary = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'teacher_task_library'").get();
+  const hasPublications = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'task_library_publications'").get();
+  if (!hasLibrary || !hasPublications) return;
+  const taskIds = db.prepare(`SELECT DISTINCT p.task_id AS taskId FROM task_library_publications p
+    JOIN classes c ON c.id = p.class_id
+    WHERE p.teacher_id = ? AND c.name = ?`).all(fromTeacherId, className).map((row) => row.taskId);
+  if (!taskIds.length) return;
+  const placeholders = taskIds.map(() => '?').join(',');
+  const movedTasks = db.prepare(`UPDATE teacher_task_library SET teacher_id = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE teacher_id = ? AND id IN (${placeholders})`).run(toTeacherId, fromTeacherId, ...taskIds).changes;
+  db.prepare(`UPDATE task_library_publications SET teacher_id = ?
+    WHERE teacher_id = ? AND task_id IN (${placeholders})`).run(toTeacherId, fromTeacherId, ...taskIds);
+  const hasDecisions = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'task_assistant_decisions'").get();
+  if (hasDecisions) {
+    db.prepare(`UPDATE task_assistant_decisions SET teacher_id = ?
+      WHERE teacher_id = ? AND task_id IN (${placeholders})`).run(toTeacherId, fromTeacherId, ...taskIds);
+  }
+  console.info(`[MIGRATE] 任务库条目随班级 ${className} 一并划归正式教师（${movedTasks} 个任务）`);
 }
 
 // SQLite cannot alter a CHECK constraint. Rebuild only the user table, retaining

@@ -121,3 +121,36 @@ test('migration reassigns only the roster-imported real class to the formal teac
     assert.equal(db.prepare('SELECT teacher_id FROM classes WHERE id = ?').get(roster.id).teacher_id, formal.id);
   } finally { db.close(); }
 });
+
+test('任务库条目随真实班级一并划归正式教师，否则正式账号在课堂任务里看不到已发布的任务链', async () => {
+  const db = openDatabase(':memory:'); migrate(db);
+  try {
+    const demoTeacher = createUser(db, { username: 'demo-teacher', displayName: '演示教师', role: 'teacher', passwordHash: 'x', profile: { demoAccount: true } });
+    const formal = createUser(db, { username: 'teacher', displayName: '任课教师', role: 'teacher', passwordHash: 'x' });
+    const roster = createClass(db, demoTeacher.id, '26计算机科学与技术(专升本)9');
+    const demoClass = createClass(db, demoTeacher.id, '计算机组成原理1班');
+    const { createTaskLibrary } = await import('./taskLibrary.js');
+    const { createClassroomSessionService } = await import('./classroomSessionService.js');
+    const { createClassroomSessionRepository } = await import('./classroomSessionRepository.js');
+    const sessions = createClassroomSessionService({ db, repository: createClassroomSessionRepository(db) });
+    const library = createTaskLibrary({ db, sessionService: sessions });
+    const taskConfig = { templateKey: 'task-chain', durationMinutes: 45, passScore: 80,
+      knowledgePointIds: [], taskChain: { title: '补码运算', stages: [{ id: 's1', type: 'ai', title: '课前诊断', chapterId: 'ch2' }] } };
+    // 演示账号先在真实班级发布一次，再在演示班发布一次（后者必须留在演示账号名下）
+    const rosterTask = library.create(demoTeacher.id, taskConfig);
+    library.publish(demoTeacher.id, rosterTask.id, { classId: roster.id, clientSubmissionId: 'roster-pub-01', revision: rosterTask.revision });
+    const demoTask = library.create(demoTeacher.id, taskConfig);
+    library.publish(demoTeacher.id, demoTask.id, { classId: demoClass.id, clientSubmissionId: 'demo-pub-01', revision: demoTask.revision });
+
+    migrate(db);
+
+    const formalTasks = library.list(formal.id).map((task) => task.id);
+    assert.deepEqual(formalTasks, [rosterTask.id], '正式账号应看到随班级划归的任务链');
+    assert.deepEqual(library.list(demoTeacher.id).map((task) => task.id), [demoTask.id], '演示班的任务仍留在演示账号名下');
+    assert.equal(db.prepare('SELECT teacher_id FROM task_library_publications WHERE task_id = ?').get(rosterTask.id).teacher_id, formal.id);
+    assert.equal(db.prepare('SELECT teacher_id FROM task_library_publications WHERE task_id = ?').get(demoTask.id).teacher_id, demoTeacher.id);
+    // 幂等：再跑一次不会重复迁移或报错
+    migrate(db);
+    assert.deepEqual(library.list(formal.id).map((task) => task.id), [rosterTask.id]);
+  } finally { db.close(); }
+});

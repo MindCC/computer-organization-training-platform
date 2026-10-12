@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createClass, createUser, migrate, openDatabase, addStudentToClass, getStudentProgress } from "./db.js";
+import { createClass, createUser, migrate, openDatabase, addStudentToClass, getStudentProgress, grantClassAccess } from "./db.js";
 import { getCircuitChallenge } from "../src/circuit/challengeCircuitModel.js";
 import { createClassroomSessionRepository } from "./classroomSessionRepository.js";
 import { createClassroomSessionService, ALLOWED_TRANSITIONS, computeActiveSeconds, calculateRewards, calculateBadges } from "./classroomSessionService.js";
@@ -347,4 +347,69 @@ test("submitAttempt tracks per-stage attempts and first-attempt-pass accurately"
   assert.equal(parsed.stageAttempts[1], 3, "stage 1: 3 attempts (2 fail, 1 pass)");
   assert.equal(parsed.firstAttemptPasses[1], false, "stage 1: not first-attempt pass");
   ctx.db.close();
+});
+
+test("被授权（非属主）的教师也能读取当前课堂，而不是误报班级不存在", () => {
+  const ctx = makeContext();
+  try {
+    const owner = createUser(ctx.db, { username: "grant-owner", displayName: "属主", role: "teacher", passwordHash: "pw" });
+    const viewer = createUser(ctx.db, { username: "grant-viewer", displayName: "被授权", role: "teacher", passwordHash: "pw" });
+    const classRow = createClass(ctx.db, owner.id, "授权可见班");
+    // 与只读演示账号、数据迁移后的班级同一路径：属主不变，通过 class_teacher_access 授权。
+    grantClassAccess(ctx.db, classRow.id, viewer.id);
+    const empty = ctx.service.getCurrentForClass({ teacherId: viewer.id, classId: classRow.id });
+    assert.equal(empty.session, null);
+    const session = ctx.service.createDraft({ teacherId: owner.id, classId: classRow.id,
+      config: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80 } });
+    const current = ctx.service.getCurrentForClass({ teacherId: viewer.id, classId: classRow.id });
+    assert.equal(current.session.id, session.id);
+    // 未获授权、也不是属主的教师仍然被拒绝
+    const stranger = createUser(ctx.db, { username: "grant-stranger", displayName: "无关教师", role: "teacher", passwordHash: "pw" });
+    assert.throws(() => ctx.service.getCurrentForClass({ teacherId: stranger.id, classId: classRow.id }),
+      (error) => error.code === "CLASS_NOT_FOUND");
+  } finally { ctx.db.close(); }
+});
+
+test("HTTP：被授权的教师能创建并读取该班的课堂任务（任务链不再报班级不存在）", async () => {
+  const { createApp } = await import("./app.js");
+  const { hashPassword } = await import("./auth.js");
+  const db = openDatabase(":memory:");
+  migrate(db);
+  const passwordHash = await hashPassword("GrantTest123!");
+  const owner = createUser(db, { username: "http-owner", displayName: "属主", role: "teacher", passwordHash });
+  const viewer = createUser(db, { username: "http-viewer", displayName: "被授权", role: "teacher", passwordHash });
+  const classRow = createClass(db, owner.id, "授权课堂班");
+  grantClassAccess(db, classRow.id, viewer.id);
+  const app = createApp({ db, serveStatic: false, logger: () => {} });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const request = async (path, { method = "GET", body, cookie } = {}) => {
+    const response = await fetch(base + path, {
+      method,
+      headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    const type = response.headers.get("content-type") ?? "";
+    return { status: response.status, cookie: response.headers.get("set-cookie")?.split(";")[0], data: type.includes("application/json") ? await response.json() : await response.text() };
+  };
+  try {
+    const login = await request("/api/auth/login", { method: "POST", body: { username: "http-viewer", password: "GrantTest123!" } });
+    assert.equal(login.status, 200);
+    // 修复前：这里返回 404「班级不存在」，教师端「课堂任务与学生反馈」看不到任务链
+    const before = await request(`/api/teacher/classes/${classRow.id}/sessions/current`, { cookie: login.cookie });
+    assert.equal(before.status, 200);
+    assert.equal(before.data.session, null);
+    const created = await request(`/api/teacher/classes/${classRow.id}/sessions`, {
+      method: "POST", cookie: login.cookie,
+      body: { templateKey: "computer-data-flow", durationMinutes: 45, passScore: 80 },
+    });
+    assert.equal(created.status, 201);
+    const current = await request(`/api/teacher/classes/${classRow.id}/sessions/current`, { cookie: login.cookie });
+    assert.equal(current.status, 200);
+    assert.equal(current.data.session.id, created.data.session.id);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    db.close();
+  }
 });

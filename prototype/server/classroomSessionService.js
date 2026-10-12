@@ -225,8 +225,9 @@ export function createClassroomSessionService({ db, now = () => Date.now(), repo
     },
 
     getCurrentForClass({ teacherId, classId }) {
-      const owned = db.prepare("SELECT 1 FROM classes WHERE id = ? AND teacher_id = ?").get(classId, teacherId);
-      if (!owned) throw classroomError("CLASS_NOT_FOUND", "班级不存在", 404, false);
+      // 与 createDraft / assertTeacherOwns 保持一致：属主或已获授权的教师都能读取当前课堂，
+      // 否则被授权的教师（例如只读演示账号、由数据迁移改归他人的班级）打开课堂任务时会误报「班级不存在」。
+      if (!teacherOwnsClass(db, teacherId, classId)) throw classroomError("CLASS_NOT_FOUND", "班级不存在", 404, false);
       const session = repository.findActiveForClass(classId);
       if (!session) return { session: null };
       return { session: expireIfNeeded(session) };
