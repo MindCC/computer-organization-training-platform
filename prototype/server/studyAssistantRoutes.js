@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { askStudyAssistant } from './studyAssistant.js';
 import { conversationPage, saveAiConversation } from './aiConversationRepository.js';
 import { taskChainQuestionContext } from './classroomTaskChain.js';
+import { selectedStudyMemory } from './studyEngagement.js';
 
 export function createStudyAssistantRouter({ db, requireRole, options = {} }) {
   const router = Router(), requests = new Map(), pending = new Set();
@@ -25,7 +26,8 @@ export function createStudyAssistantRouter({ db, requireRole, options = {} }) {
     pending.add(id); requests.set(id, [...times, now]);
     try {
       const classroom=role==='student'?taskChainQuestionContext(db,id,body.classroom):null;
-      const answer = await askStudyAssistant(payload, options);
+      const selectedMemory=selectedStudyMemory(db,id,body.memoryIds,body.memoryConsent);
+      const answer = await askStudyAssistant(payload, {...options,selectedMemory});
       let classroomAnswer;
       if (role === 'student') {
         const conversationId=saveAiConversation(db, { studentId:id, kind:'question', question:body.question, answer, context:payload.context });

@@ -5,6 +5,7 @@
  */
 
 import { HOSTED_DEMOS } from "../src/shared/demoNavigation.js";
+import { normalizeQuestionObservation } from './questionObservation.js';
 export const DEMO_PAGES = HOSTED_DEMOS;
 
 const DEMO_IDS = new Set(DEMO_PAGES.map((page) => page.id));
@@ -62,7 +63,9 @@ export function normalizeDemoAttemptPayload(payload = {}) {
     questions = [];
     for (const q of result.questions) {
       if (!q || typeof q.correct !== 'boolean' || ['stem','studentAnswer','referenceAnswer','explanation'].some(key => typeof q[key] !== 'string' || q[key].length > 2000) || !q.stem.trim() || !q.studentAnswer.trim() || !q.referenceAnswer.trim()) return {ok:false,status:400,error:'演示题目记录不完整'};
-      questions.push({stem:q.stem,studentAnswer:q.studentAnswer,referenceAnswer:q.referenceAnswer,explanation:q.explanation,correct:q.correct});
+      let observation;
+      try{observation=normalizeQuestionObservation(q.observation);}catch(error){return {ok:false,status:400,error:error.message};}
+      questions.push({stem:q.stem,studentAnswer:q.studentAnswer,referenceAnswer:q.referenceAnswer,explanation:q.explanation,correct:q.correct,...(observation?{observation}:{})});
     }
     if (questions.filter(q=>q.correct).length !== correct) return {ok:false,status:400,error:'演示判分数量不匹配'};
   }

@@ -1,0 +1,82 @@
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+import path from 'node:path';
+import { createApp } from '../server/app.js';
+import { openDatabase,createUser } from '../server/db.js';
+import { hashPassword } from '../server/auth.js';
+import { saveAiConversation } from '../server/aiConversationRepository.js';
+import { questionOf } from '../src/assignmentQuestions.js';
+import { gotoApp,fillLoginForm,submitLoginForm } from './lib/qaLogin.mjs';
+
+// One headless browser and page, synthetic memory-only accounts, no external model traffic.
+const artifacts=path.resolve('qa-artifacts/study-recommendations');fs.mkdirSync(artifacts,{recursive:true});
+const db=openDatabase(':memory:');
+const app=createApp({db,distDir:path.resolve('dist'),demoLoginEnabled:false,studyAssistantOptions:{env:{}}});
+const password='Study-Recommendation-QA123!',passwordHash=await hashPassword(password);
+const student=createUser(db,{username:'study-qa',displayName:'补学回归学生',role:'student',passwordHash,profile:{mustChangePassword:false}});
+const other=createUser(db,{username:'study-qa-other',displayName:'另一位学生',role:'student',passwordHash});
+const teacher=createUser(db,{username:'study-qa-teacher',displayName:'补学试练教师',role:'teacher',passwordHash});
+const now=Date.now(),at=new Date(now-600000).toISOString();
+const conversationId=saveAiConversation(db,{studentId:student.id,kind:'question',question:'补码为什么这样计算？',answer:{source:'local',explanation:'公开课程参考'},context:{conceptId:'concept-twos-complement'}});
+db.prepare('UPDATE ai_conversations SET created_at=? WHERE id=?').run(at,conversationId);
+db.prepare('INSERT INTO chapter_practice_attempts (student_id,chapter_id,client_submission_id,answers_json,results_json,created_at) VALUES (?,?,?,?,?,?)').run(student.id,'ch2','qa-wrong-evidence',JSON.stringify({'ch2-q02':'wrong'}),JSON.stringify({'ch2-q02':{correct:false}}),at);
+const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));
+const base=`http://127.0.0.1:${server.address().port}`,browser=await chromium.launch({headless:true}),errors=[];
+try {
+  const page=await browser.newPage({viewport:{width:1366,height:900}});page.on('pageerror',e=>errors.push(e.message));
+  const login=async user=>{
+    await gotoApp(page,base);await fillLoginForm(page,{username:user.username,password});
+    if(user.role==='teacher')await page.locator('[data-login-role="teacher"]').click();
+    await submitLoginForm(page);
+    if(user.role==='teacher')await page.getByRole('button',{name:'课程首页',exact:true}).click();
+    await page.getByTestId('study-recommendations').waitFor();
+  };
+  await login(student);
+  const card=page.locator('[data-concept-id="concept-twos-complement"]');await card.waitFor();assert.match(await card.innerText(),/提问.*错题/s);
+  await page.getByTestId('study-recommendations').screenshot({path:path.join(artifacts,'desktop.png')});
+  await card.getByRole('button',{name:'开始补学',exact:true}).click();
+  let dialog=page.getByRole('dialog',{name:'补码表示与转换',exact:true});await dialog.waitFor();
+  async function answerCurrent() {
+    const raw=db.prepare('SELECT state_json FROM study_remediation_sessions WHERE student_id=? ORDER BY id DESC LIMIT 1').get(student.id);
+    const q=questionOf(JSON.parse(raw.state_json).questionId);
+    if(q.type==='choice'||q.type==='truefalse')await dialog.locator(`input[type="radio"]`).filter({visible:true}).evaluateAll((inputs,value)=>{const input=inputs.find(el=>el.value===value);input.click();},q.answer);
+    else await dialog.getByLabel('填写答案').fill(q.answer??q.keywords.map(g=>Array.isArray(g)?g[0]:g).join(' '));
+    await dialog.getByRole('button',{name:/提交检查|提交复测/}).click();
+  }
+  await answerCurrent();await dialog.getByRole('heading',{name:'先理解这个原理'}).waitFor();
+  await dialog.getByRole('button',{name:'关闭补学'}).click();await page.reload();
+  await page.getByRole('button',{name:'继续上次补学 · 补码表示与转换'}).click();
+  dialog=page.getByRole('dialog',{name:'补码表示与转换',exact:true});await dialog.getByRole('heading',{name:'先理解这个原理'}).waitFor();
+  await dialog.getByRole('button',{name:'进入练习',exact:true}).click();await dialog.locator('fieldset').waitFor();
+  await answerCurrent();await dialog.getByText('换题复测',{exact:true}).waitFor();await answerCurrent();
+  await dialog.getByRole('heading',{name:'本轮复测通过'}).waitFor();
+  const state=JSON.parse(db.prepare('SELECT state_json FROM study_remediation_sessions WHERE student_id=? ORDER BY id DESC LIMIT 1').get(student.id).state_json);
+  assert(state.verified);assert.notEqual(state.practiceId,state.retestId);
+  await dialog.getByRole('button',{name:'返回今日补学'}).click();
+  await page.getByTestId('study-recommendations').getByText('今日 +10',{exact:false}).waitFor();
+  assert.equal(await page.locator('[data-concept-id="concept-twos-complement"]').count(),0);
+  await page.locator('.study-companion-trigger').click();
+  await page.locator('.study-companion-dialog').getByTestId('study-spark').getByText('今日 +10',{exact:false}).waitFor();
+  await page.getByRole('button',{name:'关闭小芯助教'}).click();
+  console.log('PASS real evidence recommendation, server retest, reload recovery, reduced recommendation, shared spark');
+  await page.setViewportSize({width:390,height:844});
+  const home=page.getByTestId('study-recommendations');await home.scrollIntoViewIfNeeded();
+  await home.screenshot({path:path.join(artifacts,'mobile.png')});
+  assert(await home.evaluate(el=>el.getBoundingClientRect().right<=innerWidth+1));
+  const first=home.locator('.today-study-card').first();await first.getByRole('button',{name:/开始自测|开始补学|查看讲解/}).click();
+  const mobileDialog=page.locator('.study-remediation-dialog');await mobileDialog.waitFor();
+  assert(await mobileDialog.evaluate(el=>el.scrollWidth<=el.clientWidth+1));
+  await mobileDialog.getByRole('button',{name:'关闭补学'}).click();
+  const dismissed=await first.getAttribute('data-concept-id');await first.getByRole('button',{name:'这不是我的难点'}).click();
+  await page.waitForFunction(id=>!document.querySelector(`[data-concept-id="${id}"]`),dismissed);
+  console.log('PASS narrow-screen dialog and corrective feedback');
+  const logout=async()=>{await page.request.post(base+'/api/auth/logout');await page.reload();};
+  await logout();await login(other);await home.getByText('累计 0 火花',{exact:false}).waitFor();
+  assert.equal(await home.getByRole('button',{name:/继续上次补学/}).count(),0);
+  await logout();await login(teacher);await home.getByText('累计 0 火花',{exact:false}).waitFor();
+  await home.locator('.today-study-card').first().getByRole('button',{name:/开始自测|查看讲解/}).click();await page.locator('.study-remediation-dialog').waitFor();
+  assert.equal(db.prepare('SELECT count(*) n FROM study_remediation_sessions WHERE student_id=?').get(teacher.id).n,1);
+  console.log('PASS new account isolation and teacher self-trial routing');
+  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(artifacts,'result.json'),JSON.stringify({pass:true,errors,checks:6},null,2));
+} finally {await browser.close();await new Promise(r=>{server.close(r);server.closeAllConnections();});db.close();}

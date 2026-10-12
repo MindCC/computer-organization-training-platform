@@ -90,6 +90,19 @@ test("storage failures degrade quietly", () => {
   assert.doesNotThrow(() => clearViewSession(broken));
 });
 
+test('training and AI assistant refresh for students and teachers, never guests', () => {
+  const storage = makeStorage();
+  for (const view of ['training', 'ai-assistant']) {
+    writeViewSession({ view }, storage);
+    const session = readViewSession(storage);
+    for (const role of ['student', 'teacher']) {
+      assert.deepEqual(resolveRestorableView(session, role), { view, challengeId: null });
+    }
+    assert.equal(resolveRestorableView(session, null), null);
+    assert.equal(resolveRestorableView(session, 'admin'), null);
+  }
+});
+
 // The chapter hub is a public destination and survives refresh for every role.
 test("interactive demo hub restores for guests, students and teachers", () => {
   const storage = makeStorage();

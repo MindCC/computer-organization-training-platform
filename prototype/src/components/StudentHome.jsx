@@ -11,8 +11,9 @@ import { ExperimentThumbnail } from './ExperimentThumbnail.jsx';
 import { CourseAdventureMap } from './learning/CourseAdventureMap.jsx';
 import './studentHome.css';
 import { TaskChainHome } from './classroom/student/TaskChainHome.jsx';
+import { StudyRecommendations } from './learning/StudyRecommendations.jsx';
 
-export function StudentHome({ progress, routeGroups, navigateToChallenge, summary, notes, onOpenKnowledge, classroomViewModel, onClassroomEnter, projects = [], onOpenProjects, userId = "anonymous", isTeacher = false, onOpenTeaching }) {
+export function StudentHome({ progress, routeGroups, navigateToChallenge, summary, notes, onOpenKnowledge, onOpenDemo, classroomViewModel, onClassroomEnter, projects = [], onOpenProjects, userId = "anonymous", isTeacher = false, onOpenTeaching }) {
   const firstUseSteps = buildFirstUseSteps(progress);
   const homeEmptyState = buildStudentHomeEmptyState(summary, routeGroups);
   const completion = buildCompletionOverview(summary);
@@ -106,6 +107,8 @@ export function StudentHome({ progress, routeGroups, navigateToChallenge, summar
         <div><span className="eyebrow">计算机组成原理 · 实践课程</span><h1>把原理，接成电路。</h1><p>从认识部件到搭建系统，沿着课程路线完成每一次探索。</p></div>
         <span className="home-course-count">{routeGroups.length} 章课程 <span aria-hidden="true">/</span> {routeGroups.reduce((count, group) => count + group.items.length, 0)} 项实验</span>
       </header>
+
+      {userId !== 'anonymous' && <StudyRecommendations key={userId} userId={userId} onOpenKnowledge={onOpenKnowledge} onOpenDemo={onOpenDemo} onOpenChallenge={navigateToChallenge}/>}
 
       <CourseAdventureMap progress={progress} onOpenChallenge={navigateToChallenge} userId={userId} />
 

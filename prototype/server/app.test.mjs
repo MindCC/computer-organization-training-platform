@@ -25,10 +25,18 @@ async function makeServer(options = {}) {
     assistantOptions: { env: {} },
     ...appOptions,
   });
-  const server = app.listen(0);
-  await new Promise((resolve) => server.once("listening", resolve));
-  const port = server.address().port;
-  return { db, server, baseUrl: `http://127.0.0.1:${port}` };
+  // The OS may allocate an ephemeral port forbidden by Node's Fetch implementation.
+  // Retry only that allocation failure; all actual HTTP/network failures still fail the test.
+  for(let attempt=0;attempt<5;attempt++) {
+    const server=app.listen(0);
+    await new Promise(resolve=>server.once('listening',resolve));
+    const baseUrl=`http://127.0.0.1:${server.address().port}`;
+    try {const health=await fetch(baseUrl+'/api/health');await health.arrayBuffer();return {db,server,baseUrl};}
+    catch(error) {
+      await new Promise(resolve=>{server.close(resolve);server.closeAllConnections();});
+      if(error.cause?.message!=='bad port'||attempt===4){db.close();throw error;}
+    }
+  }
 }
 
 async function request(baseUrl, path, options = {}, jar = {}) {

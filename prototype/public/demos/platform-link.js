@@ -33,6 +33,7 @@
     user: null,
     batchesSubmitted: 0,
     recordQuizAnswer: recordQuizAnswer,
+    recordQuestionShown: recordQuestionShown,
     flush: flush,
   };
   window.__platformLink = link;
@@ -40,6 +41,24 @@
   var activeMilliseconds = 0, lastTick = Date.now(), lastInteraction = Date.now();
   var visible = !document.hidden, inViewport = true;
   var IDLE_MS = 5 * 60000;
+  var quizObservation = null, quizObserver = null;
+
+  function recordQuestionShown(question, element) {
+    if(quizObserver)quizObserver.disconnect();
+    quizObservation={stem:plain(question.prompt || question.question),active:0,first:null,changes:0,visible:false,ended:false,last:Date.now()};
+    if(element && typeof IntersectionObserver==='function') {
+      quizObserver=new IntersectionObserver(function(entries){tick();quizObservation.visible=entries[0].isIntersecting;},{threshold:0.1});
+      quizObserver.observe(element);
+    }
+  }
+  function noteQuizInput(event) {
+    if(!quizObservation || quizObservation.ended || !event.target || !event.target.closest)return;
+    var selector=event.type==='input'?'#quizAnswer input':'#quizAnswer .quiz-choice,#quizChoices .quiz-choice,#quiz-options button,#quizAnswer .quiz-bit';
+    if(!event.target.closest(selector))return;
+    tick();if(quizObservation.first===null)quizObservation.first=Math.round(quizObservation.active);quizObservation.changes++;
+  }
+  document.addEventListener('click',noteQuizInput,true);
+  document.addEventListener('input',noteQuizInput,true);
 
   function plain(value) {
     var el = document.createElement('div');
@@ -49,6 +68,10 @@
   function tick() {
     var now = Date.now();
     if (link.linked && visible && inViewport) activeMilliseconds += Math.max(0, Math.min(now, lastInteraction + IDLE_MS) - lastTick);
+    if(quizObservation) {
+      if(link.linked&&visible&&inViewport&&quizObservation.visible&&!quizObservation.ended)quizObservation.active+=Math.max(0,Math.min(now,lastInteraction+IDLE_MS)-quizObservation.last);
+      quizObservation.last=now;
+    }
     lastTick = now;
   }
   function persist() {
@@ -75,7 +98,13 @@
     }
     if (Array.isArray(originalAnswer)) originalAnswer = originalAnswer.join('');
     if (Array.isArray(reference)) reference = reference.join('');
-    enqueue([{stem:plain(question.prompt || question.question),studentAnswer:plain(originalAnswer),referenceAnswer:plain(reference),explanation:plain(question.explain || ''),correct:Boolean(isCorrect)}]);
+    tick();
+    var snapshot={stem:plain(question.prompt || question.question),studentAnswer:plain(originalAnswer),referenceAnswer:plain(reference),explanation:plain(question.explain || ''),correct:Boolean(isCorrect)};
+    if(quizObservation&&!quizObservation.ended&&quizObservation.stem===snapshot.stem) {
+      snapshot.observation={visibleActiveMs:Math.min(86400000,Math.round(quizObservation.active)),firstAnswerMs:quizObservation.first,inputChanges:Math.min(100000,quizObservation.changes)};
+      quizObservation.ended=true;
+    }
+    enqueue([snapshot]);
     sendPending();
   }
   function sendPending() {

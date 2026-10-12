@@ -10,6 +10,8 @@ import { ensureMindMapTables } from './mindMapRepository.js';
 import { ensurePhotoMistakeTables } from './photoMistakeRepository.js';
 import { migrateLearningCoach } from './learningCoachRepository.js';
 import { migrateStudyWorkspace } from './studyWorkspace.js';
+import { migrateStudyRecommendations } from './studyRecommendationRepository.js';
+import { migrateStudyEngagement } from './studyEngagementRepository.js';
 
 const DEFAULT_DATABASE_PATH = path.resolve("data/classroom.sqlite");
 
@@ -560,6 +562,8 @@ export function migrate(db) {
     );
     CREATE INDEX IF NOT EXISTS idx_ai_conversations_student ON ai_conversations(student_id,id DESC);
   `);
+  migrateStudyRecommendations(db);
+  migrateStudyEngagement(db);
   // 只读演示教师看正式教师的同一份班级数据：不复制班级，只登记“可访问”。
   // 属主仍是正式教师，任何写操作都由服务端只读闸门拦下。
   db.exec(`

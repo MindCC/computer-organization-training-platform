@@ -465,6 +465,7 @@ function nextQuizQuestion(){
   quizState.answered = false;
   quizTypeEl.textContent = "题型：" + quizState.current.type;
   quizQuestionEl.textContent = quizState.current.question;
+  window.__platformLink?.recordQuestionShown(quizState.current, quizQuestionEl);
   quizChoicesEl.innerHTML = "";
   quizState.current.choices.forEach((text, idx) => {
     const btn = document.createElement("button");
@@ -522,6 +523,6 @@ quizNextBtn.addEventListener("click", nextQuizQuestion);
 drawWires();
 renderStats();
 </script>
-<script src="./platform-link.js?v=20261007-demo-records"></script>
+<script src="./platform-link.js?v=20261009-question-time"></script>
 </body>
 </html>

@@ -1,18 +1,16 @@
 import assert from 'node:assert/strict';
 import { chromium, expect } from '@playwright/test';
 import { gotoApp, fillLoginForm, submitLoginForm } from './lib/qaLogin.mjs';
+import { clickTopNavItem } from './nav-helpers.mjs';
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1366, height: 900 } });
 const errors = []; page.on('pageerror', error => errors.push(error.message));
 try {
   await gotoApp(page, process.env.PROTOTYPE_APP_URL ?? 'http://127.0.0.1:5173');
   await fillLoginForm(page, { username: 'demo2026001', password: 'Student123!' }); await submitLoginForm(page);
-  // 2026-10-06 起顶栏试点「二级项全部平铺」：不再有分组下拉与 hover 空隙，
-  // 原下拉断言（toggle/menu/hover gap/Escape）见 git 历史。这里改为断言平铺形态：
-  // 学生端 8 个入口全部作为一级按钮可点，且顶栏在常见宽度下不溢出、不裁剪。
-  const NAV_LABELS = ['课程首页', 'AI讲演', '互动演示', '硬件配置挑战', '课后作业', '学习记录', '错题本', '知识库'];
-  await page.locator('.topbar-nav-flat-item').first().waitFor({ timeout: 20000 });
-  const flatLabels = await page.locator('.topbar-nav .topbar-nav-flat-item').allInnerTexts();
+  const NAV_LABELS = ['课程首页', '实训平台', '课程学习', 'AI助教', '学习复盘'];
+  await page.locator('.topbar-nav-primary > button').first().waitFor({ timeout: 20000 });
+  const flatLabels = await page.locator('.topbar-nav-primary > button').allInnerTexts();
   assert.deepEqual(flatLabels.map(text => text.trim()), NAV_LABELS, `平铺入口应为 ${NAV_LABELS.join('/')}`);
   await expect(page.locator('.topbar-nav-group')).toHaveCount(0);
   for (const width of [1920, 1366, 768, 390]) {
@@ -26,14 +24,14 @@ try {
     assert.equal(layout.overflow, false, `${width}: 页面横向溢出`);
     assert.equal(layout.clipped, false, `${width}: 顶栏入口被裁剪`);
   }
-  // 平铺后每个入口都要真的能到对应页面
+  // 一级与二级入口均能到达对应页面。
   await page.setViewportSize({ width: 1366, height: 900 });
-  for (const label of ['AI讲演', '互动演示', '学习记录', '错题本', '知识库']) {
-    await page.locator('.topbar-nav-flat-item').filter({ hasText: label }).first().click();
+  for (const label of ['AI讲演', '互动演示', '实训平台', 'AI助教', '学习记录', '错题本', '知识库']) {
+    await clickTopNavItem(page,label);
     await page.waitForTimeout(600);
-    await expect(page.locator('.topbar-nav-flat-item.active')).toHaveText(label);
+    await expect(page.locator('.topbar-nav-item.active').filter({hasText:label}).first()).toHaveText(label);
   }
-  await page.getByRole('button', { name: '课后作业', exact: true }).click();
+  await clickTopNavItem(page,'课后作业');
   const tabs = page.locator('.chapter-tab'); await expect(tabs).toHaveCount(8);
   for (const width of [1366, 768, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
@@ -47,6 +45,10 @@ try {
   const dialog = page.locator('.study-companion-dialog'); await expect(dialog).toBeVisible();
   await expect(dialog.locator('.study-mascot-consent')).toHaveCount(0);
   await expect(dialog.getByRole('button', { name: '询问助教', exact: true })).toBeVisible();
+  await dialog.getByRole('button', {name:'关闭小芯助教'}).click();
+  await page.setViewportSize({width:1366,height:900});
+  await clickTopNavItem(page,'AI讲演');
+  await page.locator('.topbar').screenshot({path:'qa-artifacts/grouped-topbar.png'});
   assert.deepEqual(errors, []);
-  console.log('PASS flat topbar (8 reachable entries, no overflow/clipping at 1920/1366/768/390), 8 equal tabs at 1366/768/390/320, removed paragraph');
+  console.log('PASS grouped topbar (5 primary entries, reachable secondary entries, no overflow/clipping at 1920/1366/768/390), 8 equal tabs at 1366/768/390/320');
 } finally { await browser.close(); }

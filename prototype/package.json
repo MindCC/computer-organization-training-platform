@@ -7,6 +7,10 @@
     "node": ">=22"
   },
   "scripts": {
+    "preqa:study-engagement": "npm run build -- --manifest",
+    "qa:study-engagement": "node scripts/verify-study-engagement.mjs",
+    "preqa:study-recommendations": "npm run build -- --manifest",
+    "qa:study-recommendations": "node scripts/verify-study-recommendations.mjs",
     "preqa:lecture-qa": "npm run build -- --manifest",
     "qa:lecture-qa": "node scripts/verify-lecture-qa.mjs",
     "preqa:avatar-settings": "npm run build -- --manifest",

@@ -1351,6 +1351,7 @@ function updateQuizNarrator() {
 function renderQuizQuestion() {
   const q = quizState.current;
   document.getElementById("quizPrompt").innerHTML = q.prompt;
+  window.__platformLink?.recordQuestionShown(q, document.getElementById("quizPrompt"));
   const answerEl = document.getElementById("quizAnswer");
   const feedback = document.getElementById("quizFeedback");
   feedback.className = "quiz-feedback";
@@ -2008,6 +2009,6 @@ refreshScenario(0);
 /* 供自动化验收读取（verify.mjs 使用），页面逻辑不依赖 */
 window.__quizState = quizState;
 </script>
-<script src="./platform-link.js?v=20261007-demo-records"></script>
+<script src="./platform-link.js?v=20261009-question-time"></script>
 </body>
 </html>

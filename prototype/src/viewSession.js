@@ -7,11 +7,11 @@
 const STORAGE_KEY = "zcyl:view-session";
 
 const STUDENT_VIEWS = new Set([
-  "home", "lab", "hardware-game", "records", "mistakes", "notes", "assignments", "courseware", "demos", "classroom",
+  "home", "training", "ai-assistant", "lab", "hardware-game", "records", "mistakes", "notes", "assignments", "courseware", "demos", "classroom",
 ]);
 // 教师拥有学生端全部页面（含课程首页），外加教师看板；
 // 课堂任务链（classroom）仍是学生专属，教师通过教师看板管理课堂。
-const TEACHER_VIEWS = new Set(["teacher", "home", "courseware", "demos", "hardware-game", "records", "mistakes", "lab", "assignments", "notes", "question-bank"]);
+const TEACHER_VIEWS = new Set(["teacher", "home", "training", "ai-assistant", "courseware", "demos", "hardware-game", "records", "mistakes", "lab", "assignments", "notes", "question-bank"]);
 const GUEST_VIEWS = new Set(["home", "courseware", "demos"]);
 
 const CHALLENGE_ID_PATTERN = /^[a-z0-9-]{1,64}$/;

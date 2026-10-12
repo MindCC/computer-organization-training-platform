@@ -37,3 +37,14 @@ test('待同步记录刷新恢复且账号隔离，教师试练写入教师端�
   const restored=demo({storage});await settle();assert.equal(restored.requests.length,1);assert.equal(storage.size,0);
   const teacher=demo({user:{id:9,role:'teacher'}});await settle();teacher.setNow(15000);teacher.window.__platformLink.flush();await settle();assert.equal(teacher.requests[0].accountId,9);
 });
+test('old demo answers preserve unknown timing; new shown-question snapshots freeze for offline replay',async()=>{
+  const d=demo({offline:true});await settle();
+  const q={prompt:'定点数补码',answer:'01',explain:'按位计算'};
+  d.window.__platformLink.recordQuestionShown(q,null);
+  d.setNow(1000);d.events.click({type:'click',target:{closest:()=>true}});
+  d.window.__platformLink.recordQuizAnswer(true,q,'01');await settle();
+  const observation=d.requests[0].result.questions[0].observation;
+  assert.equal(observation.firstAnswerMs,0);assert.equal(observation.visibleActiveMs,0,'without an observed visible question no time is invented');
+  d.setNow(10000);d.setOffline(false);d.events.online();await settle();
+  assert.deepEqual(d.requests[1].result.questions[0].observation,observation);
+});

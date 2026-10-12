@@ -87,6 +87,8 @@ import { createMindMapRouter } from './mindMapRoutes.js';
 import { createCustomCustomerRouter } from './customCustomerRoutes.js';
 import { createShopServiceRouter, serviceRecords } from './shopServiceRoutes.js';
 import { createStudyAssistantRouter } from './studyAssistantRoutes.js';
+import { createStudyRecommendationRouter } from './studyRecommendationRoutes.js';
+import { createStudyEngagementRouter } from './studyEngagementRoutes.js';
 import { saveAiConversation } from './aiConversationRepository.js';
 import { createLearningCoachRouter } from './learningCoachRoutes.js';
 import { createStudyWorkspaceRouter } from './studyWorkspaceRoutes.js';
@@ -239,6 +241,8 @@ export function createApp(options = {}) {
   app.use('/api', createCustomCustomerRouter({db,requireRole,options:options.customCustomerOptions??{}}));
   app.use('/api', createShopServiceRouter({db,requireRole}));
   app.use('/api', createStudyAssistantRouter({db,requireRole, options:options.studyAssistantOptions??{}}));
+  app.use('/api', createStudyRecommendationRouter({db,requireRole}));
+  app.use('/api', createStudyEngagementRouter({db,requireRole}));
   app.use('/api', createLearningCoachRouter({db,requireRole,options:options.learningCoachOptions??{}}));
   app.use('/api', createStudyWorkspaceRouter({db,requireRole,options:options.studyWorkspaceOptions??{}}));
 

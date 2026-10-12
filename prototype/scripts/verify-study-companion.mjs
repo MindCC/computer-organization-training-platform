@@ -68,6 +68,9 @@ try{
  for(const name of ['学习记录','错题本','知识库','AI讲演','互动演示','课程首页']){await clickTopNavItem(page,name);await expect(pet).toBeVisible();await expect(pet).toHaveCount(1);}
  await openChallengeFromHome(page,CHALLENGES.find(c=>c.id==='full-adder').title);await trigger.click();await expect(dialog).toContainText('全加器');await expect(live).not.toContainText('装机');await close();
  await page.getByRole('button',{name:'填入参考结构',exact:true}).click();
+ // The initial mission hint overlays these ports. Close it before measuring drag coordinates.
+ const closeCircuitHints=page.getByRole('button',{name:'关闭提示',exact:true});
+ if(await closeCircuitHints.isVisible())await closeCircuitHints.click();
  const circuit=await import('../src/circuit/challengeCircuitModel.js'),model=circuit.getCircuitChallenge('full-adder'),edge=model.requiredEdges[0];
  const from=await page.getByTestId(`port-${edge.from.nodeId}-${edge.from.portId}`).boundingBox(),to=await page.getByTestId(`port-${edge.to.nodeId}-${edge.to.portId}`).boundingBox();await page.mouse.move(from.x+from.width/2,from.y+from.height/2);await page.mouse.down();await page.mouse.move(to.x+to.width/2,to.y+to.height/2,{steps:14});await page.mouse.up();
  await trigger.click();await expect(live).toContainText('当前输入的输出已计算');await expect(operation).toContainText('目标输入端已经');await expect(operation).toContainText('删除');await expect(dialog.getByLabel('本次提问附带当前电路输入与检查计数')).toBeVisible();await dialog.getByLabel('你的课程问题').fill('为什么刚才这条线连接失败？');await dialog.getByLabel('本次提问附带当前电路输入与检查计数').check();sent=page.waitForRequest(r=>r.url().endsWith('/api/student/study-assistant')&&r.method()==='POST');await dialog.getByRole('button',{name:'询问助教'}).click();payload=(await sent).postDataJSON();assert.equal(payload.context.circuit.lastAction.code,'输入端重复驱动');assert.deepEqual(payload.context.circuit.lastAction.to,edge.to);assert.ok(payload.context.circuit.inputs.length>0);await expect(dialog.locator('.study-mascot-source')).toBeVisible();
@@ -80,7 +83,7 @@ try{
  await page.screenshot({path:path.join(dir,'companion-mobile.png')});await page.setViewportSize({width:320,height:480});bounds=await dialog.boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=320&&bounds.y+bounds.height<=480);await expect(dialog.getByRole('button',{name:'关闭小芯助教'})).toBeVisible();await close();await expect(dialog).toHaveCount(0);
  await page.setViewportSize({width:1366,height:768});await page.reload({waitUntil:'domcontentloaded'});await expect(pet).toBeVisible();bounds=await pet.boundingBox();assert.ok(bounds.x<300,'drag position survives reload');
  await page.locator('.profile-button').click();await page.getByRole('button',{name:'退出登录',exact:true}).click();await expect(pet).toHaveCount(0);
- await fillLoginForm(page,{username:'teacher',password:'ChangeMe123!'});await page.locator('[data-login-role="teacher"]').click();await submitLoginForm(page);await clickTopNavItem(page,'学习记录');await expect(pet).toHaveCount(0);
+ await fillLoginForm(page,{username:'teacher',password:'ChangeMe123!'});await page.locator('[data-login-role="teacher"]').click();await submitLoginForm(page);await page.locator('.profile-button').waitFor();await clickTopNavItem(page,'学习记录');await expect(pet).toHaveCount(0);
  await expect(page.getByRole('region',{name:'学情分析'})).toContainText('AI 对话分析');
  await page.getByLabel('学情查看对象').selectOption({label:`随行验收学生 · ${username}`});
  await expect(page.getByRole('region',{name:'学生 AI 对话记录'})).toContainText('为什么刚才这条线连接失败？');

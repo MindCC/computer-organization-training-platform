@@ -103,6 +103,9 @@ export async function apiRequest(path, options = {}) {
       const message = typeof body === "object" ? body.error : body;
       throw new ApiError({status:response.status,code:'HTTP_ERROR',message:message || `请求失败：${response.status}`});
     }
+    if (!retryableMethod && typeof window !== 'undefined' && /^\/api\/(student|teacher)\/(study-recommendations|study-assistant|chapter-practice|attempts|demo-attempts|photo-rounds|photo-mistakes|mistakes)(\/|$|\?)/.test(path)) {
+      window.dispatchEvent(new Event('study-evidence-changed'));
+    }
     return body;
   }
   throw lastError instanceof Error

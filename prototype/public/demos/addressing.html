@@ -930,6 +930,7 @@ function updateQuizNarrator() {
 function renderQuizQuestion() {
   const q = quizState.current;
   document.getElementById("quizPrompt").innerHTML = q.prompt;
+  window.__platformLink?.recordQuestionShown(q, document.getElementById("quizPrompt"));
   const answerEl = document.getElementById("quizAnswer");
   const feedback = document.getElementById("quizFeedback");
   feedback.className = "quiz-feedback";
@@ -1129,6 +1130,6 @@ window.__quizState = quizState;
 window.__eaState = eaState;
 window.__runState = runState;
 </script>
-<script src="./platform-link.js?v=20261007-demo-records"></script>
+<script src="./platform-link.js?v=20261009-question-time"></script>
 </body>
 </html>

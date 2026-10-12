@@ -6,6 +6,7 @@ import './teacherLearningReview.css';
 const Records = lazy(() => import('../StudentRecords.jsx').then(module => ({ default: module.StudentRecords })));
 const Mistakes = lazy(() => import('../MistakeBookPage.jsx').then(module => ({ default: module.MistakeBookPage })));
 const CoachReview = lazy(() => import('../TeacherCoachReview.jsx').then(module => ({default: module.TeacherCoachReview})));
+const EngagementReview = lazy(() => import('./TeacherEngagementReview.jsx').then(module=>({default:module.TeacherEngagementReview})));
 const SOURCE = { lab: '实验室', practice: '题库练习', demo:'互动演示', assignment: '课后作业', service: '维修诊断' };
 
 export function TeacherLearningReview({ mode, classes, classId, onClassChange, selectedStudent, onStudentChange, changeView, navigateToChallenge, openStudyTarget }) {
@@ -43,6 +44,7 @@ export function TeacherLearningReview({ mode, classes, classId, onClassChange, s
       <div className="teacher-review-tabs" aria-label="学情内容"><button type="button" aria-pressed={mode === 'records'} onClick={() => changeView('records')}>学习记录</button><button type="button" aria-pressed={mode === 'mistakes'} onClick={() => changeView('mistakes')}>错题本</button></div>
     </section>
     {loading ? <p className="section-panel" role="status">正在同步学情与错题…</p> : error ? <section className="section-panel"><p role="alert">{error}</p><button type="button" className="primary-button" onClick={() => setVersion(value => value + 1)}>重试学情加载</button></section> : !own && !classId ? <section className="section-panel"><h2>还没有班级</h2><p>可以先查看“我的教师试练”，或到教师看板创建班级并导入学生。</p><button type="button" className="primary-button" onClick={() => changeView('teacher')}>前往教师看板</button></section> : <>
+      {!own&&classId&&mode==='records'&&<Suspense fallback={<p role="status">正在加载默契值审核…</p>}><EngagementReview key={classId} classId={classId} studentId={selectedStudent} refreshVersion={version}/></Suspense>}
       {analysis && <section className="section-panel teacher-review-analysis" aria-label="学情分析">
         <div className="section-heading"><div><h2>{detail ? `${own ? '教师试练' : detail.displayName} · 学情分析` : '全班学情分析'}</h2><p>根据实验、题库、作业与 AI 求助记录在本地计算；提问不计为成绩或知识掌握。</p></div><span className="teacher-analysis-source">系统内分析</span></div>
         <div className="teacher-review-metrics"><div><span>{detail ? '练习题已判分' : '有提交记录的学生'}</span><strong>{detail ? detail.practice.answered : `${analysis.submittedStudents} / ${analysis.studentCount}`}</strong></div><div><span>待巩固错题</span><strong>{analysis.pendingMistakes}</strong></div><div><span>{detail ? '已提交 / 已发布作业' : '班级学生'}</span><strong>{detail ? `${detail.homework.submitted} / ${detail.homework.assigned}` : analysis.studentCount}</strong></div><div><span>{detail ? '作业已批改均分' : '高频错误主题'}</span><strong>{detail ? detail.homework.averageScore == null ? '暂无成绩' : detail.homework.averageScore + '%' : analysis.commonErrors.length}</strong></div></div>

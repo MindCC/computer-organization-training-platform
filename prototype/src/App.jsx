@@ -88,6 +88,7 @@ import labIllustration from "./assets/lab-circuit-illustration.webp";
 
 const NotesPage = lazy(() => import("./components/NotesPage.jsx")
   .then((module) => ({ default: module.NotesPage })));
+const PlatformNavigation = lazy(() => import('./components/PlatformNavigation.jsx').then(module => ({default:module.PlatformNavigation})));
 const LoginPortal=lazy(()=>import('./components/auth/LoginPortal.jsx').then(module=>({default:module.LoginPortal})));
 const PlatformSupport = lazy(() => import('./components/PlatformSupport.jsx').then(module=>({default:module.PlatformSupport})));
 const FeedbackPanel = lazy(() => import('./components/FeedbackPanel.jsx').then(module => ({ default: module.FeedbackPanel })));
@@ -113,19 +114,15 @@ const CoursewareView = lazy(() => import("./components/CoursewareView.jsx")
   .then((module) => ({ default: module.CoursewareView })));
 const HardwareGamePage = lazy(() => import("./components/HardwareGamePage.jsx")
   .then((module) => ({ default: module.HardwareGamePage })));
+const TrainingPlatform = lazy(() => import('./components/TrainingPlatform.jsx').then(module => ({ default: module.TrainingPlatform })));
+const AiAssistantPage = lazy(() => import('./components/ai/AiAssistantPage.jsx').then(module => ({ default: module.AiAssistantPage })));
 const LabPage = lazy(() => import("./components/LabPage.jsx")
   .then((module) => ({ default: module.LabPage })));
 const TaskChainPage=lazy(()=>import('./components/classroom/student/TaskChainPage.jsx').then(module=>({default:module.TaskChainPage})));
 const TaskStageKnowledge=lazy(()=>import('./components/classroom/TaskStageKnowledge.jsx').then(module=>({default:module.TaskStageKnowledge})));
 
-// 「关卡实验」不再出现在学生导航里：实验一律从课程首页的章节卡片进入，
-// 刷新恢复与课堂任务等场景仍可直接落在实验台视图。
-// 顶栏采用「一级分组 + 二级菜单」：课程首页单独直出，其余按功能相近分组；
-// 只有一个可见项的分组直接渲染成一级按钮（如学生的「课后作业」）。
-//
-// 2026-10-06 试点：用户反馈「入口多但不知道各自是干什么的」，先试试把分组里的
-// 二级项全部平铺成一级按钮，看信息是否更好扫读。改成 false 即回到分组下拉。
-const FLAT_PRIMARY_NAV = true;
+// 实训平台统一承接硬件装机和章节实验；课程首页与课堂任务保留原有直达入口。
+// 顶栏按用途分组，课程学习和学习复盘的子入口在下一行展开。
 const navGroups = [
   {
     id: "home",
@@ -135,28 +132,21 @@ const navGroups = [
     ],
   },
   {
-    id: "learn",
-    label: "课程学习",
+    id: 'training', label: '实训平台',
+    items: [{ id: 'training', label: '实训平台', icon: Cpu }],
+  },
+  {
+    id: "learn", label: "课程学习",
     items: [
       { id: "courseware", label: "AI讲演", icon: BookOpen },
       { id: "demos", label: "互动演示", icon: MonitorPlay },
-      { id: "hardware-game", label: "硬件配置挑战", icon: Cpu },
-    ],
-  },
-  {
-    id: "tasks",
-    label: "学习任务",
-    items: [
       { id: "assignments", label: "课后作业", icon: Notebook, role: "student" },
       { id: "assignments", label: "题库试练", icon: Notebook, role: "teacher" },
     ],
   },
   {
-    id: "teach",
-    label: "教师看板",
-    items: [
-      { id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" },
-    ],
+    id: 'assistant', label: 'AI助教',
+    items: [{ id: 'ai-assistant', label: 'AI助教', icon: ChatCircleText }],
   },
   {
     id: "review",
@@ -166,6 +156,10 @@ const navGroups = [
       { id: "mistakes", label: "错题本", icon: BookOpen },
       { id: "notes", label: "知识库", icon: Notebook },
     ],
+  },
+  {
+    id: "teach", label: "教师看板",
+    items: [{ id: "teacher", label: "教师看板", icon: ChartPieSlice, role: "teacher" }],
   },
 ];
 // 顶栏可见性：教师看到除学生专属外的全部入口，学生看不到教师入口，游客只看课程浏览。
@@ -550,29 +544,6 @@ export function App() {
   const [settingsSection, setSettingsSection] = useState('account');
   const [supportPanel,setSupportPanel]=useState(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
-  // 顶栏分组下拉：悬停展开、点击锁定（触屏友好），Esc/点外部/跳转后关闭。
-  const [openNavGroup, setOpenNavGroup] = useState(null);
-  const navPinnedRef = useRef(false);
-  const navCloseTimerRef = useRef(null);
-  const cancelNavClose = () => { clearTimeout(navCloseTimerRef.current); navCloseTimerRef.current = null; };
-  const closeNav = () => { cancelNavClose(); navPinnedRef.current = false; setOpenNavGroup(null); };
-  const topbarNavRef = useRef(null);
-  useEffect(() => () => clearTimeout(navCloseTimerRef.current), []);
-  useEffect(() => {
-    if (!openNavGroup) return undefined;
-    const closeOutside = (event) => {
-      if (topbarNavRef.current && !topbarNavRef.current.contains(event.target)) {
-        closeNav();
-      }
-    };
-    const closeOnEscape = (event) => {
-      if (event.key === 'Escape') closeNav();
-    };
-    document.addEventListener('pointerdown', closeOutside);
-    document.addEventListener('keydown', closeOnEscape);
-    return () => { document.removeEventListener('pointerdown', closeOutside); document.removeEventListener('keydown', closeOnEscape); };
-  }, [openNavGroup]);
-  useEffect(() => { closeNav(); }, [activeView]);
   const [roleDataError,setRoleDataError]=useState('');
   const [roleDataLoading,setRoleDataLoading]=useState(false);
   const [bootstrapVersion,setBootstrapVersion]=useState(0);
@@ -666,9 +637,9 @@ export function App() {
   const restoreSettledRef = useRef(false);
   useViewHistory({user:auth.user,enabled:auth.status!=='loading'&&auth.status!=='error'&&!showLogin,route:{view:activeView,teacherWorkspace:activeView==='teacher'?teacherWorkspace:null,challengeId:activeView==='lab'?lab.selectedChallengeId:null,caseId:activeView==='hardware-game'?selectedHardwareCaseId:null,demoId:activeView==='demo'?demoId:null,studyTarget:activeView==='assignments'?studyTarget:null},restore:route=>{
     if(route.view==='question-bank'&&auth.user?.role==='teacher')route={...route,view:'teacher',teacherWorkspace:'question-bank'};
-    if(!['home','teacher','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo','classroom','question-bank'].includes(route.view))return false;
+    if(!['home','teacher','training','ai-assistant','lab','hardware-game','records','mistakes','notes','assignments','courseware','demos','demo','classroom','question-bank'].includes(route.view))return false;
     if(!auth.user&&!['home','courseware','demos','demo'].includes(route.view))return false;
-    if(auth.user?.role==='teacher'&&!['teacher','home','courseware','demos','demo','hardware-game','records','mistakes','lab','assignments','notes','question-bank'].includes(route.view))return false;
+    if(auth.user?.role==='teacher'&&!['teacher','home','training','ai-assistant','courseware','demos','demo','hardware-game','records','mistakes','lab','assignments','notes','question-bank'].includes(route.view))return false;
     if(auth.user?.role==='student'&&['teacher','question-bank'].includes(route.view))return false;
     if(route.view==='lab'&&!lab.selectChallenge(route.challengeId))return false;
     if(route.view==='hardware-game'&&!HARDWARE_GAME_CASES.some(item=>item.id===route.caseId))return false;
@@ -1082,90 +1053,19 @@ export function App() {
       .map((group) => ({ ...group, items: group.items.filter((item) => navItemVisibleForRole(item, role)) }))
       .filter((group) => group.items.length > 0);
     const isActiveNavItem = (id) => activeView === id
-      || (activeView === "lab" && id === "home")
+      || (["lab", "hardware-game"].includes(activeView) && id === "training")
       || (activeView === "demo" && id === (demoId === "courseware" ? "courseware" : "demos"));
     return (
-      <header ref={platformTopbarRef} className="topbar">
+      <header ref={platformTopbarRef} className="topbar grouped-topbar">
         <button className="brand" onClick={() => changeView("home")} type="button">
           <img className="brand-wordmark" src="/home/wordmark-small.webp" alt="芯游记" />
           <img className="brand-logo" src="/home/logo-small.webp" alt="芯游记" />
         </button>
 
-        <nav className="topbar-nav" aria-label="主导航" ref={topbarNavRef}>
-          {FLAT_PRIMARY_NAV ? visibleNavGroups.flatMap((group) => group.items.map(({ id, icon: Icon, label }) => (
-            <button
-              className={'topbar-nav-item topbar-nav-flat-item' + (isActiveNavItem(id) ? ' active' : '')}
-              key={`${group.id}:${id}`}
-              onClick={() => { closeNav(); changeView(id); }}
-              type="button"
-            >
-              <Icon size={18} />
-              <span>{label}</span>
-            </button>
-          ))) : visibleNavGroups.map((group) => {
-            if (group.items.length === 1) {
-              const { id, icon: Icon, label } = group.items[0];
-              return (
-                <button
-                  className={isActiveNavItem(id) ? "topbar-nav-item active" : "topbar-nav-item"}
-                  key={id}
-                  onClick={() => changeView(id)}
-                  type="button"
-                >
-                  <Icon size={18} />
-                  <span>{label}</span>
-                </button>
-              );
-            }
-            const isOpen = openNavGroup === group.id;
-            const groupActive = group.items.some((item) => isActiveNavItem(item.id));
-            return (
-              <div
-                className={isOpen ? "topbar-nav-group open" : "topbar-nav-group"}
-                key={group.id}
-                onMouseEnter={() => { cancelNavClose(); if (!isOpen) navPinnedRef.current = false; setOpenNavGroup(group.id); }}
-                onMouseLeave={() => { cancelNavClose(); if (!navPinnedRef.current) navCloseTimerRef.current = setTimeout(() => setOpenNavGroup(current => current === group.id ? null : current), 350); }}
-              >
-                <button
-                  aria-controls={`nav-menu-${group.id}`}
-                  aria-expanded={isOpen}
-                  aria-haspopup="true"
-                  className={groupActive ? "topbar-nav-toggle active" : "topbar-nav-toggle"}
-                  onClick={() => {
-                    cancelNavClose();
-                    if (isOpen && navPinnedRef.current) {
-                      navPinnedRef.current = false;
-                      setOpenNavGroup(null);
-                    } else {
-                      navPinnedRef.current = true;
-                      setOpenNavGroup(group.id);
-                    }
-                  }}
-                  type="button"
-                >
-                  <span>{group.label}</span>
-                  <CaretDown className="topbar-nav-caret" size={15} />
-                </button>
-                <div className="topbar-nav-menu" hidden={!isOpen} id={`nav-menu-${group.id}`}>
-                  {group.items.map(({ id, icon: Icon, label }) => (
-                    <button
-                      className={isActiveNavItem(id) ? "topbar-nav-item active" : "topbar-nav-item"}
-                      key={id}
-                      onClick={() => { closeNav(); changeView(id); }}
-                      type="button"
-                    >
-                      <Icon size={18} />
-                      <span>{label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </nav>
+        <Suspense fallback={null}><PlatformNavigation groups={visibleNavGroups} isActive={isActiveNavItem} onNavigate={changeView} /></Suspense>
 
         <div className="topbar-actions">
-          <button className="ghost-button feedback-entry" type="button" aria-haspopup="dialog" onClick={() => { setSupportPanel(null); setShowUserPanel(false); setFeedbackOpen(true); }}><ChatCircleText size={20}/><span>反馈</span></button>
+          <button className="ghost-button feedback-entry" type="button" aria-label="反馈" aria-haspopup="dialog" onClick={() => { setSupportPanel(null); setShowUserPanel(false); setFeedbackOpen(true); }}><ChatCircleText size={20}/><span>反馈</span></button>
           {role !== 'admin' && <button
             aria-label="通知"
             className="icon-button"
@@ -1249,11 +1149,13 @@ export function App() {
             </div>
           ) : null}
 
-          {activeView === 'home' && auth.user?.role === 'admin' ? <section className="surface-card"><h1>管理员工作台</h1><p>查看试用过程中收到的问题与建议。</p><button className="primary-button" type="button" onClick={() => setFeedbackOpen(true)}>查看反馈</button></section> : activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} classroomViewModel={auth.user?.role==='student'?classroomSession.viewModel:null} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} isTeacher={auth.user?.role==='teacher'} onOpenTeaching={()=>changeView('teacher')} /> : null}
+          {activeView === 'home' && auth.user?.role === 'admin' ? <section className="surface-card"><h1>管理员工作台</h1><p>查看试用过程中收到的问题与建议。</p><button className="primary-button" type="button" onClick={() => setFeedbackOpen(true)}>查看反馈</button></section> : activeView === "home" ? <StudentHome progress={progress} routeGroups={routeGroups} nextRecommendedChallenge={nextRecommendedChallenge} navigateToChallenge={navigateToChallenge} summary={summary} notes={notes} onOpenKnowledge={()=>changeView('notes')} onOpenDemo={openDemo} classroomViewModel={auth.user?.role==='student'?classroomSession.viewModel:null} onClassroomEnter={enterClassroomMission} allowSkipLocked={allowSkipLocked} userId={auth.user?.id ?? auth.user?.username ?? "anonymous"} isTeacher={auth.user?.role==='teacher'} onOpenTeaching={()=>changeView('teacher')} /> : null}
           {activeView==='classroom'&&auth.user?.role==='student'?<TaskChainPage key={`${auth.user.id}:${classroomSession.viewModel.sessionId}`} classroomSession={classroomSession} userId={auth.user.id} onOpenStage={openClassroomStage} onHome={()=>changeView('home')} onOpenMistakes={()=>changeView('mistakes')}/>:null}
           {['records','mistakes'].includes(activeView) && auth.user?.role === 'teacher' ? <TeacherLearningReview key={auth.user.id} mode={activeView} classes={teacherClasses} classId={selectedTeacherClassId} onClassChange={id=>{selectedTeacherClassIdRef.current=id;setSelectedTeacherClassId(id);refreshClassOverview(id);}} selectedStudent={teacherReviewStudent} onStudentChange={setTeacherReviewStudent} changeView={changeView} navigateToChallenge={navigateToChallenge} openStudyTarget={openStudyTarget}/> : null}
           {activeView === "records" && auth.user?.role !== 'teacher' ? <StudentRecords key={auth.user?.id} userId={auth.user?.id} summary={summary} progress={progress} activityLog={activityLog} changeView={changeView} selectChallenge={navigateToChallenge} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "demos" ? <InteractiveDemos openDemo={openDemo} navigateToChallenge={navigateToChallenge} /> : null}
+          {activeView === 'training' ? <TrainingPlatform routeGroups={routeGroups} navigateToChallenge={navigateToChallenge} onOpenHardware={() => changeView('hardware-game')} /> : null}
+          {activeView === 'ai-assistant' && ['teacher', 'student'].includes(auth.user?.role) ? <AiAssistantPage key={auth.user.id} userId={auth.user.id} readOnly={auth.user.profile?.demoAccount===true||auth.user.profile?.readOnly===true} /> : null}
           {activeView === "demo" ? <DemoPage demoId={demoId} role={auth.user?.role} changeView={changeView} openStudyTarget={openStudyTarget} /> : null}
           {activeView === "mistakes" && auth.user?.role !== 'teacher' ? <MistakeBookPage key={auth.user?.id} navigateToChallenge={navigateToChallenge} changeView={changeView} openStudyTarget={openStudyTarget} studentName={auth.user?.displayName ?? ""} /> : null}
           {activeView === "hardware-game" ? (
@@ -1316,10 +1218,11 @@ export function App() {
   }
 
   function renderCompanion() {
+    if(activeView==='ai-assistant')return null;
     const role=auth.user?.role;
     if(role!=='student'&&(role!=='teacher'||['teacher','question-bank'].includes(activeView)||(['records','mistakes'].includes(activeView)&&teacherReviewStudent!=='mine')))return null;
     const title=activeView==='lab'?lab.currentChallenge?.title:navGroups.flatMap(group=>group.items).find(item=>item.id===activeView)?.label;
-    return <ErrorBoundary><Suspense fallback={null}><StudyCompanion key={auth.user.id} userId={auth.user.id} page={`${activeView}:${activeView==='lab'?lab.currentChallenge?.id:demoId??''}`} pageTitle={title??'课程页面'} chapterId={activeView==='lab'?lab.currentChallenge?.chapterId:studyTarget?.chapterId}/></Suspense></ErrorBoundary>;
+    return <ErrorBoundary><Suspense fallback={null}><StudyCompanion key={auth.user.id} userId={auth.user.id} readOnly={auth.user.profile?.demoAccount===true||auth.user.profile?.readOnly===true} page={`${activeView}:${activeView==='lab'?lab.currentChallenge?.id:demoId??''}`} pageTitle={title??'课程页面'} chapterId={activeView==='lab'?lab.currentChallenge?.chapterId:studyTarget?.chapterId}/></Suspense></ErrorBoundary>;
   }
 
   function renderPlatformState() {

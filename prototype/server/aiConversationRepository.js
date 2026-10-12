@@ -1,5 +1,6 @@
 import { COURSE_CHAPTERS } from '../src/courseChapters.js';
 import { knowledgePointOf } from '../src/knowledgePoints.js';
+import { matchStudyConcepts } from './studyRecommendationTopics.js';
 
 const chapterNames = new Map(COURSE_CHAPTERS.map(chapter => [chapter.id, chapter.title]));
 const patterns = [
@@ -23,8 +24,8 @@ export function conversationTopic(question, context = {}) {
 export function saveAiConversation(db, { studentId, kind, question, answer, context = {} }) {
   const { chapterId, topic } = conversationTopic(question, context);
   const result = db.prepare(`INSERT INTO ai_conversations
-    (student_id, kind, question, answer_json, answer_source, chapter_id, topic)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`).run(studentId, kind, question.trim(), JSON.stringify(answer), answer.source ?? 'local', chapterId, topic);
+    (student_id, kind, question, answer_json, answer_source, chapter_id, topic, concept_ids_json)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(studentId, kind, question.trim(), JSON.stringify(answer), answer.source ?? 'local', chapterId, topic, JSON.stringify(matchStudyConcepts(question,context)));
   return Number(result.lastInsertRowid);
 }
 

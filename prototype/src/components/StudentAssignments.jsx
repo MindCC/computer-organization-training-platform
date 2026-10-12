@@ -22,6 +22,7 @@ import { CHAPTER_CORE_POINTS, KNOWLEDGE_POINTS, knowledgePointOf } from "../know
 import { KnowledgeGraph } from "./KnowledgeGraph.jsx";
 import { StudyMascot } from './ai/StudyMascot.jsx';
 import { useCurrentStudyContext } from './ai/currentStudyContext.js';
+import { useQuestionObservation } from './learning/useQuestionObservation.js';
 import "./assignmentsPractice.css";
 import "./mistakeBook.css";
 
@@ -94,6 +95,7 @@ function ChapterPractice({ progress, userId, destination, navigateToChallenge, o
   const [store, setStore] = useState(() => loadPracticeStore(userId));
   const storeRef = useRef(store);
   const submissionRef = useRef(null);
+  const observationClocks = useRef(new Map());
   const [ready, setReady] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -157,15 +159,16 @@ function ChapterPractice({ progress, userId, destination, navigateToChallenge, o
     if (!ready || submitting) return;
     const answers = Object.fromEntries(visibleQuestions.map(q => [q.id,store.answers[q.id] ?? ""]));
     const signature = JSON.stringify({chapterId,answers});
-    if (submissionRef.current?.signature !== signature) submissionRef.current = {signature,id:crypto.randomUUID()};
+    if (submissionRef.current?.signature !== signature) submissionRef.current = {signature,id:crypto.randomUUID(),observations:Object.fromEntries(visibleQuestions.filter(q=>observationClocks.current.has(q.id)).map(q=>[q.id,observationClocks.current.get(q.id).snapshot()]))};
     setSubmitting(true); setError("");
     try {
-      const response = await api.submitChapterPractice({chapterId,answers,clientSubmissionId:submissionRef.current.id});
+      const response = await api.submitChapterPractice({chapterId,answers,clientSubmissionId:submissionRef.current.id,observations:submissionRef.current.observations});
       const current = storeRef.current, dirty = {...current.dirty}, graded = {...current.graded};
       for (const [id,result] of Object.entries(response.results)) {
         if (current.answers[id] === answers[id] || (!current.answers[id] && !answers[id])) { graded[id] = result; delete dirty[id]; }
       }
       patchStore({...current,graded,dirty});
+      for(const q of visibleQuestions)observationClocks.current.get(q.id)?.reset();
     } catch (err) { setError(`提交失败：${err.message}。答案已保留，可以重试。`); }
     finally { setSubmitting(false); }
   }
@@ -176,6 +179,7 @@ function ChapterPractice({ progress, userId, destination, navigateToChallenge, o
     const graded = { ...store.graded };
     const dirty = {...store.dirty};
     for (const question of visibleQuestions) {
+      observationClocks.current.get(question.id)?.reset();
       delete answers[question.id];
       delete graded[question.id];
       dirty[question.id] = true;
@@ -274,6 +278,7 @@ function ChapterPractice({ progress, userId, destination, navigateToChallenge, o
             onAnswer={setAnswer}
             onFocusKp={focusKnowledgePoint}
             assistantEnabled={assistantEnabled}
+            observationClocks={observationClocks.current}
           />
         ))}
       </div>
@@ -307,13 +312,15 @@ function ChapterTab({ chapter, active, graded, onSelect }) {
   );
 }
 
-export function PracticeQuestion({ question, index, value, result, focusKpId, onAnswer, onFocusKp, assistantEnabled }) {
+export function PracticeQuestion({ question, index, value, result, focusKpId, onAnswer, onFocusKp, assistantEnabled, observationClocks }) {
+  const observation=useQuestionObservation(question.id,observationClocks,!result);
+  function answer(value){observation.answer();onAnswer(question.id,value);}
   const kp = knowledgePointOf(question.kpId);
   const graded = Boolean(result);
   const stateClass = graded ? (result.correct ? " is-correct" : " is-wrong") : "";
 
   return (
-    <div className={`question-card practice-question${stateClass}`} data-qid={question.id}>
+    <div ref={observation.ref} className={`question-card practice-question${stateClass}`} data-qid={question.id}>
       <div className="question-stem">
         <span className="question-num">{index + 1}.</span>
         <span>{question.stem}</span>
@@ -346,7 +353,7 @@ export function PracticeQuestion({ question, index, value, result, focusKpId, on
             type="radio"
             name={`pq-${question.id}`}
             checked={value === option}
-            onChange={() => onAnswer(question.id, option)}
+            onChange={() => answer(option)}
           />
           {option}
         </label>
@@ -360,7 +367,7 @@ export function PracticeQuestion({ question, index, value, result, focusKpId, on
                 type="radio"
                 name={`pq-${question.id}`}
                 checked={value === option.v}
-                onChange={() => onAnswer(question.id, option.v)}
+                onChange={() => answer(option.v)}
               />
               {option.label}
             </label>
@@ -373,7 +380,7 @@ export function PracticeQuestion({ question, index, value, result, focusKpId, on
           className="practice-fill-input"
           placeholder="输入你的答案"
           value={value}
-          onChange={(event) => onAnswer(question.id, event.target.value)}
+          onChange={(event) => answer(event.target.value)}
         />
       ) : null}
 

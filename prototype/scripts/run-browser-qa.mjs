@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const allowedVerifiers = new Set([
+  'scripts/verify-primary-navigation.mjs',
   'scripts/verify-first-load.mjs',
   'scripts/verify-navigation-practice.mjs',
   'scripts/verify-teacher-homework.mjs',

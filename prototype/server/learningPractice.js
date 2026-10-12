@@ -8,6 +8,7 @@ import { serviceMistakes } from './shopServiceRoutes.js';
 import { photoMistakeItems } from './photoMistakes.js';
 import { HOSTED_DEMOS } from '../src/shared/demoNavigation.js';
 import { createHash } from 'node:crypto';
+import { normalizeQuestionObservation } from './questionObservation.js';
 
 const parse = (value, fallback = {}) => { try { return JSON.parse(value); } catch { return fallback; } };
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), {status}); };
@@ -68,14 +69,19 @@ export function createLearningPracticeRouter({db, requireRole, role = 'student'}
         results[key] = gradeQuestion(question, normalized[key]);
       }
       const json = JSON.stringify(normalized);
+      const observations = {};
+      if(req.body.observations !== undefined) {
+        if(!req.body.observations || typeof req.body.observations !== 'object' || Array.isArray(req.body.observations) || Object.keys(req.body.observations).some(key=>!keys.includes(key))) fail('活动记录需对应本次提交的题目');
+        for(const key of keys) {const observation=normalizeQuestionObservation(req.body.observations[key]);if(observation)observations[key]=observation;}
+      }
       const previous = db.prepare("SELECT * FROM chapter_practice_attempts WHERE student_id = ? AND client_submission_id = ?").get(req.user.id, id);
       if (previous) {
-        if (previous.chapter_id !== chapterId || previous.answers_json !== json) fail("同一次提交的答案不能更改", 409);
+        if (previous.chapter_id !== chapterId || previous.answers_json !== json || previous.observations_json !== JSON.stringify(observations)) fail("同一次提交的答案和活动记录不能更改", 409);
         return res.json({answers:normalized,results:parse(previous.results_json),createdAt:previous.created_at});
       }
       const createdAt = new Date().toISOString();
-      db.prepare("INSERT INTO chapter_practice_attempts (student_id,chapter_id,client_submission_id,answers_json,results_json,created_at) VALUES (?,?,?,?,?,?)")
-        .run(req.user.id, chapterId, id, json, JSON.stringify(results), createdAt);
+      db.prepare("INSERT INTO chapter_practice_attempts (student_id,chapter_id,client_submission_id,answers_json,results_json,created_at,observations_json) VALUES (?,?,?,?,?,?,?)")
+        .run(req.user.id, chapterId, id, json, JSON.stringify(results), createdAt,JSON.stringify(observations));
       res.status(201).json({answers:normalized,results,createdAt});
     } catch (error) { next(error); }
   });
