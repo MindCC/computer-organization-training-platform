@@ -66,9 +66,14 @@ export async function ensureDemoAccounts(db) {
       if (row.teacher_id === owner.id) grantClassAccess(db, row.id, teacher.id);
     }
   }
-  // 反向也要通：演示班（含演示学生与既往成绩）同样授权给正式教师，
+  // 反向也要通：演示教师名下的**每一个**演示班（含演示学生与既往成绩）同样授权给正式教师，
   // 这样正式账号里也能看到这份演示数据，且不改变属主、不复制数据。
-  for (const owner of formalTeachers) grantClassAccess(db, classroom.id, owner.id);
+  // 必须遍历全部演示班而不是只处理 classroom：新增的演示班（如「计算机组成原理2班」）
+  // 也要在服务启动时自动获得同一组授权。
+  const demoClasses = db.prepare('SELECT id FROM classes WHERE teacher_id = ?').all(teacher.id);
+  for (const owner of formalTeachers) {
+    for (const row of demoClasses) grantClassAccess(db, row.id, owner.id);
+  }
   // Only remove classmates from the retired synthetic seed. Keep intentionally
   // provisioned student accounts in this shared teaching class across logins.
   const members = db.prepare(`SELECT u.id, u.username, u.display_name, u.profile_json

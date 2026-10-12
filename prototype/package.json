@@ -40,6 +40,7 @@
     "migrate": "node server/migrate.js",
     "seed:teacher": "node server/seedTeacher.js",
     "seed:demo": "node server/seedDemoPair.js",
+    "seed:demo2": "node server/seedDemoClassTwo.js",
     "preview:site": "node scripts/previewSite.mjs",
     "preview:site:check": "node scripts/previewSite.mjs --check",
     "qa:3d": "node scripts/run-browser-qa.mjs scripts/verify-3d.mjs",

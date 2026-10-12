@@ -38,7 +38,9 @@ export async function checkCourseScope(config, question, publicContext, answer, 
  try {
   const text=await requester(config,courseScopeMessages(question,publicContext,answer));
   const parsed=JSON.parse(text.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,''));
-  if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||Object.keys(parsed).length!==1)return 'uncertain';
-  return ['course','out_of_scope','uncertain'].includes(parsed.decision)?parsed.decision:'uncertain';
- } catch {return 'uncertain';}
+  // 返回 'unverified'（而不是 'uncertain'）表示“这次校验没有真正完成”：
+  // 不可解析、字段异常或请求异常都不能当作模型的判断，调用方必须据此扣留未经审核的回答。
+  if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||Object.keys(parsed).length!==1)return 'unverified';
+  return ['course','out_of_scope','uncertain'].includes(parsed.decision)?parsed.decision:'unverified';
+ } catch {return 'unverified';}
 }

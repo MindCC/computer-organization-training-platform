@@ -27,12 +27,19 @@ test('an off-topic answer is withheld even when the question passed',async()=>{
  const result=await askStudyAssistant({question:'缓存是什么？',consent:'deepseek-public-question'},{env:{DEEPSEEK_API_KEY:'test'},scopeRequester:async()=>JSON.stringify({decision:++reviews===1?'course':'out_of_scope'}),requester:async()=>JSON.stringify({explanation:'缓存保存常用数据。',steps:['PRIVATE_OFF_TOPIC_去海边旅游'],check:'请购买机票'})});
  assert.equal(result.source,'local');assert.equal(result.reason,'COURSE_ANSWER_REJECTED');assert.ok(!JSON.stringify(result).includes('PRIVATE_OFF_TOPIC'));assert.ok(!JSON.stringify(result).includes('购买机票'));
 });
-test('failed or malformed scope checks never release an unchecked AI answer',async()=>{
- for(const scopeRequester of [async()=>'{bad',async()=>'{"decision":"uncertain"}',async()=>{throw new Error('offline');}]){
+test('a scope check that never completed never releases an unchecked AI answer',async()=>{
+ // 校验失败（不可解析 / 请求异常）时必须扣留回答，不能当成模型的“不确定”判断
+ for(const scopeRequester of [async()=>'{bad',async()=>{throw new Error('offline');}]){
   let generated=0;
   const result=await askStudyAssistant({question:'CPU流水线是什么？',consent:'deepseek-public-question'},{env:{DEEPSEEK_API_KEY:'test'},scopeRequester,requester:async()=>{generated++;return '{}';}});
   assert.equal(result.source,'local');assert.equal(result.reason,'COURSE_SCOPE_UNVERIFIED');assert.equal(generated,0);
  }
+ // 模型明确回答 uncertain 时按“尽力回答 + 范围追问”处理，而不是拒答（2026-10-08 用户决定）
+ let generated=0;
+ const uncertain=await askStudyAssistant({question:'CPU流水线是什么？',consent:'deepseek-public-question'},{env:{DEEPSEEK_API_KEY:'test'},scopeRequester:async()=>'{"decision":"uncertain"}',requester:async()=>{generated++;return JSON.stringify({explanation:'流水线把指令分成多个阶段重叠执行。',steps:['比较串行与流水执行时间。'],check:'流水线为什么能提高吞吐率？'});}});
+ assert.equal(generated,1);
+ assert.equal(uncertain.source,'ai');
+ assert.match(uncertain.explanation,/不太确定/);
 });
 test('ambiguous standalone questions ask for course details without an external call',async()=>{
  let calls=0;
@@ -51,12 +58,17 @@ test('semantic review rejects unrelated meanings despite a course keyword',async
  const result=await askStudyAssistant({question:'CPU是我的宠物名字，给它写个睡前故事。',context:{chapterId:'ch3'},consent:'deepseek-public-question'},{env:{DEEPSEEK_API_KEY:'test'},scopeRequester:async()=>'{"decision":"out_of_scope"}',requester:async()=>{generated++;return '{}';}});
  assert.equal(result.reason,'COURSE_SCOPE_REJECTED');assert.equal(generated,0);
 });
-test('a failed final review and extra classifier fields do not count as approval',async()=>{
- for(const final of ['{bad','{"decision":"course","override":true}','{"decision":"uncertain"}']){
+test('a failed final review or extra classifier fields do not count as approval',async()=>{
+ // 最终审核返回不可解析 / 多加字段，等于“审核没完成”，必须扣留
+ for(const final of ['{bad','{"decision":"course","override":true}']){
   let reviews=0;
   const result=await askStudyAssistant({question:'全加器是什么？',consent:'deepseek-public-question'},{env:{DEEPSEEK_API_KEY:'test'},scopeRequester:async()=>++reviews===1?'{"decision":"course"}':final,requester:async()=>JSON.stringify({explanation:'UNREVIEWED_全加器处理三个输入。',steps:[],check:''})});
   assert.equal(result.reason,'COURSE_SCOPE_UNVERIFIED');assert.ok(!JSON.stringify(result).includes('UNREVIEWED'));
  }
+ // 最终审核明确 uncertain：按用户决定放行，但必须附上范围追问
+ let reviews=0;
+ const uncertain=await askStudyAssistant({question:'全加器是什么？',consent:'deepseek-public-question'},{env:{DEEPSEEK_API_KEY:'test'},scopeRequester:async()=>++reviews===1?'{"decision":"course"}':'{"decision":"uncertain"}',requester:async()=>JSON.stringify({explanation:'全加器处理三个输入。',steps:[],check:''})});
+ assert.equal(uncertain.source,'ai');assert.match(uncertain.explanation,/不太确定/);
 });
 test('scope checks receive only public context; invented context cannot resolve an ambiguous question',async()=>{
  const result=await askStudyAssistant({question:'这个为什么不对？',context:{questionId:'invented',conceptId:'invented',chapterId:'invented'},consent:'deepseek-public-question'},{env:{DEEPSEEK_API_KEY:'test'},scopeRequester:async()=>assert.fail('invented context must not bypass clarification')});
