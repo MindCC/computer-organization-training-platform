@@ -49,6 +49,18 @@ export async function ensureDemoAccounts(db) {
   const legacy = getUserByUsername(db, 'demo2026001');
   const isLegacyDemo = legacy?.role === 'student' && legacy.status === 'active' && legacy.display_name === '演示学生1' && sanitizeUser(legacy).profile?.seeded === true;
   const student = isLegacyDemo ? legacy : await dedicated('demo-student', 'student', '演示学生');
+  // 演示学生必须是**可操作**的：只读闸门会让「接受任务 / 提交练习 / 交作业」全部 403，
+  // 演示课上就点不动任何东西。只读保护只保留给演示教师（它看到的是真实教师的班级数据）。
+  // 这里同时清掉 demoAccount（闸门依据）与 readOnly（语义标记），并对历史账号自愈。
+  {
+    const studentProfile = sanitizeUser(student).profile ?? {};
+    if (studentProfile.demoAccount !== undefined || studentProfile.readOnly !== undefined) {
+      updateUserProfile(db, student.id, {
+        displayName: student.display_name,
+        profile: { ...studentProfile, demoAccount: undefined, readOnly: undefined },
+      });
+    }
+  }
   const className = '计算机组成原理1班';
   let classroom = db.prepare('SELECT * FROM classes WHERE teacher_id = ? AND name = ?').get(teacher.id, className);
   if (!classroom) {

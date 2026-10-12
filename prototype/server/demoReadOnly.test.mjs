@@ -5,6 +5,8 @@ import { createApp } from './app.js';
 import { hashPassword } from './auth.js';
 import { createClass, createUser, getUserByUsername, migrate, openDatabase, recordStudentAttempt } from './db.js';
 import { isDemoAccount } from './demoAccounts.js';
+import { createClassroomSessionService } from './classroomSessionService.js';
+import { createClassroomSessionRepository } from './classroomSessionRepository.js';
 
 async function fixture(options = {}) {
   const db = openDatabase(':memory:'); migrate(db);
@@ -47,16 +49,13 @@ test('demo accounts are read-only: browsing allowed, every write rejected and au
     assert.equal((await f.request('/api/student/progress', undefined, studentJar, 'GET')).status, 200);
     assert.equal((await f.request('/api/auth/me', undefined, studentJar, 'GET')).status, 200);
 
-    // 写操作全部被服务器拒绝，并给出明确的只读口径
+    // 演示教师是只读身份：写操作全部被服务器拒绝，并给出明确的只读口径
     const writes = [
       await f.request('/api/classes', { name: '演示新班' }, teacherJar),
       await f.request(`/api/teacher/classes/${classId}/assignments`, { title: '演示作业' }, teacherJar),
       await f.request('/api/teacher/task-library', { templateKey: 'task-chain', durationMinutes: 30, passScore: 80, taskChain: { title: 'x', stages: [{ id: 'a', type: 'custom', title: 't', instructions: '', submissionMode: 'confirm' }] } }, teacherJar),
       await f.request('/api/auth/change-password', { currentPassword: 'x', nextPassword: 'NewPass123!' }, teacherJar),
       await f.request('/api/auth/settings', { displayName: '改名' }, teacherJar),
-      await f.request('/api/student/attempts', { challengeId: 'machine-number', passed: true, score: 100, clientSubmissionId: 'demo-readonly-001' }, studentJar),
-      await f.request('/api/student/notes', { title: 't', content: 'c', tag: 'x' }, studentJar),
-      await f.request('/api/feedback', { message: '试用反馈' }, studentJar),
     ];
     for (const result of writes) {
       assert.equal(result.status, 403, JSON.stringify(result.body));
@@ -71,6 +70,42 @@ test('demo accounts are read-only: browsing allowed, every write rejected and au
 
     // 退出登录仍然可用
     assert.equal((await f.request('/api/auth/logout', {}, studentJar)).status, 200);
+  } finally { await f.close(); }
+});
+
+test('演示学生可操作（能接受课堂任务、提交练习），演示教师仍然只读', async () => {
+  const f = await fixture();
+  try {
+    const teacherJar = {}, studentJar = {};
+    assert.equal((await f.request('/api/auth/demo-login', { role: 'teacher' }, teacherJar)).status, 200);
+    assert.equal((await f.request('/api/auth/demo-login', { role: 'student' }, studentJar)).status, 200);
+
+    // 演示学生不再带只读闸门依据的标记；演示教师仍受闸门保护
+    assert.equal(isDemoAccount(getUserByUsername(f.db, 'demo-student')), false, '演示学生不应再被当作只读演示账号');
+    assert.equal(isDemoAccount(getUserByUsername(f.db, 'demo-teacher')), true, '演示教师必须仍是只读身份');
+
+    // 演示班的课堂由服务层直接开启（演示教师只读，开不了课）
+    const demoClass = getUserByUsername(f.db, 'demo-teacher')
+      ? f.db.prepare("SELECT id FROM classes WHERE teacher_id = (SELECT id FROM users WHERE username = 'demo-teacher') AND name = '计算机组成原理1班'").get()
+      : null;
+    assert.ok(demoClass, '演示班应存在');
+    const sessions = createClassroomSessionService({ db: f.db, repository: createClassroomSessionRepository(f.db) });
+    const session = sessions.createDraft({
+      teacherId: getUserByUsername(f.db, 'demo-teacher').id, classId: demoClass.id,
+      config: { templateKey: 'task-chain', durationMinutes: 45, passScore: 80, taskChain: { title: '演示课堂', stages: [{ id: 's1', type: 'ai', title: '问小芯', chapterId: 'ch2' }] } },
+    });
+    sessions.start({ teacherId: getUserByUsername(f.db, 'demo-teacher').id, sessionId: session.id });
+
+    const current = await f.request('/api/student/classroom/current', undefined, studentJar, 'GET');
+    assert.equal(current.status, 200, '演示学生应能查询当前课堂');
+    assert.equal(current.body?.session?.id, session.id);
+    const enter = await f.request(`/api/student/classroom/${session.id}/enter`, {}, studentJar);
+    assert.notEqual(enter.status, 403, `演示学生应能接受任务，实际 ${enter.status} ${JSON.stringify(enter.body)}`);
+    assert.equal(enter.status, 200, JSON.stringify(enter.body));
+
+    // 练习提交也不再被只读闸门拦（判分结果由业务规则决定，这里只要求不是只读拒绝）
+    const attempt = await f.request('/api/student/attempts', { challengeId: 'machine-number', passed: true, score: 100, clientSubmissionId: 'demo-writable-001' }, studentJar);
+    assert.notEqual(attempt.body?.error?.code, 'DEMO_READ_ONLY', '演示学生的练习提交不应再被只读闸门拒绝');
   } finally { await f.close(); }
 });
 
