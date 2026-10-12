@@ -89,6 +89,11 @@ test("演示2班：创建班级与学生，并写入非零学情", async () => {
     assert.ok(answerScores.length > 0, "应有逐题作答记录");
     assert.ok(answerScores.some((row) => Number(row.score) > 0), "逐题得分不能全是 0");
     assert.ok(answerScores.every((row) => row.score >= 0 && row.score <= row.maxScore), "逐题得分不能超过题目满分");
+    // 至少要有一条带教师评语的提交，教师端才有真实反馈可看
+    assert.ok(
+      db.prepare("SELECT COUNT(*) n FROM student_submissions WHERE assignment_id = ? AND feedback <> ''").get(assignment.id).n > 0,
+      "应有带教师评语的提交",
+    );
     // 已判分提交的总分必须等于逐题得分之和
     for (const row of submissions.filter((item) => item.status === "graded")) {
       const sum = db.prepare("SELECT COALESCE(SUM(score),0) n FROM submission_answers WHERE submission_id = ?").get(row.id).n;

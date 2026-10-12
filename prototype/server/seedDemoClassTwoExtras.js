@@ -332,19 +332,15 @@ export async function seedAssignments({ db, classId, studentRows, teacherPasswor
       summary.submitted += 1;
       if (submitted.data?.submission?.status === "graded") summary.graded += 1;
 
-      // 一部分提交补上教师反馈，让教师端有真实评语可看
+      // 一部分提交补上教师评语，让教师端有真实反馈可看。
+      // 客观题在 submit 时已自动判分（直接进入 graded），而手动判分接口只接受 submitted 状态，
+      // 所以这里直接写仓储层，只更新评语、保留原有得分。
       if (mode === "graded" && index % 6 === 0) {
-        const submissions = await request(`/api/teacher/assignments/${assignmentId}/submissions`);
-        const target = (submissions.data?.submissions ?? []).find((row) => row.student_id === student.id);
-        if (target) {
-          const scores = (target.answers ?? []).map((answer) => ({ questionId: answer.questionId, score: Number(answer.score ?? 0) }));
-          if (scores.length) {
-            const graded = await request(`/api/teacher/submissions/${target.id}/grade`, {
-              method: "POST",
-              body: { questionScores: scores, feedback: "注意补码与反码的转换步骤；错题请对照解析重做一遍，下次课抽查。" },
-            });
-            if (graded.status === 200) summary.feedback += 1;
-          }
+        const row = db.prepare("SELECT ss.id, ss.total_score, u.display_name FROM student_submissions ss JOIN users u ON u.id = ss.student_id WHERE ss.assignment_id = ? AND ss.student_id = ?").get(assignmentId, student.id);
+        if (row) {
+          db.prepare("UPDATE student_submissions SET feedback = ?, graded_at = COALESCE(graded_at, CURRENT_TIMESTAMP), updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+            .run("注意补码与反码的转换步骤；错题请对照解析重做一遍，下次课抽查。", row.id);
+          summary.feedback += 1;
         }
       }
     }
