@@ -82,10 +82,12 @@ test("演示2班：创建班级与学生，并写入非零学情", async () => {
     const submissions = db.prepare("SELECT id, status, total_score FROM student_submissions ss WHERE ss.assignment_id = ?").all(assignment.id);
     assert.ok(submissions.length > 0, "应有学生提交");
     assert.ok(submissions.some((row) => row.status === "graded"), "应有已判分的提交");
+    assert.ok(submissions.some((row) => Number(row.total_score) > 0), "提交分数不能全是 0（答案字段名写错会全部落成空串）");
     const answerScores = db.prepare(`SELECT sa.score, q.score AS maxScore FROM submission_answers sa
       JOIN student_submissions ss ON ss.id = sa.submission_id
       JOIN assignment_questions q ON q.id = sa.question_id WHERE ss.assignment_id = ?`).all(assignment.id);
     assert.ok(answerScores.length > 0, "应有逐题作答记录");
+    assert.ok(answerScores.some((row) => Number(row.score) > 0), "逐题得分不能全是 0");
     assert.ok(answerScores.every((row) => row.score >= 0 && row.score <= row.maxScore), "逐题得分不能超过题目满分");
     // 已判分提交的总分必须等于逐题得分之和
     for (const row of submissions.filter((item) => item.status === "graded")) {
@@ -132,6 +134,8 @@ test("演示2班：重复执行幂等，不重复建班也不叠加学情", asyn
     const attempts = db.prepare(`SELECT COUNT(*) n FROM challenge_attempts a
       JOIN class_members m ON m.student_id = a.student_id WHERE m.class_id = ?`).get(first.classId).n;
     assert.equal(attempts, first.attemptsCreated);
+    // 作业也不能累积：重跑后本班只能有一份作业
+    assert.equal(db.prepare("SELECT COUNT(*) n FROM assignments WHERE class_id = ?").get(first.classId).n, 1, "重跑不应重复创建作业");
     db.close();
   });
 });

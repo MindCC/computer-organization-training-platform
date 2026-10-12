@@ -252,6 +252,9 @@ export function seedAiConversations(db, studentRows, rand) {
  * 这样作业状态、总分、逐题得分、教师反馈都符合业务规则。
  */
 export async function seedAssignments({ db, classId, studentRows, teacherPassword = "Demo123!", studentPassword = "Student123!" }) {
+  // 幂等：先删掉本班此前播种的作业（题目/提交/作答随外键级联删除），避免每次重跑都多出一份
+  const removed = db.prepare("DELETE FROM assignments WHERE class_id = ?").run(classId).changes;
+
   const app = createApp({ db, serveStatic: false, logger: () => {}, assistantOptions: { env: {} } });
   const server = app.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
@@ -273,7 +276,7 @@ export async function seedAssignments({ db, classId, studentRows, teacherPasswor
     return { status: response.status, data };
   }
 
-  const summary = { assignmentId: null, published: false, submitted: 0, graded: 0, skipped: 0, reasons: [] };
+  const summary = { assignmentId: null, published: false, submitted: 0, graded: 0, feedback: 0, skipped: 0, removed, reasons: [] };
   try {
     const login = await request("/api/auth/login", { method: "POST", body: { username: "demo-teacher", password: teacherPassword } });
     if (login.status !== 200) throw new Error(`演示教师登录失败（${login.status}）：${login.data?.error ?? ""}`);
@@ -314,30 +317,35 @@ export async function seedAssignments({ db, classId, studentRows, teacherPasswor
           const wrong = options.filter((option) => String(option) !== String(value));
           value = wrong[Math.floor(rand() * wrong.length)] ?? "";
         } else if (!correct) {
-          value = "记不清了";
+          // 判断题/填空的“错误答案”：给出与参考答案不同的取值
+          value = question.type === "truefalse" ? String(value) === "true" ? "false" : "true" : "记不清了";
         }
-        return { questionId: question.id, answer: value };
+        // 服务端约定的字段名是 value（不是 answer），写错会导致答案被当成空串
+        return { questionId: question.id, value: String(value) };
       });
 
       const draft = await request(`/api/student/assignments/${assignmentId}/draft`, { method: "POST", jarName, body: { answers } });
       if (draft.status !== 200 && draft.status !== 201) { summary.skipped += 1; summary.reasons.push(`draft ${student.username}=${draft.status}:${JSON.stringify(draft.data).slice(0, 120)}`); continue; }
+      // 提交接口本身就会对客观题自动判分（无简答题时直接进入 graded），分数与逐题结果由服务端算，不需要再手动判一次
       const submitted = await request(`/api/student/assignments/${assignmentId}/submit`, { method: "POST", jarName, body: { answers } });
       if (submitted.status !== 200 && submitted.status !== 201) { summary.skipped += 1; summary.reasons.push(`submit ${student.username}=${submitted.status}:${JSON.stringify(submitted.data).slice(0, 120)}`); continue; }
       summary.submitted += 1;
+      if (submitted.data?.submission?.status === "graded") summary.graded += 1;
 
-      if (mode === "graded") {
+      // 一部分提交补上教师反馈，让教师端有真实评语可看
+      if (mode === "graded" && index % 6 === 0) {
         const submissions = await request(`/api/teacher/assignments/${assignmentId}/submissions`);
         const target = (submissions.data?.submissions ?? []).find((row) => row.student_id === student.id);
-        if (!target) continue;
-        const questionScores = questions.map((question) => {
-          const studentAnswer = answers.find((answer) => answer.questionId === question.id)?.answer;
-          let reference = question.answer_json ?? "";
-          try { reference = JSON.parse(question.answer_json ?? '""'); } catch { /* 保持原样 */ }
-          const isCorrect = String(studentAnswer).trim() === String(reference).trim();
-          return { questionId: question.id, score: isCorrect ? Number(question.score ?? 10) : 0 };
-        });
-        const graded = await request(`/api/teacher/submissions/${target.id}/grade`, { method: "POST", body: { questionScores, feedback: "注意补码与反码的转换步骤，错题请对照解析重做一遍。" } });
-        if (graded.status === 200) summary.graded += 1;
+        if (target) {
+          const scores = (target.answers ?? []).map((answer) => ({ questionId: answer.questionId, score: Number(answer.score ?? 0) }));
+          if (scores.length) {
+            const graded = await request(`/api/teacher/submissions/${target.id}/grade`, {
+              method: "POST",
+              body: { questionScores: scores, feedback: "注意补码与反码的转换步骤；错题请对照解析重做一遍，下次课抽查。" },
+            });
+            if (graded.status === 200) summary.feedback += 1;
+          }
+        }
       }
     }
   } finally {
