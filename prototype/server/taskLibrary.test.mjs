@@ -166,6 +166,50 @@ test('existing classrooms become reusable library copies; deleting a copy never 
   }finally{c.db.close();}
 });
 
+test('deleting a task withdraws its published classroom so students and the class move on',()=>{
+  const c=setup();try{
+    const task=c.library.create(c.teacher.id,c.config);
+    const {session}=c.library.publish(c.teacher.id,task.id,{classId:c.cls.id,revision:1,clientSubmissionId:'withdraw-publish-001'});
+    c.service.enterStudent({studentId:c.student.id,sessionId:session.id});
+    c.service.completeStage({studentId:c.student.id,sessionId:session.id,payload:{stageId:'discussion',evidence:{text:'负数用补码表示，符号位一起参加运算。'},clientSubmissionId:'withdraw-submit-001'}});
+    assert.equal(c.service.getStudentCurrent({studentId:c.student.id}).session.status,'live');
+    const removed=c.library.remove(c.teacher.id,task.id,1);
+    assert.deepEqual(removed.endedSessions,[{id:session.id,title:'讨论任务'}]);
+    const current=c.service.getStudentCurrent({studentId:c.student.id});
+    assert.equal(current.session.status,'ended','学生端不能再把已删除的任务当成当前任务');
+    assert.equal(current.studentState.status,'completed','学生学习记录原样保留');
+    assert.equal(c.service.getReport({teacherId:c.teacher.id,sessionId:session.id}).studentReports[0].completedStages,1,'删除时冻结课堂报告，记录仍可回看');
+    assert.equal(c.library.list(c.teacher.id).length,0);
+    const next=c.library.create(c.teacher.id,{...c.config,taskChain:{...c.config.taskChain,title:'后续任务'}});
+    assert.equal(c.library.publish(c.teacher.id,next.id,{classId:c.cls.id,revision:1,clientSubmissionId:'withdraw-publish-002'}).session.status,'live','删除后同一班级还能发布新任务');
+  }finally{c.db.close();}
+});
+
+test('deleting an imported library copy never ends the classroom it was copied from',()=>{
+  const c=setup();try{
+    const draft=c.service.createDraft({teacherId:c.teacher.id,classId:c.cls.id,config:c.config});
+    c.service.start({teacherId:c.teacher.id,sessionId:draft.id});
+    const [task]=c.library.list(c.teacher.id);
+    assert.equal(task.imported,true);
+    assert.deepEqual(c.library.remove(c.teacher.id,task.id,1).endedSessions,[],'库中副本与真实课堂相互独立');
+    assert.equal(c.service.getTeacherOverview({teacherId:c.teacher.id,sessionId:draft.id}).session.status,'live');
+  }finally{c.db.close();}
+});
+
+test('live classrooms left behind by already-deleted tasks are withdrawn before the next publication',()=>{
+  const c=setup();try{
+    const task=c.library.create(c.teacher.id,c.config);
+    const {session}=c.library.publish(c.teacher.id,task.id,{classId:c.cls.id,revision:1,clientSubmissionId:'orphan-publish-001'});
+    // 模拟修复前的历史数据：任务已删除，课堂仍留在进行中。
+    c.db.prepare("UPDATE teacher_task_library SET deleted_at=CURRENT_TIMESTAMP WHERE id=?").run(task.id);
+    c.db.prepare("UPDATE classroom_sessions SET status='live' WHERE id=?").run(session.id);
+    const next=c.library.create(c.teacher.id,{...c.config,taskChain:{...c.config.taskChain,title:'新任务'}});
+    const published=c.library.publish(c.teacher.id,next.id,{classId:c.cls.id,revision:1,clientSubmissionId:'orphan-publish-002'});
+    assert.equal(published.session.status,'live');
+    assert.equal(c.db.prepare('SELECT status FROM classroom_sessions WHERE id=?').get(session.id).status,'ended','遗留课堂被结束，不再挡住发布');
+  }finally{c.db.close();}
+});
+
 test('learning drilldown preserves the selected historical classroom and separates changed node definitions',()=>{
   const c=setup();try{
     const task=c.library.create(c.teacher.id,c.config);

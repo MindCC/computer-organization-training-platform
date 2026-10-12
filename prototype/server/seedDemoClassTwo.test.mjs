@@ -1,9 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rmSync } from "node:fs";
-import { getStudentProgress, migrate, openDatabase, createUser } from "./db.js";
+import { getStudentProgress, getUserByUsername, migrate, openDatabase, createUser } from "./db.js";
 import { seedDemoClassTwo } from "./seedDemoClassTwo.js";
 import { ensureDemoAccounts } from "./demoAccounts.js";
+import { verifyPassword } from "./auth.js";
 
 /** 独立临时文件库：不碰开发库，也不与其它测试共享状态。 */
 async function withTempDatabase(tag, run) {
@@ -56,6 +57,49 @@ test("演示2班：创建班级与学生，并写入非零学情", async () => {
     const granted = db.prepare("SELECT 1 FROM class_teacher_access WHERE class_id = ? AND teacher_id = ?").get(classRow.id, formal.id);
     assert.ok(granted, "正式教师应被授权看到演示2班");
     assert.ok(db.prepare("SELECT 1 FROM class_teacher_access WHERE class_id = ?").get(classRow.id), "只读演示账号也要能看到正式班级");
+
+    // —— 学情扩展：演示练习 / 章节练习 / 小芯答疑 / 教师作业都不能是空的 ——
+    const memberIds = db.prepare("SELECT student_id FROM class_members WHERE class_id = ?").all(classRow.id).map((row) => row.student_id);
+    const marks = memberIds.map(() => "?").join(",");
+    const demoAttempts = db.prepare(`SELECT score, total, correct, questions_json FROM demo_attempts WHERE student_id IN (${marks})`).all(...memberIds);
+    assert.ok(demoAttempts.length > 0, "应有互动演示练习记录");
+    assert.ok(demoAttempts.every((row) => row.questions_json.includes("demo2-seed")), "演示记录应带播种标记，便于幂等清理");
+    assert.ok(demoAttempts.some((row) => row.score > 0), "演示练习分数不能全是 0");
+    assert.ok(demoAttempts.every((row) => row.correct <= row.total), "答对数不能超过总分");
+
+    const practice = db.prepare(`SELECT chapter_id, results_json FROM chapter_practice_attempts WHERE student_id IN (${marks})`).all(...memberIds);
+    assert.ok(practice.length > 0, "应有章节练习记录");
+    assert.ok(practice.every((row) => Object.keys(JSON.parse(row.results_json)).length > 0), "章节练习必须有逐题判分结果");
+
+    const asks = db.prepare(`SELECT question, answer_source, chapter_id FROM ai_conversations WHERE student_id IN (${marks})`).all(...memberIds);
+    assert.ok(asks.length > 0, "应有小芯答疑记录");
+    assert.ok(asks.every((row) => row.chapter_id), "每条答疑都应归到章节");
+    assert.ok(asks.some((row) => row.answer_source === "ai"), "应有 AI 来源的回答");
+
+    const assignment = db.prepare("SELECT * FROM assignments WHERE class_id = ?").get(classRow.id);
+    assert.ok(assignment, "应有一个演示作业");
+    assert.equal(assignment.status, "published", "作业必须已发布");
+    const submissions = db.prepare("SELECT id, status, total_score FROM student_submissions ss WHERE ss.assignment_id = ?").all(assignment.id);
+    assert.ok(submissions.length > 0, "应有学生提交");
+    assert.ok(submissions.some((row) => row.status === "graded"), "应有已判分的提交");
+    const answerScores = db.prepare(`SELECT sa.score, q.score AS maxScore FROM submission_answers sa
+      JOIN student_submissions ss ON ss.id = sa.submission_id
+      JOIN assignment_questions q ON q.id = sa.question_id WHERE ss.assignment_id = ?`).all(assignment.id);
+    assert.ok(answerScores.length > 0, "应有逐题作答记录");
+    assert.ok(answerScores.every((row) => row.score >= 0 && row.score <= row.maxScore), "逐题得分不能超过题目满分");
+    // 已判分提交的总分必须等于逐题得分之和
+    for (const row of submissions.filter((item) => item.status === "graded")) {
+      const sum = db.prepare("SELECT COALESCE(SUM(score),0) n FROM submission_answers WHERE submission_id = ?").get(row.id).n;
+      assert.equal(row.total_score, sum, `提交 #${row.id} 的总分应等于逐题得分之和`);
+    }
+    // 演示学生必须是可写的（不能带触发只读闸门的 demoAccount 标记），否则交不了作业
+    const studentProfile = db.prepare("SELECT profile_json FROM users WHERE username = 'demo2-001'").get();
+    assert.equal(JSON.parse(studentProfile.profile_json).demoAccount, undefined, "演示学生不应带只读标记");
+    // 演示教师仍是只读，且固定口令可用（全新库也必须写入口令）
+    const teacherRow = getUserByUsername(db, "demo-teacher");
+    assert.equal(JSON.parse(teacherRow.profile_json).readOnly, true, "演示教师必须保持只读");
+    assert.equal(await verifyPassword("Demo123!", teacherRow.password_hash), true, "全新库也必须能写入演示固定口令");
+
     db.close();
 
     // 启动自愈：模拟“教师后来才建好”“又新增了一个演示班”时，重启服务即可补上授权

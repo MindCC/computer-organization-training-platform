@@ -7,12 +7,22 @@ import {
   grantClassAccess,
   migrate,
   openDatabase,
+  recordDemoAttempt,
   recordStudentAttempt,
   resetStudentProgress,
   resolveDatabasePath,
+  sanitizeUser,
+  updateUserProfile,
 } from "./db.js";
 import { CHALLENGES } from "../src/platformLogic.js";
 import { HARDWARE_GAME_CASES } from "../src/hardwareGame.js";
+import {
+  clearSeededExtras,
+  seedAiConversations,
+  seedAssignments,
+  seedChapterPractice,
+  seedDemoAttempts,
+} from "./seedDemoClassTwoExtras.js";
 
 const DEMO_TEACHER_USERNAME = "demo-teacher";
 const DEMO_TEACHER_PASSWORD = "Demo123!";
@@ -55,11 +65,13 @@ function pickWeighted(items, rand) {
  *
  * 设计约束：
  * - 幂等：重复执行得到同一份整洁学情（先 reset 再播种），不会叠加。
- * - 只创建 @example.invalid 域名的合成演示账号，不碰真实学生；账号前缀 demo2- 与学号不冲突。
+ * - 只创建合成演示账号，不碰真实学生；账号前缀 demo2- 与真实学号不冲突。
+ * - 学生**不带** `profile.demoAccount` 标记：那个标记会触发服务端只读闸门，
+ *   学生就无法提交作业与练习了。演示班的演示数据由本脚本直接播种。
  * - passed 的分数不低于 80、failed 的分数低于 80，避免出现“已通过却 30 分”的自相矛盾数据。
  * - 演示班与演示1班一样归 demo-teacher 所有，这样一键演示仍然看到演示数据。
  */
-export async function seedDemoClassTwo({ databasePath, students = DEMO2_STUDENT_COUNT, demoAccounts = null } = {}) {
+export async function seedDemoClassTwo({ databasePath, students = DEMO2_STUDENT_COUNT, demoAccounts = null, seedHomework = true } = {}) {
   const resolved = resolveDatabasePath(databasePath);
   const db = openDatabase(resolved);
   migrate(db);
@@ -72,7 +84,7 @@ export async function seedDemoClassTwo({ databasePath, students = DEMO2_STUDENT_
       displayName: "演示教师",
       role: "teacher",
       passwordHash: await hashPassword(DEMO_TEACHER_PASSWORD),
-      profile: { demoAccount: true, seeded: true, mode: "适中提示模式" },
+      profile: { demoAccount: true, readOnly: true, seeded: true, mode: "适中提示模式" },
     });
   }
 
@@ -98,9 +110,15 @@ export async function seedDemoClassTwo({ databasePath, students = DEMO2_STUDENT_
         displayName: `演示2班学生${String(i).padStart(2, "0")}`,
         role: "student",
         passwordHash,
-        profile: { seeded: true, demoAccount: true, mustChangePassword: false, mode: "适中提示模式" },
+        profile: { seeded: true, mustChangePassword: false, mode: "适中提示模式" },
       });
       studentsCreated += 1;
+    } else if (sanitizeUser(user).profile?.demoAccount === true) {
+      // 早期版本给演示学生也打上了只读标记，会导致他们无法提交作业/练习；这里自愈修正。
+      updateUserProfile(db, user.id, {
+        displayName: user.display_name,
+        profile: { ...sanitizeUser(user).profile, demoAccount: undefined },
+      });
     }
     addStudentToClass(db, classRow.id, user.id);
     studentRows.push(user);
@@ -157,6 +175,33 @@ export async function seedDemoClassTwo({ databasePath, students = DEMO2_STUDENT_
   }
   if (demoAccounts) await demoAccounts(db);
 
+  // 6) 学情扩展：互动演示练习、章节练习、小芯答疑、知识库实验进度、教师作业。
+  //    先清掉上次播种的扩展数据（幂等），真实记录不动。
+  const studentIds = studentRows.map((student) => student.id);
+  const cleared = clearSeededExtras(db, studentIds);
+  const extrasRand = seededRandom(20261013);
+  const demoAttempts = seedDemoAttempts(db, studentRows, extrasRand);
+  const practiceAttempts = seedChapterPractice(db, studentRows, extrasRand);
+  const conversations = seedAiConversations(db, studentRows, extrasRand);
+  // 作业必须走真实接口，而接口受“演示账号只读闸门”保护（闸门依据 profile.demoAccount）。
+  // 播种期间临时摘掉演示标记 + 只读标记，结束后**立即原样恢复**，
+  // 使演示账号在整个生命周期内始终是只读身份。
+  let assignment = { assignmentId: null, published: false, submitted: 0, graded: 0, skipped: 0, disabled: !seedHomework };
+  if (seedHomework) {
+    const before = sanitizeUser(demoTeacher).profile ?? {};
+    // 注意：updateUserProfile 会与数据库中的现有 profile 合并，
+    // 因此必须显式把这两个键覆盖为 undefined（JSON.stringify 会丢弃），否则会被原值带回来。
+    updateUserProfile(db, demoTeacher.id, {
+      displayName: demoTeacher.display_name,
+      profile: { ...before, demoAccount: undefined, readOnly: undefined },
+    });
+    try {
+      assignment = await seedAssignments({ db, classId: classRow.id, studentRows });
+    } finally {
+      updateUserProfile(db, demoTeacher.id, { displayName: demoTeacher.display_name, profile: before });
+    }
+  }
+
   const summary = db.prepare(`
     SELECT COUNT(DISTINCT cm.student_id) AS students,
            (SELECT COUNT(*) FROM challenge_attempts a JOIN class_members m ON m.student_id = a.student_id WHERE m.class_id = ?) AS attempts,
@@ -174,6 +219,13 @@ export async function seedDemoClassTwo({ databasePath, students = DEMO2_STUDENT_
     studentsCreated,
     attemptsCreated,
     distinctChallenges: summary.challenges,
+    extras: {
+      cleared,
+      demoAttempts,
+      practiceAttempts,
+      conversations,
+      assignment,
+    },
   };
 }
 

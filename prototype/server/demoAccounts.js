@@ -35,11 +35,14 @@ export async function ensureDemoAccounts(db) {
     return createUser(db, { username, role, displayName, passwordHash, profile: { demoAccount: true, mode: '适中提示模式', ...profile } });
   }
   // 演示教师 = 只能看的账号：看正式教师名下的同一份班级数据，但服务端拒绝它的一切写入。
+  const teacherExisted = Boolean(getUserByUsername(db, DEMO_TEACHER_USERNAME));
   const teacher = await dedicated(DEMO_TEACHER_USERNAME, 'teacher', '演示教师', { readOnly: true });
-  if (!isReadOnlyUser(teacher) || process.env.FORCE_REFRESH_DEMO === '1') {
-    // 老库里已有 demo-teacher（随机密码、可写）：升级为只读并给出已知口令。
-    // 口令只在这次升级时写入；之后管理员改过的密码不会再被启动流程覆盖
-    // （需要一次性重设时用 FORCE_REFRESH_DEMO=1 跑一次）。
+  // 固定口令必须写进两种情况：
+  //   a) 本次新建的账号 —— dedicated() 给的是随机口令，登录页文档里的 demo-teacher / Demo123! 会登不进去；
+  //   b) 老库里可写的 demo-teacher —— 升级为只读，并补上已知口令。
+  // 已经在用只读身份的既有账号不再改密（管理员改过的口令不会被启动流程覆盖；
+  // 需要一次性重设时用 FORCE_REFRESH_DEMO=1）。
+  if (!teacherExisted || !isReadOnlyUser(teacher) || process.env.FORCE_REFRESH_DEMO === '1') {
     updateUserProfile(db, teacher.id, { displayName: teacher.display_name, profile: { ...sanitizeUser(teacher).profile, demoAccount: true, readOnly: true } });
     updateUserPassword(db, teacher.id, await hashPassword(DEMO_TEACHER_PASSWORD));
   }

@@ -104,7 +104,39 @@ try{
   const student={};await api(student,'/api/auth/login','POST',{username:studentNo,password:'Student123!'});await api(student,`/api/student/classroom/${published.session.id}/enter`,'POST');
   for(const stage of updated.task.config.taskChain.stages){await api(student,`/api/student/classroom/${published.session.id}/complete-stage`,'POST',{stageId:stage.id,evidence:stage.submissionMode==='text'?{text:'负数用补码表示，符号位一起参加运算，进位不同于溢出。'}:{completed:true},clientSubmissionId:`flow-submit-${stage.id}`});}
   await page.getByRole('button',{name:'任务库',exact:true}).click();await card.getByRole('button',{name:'学情',exact:true}).click();const dialog=page.getByRole('dialog',{name:'补码讨论工作流（已核对） 学情'});await dialog.getByText('1 / 1 人次完成 · 100%',{exact:true}).waitFor();await dialog.getByRole('button',{name:'查看本次课堂',exact:true}).click();await dialog.locator('.task-learning-stages ol>li').first().getByRole('button',{name:'查看学生反馈',exact:true}).click();await dialog.getByRole('region',{name:'单个任务学生反馈'}).getByText(/负数用补码表示/).waitFor();await dialog.getByRole('button',{name:'关闭',exact:true}).click();
-  await card.getByRole('button',{name:'删除',exact:true}).click();await posted(page,`/api/teacher/task-library/${task.id}`,()=>page.getByRole('button',{name:'确认删除',exact:true}).click());await card.waitFor({state:'detached'});
+  // 学生视角：同一个任务发布到第二个班级后，学生首页显示「老师发布了课堂任务」；
+  // 老师删除任务时必须把这个进行中的课堂一起撤回。用一名从未进入课堂的学生验证：
+  // 已完成任务的学生首页本来就不再显示任务链，只有「进行中 → 已撤回」的状态变化才能证明学生端同步了。
+  const uiStudentNo=`ui${Date.now().toString(36)}`;
+  const {class:clsB}=await api(jar,'/api/classes','POST',{name:`任务撤回验证班 ${Date.now()}`});
+  await api(jar,`/api/teacher/classes/${clsB.id}/import-students`,'POST',{csv:`${uiStudentNo},界面学生,Student123!`});
+  const secondary=await api(jar,`/api/teacher/task-library/${task.id}/publish`,'POST',{classId:clsB.id,revision:updated.task.revision,clientSubmissionId:`flow-withdraw-${Date.now().toString(36)}`});
+  assert.equal(secondary.session.status,'live');
+  const studentContext=await browser.newContext({viewport:{width:1366,height:768}});
+  const studentPage=await studentContext.newPage();studentPage.on('pageerror',error=>errors.push(error.message));
+  await studentPage.goto(url);await fillLoginForm(studentPage,{username:uiStudentNo,password:'Student123!'});await studentPage.locator('[data-login-role="student"]').click();await studentPage.locator('.login-submit').click();
+  await studentPage.locator('.student-chain-home').waitFor({timeout:30_000});
+  await expect(studentPage.getByText('老师发布了课堂任务',{exact:true})).toBeVisible();
+  await studentPage.screenshot({path:path.join(dir,'task-withdraw-student-before.png'),fullPage:true});
+  await card.getByRole('button',{name:'删除',exact:true}).click();
+  await expect(page.getByRole('dialog',{name:'删除任务'})).toContainText('进行中课堂会立即结束');
+  await page.screenshot({path:path.join(dir,'task-library-delete-confirm.png'),fullPage:true});
+  await posted(page,`/api/teacher/task-library/${task.id}`,()=>page.getByRole('button',{name:'确认删除',exact:true}).click());await card.waitFor({state:'detached'});
+  await expect(page.getByText(/已同时结束 2 个进行中的课堂/)).toBeVisible();
   const retained=await api(jar,`/api/teacher/sessions/${published.session.id}/overview`);assert.equal(retained.session.title,'补码讨论工作流（已核对）');assert.equal(retained.students[0].status,'completed');
-  assert.deepEqual(errors,[]);console.log('PASS task library CRUD, real workflow drag, saved node positions, custom completion, publication snapshots, student feedback, desktop/mobile and zero page errors');
+  // 删除任务必须同时撤回课堂：学生端不再显示进行中的任务，该班级也能继续发布新任务。
+  assert.equal(retained.session.status,'ended','删除任务时结束其发布的进行中课堂');
+  assert.equal((await api(jar,`/api/teacher/sessions/${secondary.session.id}/overview`)).session.status,'ended','同一任务的多个发布课堂一起撤回');
+  const studentCurrent=await api(student,'/api/student/classroom/current');assert.equal(studentCurrent.session.status,'ended','学生端看到课堂已结束，不再把已删除的任务当成当前任务');
+  await studentPage.reload();
+  await expect(studentPage.locator('.student-chain-home')).toHaveCount(0);
+  await expect(studentPage.getByText('老师发布了课堂任务',{exact:true})).toHaveCount(0);
+  await studentPage.screenshot({path:path.join(dir,'task-withdraw-student-after.png'),fullPage:true});
+  await studentContext.close();
+  const replacement=await api(jar,'/api/teacher/task-library','POST',{...updated.task.config,taskChain:{...updated.task.config.taskChain,title:'删除后新建任务'}});
+  const republished=await api(jar,`/api/teacher/task-library/${replacement.task.id}/publish`,'POST',{classId:cls.id,revision:1,clientSubmissionId:`flow-republish-${Date.now().toString(36)}`});
+  assert.equal(republished.session.status,'live','删除旧任务后同一班级可以发布新任务');
+  await api(jar,`/api/teacher/task-library/${replacement.task.id}`,'DELETE',{revision:1});
+  assert.equal((await api(jar,`/api/teacher/sessions/${republished.session.id}/overview`)).session.status,'ended','清理：新任务删除后同样撤回课堂');
+  assert.deepEqual(errors,[]);console.log('PASS task library CRUD, real workflow drag, saved node positions, custom completion, publication snapshots, student feedback, task deletion withdrawing the classroom, desktop/mobile and zero page errors');
 }catch(error){console.error(error.stack);process.exitCode=1;}finally{await context.close();await browser.close();}

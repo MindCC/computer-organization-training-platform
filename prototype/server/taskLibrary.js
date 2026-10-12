@@ -50,6 +50,36 @@ export function createTaskLibrary({db,sessionService}) {
     const row=db.prepare('SELECT * FROM teacher_task_library WHERE id=? AND teacher_id=? AND deleted_at IS NULL').get(id,teacherId);
     if(!row)fail('TASK_NOT_FOUND','任务不存在',404);return row;
   }
+  // 删除任务只做软删除，课堂场次是独立快照（学生学习记录必须保留）。但快照不能一直「进行中」：
+  // 否则学生端会一直把已删除的任务当成当前任务，该班级也会被 ACTIVE_SESSION_CONFLICT 挡住、
+  // 再也发布不了新任务。因此把仍在进行中的课堂按正常流程结束（冻结课堂报告，记录原样保留）。
+  // 注意：只处理「由任务库发布出去的」课堂；被导入进任务库的原课堂属于独立课堂，
+  // 删除一个库中副本不得结束老师正在上的那节课。
+  function openSessionsOfTask(taskId){
+    return db.prepare(`SELECT s.id,s.title,s.teacher_id FROM classroom_sessions s
+      JOIN task_library_publications p ON p.session_id=s.id
+      WHERE p.task_id=? AND s.status IN ('live','paused') ORDER BY s.id`).all(taskId);
+  }
+  function openSessionsOfDeletedTasks(classId=null){
+    return db.prepare(`SELECT s.id,s.title,s.teacher_id FROM classroom_sessions s
+      JOIN task_library_publications p ON p.session_id=s.id
+      JOIN teacher_task_library t ON t.id=p.task_id
+      WHERE s.status IN ('live','paused') AND t.deleted_at IS NOT NULL
+        AND (? IS NULL OR s.class_id=?) ORDER BY s.id`).all(classId,classId);
+  }
+  function withdrawSessions(teacherId,sessions,{tolerant=false}={}){
+    const ended=[];
+    for(const session of sessions){
+      try{sessionService.end({teacherId:teacherId??session.teacher_id,sessionId:session.id});ended.push({id:session.id,title:session.title});}
+      catch(error){if(!tolerant)throw error;}
+    }
+    return ended;
+  }
+  // 兼容历史数据：任务在上一次修复前就被删除，课堂却还留在进行中。服务启动与发布前各清理一次。
+  function withdrawOrphanedSessions({teacherId=null,classId=null}={}){
+    return withdrawSessions(teacherId,openSessionsOfDeletedTasks(classId),{tolerant:true});
+  }
+  withdrawOrphanedSessions();
   function decisionSource(teacherId,input,taskId=null){
     const saved=taskId?db.prepare('SELECT report_id FROM task_assistant_decisions WHERE task_id=? ORDER BY id LIMIT 1').get(taskId)?.report_id:null;
     const reportId=input.assistantReportId??saved;
@@ -233,7 +263,13 @@ export function createTaskLibrary({db,sessionService}) {
       return this.get(teacherId,id);
     },
     remove(teacherId,id,revision){const row=own(teacherId,id);if(revision!==row.revision)fail('TASK_VERSION_CONFLICT','任务已被修改，请重新打开最新版本',409);
-      db.prepare('UPDATE teacher_task_library SET deleted_at=CURRENT_TIMESTAMP WHERE id=?').run(id);return {ok:true};},
+      let endedSessions=[];
+      db.transaction(()=>{
+        try{endedSessions=withdrawSessions(teacherId,openSessionsOfTask(row.id));}
+        catch(error){fail('TASK_WITHDRAW_FAILED','无法结束该任务进行中的课堂，请先在「课堂执行」中结束它，再删除任务');}
+        db.prepare('UPDATE teacher_task_library SET deleted_at=CURRENT_TIMESTAMP WHERE id=?').run(id);
+      })();
+      return {ok:true,endedSessions};},
     publish(teacherId,id,input){return db.transaction(()=>{
       const key=input?.clientSubmissionId,classId=input?.classId;
       if(typeof key!=='string'||!/^[\w-]{8,100}$/.test(key))fail('INVALID_PUBLISH_REQUEST','发布标识无效');
@@ -245,6 +281,8 @@ export function createTaskLibrary({db,sessionService}) {
         if(JSON.stringify(oldTargets)!==JSON.stringify(targets))fail('PUBLISH_CONFLICT','同一次发布的内容不能更改',409);
         return {session:db.prepare('SELECT * FROM classroom_sessions WHERE id=?').get(previous.session_id),duplicate:true};}
       const row=own(teacherId,id);if(row.revision!==input.revision)fail('TASK_VERSION_CONFLICT','任务已被修改，请重新打开最新版本',409);
+      // 历史遗留：已删除任务的课堂还留在进行中，会挡住这次发布；先按正常流程结束它。
+      withdrawOrphanedSessions({teacherId,classId});
       if(input.targetStudentIds===undefined&&db.prepare("SELECT 1 FROM classroom_sessions WHERE class_id=? AND status IN ('live','paused')").get(classId))fail('ACTIVE_SESSION_CONFLICT','该班级已有进行中的课堂，请先结束当前课堂',409);
       const config=JSON.parse(row.config_json),source=sourceFor(teacherId,config);
       if(source&&source.class_id!==classId)fail('INVALID_TASK_SOURCE','后续任务须发布到来源班级');
