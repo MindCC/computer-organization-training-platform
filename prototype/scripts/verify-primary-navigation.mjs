@@ -79,10 +79,14 @@ try {
   await expect(history).toContainText('为什么补码减法可以转化成加法？');
   await expect(assistant.locator('.companion-user-message')).toContainText('为什么补码减法可以转化成加法？');
   await expect(assistant.getByLabel('你的课程问题')).toHaveValue('');
+  await assistant.getByLabel(/本次答疑关联前文/).check();
+  const linkedRequest=page.waitForRequest(req=>req.url().endsWith('/api/student/study-assistant')&&req.method()==='POST');
   await assistant.getByLabel('你的课程问题').fill('怎样区分补码的进位和溢出？');
   await assistant.getByRole('button', { name: '询问助教', exact: true }).click();
+  const linkedPayload=(await linkedRequest).postDataJSON();assert.equal(linkedPayload.dialogueConsent,'current-course-dialogue');assert.equal(linkedPayload.dialogueIds.length,1);
   await expect(assistant.locator('.companion-ai-message .study-mascot-source')).toHaveCount(2, { timeout: 30000 });
   await expect(assistant.locator('.companion-user-message')).toHaveCount(2);
+  await expect(assistant.getByLabel(/本次答疑关联前文/)).not.toBeChecked();
   await expect(history).toContainText('怎样区分补码的进位和溢出？');
   await history.getByRole('button').filter({ hasText: '为什么补码减法可以转化成加法？' }).click();
   await expect(assistant.locator('.companion-user-message')).toHaveCount(1);
@@ -127,8 +131,19 @@ try {
   const login = await teacherContext.request.post(`${app}/api/auth/login`, { data: { username: process.env.TEACHER_USERNAME, password: process.env.TEACHER_PASSWORD } });
   assert.equal(login.status(), 200);
   const teacher = await teacherContext.newPage(); teacher.on('pageerror', error => errors.push(error.message));
+  let releaseClasses,classesStarted;
+  const classGate=new Promise(resolve=>releaseClasses=resolve),classRequest=new Promise(resolve=>classesStarted=resolve);
+  await teacher.route('**/api/teacher/classes',async route=>{classesStarted();await classGate;await route.continue();});
   await gotoApp(teacher, app);
-  // 角色学情加载完成后 bootstrap 才恢复教师工作台，避免在恢复期间抢先点击。
+  await classRequest;
+  await teacher.locator('.topbar-nav-primary').getByRole('button',{name:'实训平台',exact:true}).click();
+  await expect(teacher.getByRole('heading',{name:'实训平台',exact:true})).toBeVisible();
+  const loadedOverview=teacher.waitForResponse(response=>/\/api\/teacher\/classes\/\d+\/overview$/.test(response.url()));
+  releaseClasses();await loadedOverview;
+  await teacher.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+  await expect(teacher.getByRole('heading',{name:'实训平台',exact:true})).toBeVisible();
+  await teacher.unroute('**/api/teacher/classes');
+  await teacher.locator('.topbar-nav-primary').getByRole('button',{name:'教师看板',exact:true}).click();
   await expect(teacher.locator('.teacher-reference-shell')).toBeVisible({ timeout: 20000 });
   assert.deepEqual((await teacher.locator('.topbar-nav-primary > button').allInnerTexts()).map(text=>text.trim()), [...labels, '教师看板']);
   await expect(teacher.locator('.topbar-nav').getByRole('button', { name: '教师看板', exact: true })).toBeVisible();
@@ -143,7 +158,10 @@ try {
   const teacherRequest = teacher.waitForRequest(req => req.url().endsWith('/api/teacher/study-assistant') && req.method() === 'POST');
   await teacher.getByRole('button', { name: '询问助教', exact: true }).click(); await teacherRequest;
   await expect(teacher.locator('.study-mascot-source')).toBeVisible({ timeout: 30000 });
+  await expect(teacher.locator('.companion-history')).toContainText('CPU 的取指和执行有什么区别？');
   await teacher.reload({ waitUntil: 'domcontentloaded' }); await expect(teacher.locator('.companion-embedded')).toBeVisible();
+  await expect(teacher.locator('.companion-history')).toContainText('CPU 的取指和执行有什么区别？');
+  await expect(teacher.locator('.companion-history')).not.toContainText('为什么补码减法可以转化成加法？');
   await teacherContext.close();
   const guest = await browser.newPage(); await gotoApp(guest, app);
   await expect(guest.locator('.topbar-nav').getByRole('button', { name: '实训平台', exact: true })).toHaveCount(0);

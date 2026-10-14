@@ -13,10 +13,11 @@ import { useStudyEngagement } from '../learning/useStudyEngagement.js';
 import { StudyEngagement } from '../learning/StudyEngagement.jsx';
 const clamp = (p) => ({x:Math.max(8,Math.min(Number.isFinite(p?.x)?p.x:innerWidth-112,Math.max(8,innerWidth-104))),y:Math.max(8,Math.min(Number.isFinite(p?.y)?p.y:innerHeight-144,Math.max(8,innerHeight-124)))});
 export function StudyCompanion({userId,page,pageTitle,chapterId,readOnly=false,embedded=false,suggestions=[],sidebar}) {
- const [chat,setChat]=useState([]),[toolsOpen,setToolsOpen]=useState(()=>innerWidth>=900);
+ const [chat,setChat]=useState([]),[toolsOpen,setToolsOpen]=useState(()=>innerWidth>=900),[includeDialogue,setIncludeDialogue]=useState(false);
  const thread=useRef(null);
  const engagement=useStudyEngagement(userId,!readOnly);
  const [memoryIds,setMemoryIds]=useState([]);
+ const dialogueIds=chat.filter(row=>row.answer&&Number.isSafeInteger(row.conversationId)&&!/^COURSE_(SCOPE|ANSWER)_/.test(row.answer.reason??'')).slice(-3).map(row=>row.conversationId);
  const {data:spark,error:sparkError,refresh:refreshSpark}=useStudyRecommendations(userId,true);
  const liveSnapshot=useStudySnapshot(),storageKey=`chipquest:companion:${userId}`;
  const snapshot=embedded?{title:pageTitle,publicContext:{chapterId},summary:'结合本章公开课程内容讲解；请说明你已经尝试的做法和遇到的疑问。'}:liveSnapshot;
@@ -30,13 +31,13 @@ export function StudyCompanion({userId,page,pageTitle,chapterId,readOnly=false,e
  const classroom=selected?.classroom??snapshot?.classroom;
  const stateKey=JSON.stringify([page,publicContext,current,snapshot?.circuit,snapshot?.action]);
  const publicKey=JSON.stringify([snapshot?.publicContext,snapshot?.classroom]);
- useEffect(()=>{setSelected(null);setAnswer(null);setChat([]);setError('');setMemoryIds([]);sequence.current++;setBusy(false);},[publicKey]);
+  useEffect(()=>{setSelected(null);setAnswer(null);setChat([]);setError('');setMemoryIds([]);setIncludeDialogue(false);sequence.current++;setBusy(false);},[publicKey]);
  useEffect(()=>{setSelected(null);setQuestion('');setAnswer(null);setError('');setIncludeState(false);setMemoryIds([]);setOpen(embedded);sequence.current++;setBusy(false);},[page,embedded]);
  useEffect(()=>{setIncludeState(false);},[snapshot?.kind,snapshot?.expert]);
  useEffect(()=>()=>{sequence.current++;},[]);
  useEffect(()=>{if(snapshot?.inlineAssistant)setOpen(false);},[snapshot?.inlineAssistant]);
  useEffect(()=>{if(open&&!embedded)field.current?.focus();},[open,embedded]);
- useEffect(()=>{if(embedded&&thread.current)thread.current.scrollTop=chat.length===0||String(chat[0]?.id).startsWith('history-')?0:thread.current.scrollHeight;},[chat,embedded]);
+  useEffect(()=>{if(embedded&&thread.current)thread.current.scrollTop=chat.length===0||(chat.length===1&&String(chat[0]?.id).startsWith('history-'))?0:thread.current.scrollHeight;},[chat,embedded]);
  useEffect(()=>{if(!embedded)return;const media=matchMedia('(min-width:900px)');const resize=()=>setToolsOpen(media.matches);media.addEventListener('change',resize);return()=>media.removeEventListener('change',resize);},[embedded]);
  useEffect(()=>{if(!open)return;let cancelled=false;apiRequest('/api/student/study-assistant/history').then(data=>{if(!cancelled){setHistory(data.conversations??[]);setHistoryMore(Boolean(data.hasMore));}}).catch(()=>{});return()=>{cancelled=true;};},[open]);
  useEffect(()=>{
@@ -63,7 +64,7 @@ export function StudyCompanion({userId,page,pageTitle,chapterId,readOnly=false,e
   const context={questionId:publicContext.questionId,conceptId:publicContext.conceptId,chapterId:publicContext.chapterId,lectureIndex:publicContext.lectureIndex};
   if(includeState&&!snapshot?.expert&&current)context.assembly=current;
   if(includeState&&!snapshot?.expert&&snapshot?.circuit)context.circuit=snapshot.circuit;
-  try{const result=await apiRequest('/api/student/study-assistant',{method:'POST',timeoutMs:25000,body:JSON.stringify({question:submittedQuestion,context,consent:'deepseek-public-question',...(memoryIds.length?{memoryIds,memoryConsent:'selected-course-questions'}:{}),...(classroom?{classroom}:{}),...(includeState?{stateConsent:'current-task-state'}:{})})});if(requestId===sequence.current){setAnswer(result);if(embedded){setChat(rows=>rows.map(row=>row.id===requestId?{...row,pending:false,answer:result}:row));setQuestion('');}setMemoryIds([]);publishTaskAssistantStatus(classroom,userId,result.classroomAnswer?'answered':'failed',result.classroomAnswer?.conversationId);apiRequest('/api/student/study-assistant/history').then(data=>{setHistory(data.conversations??[]);setHistoryMore(Boolean(data.hasMore));}).catch(()=>{});}}
+   try{const result=await apiRequest('/api/student/study-assistant',{method:'POST',timeoutMs:25000,body:JSON.stringify({question:submittedQuestion,context,consent:'deepseek-public-question',...(includeDialogue&&dialogueIds.length?{dialogueIds,dialogueConsent:'current-course-dialogue'}:{}),...(memoryIds.length?{memoryIds,memoryConsent:'selected-course-questions'}:{}),...(classroom?{classroom}:{}),...(includeState?{stateConsent:'current-task-state'}:{})})});if(requestId===sequence.current){setAnswer(result);if(embedded){setChat(rows=>rows.map(row=>row.id===requestId?{...row,pending:false,answer:result,conversationId:result.conversationId}:row));setQuestion('');}setMemoryIds([]);setIncludeDialogue(false);publishTaskAssistantStatus(classroom,userId,result.classroomAnswer?'answered':'failed',result.classroomAnswer?.conversationId);apiRequest('/api/student/study-assistant/history').then(data=>{setHistory(data.conversations??[]);setHistoryMore(Boolean(data.hasMore));}).catch(()=>{});}}
   catch(err){if(requestId===sequence.current){const message=`提问失败：${err.message}。可以重试。`;setError(message);if(embedded)setChat(rows=>rows.map(row=>row.id===requestId?{...row,pending:false,error:message}:row));publishTaskAssistantStatus(classroom,userId,'failed');}}
   finally{if(requestId===sequence.current)setBusy(false);}
  }
@@ -103,6 +104,7 @@ export function StudyCompanion({userId,page,pageTitle,chapterId,readOnly=false,e
    <form onSubmit={ask}>
     {embedded&&suggestions.length>0&&<div className="companion-suggestions" aria-label="提问示例">{suggestions.map(text=><button key={text} type="button" disabled={busy} onClick={()=>{setQuestion(text);field.current?.focus();}}>{text}</button>)}</div>}
     <label htmlFor="companion-question">你的课程问题</label><textarea ref={field} id="companion-question" rows={2} maxLength={1600} placeholder={help?'例如：为什么部件装齐了还不能开机？':'我不理解……'} value={question} onChange={event=>setQuestion(event.target.value)} disabled={busy}/>
+    {embedded&&dialogueIds.length>0&&<label className="companion-state-consent"><input type="checkbox" checked={includeDialogue} onChange={event=>setIncludeDialogue(event.target.checked)} disabled={busy||readOnly}/>本次答疑关联前文（发送当前对话最近 {dialogueIds.length} 轮问题和回复）</label>}
     {engagement.data?.memory.length>0&&<details className="companion-memory-select"><summary>本次答疑选取小芯记忆 · 已选 {memoryIds.length} 条</summary><p>仅把下面选中的既往问题发送给助教服务，用于衔接本次讲解；每次提问重新选择。</p>{engagement.data.memory.map(m=><label key={m.id}><input type="checkbox" checked={memoryIds.includes(m.id)} disabled={busy||readOnly} onChange={e=>setMemoryIds(ids=>e.target.checked?[...ids,m.id]:ids.filter(id=>id!==m.id))}/><span>{m.topic}：{m.question.slice(0,1600)}</span></label>)}</details>}
     {(current||snapshot?.circuit)&&!snapshot?.expert&&<label className="companion-state-consent"><input type="checkbox" checked={includeState} onChange={event=>setIncludeState(event.target.checked)} disabled={busy}/>本次提问附带当前{current?'装配与接线快照':'电路输入与检查计数'}（含最近操作）</label>}
     {includeState&&!snapshot?.expert&&(current||snapshot?.circuit)&&<details className="companion-payload"><summary>查看本次将附带的状态</summary><pre>{JSON.stringify(current??snapshot?.circuit,null,2)}</pre></details>}
@@ -112,11 +114,11 @@ export function StudyCompanion({userId,page,pageTitle,chapterId,readOnly=false,e
  </>;
  return embedded?<div className="ai-assistant-layout">
    <aside className="ai-assistant-guide" aria-label="助教侧栏">{sidebar}
-    <button type="button" className="companion-new-chat" disabled={busy} onClick={()=>{setChat([]);setQuestion('');setAnswer(null);setError('');setMemoryIds([]);setSelected(null);field.current?.focus();}}>＋ 开始新对话</button>
+    <button type="button" className="companion-new-chat" disabled={busy} onClick={()=>{setChat([]);setQuestion('');setAnswer(null);setError('');setMemoryIds([]);setIncludeDialogue(false);setSelected(null);field.current?.focus();}}>＋ 开始新对话</button>
     <details className="ai-assistant-tools" open={toolsOpen} onToggle={event=>setToolsOpen(event.currentTarget.open)}><summary>学习状态与对话记录</summary><div>
      <StudySpark spark={spark} compact/>{sparkError&&<button type="button" className="ghost-button" onClick={refreshSpark}>重新加载学习火花</button>}
      <StudyEngagement {...engagement} compact/>
-     <section className="companion-history" aria-label="我的助教对话记录"><h2>我的助教对话记录 <small>{history.length} 条</small></h2>{history.length?history.map(item=><button type="button" key={item.id} disabled={busy} title={item.question} onClick={()=>{setChat([{id:`history-${item.id}`,question:item.question,answer:{...item.answer,source:item.answerSource}}]);setError('');}}><strong>{item.question}</strong><small>{item.topic} · {item.createdAt}</small></button>):<p>暂无记录。</p>}{historyMore&&<button type="button" onClick={()=>apiRequest(`/api/student/study-assistant/history?before=${history.at(-1).id}`).then(data=>{setHistory(rows=>[...rows,...data.conversations]);setHistoryMore(Boolean(data.hasMore));}).catch(()=>{})}>加载更早对话</button>}</section>
+     <section className="companion-history" aria-label="我的助教对话记录"><h2>我的助教对话记录 <small>{history.length} 条</small></h2>{history.length?history.map(item=><button type="button" key={item.id} disabled={busy} title={item.question} onClick={()=>{setChat([{id:`history-${item.id}`,conversationId:item.id,question:item.question,answer:{...item.answer,source:item.answerSource}}]);setIncludeDialogue(false);setError('');}}><strong>{item.question}</strong><small>{item.topic} · {item.createdAt}</small></button>):<p>暂无记录。</p>}{historyMore&&<button type="button" onClick={()=>apiRequest(`/api/student/study-assistant/history?before=${history.at(-1).id}`).then(data=>{setHistory(rows=>[...rows,...data.conversations]);setHistoryMore(Boolean(data.hasMore));}).catch(()=>{})}>加载更早对话</button>}</section>
     </div></details>
    </aside>{content}
  </div>:createPortal(content,document.body);

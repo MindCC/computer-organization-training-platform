@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Existing Linux/systemd installation: sudo bash deploy/update.sh
 # Overrides: APP_DIR, APP_USER, SERVICE, ENV_FILE, DATABASE_PATH, PORT, REMOTE,
-# BACKUP_ROOT. Credentials stay in the repository owner's existing Git config.
+# BACKUP_ROOT, SYSTEMD_DIR, LOCK_FILE. Credentials stay in existing Git config.
 set -euo pipefail
 umask 022
 
@@ -14,8 +14,11 @@ APP_USER="${APP_USER:-zcyl}"
 SERVICE="${SERVICE:-zcyl-platform}"
 ENV_FILE="${ENV_FILE:-/etc/zcyl/platform.env}"
 BACKUP_ROOT="${BACKUP_ROOT:-/var/backups/zcyl}"
+SYSTEMD_DIR="${SYSTEMD_DIR:-/etc/systemd/system}"
+LOCK_FILE="${LOCK_FILE:-/var/lock/zcyl-update.lock}"
+APP_DIR="$(realpath -e "$APP_DIR")"
 PROTO_DIR="$APP_DIR/prototype"
-for tool in git node npm sudo curl flock systemctl; do
+for tool in git node npm sudo curl flock systemctl tar; do
   command -v "$tool" >/dev/null || die "缺少命令：$tool"
 done
 [[ -d "$APP_DIR/.git" && -f "$PROTO_DIR/package-lock.json" ]] || die '找不到已部署的代码仓库'
@@ -23,7 +26,7 @@ done
 id "$APP_USER" >/dev/null 2>&1 || die "找不到服务用户：$APP_USER"
 [[ $(node -p 'Number(process.versions.node.split(".")[0])') -ge 22 ]] || die '需要 Node.js 22+'
 systemctl cat "$SERVICE" >/dev/null || die "找不到服务：$SERVICE"
-exec 9>/var/lock/zcyl-update.lock
+exec 9>"$LOCK_FILE"
 flock -n 9 || die '另一项更新正在执行'
 
 # Read the existing database/port settings without printing any credentials.
@@ -68,16 +71,73 @@ install -d -m 700 "$backup_dir"
 printf '%s\n' "$old_revision" > "$backup_dir/revision.txt"
 stage_dir="$(mktemp -d "$PROTO_DIR/.update-build.XXXXXX")"
 chown "$REPO_USER" "$stage_dir"
+# The runtime user must be able to read the staged migration code.
+chmod 711 "$stage_dir"
+version_env="${ENV_FILE%/*}/update-version.env"
+version_conf="$SYSTEMD_DIR/$SERVICE.service.d/zz-update-version.conf"
+[[ ! -f "$version_env" ]] || cp -a "$version_env" "$backup_dir/update-version.env"
+[[ ! -f "$version_conf" ]] || cp -a "$version_conf" "$backup_dir/zz-update-version.conf"
+service_stopped=0
+code_attempted=0
+old_modules_saved=0
+new_modules_installed=0
+old_dist_saved=0
+new_dist_installed=0
+version_touched=0
+
+health_check() {
+  local expected="${1:-}"
+  systemctl is-active --quiet "$SERVICE" &&
+    curl --max-time 2 -fsS "http://127.0.0.1:$PORT/api/health" > "$stage_dir/health.json" &&
+    node --input-type=module -e '
+      import { readFileSync } from "node:fs";
+      const health = JSON.parse(readFileSync(process.argv[1], "utf8"));
+      process.exit(health.ok === true && (!process.argv[2] || health.version === process.argv[2]) ? 0 : 1);
+    ' "$stage_dir/health.json" "$expected"
+}
+
 on_exit() {
   result=$?
-  # stage_dir comes only from mktemp within this repository.
-  if [[ -n "${stage_dir:-}" && "$stage_dir" == "$PROTO_DIR"/.update-build.* ]]; then
+  trap - EXIT
+  set +e
+  if [[ $result != 0 ]]; then
+    if [[ $service_stopped == 1 ]]; then
+      log '更新失败，恢复原代码、依赖、前端和版本标记并重新启动服务'
+      recovery_failed=0
+      systemctl stop "$SERVICE" || recovery_failed=1
+      if [[ $code_attempted == 1 && $(repo_git rev-parse HEAD) != "$old_revision" ]]; then
+        # Only undo our clean fast-forward. Never overwrite someone else's edits.
+        if [[ $(repo_git rev-parse HEAD) == "$target" ]] && repo_git diff --quiet && repo_git diff --cached --quiet; then
+          repo_git reset --hard "$old_revision" || recovery_failed=1
+        else
+          log '代码出现其他修改，已保留现场，需人工恢复'
+          recovery_failed=1
+        fi
+      fi
+      if [[ $new_modules_installed == 1 ]]; then mv "$PROTO_DIR/node_modules" "$stage_dir/failed-node_modules" || recovery_failed=1; fi
+      if [[ $old_modules_saved == 1 ]]; then mv "$stage_dir/previous-node_modules" "$PROTO_DIR/node_modules" || recovery_failed=1; fi
+      if [[ $new_dist_installed == 1 ]]; then mv "$PROTO_DIR/dist" "$stage_dir/failed-dist" || recovery_failed=1; fi
+      if [[ $old_dist_saved == 1 ]]; then mv "$stage_dir/previous-dist" "$PROTO_DIR/dist" || recovery_failed=1; fi
+      if [[ $version_touched == 1 ]]; then
+        if [[ -f "$backup_dir/update-version.env" ]]; then cp -a "$backup_dir/update-version.env" "$version_env" || recovery_failed=1; else rm -f -- "$version_env" || recovery_failed=1; fi
+        if [[ -f "$backup_dir/zz-update-version.conf" ]]; then cp -a "$backup_dir/zz-update-version.conf" "$version_conf" || recovery_failed=1; else rm -f -- "$version_conf" || recovery_failed=1; fi
+      fi
+      systemctl daemon-reload || recovery_failed=1
+      systemctl restart "$SERVICE" || recovery_failed=1
+      restored=0
+      for attempt in {1..10}; do
+        if health_check; then restored=1; break; fi
+        sleep 1
+      done
+      if [[ $recovery_failed == 0 && $restored == 1 ]]; then log '原服务已恢复，数据库保留当前内容'; else log '自动恢复未完成，请根据保留的现场人工检查服务'; fi
+    fi
+    printf '[update] 更新未完成。备份：%s；保留现场：%s\n' "$backup_dir" "$stage_dir" >&2
+    printf '[update] 不会自动还原数据库，以免覆盖新学习记录。\n' >&2
+  elif [[ -n "${stage_dir:-}" && "$stage_dir" == "$PROTO_DIR"/.update-build.* && $(realpath -e "$stage_dir/..") == "$PROTO_DIR" ]]; then
+    # Successful cutover only; failed releases retain recovery artifacts.
     rm -rf -- "$stage_dir"
   fi
-  if [[ $result != 0 ]]; then
-    printf '[update] 更新未完成。备份：%s；服务状态：systemctl status %s\n' "$backup_dir" "$SERVICE" >&2
-    printf '[update] 不会自动还原数据库，以免覆盖新学习记录。\n' >&2
-  fi
+  exit "$result"
 }
 trap on_exit EXIT
 
@@ -90,42 +150,48 @@ DATABASE_PATH="$DATABASE_PATH" BACKUP_PATH="$backup_dir/classroom.sqlite" node -
 '
 if [[ -d "$PROTO_DIR/dist" ]]; then cp -a "$PROTO_DIR/dist" "$backup_dir/dist"; fi
 
-repo_git merge --ff-only "$target"
-log '安装依赖并构建新版前端'
-sudo -u "$REPO_USER" -H npm ci --include=dev --no-audit --no-fund
-sudo -u "$REPO_USER" -H node node_modules/vite/bin/vite.js build --outDir "$stage_dir/dist" --emptyOutDir --manifest
+log '在独立目录准备新版代码、依赖和前端'
+install -d -m 755 "$stage_dir/source"
+repo_git archive "$target" | tar -x -C "$stage_dir/source"
+chown -R "$REPO_USER" "$stage_dir/source"
+staged_proto="$stage_dir/source/prototype"
 (
-  cd "$stage_dir"
-  sudo -u "$REPO_USER" -H node "$PROTO_DIR/scripts/compress-dist.mjs"
+  cd "$staged_proto"
+  sudo -u "$REPO_USER" -H npm ci --include=dev --no-audit --no-fund
+  sudo -u "$REPO_USER" -H npm run build -- --manifest
 )
-[[ -s "$stage_dir/dist/index.html" ]] || die '构建结果缺少 index.html'
+[[ -s "$staged_proto/dist/index.html" ]] || die '构建结果缺少 index.html'
 
 # Leave the current frontend available until the new build is ready.
 log '切换版本并迁移数据库'
+service_stopped=1
 systemctl stop "$SERVICE"
-sudo -u "$APP_USER" -H env DATABASE_PATH="$DATABASE_PATH" npm run migrate
-if [[ -d "$PROTO_DIR/dist" ]]; then mv "$PROTO_DIR/dist" "$stage_dir/previous-dist"; fi
-mv "$stage_dir/dist" "$PROTO_DIR/dist"
+(
+  cd "$staged_proto"
+  sudo -u "$APP_USER" -H env DATABASE_PATH="$DATABASE_PATH" npm run migrate
+)
+code_attempted=1
+repo_git merge --ff-only "$target"
+if [[ -d "$PROTO_DIR/node_modules" ]]; then mv "$PROTO_DIR/node_modules" "$stage_dir/previous-node_modules"; old_modules_saved=1; fi
+mv "$staged_proto/node_modules" "$PROTO_DIR/node_modules"
+new_modules_installed=1
+if [[ -d "$PROTO_DIR/dist" ]]; then mv "$PROTO_DIR/dist" "$stage_dir/previous-dist"; old_dist_saved=1; fi
+mv "$staged_proto/dist" "$PROTO_DIR/dist"
+new_dist_installed=1
 
 # A separate version-only drop-in retains every existing AI/service setting.
-install -d -m 755 "/etc/systemd/system/$SERVICE.service.d"
-version_env="${ENV_FILE%/*}/update-version.env"
+install -d -m 755 "$SYSTEMD_DIR/$SERVICE.service.d"
+version_touched=1
 printf 'HERMES_BUILD_ID=%s\n' "$target" > "$version_env"
 chown root:"$APP_USER" "$version_env"
 chmod 640 "$version_env"
-printf '[Service]\nEnvironmentFile=%s\n' "$version_env" > "/etc/systemd/system/$SERVICE.service.d/zz-update-version.conf"
+printf '[Service]\nEnvironmentFile=%s\n' "$version_env" > "$version_conf"
 systemctl daemon-reload
 systemctl restart "$SERVICE"
 
 log '检查服务和发布版本'
 for attempt in {1..30}; do
-  if systemctl is-active --quiet "$SERVICE" &&
-     curl --max-time 2 -fsS "http://127.0.0.1:$PORT/api/health" > "$stage_dir/health.json" &&
-     node --input-type=module -e '
-       import { readFileSync } from "node:fs";
-       const health = JSON.parse(readFileSync(process.argv[1], "utf8"));
-       process.exit(health.ok === true && health.version === process.argv[2] ? 0 : 1);
-     ' "$stage_dir/health.json" "$target"; then
+  if health_check "$target"; then
     log "更新完成：$target"
     log "备份目录：$backup_dir"
     exit 0

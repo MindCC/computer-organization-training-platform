@@ -2,7 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { askStudyAssistant, publicStudyContext, studyAssistantMessages, safeCircuitSnapshot } from './studyAssistant.js';
 import { getCircuitChallenge } from '../src/circuit/challengeCircuitModel.js';
+import { courseScopeMessages } from './studyCourseScope.js';
 const allowCourse=async()=>'{"decision":"course"}';
+
+test('course topics and instructions need no question punctuation, including multiple topics', async () => {
+ for(const question of ['补码减法','讲解补码加法和溢出判断','补码减法不会做','比较 SRAM 和 DRAM','溢出判断']){
+  const local=await askStudyAssistant({question,consent:'deepseek-public-question'},{env:{}});
+  assert.ok(!local.reason.startsWith('COURSE_SCOPE_'),question);
+  if(question.includes('补码'))assert.match(local.explanation,/补码加减|补码运算/,question);
+  if(question.includes('溢出'))assert.match(local.explanation,/溢出/,question);
+  if(question.includes('SRAM'))assert.match(local.explanation,/SRAM|静态.*动态|半导体存储/,question);
+ }
+ const material=publicStudyContext({chapterId:'ch2'},'补码减法和溢出判断');
+ assert.ok(material.concepts.some(c=>/补码加减|补码运算/.test(c.title)));
+ assert.ok(material.concepts.some(c=>/溢出/.test(c.title)));
+ // A provider must be told that a course learning request is not restricted to interrogative grammar.
+ assert.match(courseScopeMessages('补码减法',material)[0].content,/不需要.*问号|无需.*问号/);
+ assert.match(studyAssistantMessages('补码减法和溢出判断',{chapterId:'ch2'})[0].content,/逐项|多个/);
+});
 
 test('unrelated requests are rejected before generation even with a public course context',async()=>{
  let generated=0;

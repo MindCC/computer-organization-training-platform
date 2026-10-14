@@ -18,7 +18,7 @@ export function createStudyEngagementRouter({db,requireRole}) {
       // Spreadsheet formula injection protection, including student-edited names and reasons.
       const cell=v=>{const value=String(v??'');return '"'+(/^[\s]*[=+@\-]|^[\t\r\n]/.test(value)?"'"+value:value).replaceAll('"','""')+'"';};
       const rows=[['学号','姓名','起始日期','结束日期','规则版本','默契值','加分上限','建议加分','已确认加分','审核时间','审核理由'],
-        ...data.students.map(s=>[s.username,s.displayName,data.policy.startDate,data.policy.endDate,data.policy.version,s.score,data.policy.bonusCap,s.suggestedBonus,s.confirmation?.bonus,s.confirmation?.createdAt,s.confirmation?.reason])];
+        ...data.students.map(s=>[s.username,res.locals.presentStudentName?.(s.displayName)??s.displayName,data.policy.startDate,data.policy.endDate,data.policy.version,s.score,data.policy.bonusCap,s.suggestedBonus,s.confirmation?.bonus,s.confirmation?.createdAt,s.confirmation?.reason])];
       res.set('Cache-Control','no-store');res.set('Content-Disposition','attachment; filename="companion-bonus.csv"');res.type('text/csv').send('\uFEFF'+rows.map(r=>r.map(cell).join(',')).join('\r\n'));
     }catch(error){next(error);}
   });

@@ -130,7 +130,7 @@ export function createLearningCoachRouter({ db, requireRole, options = {} }) {
     const data = repo.summary(req.coachClassId,null,experimentId(req));
     const columns = ['学生账号', '姓名', '诊断次数', '初次失败次数', '最高提示层级', '修正验证次数', '复测次数', '复测通过次数', '复测期间未请求提示的通过次数', '待完成补练', '已完成补练', '复测总耗时秒（包含停留与中断）'];
     const cell = value => '"' + String(value).replace(/^[=+@-]/, "'$&").replaceAll('"', '""') + '"';
-    const rows = data.students.map(s => [s.username, s.displayName, s.runs, s.initialFailures, s.hintLevel, s.repairChecks, s.retests, s.retestPasses, s.withoutRetestHints, s.activeTasks, s.completedTasks, s.retestSeconds]);
+    const rows = data.students.map(s => [s.username, res.locals.presentStudentName?.(s.displayName)??s.displayName, s.runs, s.initialFailures, s.hintLevel, s.repairChecks, s.retests, s.retestPasses, s.withoutRetestHints, s.activeTasks, s.completedTasks, s.retestSeconds]);
     res.set('Content-Disposition', 'attachment; filename="learning-coach-pilot.csv"').type('text/csv').send('\uFEFF' + [columns, ...rows].map(row => row.map(cell).join(',')).join('\r\n'));
   }));
   return router;

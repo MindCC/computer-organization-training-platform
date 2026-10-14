@@ -3,13 +3,14 @@ import { askStudyAssistant } from './studyAssistant.js';
 import { conversationPage, saveAiConversation } from './aiConversationRepository.js';
 import { taskChainQuestionContext } from './classroomTaskChain.js';
 import { selectedStudyMemory } from './studyEngagement.js';
+import { selectedStudyDialogue } from './studyDialogue.js';
 
 export function createStudyAssistantRouter({ db, requireRole, options = {} }) {
   const router = Router(), requests = new Map(), pending = new Set();
   for(const role of ['student','teacher']) {
   router.get(`/${role}/study-assistant/history`, requireRole(role), (req,res) => {
     res.set('Cache-Control', 'no-store');
-    try {res.json(role==='student' ? conversationPage(db, req.user.id, req.query.before) : {conversations:[],hasMore:false});}
+    try {res.json(conversationPage(db, req.user.id, req.query.before));}
     catch(error){res.status(error.status??500).json({error:{message:error.message}});}
   });
   router.post(`/${role}/study-assistant`, requireRole(role), async (req, res) => {
@@ -27,10 +28,11 @@ export function createStudyAssistantRouter({ db, requireRole, options = {} }) {
     try {
       const classroom=role==='student'?taskChainQuestionContext(db,id,body.classroom):null;
       const selectedMemory=selectedStudyMemory(db,id,body.memoryIds,body.memoryConsent);
-      const answer = await askStudyAssistant(payload, {...options,selectedMemory});
+      const selectedDialogue=selectedStudyDialogue(db,id,body.dialogueIds,body.dialogueConsent);
+      const answer = await askStudyAssistant(payload, {...options,selectedMemory,selectedDialogue});
+      const conversationId=saveAiConversation(db, { studentId:id, kind:'question', question:body.question, answer, context:payload.context });
       let classroomAnswer;
       if (role === 'student') {
-        const conversationId=saveAiConversation(db, { studentId:id, kind:'question', question:body.question, answer, context:payload.context });
         if(classroom&&!['COURSE_SCOPE_REJECTED','COURSE_SCOPE_UNVERIFIED','COURSE_ANSWER_REJECTED'].includes(answer.reason)) {
           // Recheck after the asynchronous reply: an ended/changed stage cannot unlock another one.
           const current=taskChainQuestionContext(db,id,classroom);
@@ -38,7 +40,7 @@ export function createStudyAssistantRouter({ db, requireRole, options = {} }) {
           classroomAnswer={...current,conversationId};
         }
       }
-      res.json({...answer,...(classroomAnswer?{classroomAnswer}:{})});
+      res.json({...answer,conversationId,...(classroomAnswer?{classroomAnswer}:{})});
     }
     catch (error) { res.status(error.status ?? 500).json({ error: { code: 'STUDY_QUESTION_INVALID', message: error.status ? error.message : '提问暂时失败，请重试。' } }); }
     finally { pending.delete(id); }

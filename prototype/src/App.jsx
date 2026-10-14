@@ -507,6 +507,7 @@ function buildTeacherAssistantInsights(classOverview, selectedClass) {
 export function App() {
   const [auth, setAuth] = useState({ status: "loading", user: null });
   const activeUserRef=useRef(null);
+  const navigationRef=useRef(0);
   const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
   const [showLogin, setShowLogin] = useState(false);
@@ -645,12 +646,13 @@ export function App() {
     if(route.view==='hardware-game'&&!HARDWARE_GAME_CASES.some(item=>item.id===route.caseId))return false;
     if(route.caseId)setSelectedHardwareCaseId(route.caseId);
     if(route.view==='teacher')setTeacherWorkspace(TEACHER_WORKSPACES.has(route.teacherWorkspace)?route.teacherWorkspace:'tasks');
-    setDemoId(route.demoId??null);setStudyTarget(route.studyTarget??null);setShowUserPanel(false);setSupportPanel(null);setQuestSettlement(null);setActiveView(route.view);window.scrollTo(0,0);return true;
+    navigationRef.current++;setDemoId(route.demoId??null);setStudyTarget(route.studyTarget??null);setShowUserPanel(false);setSupportPanel(null);setQuestSettlement(null);setActiveView(route.view);window.scrollTo(0,0);return true;
   }});
 
   useEffect(() => {
     let cancelled = false;
     async function bootstrap() {
+      const navigation = navigationRef.current;
       try {
         const { user } = await api.me();
         if (cancelled) return;
@@ -658,7 +660,7 @@ export function App() {
         setPersonalLearningRole(user.role);
         setAuth({ status: "authenticated", user });
         try { await loadRoleData(user); } catch (error) { if(!cancelled)setRoleDataError(`学习数据同步失败：${error.message}`); }
-        if(cancelled||activeUserRef.current?.id!==user.id)return;
+        if(cancelled||activeUserRef.current?.id!==user.id||navigation!==navigationRef.current)return;
         // 刷新后回到原页面：只恢复当前身份允许停留的视图
         const restored = resolveRestorableView(initialViewSession, user.role);
         if (demoId) {
@@ -675,7 +677,7 @@ export function App() {
       } catch (error) {
         if (!cancelled) {
           setAuth({ status: error.status===401 ? "anonymous" : "error", user: null });
-          if (error.status === 401 && !demoId) {
+          if (error.status === 401 && !demoId && navigation===navigationRef.current) {
             const restored = resolveRestorableView(initialViewSession, null);
             if (restored) setActiveView(restored.view);
           }
@@ -813,12 +815,14 @@ export function App() {
   }
 
   async function completeLogin(user, destination) {
+    const navigation = navigationRef.current;
     activeUserRef.current=user;
     setPersonalLearningRole(user.role); setTeacherReviewStudent('all');
     setProgress(buildInitialLearningProgress());setNotes([]);setStudentProjects([]);setActivityLog([]);setRoleDataError('');
     setAuth({ status: "authenticated", user });
     try { await loadRoleData(user); } catch(error) {setRoleDataError(`学习数据同步失败：${error.message}`);}
     setShowLogin(false);
+    if(activeUserRef.current?.id!==user.id||navigation!==navigationRef.current)return;
     if (user.role === 'admin') { setActiveView('home'); setFeedbackOpen(true); return; }
     if (user.role === "teacher") {
       setActiveView("teacher");
@@ -897,12 +901,14 @@ export function App() {
       setDemoId(null);
     }
     setStudyTarget(null);
+    navigationRef.current++;
     setActiveView(view);
     window.scrollTo(0,0);
     setStatusMessage(`已切换到${destinationLabel ?? "当前页面"}。`);
   }
 
   function openDemo(id) {
+    navigationRef.current++;
     setShowUserPanel(false);
     setSupportPanel(null);
     setStudyTarget(null);
@@ -932,10 +938,12 @@ export function App() {
     if (challengeId && challengeId.startsWith("game-")) {
       setStudyTarget({source:'assembly',caseId:challengeId});
       setSelectedHardwareCaseId(challengeId);
+      navigationRef.current++;
       setActiveView("hardware-game");
       return;
     }
     if (!lab.selectChallenge(challengeId)) return;
+    navigationRef.current++;
     setActiveView("lab");
   }
 

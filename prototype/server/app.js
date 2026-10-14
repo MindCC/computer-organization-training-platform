@@ -10,6 +10,7 @@ import { createToken, hashPassword, hashToken, verifyPassword } from "./auth.js"
 import { createDemoReadOnlyGuard, ensureDemoAccounts, isDemoLoginEnabled, isReadOnlyUser } from './demoAccounts.js';
 import { validateAccountSettings } from './accountSettings.js';
 import { validateAvatarImage } from './avatarImage.js';
+import { createStudentNamePrivacy, maskStudentName, studentNamePrivacyEnabled } from './studentNamePrivacy.js';
 import { generateTeacherAssistantReport } from "./teacherAssistant.js";
 import { saveAssistantReport, readAssistantReport } from './teacherAssistantHistory.js';
 import { generateLabAssistantHint } from "./labAssistant.js";
@@ -121,6 +122,8 @@ export function createApp(options = {}) {
   }
   app.locals.db = db;
   app.locals.dbPath = db.name;  // better-sqlite3 .name is the actual path or ":memory:"
+  const maskStudentNames = studentNamePrivacyEnabled(options);
+  app.use(createStudentNamePrivacy({ db, enabled: maskStudentNames }));
 
   // 审计日志 helper：统一写日志，自动带上 actor 与 IP
   function audit(req, action, { targetType = null, targetId = null, metadata = {} } = {}) {
@@ -410,6 +413,9 @@ export function createApp(options = {}) {
       const avatarCheck = await validateAvatarImage(settings.avatar);
       if (!avatarCheck.ok) return res.status(400).json({ error: avatarCheck.error });
       const original = getUserById(db, req.user.id);
+      if (maskStudentNames && req.user.role === 'student' && settings.displayName === maskStudentName(original.display_name)) {
+        settings.displayName = original.display_name;
+      }
       let passwordHash = null;
       if (settings.changePassword) {
         if (!(await verifyPassword(settings.currentPassword, original.password_hash))) return res.status(400).json({ error: '当前密码不正确，资料和密码均未保存' });
@@ -553,7 +559,7 @@ export function createApp(options = {}) {
     audit(req, "export_csv", { targetType: "class", targetId: classId });
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename=class-${classId}-scores.csv`);
-    res.send(renderScoresCsv(overview.students));
+    res.send(renderScoresCsv(overview.students.map(student => ({...student,displayName:res.locals.presentStudentName(student.displayName)}))));
   });
 
   app.get("/api/teacher/classes/:id/archive.zip", requireRole("teacher"), (req, res, next) => {
@@ -801,7 +807,7 @@ export function createApp(options = {}) {
       title: demoTitleOf(item.demoId),
     }));
     const markdown = buildStudentMarkdownReport({
-      user: sanitizeUser(req.user),
+      user: { ...sanitizeUser(req.user), displayName: res.locals.presentStudentName(req.user.display_name) },
       progress,
       summary: summarizeLearning(LEARNING_ITEMS, progress),
       notes: listNotes(db, req.user.id),
@@ -849,6 +855,7 @@ export function createApp(options = {}) {
       const nameCheck = normalizeDisplayName(displayName);
       if (!nameCheck.ok) return res.status(400).json({ error: nameCheck.error });
       nextDisplayName = nameCheck.value;
+      if (maskStudentNames && nextDisplayName === maskStudentName(req.user.display_name)) nextDisplayName = req.user.display_name;
     }
     const user = updateUserProfile(db, req.user.id, { displayName: nextDisplayName, profile: { goal, mode } });
     res.json({ user: sanitizeUser(user) });
