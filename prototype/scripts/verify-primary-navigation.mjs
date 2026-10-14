@@ -24,12 +24,25 @@ try {
   const labels = ['课程首页', '实训平台', '课程学习', 'AI助教', '学习复盘'];
   await expect(page.locator('.topbar-nav-primary > button')).toHaveCount(labels.length);
   assert.deepEqual((await page.locator('.topbar-nav-primary > button').allInnerTexts()).map(text => text.trim()), labels);
+  const closedHeaderHeight=(await page.locator('.topbar').boundingBox()).height;
+  // 悬停展开：鼠标移入分组即出现下拉列表，移出后自动收起（无需点击）
+  await nav('课程学习').hover();
+  await expect(nav('课程学习')).toHaveAttribute('aria-expanded', 'true');
+  await expect(nav('AI讲演')).toBeVisible();
+  await nav('互动演示').hover();
+  await page.waitForTimeout(300); // exceed the leave timer while the pointer is in the dropdown
+  await expect(nav('课程学习')).toHaveAttribute('aria-expanded','true');
+  assert.equal((await page.locator('.topbar').boundingBox()).height,closedHeaderHeight,'opening a dropdown does not add a header row');
+  await page.mouse.move(680, 500);
+  await expect(nav('课程学习')).toHaveAttribute('aria-expanded', 'false');
+  // 点击钉住展开，便于触屏与键盘使用
   await nav('课程学习').click();
   await expect(nav('课程学习')).toHaveAttribute('aria-expanded', 'true');
   await expect(nav('AI讲演')).toBeVisible(); await expect(nav('课后作业')).toBeVisible();
   const primaryBounds=await page.locator('.topbar-nav-primary').boundingBox(),secondaryBounds=await page.locator('.topbar-nav-secondary:visible').boundingBox();
-  assert.ok(secondaryBounds.y>=primaryBounds.y+primaryBounds.height, 'secondary navigation occupies a row below primary');
-  await page.screenshot({path:'qa-artifacts/grouped-course-navigation.png'});
+  assert.ok(secondaryBounds.y>=primaryBounds.y+primaryBounds.height, 'dropdown opens below its primary navigation');
+  assert.ok(secondaryBounds.width<300&&secondaryBounds.height>secondaryBounds.width/2,'secondary navigation is a compact vertical list');
+  await page.screenshot({path:'qa-artifacts/grouped-course-navigation.png',animations:'disabled'});
   await nav('学习复盘').click();
   await expect(nav('学习记录')).toBeVisible(); await expect(nav('AI讲演')).toBeHidden();
   await nav('学习复盘').press('Escape');
@@ -126,6 +139,16 @@ try {
   await expect(page.locator('.study-companion-dialog')).toBeVisible();
   await expect(page.getByRole('button', { name: '询问助教', exact: true })).toBeVisible();
   await context.close();
+
+  const touchContext=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  const touchLogin=await touchContext.request.post(`${app}/api/auth/login`,{data:{username:'demo2026001',password:'Student123!'}});assert.equal(touchLogin.status(),200);
+  const touchPage=await touchContext.newPage();await gotoApp(touchPage,app);
+  const touchGroup=touchPage.locator('.topbar-nav-primary').getByRole('button',{name:'课程学习',exact:true});
+  await touchGroup.tap();await expect(touchGroup).toHaveAttribute('aria-expanded','true');
+  await touchGroup.tap();await expect(touchGroup).toHaveAttribute('aria-expanded','false');
+  await touchGroup.press('Enter');await expect(touchGroup).toHaveAttribute('aria-expanded','true');
+  await touchGroup.press('Escape');await expect(touchGroup).toHaveAttribute('aria-expanded','false');await expect(touchGroup).toBeFocused();
+  await touchContext.close();
 
   const teacherContext = await browser.newContext({ viewport: { width: 1366, height: 900 } });
   const login = await teacherContext.request.post(`${app}/api/auth/login`, { data: { username: process.env.TEACHER_USERNAME, password: process.env.TEACHER_PASSWORD } });

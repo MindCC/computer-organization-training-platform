@@ -122,7 +122,7 @@ const TaskChainPage=lazy(()=>import('./components/classroom/student/TaskChainPag
 const TaskStageKnowledge=lazy(()=>import('./components/classroom/TaskStageKnowledge.jsx').then(module=>({default:module.TaskStageKnowledge})));
 
 // 实训平台统一承接硬件装机和章节实验；课程首页与课堂任务保留原有直达入口。
-// 顶栏按用途分组，课程学习和学习复盘的子入口在下一行展开。
+// 顶栏按用途分组，课程学习和学习复盘的子入口通过悬停下拉展开。
 const navGroups = [
   {
     id: "home",
