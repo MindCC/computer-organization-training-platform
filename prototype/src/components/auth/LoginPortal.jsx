@@ -6,6 +6,7 @@ import {
   Eye,
   EyeSlash,
   GraduationCap,
+  ChalkboardTeacher,
   PresentationChart,
   Notebook,
   ChartLine,
@@ -221,9 +222,9 @@ export function LoginPortal({ loginForm, setLoginForm, loginError, onSubmit, onB
           {onDemoLogin ? (
             <>
             <div className="login-divider"><span>也可以先体验一下</span></div>
-            {/* 2026-10-07 用户要求：教师取消一键登录，改用账号密码登录；只保留学生演示。 */}
+            {/* 2026-10-14 用户要求：恢复「演示教师」一键入口；演示教师为只读账号，直接查看正式教师的班级与教学过程（取代 2026-10-07 只保留学生演示的决定）。 */}
             <div className="login-demo-entries" aria-label="选择演示身份">
-              {[{ id: 'student', title: '学生演示', copy: '课程探索、装机与练习', Icon: GraduationCap }].map(({ id, title, copy: demoCopy, Icon }) => <button key={id} className={`login-demo-entry ${id === 'student' ? 'demo-login-button' : 'teacher-demo-login-button'}`} data-demo-role={id} onClick={() => demoLogin(id)} disabled={Boolean(busy)} type="button">
+              {[{ id: 'student', title: '学生演示', copy: '课程探索、装机与练习', Icon: GraduationCap }, { id: 'teacher', title: '教师演示', copy: '正式教师的班级与教学过程（只读）', Icon: ChalkboardTeacher }].map(({ id, title, copy: demoCopy, Icon }) => <button key={id} className={`login-demo-entry ${id === 'student' ? 'demo-login-button' : 'teacher-demo-login-button'}`} data-demo-role={id} onClick={() => demoLogin(id)} disabled={Boolean(busy)} type="button">
                 <Icon aria-hidden="true" size={20} />
                 <span><strong>{busy === `demo-${id}` ? '正在进入…' : `${title} · 一键进入`}</strong><small>{demoCopy}</small></span>
                 {busy === `demo-${id}` ? <SpinnerGap className="login-spinner" aria-hidden="true" size={18}/> : <ArrowRight size={18} aria-hidden="true"/>}

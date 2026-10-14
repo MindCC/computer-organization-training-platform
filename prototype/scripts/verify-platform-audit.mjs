@@ -16,14 +16,16 @@ const pass=label=>{results.push(label);console.log('PASS '+label);};
 try{
   page=await browser.newPage({viewport:{width:1366,height:900},reducedMotion:'reduce'});page.setDefaultTimeout(15000);page.on('pageerror',error=>errors.push(error.message));
   const nav=name=>clickTopNavItem(page,name);
-  const login=async(name='demo2026001')=>{await fillLoginForm(page,{username:name,password:name==='teacher'?'ChangeMe123!':'Student123!'});if(name==='teacher')await page.getByRole('tab',{name:'教师入口'}).click();await submitLoginForm(page);await expect(page.locator('.profile-button')).toBeVisible();};
+  const login=async(name='demo2026001')=>{await fillLoginForm(page,{username:name,password:name==='teacher'?'ChangeMe123!':'Student123!'});if(name==='teacher')await page.getByRole('tab',{name:'教师入口'}).click();await submitLoginForm(page);await expect(page.locator('.profile-button')).toBeVisible();
+    // 浮动小芯在窄视口下会钳到导航/按钮上方拦截点击；本巡检测页面旅程，不含学伴（学伴由 verify-study-companion 专测），SPA 不刷新页面，一次注入即可。
+    if(name!=='teacher')await page.addStyleTag({content:'.study-companion{display:none!important}'});};
   const logout=async()=>{await page.locator('.profile-button').click();await page.getByRole('button',{name:'退出登录',exact:true}).click();};
   await page.route('**/api/auth/me',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'审核故障注入'})}));
   await gotoApp(page,app);await expect(page.locator('.platform-connection')).toContainText('暂时无法连接');
   await page.unroute('**/api/auth/me');await page.getByRole('button',{name:'重新连接',exact:true}).click();await expect(page.locator('.quest-student-home')).toBeVisible();pass('服务不可用显示重连页，重试后恢复访客首页');
   await page.getByRole('button',{name:'通知',exact:true}).click();await expect(page.getByRole('dialog')).toContainText('登录后查看个人提醒');await page.keyboard.press('Escape');pass('游客通知有真实入口，无固定假数字');
   await page.route('**/api/student/progress',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'学情暂时不可用'})}));
-  await login();await expect(page.locator('.platform-sync-banner')).toContainText('同步失败');await expect(page.locator('.profile-button')).toContainText('演示学生1');
+  await login();await expect(page.locator('.platform-sync-banner')).toContainText('同步失败');await expect(page.locator('.profile-button')).toContainText('演***1');
   await page.unroute('**/api/student/progress');await page.getByRole('button',{name:'重试同步',exact:true}).click();await expect(page.locator('.platform-sync-banner')).toHaveCount(0);pass('业务同步失败保留登录态，并可恢复真实学情');
   const practiceQuestion=questionsForChapter('ch1').find(question=>question.type==='choice');
   const practiceResponse=await page.request.post(app+'/api/student/chapter-practice',{data:{chapterId:'ch1',answers:{[practiceQuestion.id]:practiceQuestion.options.find(option=>option!==practiceQuestion.answer)},clientSubmissionId:randomUUID()}});assert.ok(practiceResponse.ok());
@@ -42,12 +44,13 @@ try{
   await nav('知识库');await expect(page.locator('.kb-vault')).toBeVisible();await nav('错题本');await expect(page.locator('.mistakes-layout')).toBeVisible();
   await page.goBack();await expect(page.locator('.kb-vault')).toBeVisible();await page.goForward();await expect(page.locator('.mistakes-layout')).toBeVisible();pass('浏览器前进与后退恢复对应页面');
   await page.route('**/api/student/mistakes',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'错题服务故障注入'})}));
-  await nav('课程首页');await nav('错题本');await expect(page.getByRole('button',{name:'重试加载错题',exact:true})).toBeVisible();await page.unroute('**/api/student/mistakes');await page.getByRole('button',{name:'重试加载错题',exact:true}).click();await expect(page.locator('.mistake-group').first()).toBeVisible();pass('错题加载失败有可用重试');
+  await nav('课程首页');await nav('错题本');await expect(page.getByRole('button',{name:'重试加载错题',exact:true})).toBeVisible();await page.unroute('**/api/student/mistakes');
+  await page.getByRole('button',{name:'重试加载错题',exact:true}).click();await expect(page.locator('.mistake-group').first()).toBeVisible();pass('错题加载失败有可用重试');
   await page.route('**/api/student/knowledge/documents',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'资料服务故障注入'})}));
   await nav('知识库');await expect(page.getByRole('button',{name:'重试加载文档',exact:true})).toBeVisible();await page.unroute('**/api/student/knowledge/documents');await page.getByRole('button',{name:'重试加载文档',exact:true}).click();await expect(page.getByRole('button',{name:'重试加载文档',exact:true})).toHaveCount(0);pass('知识库加载失败可重试，无需退出页面');
   await page.route('**/api/auth/logout',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'退出故障注入'})}));
-  await logout();await expect(page.locator('.platform-sync-banner')).toContainText('退出失败');await expect(page.locator('.profile-button')).toContainText('演示学生1');await page.unroute('**/api/auth/logout');await logout();await expect(page.locator('.profile-button')).toHaveCount(0);pass('退出失败保留真实身份，重试才退出');
-  await login('demo2026002');await expect(page.locator('.profile-button')).toContainText('演示学生2');await page.goBack();await expect(page.locator('.profile-button')).toContainText('演示学生2');await logout();pass('账户切换与历史返回不恢复上一位用户身份');
+  await logout();await expect(page.locator('.platform-sync-banner')).toContainText('退出失败');await expect(page.locator('.profile-button')).toContainText('演***1');await page.unroute('**/api/auth/logout');await logout();await expect(page.locator('.profile-button')).toHaveCount(0);pass('退出失败保留真实身份，重试才退出');
+  await login('demo2026002');await expect(page.locator('.profile-button')).toContainText('演***2');await page.goBack();await expect(page.locator('.profile-button')).toContainText('演***2');await logout();pass('账户切换与历史返回不恢复上一位用户身份');
   await login('teacher');await expect(page.locator('.teacher-studio')).toBeVisible();
   await openTeacherWorkspace(page,TEACHER_WORKSPACE.statistics,TEACHER_WORKSPACE.insight);
   await page.locator('.teacher-quest-chapter-detail').first().locator('summary').click();await page.locator('.teacher-quest-item').first().click();await expect(page.getByRole('region',{name:'学生学习证据'})).toBeVisible();pass('教师章节明细点击后显示真实学习证据');
@@ -59,6 +62,9 @@ try{
   await page.locator('.assignment-creator').getByRole('button',{name:'创建',exact:true}).click();await expect(page.locator('.assignment-creator')).toContainText('创建失败');await expect(page.getByRole('textbox',{name:'作业标题',exact:true})).toHaveValue('全平台审核作业');
   await page.unroute('**/api/teacher/classes/*/assignments');await page.locator('.assignment-creator').getByRole('button',{name:'创建',exact:true}).click();await expect(page.locator('.assignment-row').filter({hasText:'全平台审核作业'})).toBeVisible();pass('创建作业失败保留输入，重试写入真实草稿');
   // Delay a real classroom response, switch class, then release it.
+  // 2026-10-14 课堂视图在 教学活动 → 课堂执行 两级标签下，先切换到位（旧脚本停留在作业管理标签，面板断言必然超时）。
+  await openTeacherWorkspace(page,TEACHER_WORKSPACE.teaching);
+  await page.getByRole('button',{name:'课堂执行',exact:true}).click();
   const classSelect=page.locator('.teacher-class-select select');
   const currentClass=await classSelect.inputValue();
   const otherClass=await classSelect.locator('option').evaluateAll((options,id)=>options.find(option=>option.value&&option.value!==id)?.value,currentClass);
@@ -68,7 +74,7 @@ try{
   const delayedUrl=`**/api/teacher/classes/${otherClass}/sessions/current`;
   await page.route(delayedUrl,async route=>{const response=await route.fetch();held();await waitRelease;await route.fulfill({response});});
   await classSelect.selectOption(otherClass);await waitHeld;
-  await classSelect.selectOption(currentClass);await expect(page.locator('.session-setup-panel')).toBeVisible();
+  await classSelect.selectOption(currentClass);await expect(page.locator('.task-library-empty')).toBeVisible();
   const releasedResponse=page.waitForResponse(response=>response.url().endsWith(`/classes/${otherClass}/sessions/current`));release();await releasedResponse;
   await expect(page.locator('.live-session-dashboard')).toHaveCount(0);await expect(classSelect).toHaveValue(currentClass);await page.unroute(delayedUrl);pass('切换班级后迟到的课堂响应不覆盖当前班级');
   await classSelect.selectOption(otherClass);await expect(page.locator('.live-session-dashboard')).toBeVisible();

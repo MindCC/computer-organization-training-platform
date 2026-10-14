@@ -36,7 +36,9 @@
 @media(max-width:600px) { .mistake-answers { grid-template-columns:1fr; } .mistake-group-header { flex-wrap:wrap; } .mistake-filters button { flex:1 1 auto; } .mistakes-layout .metric-grid { gap:6px; } .mistakes-layout .metric { grid-template-columns:1fr; gap:7px; padding:12px 9px; font-size:12px; } .mistakes-layout .metric > strong { grid-column:1; font-size:24px; } }
 
 /* ---- 拍照导入 / 组复习卷 ---- */
-.mistake-heading-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.mistakes-layout .section-heading { flex-wrap:wrap; }
+.mistake-heading-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; min-width:0; max-width:100%; }
+.mistake-heading-actions .study-mascot { min-width:0; }
 .mistake-paper-select { display:inline-flex; align-items:center; gap:8px; margin-bottom:10px; padding:7px 12px; border:1px dashed #83b9a9; border-radius:8px; color:#126d60; background:#f2faf6; font-size:13px; font-weight:700; cursor:pointer; }
 .mistake-paper-bar { position:sticky; bottom:16px; z-index:30; display:flex; align-items:center; gap:14px; margin-top:18px; padding:12px 18px; border:1px solid #c4ddd3; border-radius:12px; background:#eef8f3; color:#275c4e; font-weight:700; box-shadow:0 8px 24px rgba(23,63,53,.14); }
 

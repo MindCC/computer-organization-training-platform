@@ -49,8 +49,10 @@ try {
   await logout();
   await openLogin();
   await page.locator('[data-demo-role="student"]').click();
-  await expect(page.locator('.profile-button')).toContainText('演示学生', { timeout: 20_000 });
-  await expect(page.locator('.demo-readonly-banner')).toContainText('只读');
+  // 生产模式学生姓名脱敏：演示学生 → 演**生
+  await expect(page.locator('.profile-button')).toContainText('演**生', { timeout: 20_000 });
+  // 2026-10-12：演示学生可正常操作（接受任务/提交练习），只读只约束演示教师。
+  await expect(page.locator('.demo-readonly-banner')).toHaveCount(0);
   // 学生端浏览：课程首页、学习记录、课后作业页面都正常打开
   await clickTopNavItem(page,'课后作业');
   await page.getByRole('tab', { name: '教师作业' }).click();

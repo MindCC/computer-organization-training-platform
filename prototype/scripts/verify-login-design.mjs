@@ -72,7 +72,7 @@ try {
   await page.locator('#login-password').fill('Student123!');
   await page.locator('#login-password').press('Enter');
   await expect(page.locator('.home-shell .quest-student-home')).toBeVisible({timeout:20000});
-  await expect(page.locator('.profile-button')).toContainText('演示学生1');
+  await expect(page.locator('.profile-button')).toContainText('演***1');
   await logout();await openLogin();
   await teacher.click();
   await fillLoginForm(page,{username:process.env.TEACHER_USERNAME??'teacher',password:process.env.TEACHER_PASSWORD??'ChangeMe123!'});
@@ -81,7 +81,7 @@ try {
   await logout();await openLogin();
   await page.locator('.demo-login-button').click();
   await expect(page.locator('.home-shell .quest-student-home')).toBeVisible({timeout:20000});
-  await expect(page.locator('.profile-button')).toContainText('演示学生1');
+  await expect(page.locator('.profile-button')).toContainText('演***1');
   await logout();await openLogin();
   await page.emulateMedia({reducedMotion:'reduce'});
   assert.equal(await page.locator('.login-story').evaluate(el=>getComputedStyle(el).animationName),'none');
